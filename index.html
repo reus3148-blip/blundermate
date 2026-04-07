@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stockfish PGN Review</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/chessground@9.0.0/assets/chessground.base.css">
+    <link rel="stylesheet" href="https://unpkg.com/chessground@9.0.0/assets/chessground.brown.css">
+    <link rel="stylesheet" href="https://unpkg.com/chessground@9.0.0/assets/chessground.cburnett.css">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <header>
+            <h1>Chess PGN Review</h1>
+            <p>Analyze your games with Stockfish 18 Lite</p>
+        </header>
+
+        <main>
+            <section class="input-section">
+                <!-- API Input Layout -->
+                <div class="api-controls">
+                    <input type="text" id="usernameInput" class="text-input" placeholder="Enter Chess.com Username" value="" />
+                    <button id="fetchBtn" class="primary-btn">Fetch Games</button>
+                </div>
+                
+                <div id="gamesList" class="games-list"></div>
+
+                <!-- Manual PGN Fallback -->
+                <div class="manual-input-toggle">
+                    <button id="toggleManualBtn" class="text-btn">Or paste PGN manually</button>
+                </div>
+
+                <div id="manualInputWrapper" class="manual-input-wrapper hidden">
+                    <textarea id="pgnInput" placeholder="Paste your PGN here... e.g. 1. e4 e5"></textarea>
+                    <button id="analyzeBtn" class="primary-btn">Start Review</button>
+                </div>
+            </section>
+
+            <section class="results-section">
+                <div class="status-bar">
+                    <span id="engineStatus" class="tag engine-loading">Connecting Engine...</span>
+                    <span id="analysisStatus" class="tag hidden">Waiting for PGN</span>
+                </div>
+                
+                <div class="analysis-board">
+                    <div id="boardContainer" class="board-container"></div>
+                    <div class="moves-container">
+                        <table id="movesTable">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>White</th>
+                                    <th>Black</th>
+                                </tr>
+                            </thead>
+                            <tbody id="movesBody">
+                                <!-- Moves will be dynamically inserted here -->
+                                <tr>
+                                    <td colspan="3" class="empty-state">No moves analyzed yet.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Chess.js library for PGN parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+    <script type="module" src="main.js"></script>
+</body>
+</html>
