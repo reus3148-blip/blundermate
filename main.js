@@ -1,4 +1,7 @@
 import { Chessground } from 'https://cdnjs.cloudflare.com/ajax/libs/chessground/9.0.0/chessground.min.js';
+import { fetchRecentGames } from './api.js';
+import { StockfishEngine } from './engine.js';
+import { renderGamesList, renderMovesTable, updateUIWithEval, highlightActiveMove, renderEngineLines } from './ui.js';
 
 // ==========================================
 // 1. DOM Elements
@@ -19,6 +22,12 @@ const engineStatus = document.getElementById('engineStatus');
 const analysisStatus = document.getElementById('analysisStatus');
 const movesBody = document.getElementById('movesBody');
 const boardContainer = document.getElementById('boardContainer');
+const engineLinesContainer = document.getElementById('engineLines');
+
+// View Navigation Elements
+const homeView = document.getElementById('homeView');
+const analysisView = document.getElementById('analysisView');
+const backBtn = document.getElementById('backBtn');
 
 // ==========================================
 // 2. Application State
@@ -32,6 +41,8 @@ let currentEval = '';
 let isAnalyzing = false;
 let currentlyViewedIndex = -1;
 let cg;
+let isWaitingForStop = false;
+let pendingQueue = null;
 
 // ==========================================
 // 3. Initialization
@@ -39,7 +50,12 @@ let cg;
 cg = Chessground(boardContainer, {
     fen: 'start',
     viewOnly: true,
-    animation: { enabled: true, duration: 250 }
+    animation: { enabled: true, duration: 250 },
+    drawable: {
+        enabled: true,
+        visible: true,
+        eraseOnClick: true
+    }
 });
 
 // ==========================================
@@ -49,7 +65,17 @@ toggleManualBtn.addEventListener('click', () => {
     manualInputWrapper.classList.toggle('hidden');
 });
 
+backBtn.addEventListener('click', () => {
+    analysisView.classList.add('hidden');
+    homeView.classList.remove('hidden');
+});
+
 fetchBtn.addEventListener('click', handleApiFetch);
+usernameInput.addEventListener('keyup', (e) => {
+    if (e.key === 'Enter') {
+        handleApiFetch();
+    }
+});
 analyzeBtn.addEventListener('click', handlePgnReviewStart);
 
 // Keyboard Navigation
@@ -87,28 +113,12 @@ async function handleApiFetch() {
     gamesList.innerHTML = '<div style="text-align:center; padding: 1rem;">Loading archives...</div>';
 
     try {
-        const archivesRes = await fetch(`https://api.chess.com/pub/player/${username}/games/archives`);
-        if (!archivesRes.ok) throw new Error('Player not found or API error.');
-        
-        const archivesData = await archivesRes.json();
-        if (!archivesData?.archives?.length) {
-            gamesList.innerHTML = '<div style="color:var(--accent-warning); padding:1rem;">No game archives found.</div>';
-            return;
-        }
-
-        gamesList.innerHTML = '<div style="text-align:center; padding: 1rem;">Loading games...</div>';
-        
-        const latestArchiveUrl = archivesData.archives[archivesData.archives.length - 1];
-        const gamesRes = await fetch(latestArchiveUrl);
-        const gamesData = await gamesRes.json();
-
-        if (!gamesData?.games?.length) {
-            gamesList.innerHTML = '<div style="color:var(--accent-warning); padding:1rem;">No recent games found.</div>';
-            return;
-        }
-
-        const recentGames = gamesData.games.slice(-10).reverse();
-        renderGamesList(recentGames, username);
+        gamesList.innerHTML = '<div style="text-align:center; padding: 1rem;">Fetching latest games...</div>';
+        const recentGames = await fetchRecentGames(username);
+        renderGamesList(gamesList, recentGames, username, (pgn) => {
+            pgnInput.value = pgn;
+            analyzeBtn.click();
+        });
 
     } catch (e) {
         console.error(e);
@@ -119,101 +129,79 @@ async function handleApiFetch() {
     }
 }
 
-function renderGamesList(games, searchedUsername) {
-    gamesList.innerHTML = '';
-    const searchLower = searchedUsername.toLowerCase();
-
-    games.forEach(game => {
-        const isWhite = game.white.username.toLowerCase() === searchLower;
-        const myColor = isWhite ? 'White' : 'Black';
-        const opponent = isWhite ? game.black.username : game.white.username;
-        const myRating = isWhite ? game.white.rating : game.black.rating;
-        
-        // Determine Visual Status
-        const resultCode = isWhite ? game.white.result : game.black.result;
-        let resultClass = 'draw';
-        if (resultCode === 'win') resultClass = 'win';
-        else if (['checkmated', 'timeout', 'resigned', 'abandoned'].includes(resultCode)) resultClass = 'loss';
-
-        const timeClass = game.time_class.charAt(0).toUpperCase() + game.time_class.slice(1);
-
-        const item = document.createElement('div');
-        item.className = `game-item ${resultClass}`;
-        item.innerHTML = `
-            <div>
-                <div style="font-weight: 600;">vs ${opponent}</div>
-                <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.2rem;">
-                    Played as ${myColor} (${myRating} ELO) • ${timeClass}
-                </div>
-            </div>
-            <div class="eval-badge" style="background:var(--bg-dark);">Review</div>
-        `;
-
-        item.addEventListener('click', () => {
-            if (!game.pgn) {
-                alert('This game has no PGN available.');
-                return;
-            }
-            pgnInput.value = game.pgn;
-            analyzeBtn.click();
-        });
-
-        gamesList.appendChild(item);
-    });
-}
-
 // ==========================================
 // 6. Engine Initialization
 // ==========================================
-try {
-    stockfish = new Worker('./engine/stockfish-18-lite-single.js');
-    stockfish.onmessage = handleEngineMessage;
-    stockfish.postMessage('uci');
-} catch (e) {
-    console.error("Failed to load Stockfish worker:", e);
-    engineStatus.textContent = 'Engine Error';
-    engineStatus.className = 'tag';
-    engineStatus.style.color = 'var(--accent-danger)';
-}
-
-function handleEngineMessage(event) {
-    const line = event.data;
-    
-    if (line === 'uciok') {
+const engineCallbacks = {
+    onError: (e) => {
+        console.error("Failed to load Stockfish worker:", e);
+        engineStatus.textContent = 'Engine Error';
+        engineStatus.className = 'tag';
+        engineStatus.style.color = 'var(--accent-danger)';
+    },
+    onUciOk: () => {
         isEngineReady = true;
         engineStatus.textContent = 'Engine Ready';
         engineStatus.className = 'tag engine-ready';
-        stockfish.postMessage('isready');
-    } else if (line === 'readyok') {
+    },
+    onReady: () => {
         if (analysisQueue.length > 0 && !isAnalyzing) {
             processNextInQueue();
         }
-    } else if (line.startsWith('info depth')) {
-        parseEngineEval(line);
-    } else if (line.startsWith('bestmove')) {
+    },
+    onEval: (evalData) => {
+        const isBlackToMove = analysisQueue[currentAnalysisIndex].fen.includes(' b ');
+        let scoreStr = '';
+        let scoreNum = 0;
+        
+        if (evalData.type === 'cp') {
+            let score = evalData.value;
+            if (isBlackToMove) score = -score;
+            scoreNum = score;
+            scoreStr = score > 0 ? `+${score.toFixed(2)}` : score.toFixed(2);
+        } else if (evalData.type === 'mate') {
+            let mateIn = evalData.value;
+            if (isBlackToMove) mateIn = -mateIn;
+            scoreNum = mateIn > 0 ? 999 : -999;
+            scoreStr = `M${Math.abs(mateIn)}`;
+            scoreStr = mateIn > 0 ? `+${scoreStr}` : `-${scoreStr}`;
+        }
+        
+        const lineIndex = evalData.multipv - 1;
+        const currentMove = analysisQueue[currentAnalysisIndex];
+        const sanPv = convertPvToSan(evalData.pv, currentMove.fen);
+        const firstUci = evalData.pv ? evalData.pv.split(' ')[0] : '';
+        currentMove.engineLines[lineIndex] = { scoreStr, scoreNum, pv: sanPv, uci: firstUci };
+        
+        // Update Main Evaluation from Top Line (MultiPV 1)
+        if (currentMove.engineLines[0]) {
+            currentEval = currentMove.engineLines[0].scoreStr;
+            // 현재 보고 있는 화면이 엔진이 분석 중인 수와 같을 때만 UI 실시간 업데이트
+            if (currentlyViewedIndex === currentAnalysisIndex) {
+                renderEngineLines(engineLinesContainer, currentMove.engineLines.filter(Boolean), drawEngineArrow, clearEngineArrow);
+            }
+        }
+    },
+    onBestMove: () => {
+        // 대기 상태인 경우: 이전 분석이 완전히 종료되었음을 확인하고 새 분석 시작
+        if (isWaitingForStop) {
+            isWaitingForStop = false;
+            if (pendingQueue) {
+                startNewAnalysis(pendingQueue);
+                pendingQueue = null;
+            }
+            return;
+        }
+        
+        // Only show the score in the badge as requested
         updateUIWithEval(currentAnalysisIndex, currentEval);
         currentAnalysisIndex++;
         isAnalyzing = false;
         processNextInQueue();
     }
-}
+};
 
-function parseEngineEval(line) {
-    const matchCp = line.match(/score cp (-?\d+)/);
-    const matchMate = line.match(/score mate (-?\d+)/);
-    const isBlackToMove = analysisQueue[currentAnalysisIndex].fen.includes(' b ');
-    
-    if (matchCp) {
-        let score = parseInt(matchCp[1], 10) / 100;
-        if (isBlackToMove) score = -score;
-        currentEval = score > 0 ? `+${score.toFixed(2)}` : score.toFixed(2);
-    } else if (matchMate) {
-        let mateIn = parseInt(matchMate[1], 10);
-        if (isBlackToMove) mateIn = -mateIn;
-        currentEval = `M${Math.abs(mateIn)}`;
-        currentEval = mateIn > 0 ? `+${currentEval}` : `-${currentEval}`;
-    }
-}
+stockfish = new StockfishEngine('./engine/stockfish-18-lite-single.js', engineCallbacks);
 
 // ==========================================
 // 7. Analysis Workflow
@@ -230,27 +218,51 @@ function handlePgnReviewStart() {
         return;
     }
 
-    // Reset UI state
-    analyzeBtn.disabled = true;
-    analysisStatus.className = 'tag engine-loading';
-    analysisStatus.textContent = 'Parsing moves...';
-
     // Build processing queue
-    analysisQueue = [];
+    const newQueue = [];
     let tempChess = new Chess();
     
     chess.history({ verbose: true }).forEach((move, index) => {
         tempChess.move(move);
-        analysisQueue.push({
+        newQueue.push({
             fen: tempChess.fen(),
             san: move.san,
             turn: tempChess.turn() === 'w' ? 'b' : 'w',
             moveNumber: Math.floor(index / 2) + 1,
-            isWhite: index % 2 === 0
+            isWhite: index % 2 === 0,
+            engineLines: [] // 각 수마다 엔진 추천 라인을 저장할 배열 추가
         });
     });
 
-    renderMovesTable(analysisQueue);
+    // Safe Engine Restart Logic
+    if (isAnalyzing || isWaitingForStop) {
+        analysisStatus.className = 'tag engine-loading';
+        analysisStatus.textContent = 'Stopping previous analysis...';
+        pendingQueue = newQueue;
+        isWaitingForStop = true;
+        isAnalyzing = false;
+        stockfish.stop();
+        return;
+    }
+
+    startNewAnalysis(newQueue);
+}
+
+function startNewAnalysis(newQueue) {
+    // Switch to Analysis View
+    homeView.classList.add('hidden');
+    analysisView.classList.remove('hidden');
+    
+    // Force Chessground to recalculate board size for mobile
+    setTimeout(() => { if (cg) cg.redrawAll(); }, 50);
+
+    analysisQueue = newQueue;
+    analyzeBtn.disabled = true;
+    analysisStatus.className = 'tag engine-loading';
+
+    renderMovesTable(movesBody, analysisQueue, (index) => {
+        updateBoardPosition(index, analysisQueue[index].fen);
+    });
     
     currentAnalysisIndex = 0;
     analysisStatus.textContent = `Analyzing 0 / ${analysisQueue.length} moves...`;
@@ -281,93 +293,72 @@ function processNextInQueue() {
     
     updateBoardPosition(currentAnalysisIndex, pos.fen);
     
+    // Ensure engine is fully ready before sending position
+    // If not ready, we skip sending 'go' and rely on onReady callback
+    if (!isEngineReady) {
+        analysisStatus.textContent = 'Waiting for Engine...';
+        return;
+    }
+
     // Depth 12 is fast enough for browser-based simple reviews
-    stockfish.postMessage(`position fen ${pos.fen}`);
-    stockfish.postMessage('go depth 12'); 
+    stockfish.analyzeFen(pos.fen, 12);
 }
 
 // ==========================================
 // 8. UI Rendering
 // ==========================================
-function renderMovesTable(queue) {
-    movesBody.innerHTML = '';
-    if (queue.length === 0) return;
-
-    let tr = null;
-    for (let i = 0; i < queue.length; i++) {
-        const move = queue[i];
-        
-        if (move.isWhite) {
-            tr = document.createElement('tr');
-            tr.id = `row-${move.moveNumber}`;
-            
-            const numTd = document.createElement('td');
-            numTd.textContent = `${move.moveNumber}.`;
-            numTd.style.color = 'var(--text-secondary)';
-            
-            const wTd = document.createElement('td');
-            wTd.id = `move-${i}`;
-            wTd.className = 'interactive-move';
-            wTd.style.cursor = 'pointer';
-            wTd.innerHTML = `<div class="move-cell"><span class="san">${move.san}</span><span class="eval-badge">...</span></div>`;
-            wTd.onclick = () => updateBoardPosition(i, analysisQueue[i].fen);
-            
-            const bTd = document.createElement('td');
-            bTd.id = `move-${i+1}`;
-            bTd.className = 'interactive-move';
-            
-            tr.appendChild(numTd);
-            tr.appendChild(wTd);
-            tr.appendChild(bTd);
-            movesBody.appendChild(tr);
-        } else {
-            if (tr) {
-                const bTd = tr.querySelector(`#move-${i}`);
-                if (bTd) {
-                    bTd.style.cursor = 'pointer';
-                    bTd.innerHTML = `<div class="move-cell"><span class="san">${move.san}</span><span class="eval-badge">...</span></div>`;
-                    bTd.onclick = () => updateBoardPosition(i, analysisQueue[i].fen);
-                }
-            }
-        }
-    }
-}
-
-function updateUIWithEval(index, scoreStr) {
-    const cell = document.getElementById(`move-${index}`);
-    if (!cell) return;
-    
-    const badge = cell.querySelector('.eval-badge');
-    if (badge) {
-        badge.textContent = scoreStr;
-        
-        const numVal = parseFloat(scoreStr);
-        if (!isNaN(numVal)) {
-            if (numVal > 0.5) badge.classList.add('positive');
-            else if (numVal < -0.5) badge.classList.add('negative');
-        } else if (scoreStr.startsWith('+M')) {
-            badge.classList.add('positive');
-        } else if (scoreStr.startsWith('-M')) {
-            badge.classList.add('negative');
-        }
-    }
-}
-
 function updateBoardPosition(index, fen) {
     cg.set({ fen: fen });
     currentlyViewedIndex = index;
+    highlightActiveMove(index);
     
-    // Clear active highlights
-    document.querySelectorAll('.active-move').forEach(el => el.classList.remove('active-move'));
-    document.querySelectorAll('.active-move-row').forEach(el => el.classList.remove('active-move-row'));
-    
-    const cell = document.getElementById(`move-${index}`);
-    if (cell) {
-        cell.classList.add('active-move');
-        const tr = cell.closest('tr');
-        if (tr) {
-            tr.classList.add('active-move-row');
-            tr.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        }
+    // 화면이 바뀔 때, 해당 수에 저장된 엔진 추천 라인이 있다면 화면에 다시 렌더링
+    if (analysisQueue[index] && analysisQueue[index].engineLines) {
+        renderEngineLines(engineLinesContainer, analysisQueue[index].engineLines.filter(Boolean), drawEngineArrow, clearEngineArrow);
+    } else {
+        engineLinesContainer.innerHTML = '';
     }
+}
+
+// ==========================================
+// 9. Helpers
+// ==========================================
+function drawEngineArrow(orig, dest) {
+    cg.set({
+        drawable: {
+            autoShapes: [{ orig, dest, brush: 'paleGreen' }]
+        }
+    });
+}
+
+function clearEngineArrow() {
+    cg.set({
+        drawable: {
+            autoShapes: []
+        }
+    });
+}
+
+function convertPvToSan(pv, fen) {
+    if (!pv) return '';
+    const temp = new Chess(fen);
+    const moves = pv.split(' ');
+    const sanMoves = [];
+    
+    // UI에서 최대 5수만 보여주므로, 성능을 위해 앞의 5수만 변환합니다.
+    const limit = Math.min(moves.length, 5); 
+    
+    for (let i = 0; i < limit; i++) {
+        const uci = moves[i];
+        if (!uci) continue;
+        
+        const from = uci.slice(0, 2);
+        const to = uci.slice(2, 4);
+        const promotion = uci.length > 4 ? uci.slice(4, 5) : undefined;
+        
+        const moveRes = temp.move({ from, to, promotion });
+        if (moveRes) sanMoves.push(moveRes.san);
+        else break; // 엔진이 보내준 수가 체스 규칙에 어긋나는 경우(드묾) 중단
+    }
+    return sanMoves.join(' ');
 }
