@@ -1,7 +1,5 @@
 import { Chessground } from 'https://cdnjs.cloudflare.com/ajax/libs/chessground/9.0.0/chessground.min.js';
 
-import { Chessground } from 'https://cdnjs.cloudflare.com/ajax/libs/chessground/9.0.0/chessground.min.js';
-
 // ==========================================
 // 1. DOM Elements
 // ==========================================
