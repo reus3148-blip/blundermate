@@ -50,9 +50,23 @@ export function renderMovesTable(container, queue, onMoveClick) {
     container.innerHTML = '';
     if (queue.length === 0) return;
 
+    const getIconHtml = (cls) => {
+        if (cls === 'blunder') return '<span class="move-icon" style="color:var(--accent-danger); font-weight:bold; margin-left:2px;">??</span>';
+        if (cls === 'mistake') return '<span class="move-icon" style="color:var(--accent-warning); font-weight:bold; margin-left:2px;">?</span>';
+        if (cls === 'missed') return '<span class="move-icon" style="color:var(--accent-warning); font-weight:bold; margin-left:2px;">?!</span>';
+        return '';
+    };
+    const getStyle = (cls) => {
+        if (cls === 'blunder') return 'color:var(--accent-danger); font-weight:bold;';
+        if (cls === 'mistake' || cls === 'missed') return 'color:var(--accent-warning); font-weight:bold;';
+        return '';
+    };
+
     let tr = null;
     for (let i = 0; i < queue.length; i++) {
         const move = queue[i];
+        const iconHtml = getIconHtml(move.classification);
+        const style = getStyle(move.classification);
         
         if (move.isWhite) {
             tr = document.createElement('tr');
@@ -66,7 +80,7 @@ export function renderMovesTable(container, queue, onMoveClick) {
             wTd.id = `move-${i}`;
             wTd.className = 'interactive-move';
             wTd.style.cursor = 'pointer';
-            wTd.innerHTML = `<div class="move-cell"><span class="san">${move.san}</span><span class="eval-badge">...</span></div>`;
+            wTd.innerHTML = `<div class="move-cell"><span class="san" style="${style}">${move.san}</span>${iconHtml}<span class="eval-badge">...</span></div>`;
             wTd.onclick = () => onMoveClick(i);
             
             const bTd = document.createElement('td');
@@ -82,7 +96,7 @@ export function renderMovesTable(container, queue, onMoveClick) {
                 const bTd = tr.querySelector(`#move-${i}`);
                 if (bTd) {
                     bTd.style.cursor = 'pointer';
-                    bTd.innerHTML = `<div class="move-cell"><span class="san">${move.san}</span><span class="eval-badge">...</span></div>`;
+                    bTd.innerHTML = `<div class="move-cell"><span class="san" style="${style}">${move.san}</span>${iconHtml}<span class="eval-badge">...</span></div>`;
                     bTd.onclick = () => onMoveClick(i);
                 }
             }
@@ -93,7 +107,7 @@ export function renderMovesTable(container, queue, onMoveClick) {
 /**
  * Updates a specific move's evaluation badge.
  */
-export function updateUIWithEval(index, scoreStr) {
+export function updateUIWithEval(index, scoreStr, classification = '') {
     const cell = document.getElementById(`move-${index}`);
     if (!cell) return;
     
@@ -111,6 +125,28 @@ export function updateUIWithEval(index, scoreStr) {
             badge.classList.add('negative');
         }
     }
+
+    const sanSpan = cell.querySelector('.san');
+    if (sanSpan) {
+        let existingIcon = cell.querySelector('.move-icon');
+        if (existingIcon) existingIcon.remove();
+
+        let icon = '';
+        if (classification === 'blunder') {
+            sanSpan.style.color = 'var(--accent-danger)';
+            sanSpan.style.fontWeight = 'bold';
+            icon = '<span class="move-icon" style="color:var(--accent-danger); font-weight:bold; margin-left:2px;">??</span>';
+        } else if (classification === 'mistake') {
+            sanSpan.style.color = 'var(--accent-warning)';
+            sanSpan.style.fontWeight = 'bold';
+            icon = '<span class="move-icon" style="color:var(--accent-warning); font-weight:bold; margin-left:2px;">?</span>';
+        } else if (classification === 'missed') {
+            sanSpan.style.color = 'var(--accent-warning)';
+            sanSpan.style.fontWeight = 'bold';
+            icon = '<span class="move-icon" style="color:var(--accent-warning); font-weight:bold; margin-left:2px;">?!</span>';
+        }
+        if (icon) sanSpan.insertAdjacentHTML('afterend', icon);
+    }
 }
 
 /**
@@ -126,7 +162,13 @@ export function highlightActiveMove(index) {
         const tr = cell.closest('tr');
         if (tr) {
             tr.classList.add('active-move-row');
-            tr.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            
+            // 화면 전체가 당겨지는 현상을 방지하기 위해 컨테이너 내부 스크롤만 조작합니다.
+            const container = tr.closest('.moves-container');
+            if (container) {
+                const scrollTarget = tr.offsetTop - (container.clientHeight / 2) + (tr.clientHeight / 2);
+                container.scrollTo({ top: scrollTarget, behavior: 'smooth' });
+            }
         }
     }
 }
