@@ -199,7 +199,7 @@ const engineCallbacks = {
             // 현재 보고 있는 화면이 엔진이 분석 중인 수와 같을 때만 UI 실시간 업데이트
             if (currentlyViewedIndex === currentAnalysisIndex) {
                 renderEngineLines(engineLinesContainer, currentMove.engineLines.filter(Boolean), drawEngineArrow, clearEngineArrow);
-                updateTopEvalDisplay(currentEval);
+                updateTopEvalDisplay(currentEval, currentMove.classification);
             }
         }
     },
@@ -218,7 +218,10 @@ const engineCallbacks = {
         const classification = classifyMove(currentAnalysisIndex);
         analysisQueue[currentAnalysisIndex].classification = classification;
         
-        updateUIWithEval(currentAnalysisIndex, currentEval, classification);
+        updateUIWithEval(currentAnalysisIndex, currentEval);
+        if (currentlyViewedIndex === currentAnalysisIndex) {
+            updateTopEvalDisplay(currentEval, classification);
+        }
         currentAnalysisIndex++;
         isAnalyzing = false;
         processNextInQueue();
@@ -362,7 +365,7 @@ function updateBoardPosition(index, fen) {
     // 화면이 바뀔 때, 해당 수에 저장된 엔진 추천 라인이 있다면 화면에 다시 렌더링
     if (analysisQueue[index] && analysisQueue[index].engineLines && analysisQueue[index].engineLines.length > 0) {
         renderEngineLines(engineLinesContainer, analysisQueue[index].engineLines.filter(Boolean), drawEngineArrow, clearEngineArrow);
-        updateTopEvalDisplay(analysisQueue[index].engineLines[0].scoreStr);
+        updateTopEvalDisplay(analysisQueue[index].engineLines[0].scoreStr, analysisQueue[index].classification);
     } else {
         engineLinesContainer.innerHTML = '';
         updateTopEvalDisplay('-');
@@ -372,9 +375,15 @@ function updateBoardPosition(index, fen) {
 // ==========================================
 // 9. Helpers
 // ==========================================
-function updateTopEvalDisplay(scoreStr) {
+function updateTopEvalDisplay(scoreStr, classification = '') {
     if (!topEvalDisplay) return;
-    topEvalDisplay.textContent = scoreStr || '-';
+    
+    let iconHtml = '';
+    if (classification === 'blunder') iconHtml = '<span style="color: var(--accent-danger); margin-left: 4px;">??</span>';
+    else if (classification === 'mistake') iconHtml = '<span style="color: var(--accent-warning); margin-left: 4px;">?</span>';
+    else if (classification === 'missed') iconHtml = '<span style="color: var(--accent-warning); margin-left: 4px;">?!</span>';
+    
+    topEvalDisplay.innerHTML = (scoreStr || '-') + iconHtml;
     topEvalDisplay.className = 'top-eval-display'; // 색상 초기화
     
     const numVal = parseFloat(scoreStr);
