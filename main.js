@@ -23,6 +23,8 @@ const analysisStatus = document.getElementById('analysisStatus');
 const movesBody = document.getElementById('movesBody');
 const boardContainer = document.getElementById('boardContainer');
 const engineLinesContainer = document.getElementById('engineLines');
+const prevMoveBtn = document.getElementById('prevMoveBtn');
+const nextMoveBtn = document.getElementById('nextMoveBtn');
 
 // View Navigation Elements
 const homeView = document.getElementById('homeView');
@@ -97,6 +99,22 @@ document.addEventListener('keydown', (e) => {
 
     if (newIndex !== currentlyViewedIndex) {
         e.preventDefault();
+        updateBoardPosition(newIndex, analysisQueue[newIndex].fen);
+    }
+});
+
+prevMoveBtn.addEventListener('click', () => {
+    if (analysisQueue.length === 0) return;
+    const newIndex = Math.max(0, currentlyViewedIndex - 1);
+    if (newIndex !== currentlyViewedIndex) {
+        updateBoardPosition(newIndex, analysisQueue[newIndex].fen);
+    }
+});
+
+nextMoveBtn.addEventListener('click', () => {
+    if (analysisQueue.length === 0) return;
+    const newIndex = Math.min(analysisQueue.length - 1, currentlyViewedIndex + 1);
+    if (newIndex !== currentlyViewedIndex) {
         updateBoardPosition(newIndex, analysisQueue[newIndex].fen);
     }
 });

@@ -294,6 +294,40 @@ textarea:focus {
     height: 100%;
 }
 
+.board-controls {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    padding: 0.5rem 1rem;
+    background: var(--bg-panel);
+}
+
+.control-btn {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    padding: 0.6rem 1.5rem;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    flex: 1;
+    max-width: 140px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.control-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: var(--primary-color);
+}
+
+.control-btn:active {
+    transform: scale(0.95);
+}
+
 .engine-lines-container {
     padding: 0.5rem 1rem;
     background: var(--bg-panel);
@@ -392,6 +426,17 @@ th {
 }
 
 @media (max-width: 768px) {
+    header h1 {
+        font-size: 1.8rem;
+    }
+    .api-controls {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .primary-btn {
+        align-self: stretch;
+        width: 100%;
+    }
     .board-container {
         width: calc(100vw - 2rem);
         height: calc(100vw - 2rem);
