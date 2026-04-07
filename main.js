@@ -168,7 +168,7 @@ function renderGamesList(games, searchedUsername) {
 // 6. Engine Initialization
 // ==========================================
 try {
-    stockfish = new Worker('./public/stockfish-18-lite-single.js');
+    stockfish = new Worker('./engine/stockfish-18-lite-single.js');
     stockfish.onmessage = handleEngineMessage;
     stockfish.postMessage('uci');
 } catch (e) {
