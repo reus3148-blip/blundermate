@@ -36,7 +36,7 @@ export function renderGamesList(container, games, searchedUsername, onGameClick)
                 alert('This game has no PGN available.');
                 return;
             }
-            onGameClick(game.pgn);
+            onGameClick(game.pgn, isWhite);
         });
 
         container.appendChild(item);
@@ -50,9 +50,12 @@ export function renderMovesTable(container, queue, onMoveClick) {
     container.innerHTML = '';
     if (queue.length === 0) return;
 
+    const fragment = document.createDocumentFragment();
     let tr = null;
     for (let i = 0; i < queue.length; i++) {
         const move = queue[i];
+        
+        // 블런더(??) 및 실수(?) 마크는 상단 점수판에만 띄우기 위해 이곳에는 순수 기보 텍스트만 삽입합니다.
         
         if (move.isWhite) {
             tr = document.createElement('tr');
@@ -76,7 +79,7 @@ export function renderMovesTable(container, queue, onMoveClick) {
             tr.appendChild(numTd);
             tr.appendChild(wTd);
             tr.appendChild(bTd);
-            container.appendChild(tr);
+            fragment.appendChild(tr);
         } else {
             if (tr) {
                 const bTd = tr.querySelector(`#move-${i}`);
@@ -88,6 +91,7 @@ export function renderMovesTable(container, queue, onMoveClick) {
             }
         }
     }
+    container.appendChild(fragment);
 }
 
 /**
@@ -96,6 +100,8 @@ export function renderMovesTable(container, queue, onMoveClick) {
 export function updateUIWithEval(index, scoreStr) {
     const cell = document.getElementById(`move-${index}`);
     if (!cell) return;
+    
+    // 기보 테이블 내부에서는 오직 평가 점수(eval-badge) 숫자만 업데이트합니다.
     
     const badge = cell.querySelector('.eval-badge');
     if (badge) {

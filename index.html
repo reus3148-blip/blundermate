@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stockfish PGN Review</title>
+    <title>Blundermate</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/chessground@9.0.0/assets/chessground.base.css">
     <link rel="stylesheet" href="https://unpkg.com/chessground@9.0.0/assets/chessground.brown.css">
@@ -15,8 +15,7 @@
         <!-- Home View -->
         <div id="homeView" class="view-container">
             <header>
-                <h1>Chess PGN Review</h1>
-                <p>Analyze your games with Stockfish 18 Lite</p>
+                <h1>Blundermate</h1>
             </header>
 
             <main>
@@ -38,6 +37,8 @@
                         <textarea id="pgnInput" placeholder="Paste your PGN here... e.g. 1. e4 e5"></textarea>
                         <button id="analyzeBtn" class="primary-btn">Start Review</button>
                     </div>
+
+                    <button id="openVaultBtn" class="control-btn" style="width: 100%; margin-top: 1rem; border-color: var(--primary-color); color: var(--primary-color); max-width: none;">📂 Open My Vault</button>
                 </section>
             </main>
         </div>
@@ -55,6 +56,7 @@
                     <div id="boardContainer" class="board-container"></div>
                     <div class="board-controls">
                         <button id="prevMoveBtn" class="control-btn">◀ Prev</button>
+                        <button id="saveMoveBtn" class="control-btn save-btn">💾 Save</button>
                         <button id="nextMoveBtn" class="control-btn">Next ▶</button>
                     </div>
                     <div id="engineLines" class="engine-lines-container"></div>
@@ -81,6 +83,57 @@
                     </div>
                 </div>
             </section>
+        </div>
+    </div>
+
+    <!-- Vault View -->
+    <div id="vaultView" class="view-container hidden">
+        <div class="analysis-top-bar">
+            <button id="vaultBackBtn" class="text-btn" style="font-size: 1rem; font-weight: 600;">← Back</button>
+            <div style="font-weight: bold; font-size: 1.1rem;">My Vault</div>
+            <div style="width: 60px;"></div>
+        </div>
+        <div id="vaultList" class="games-list" style="padding: 1rem; max-height: none; flex: 1; overflow-y: auto;"></div>
+    </div>
+
+    <!-- Practice View -->
+    <div id="practiceView" class="view-container hidden">
+        <div class="analysis-top-bar">
+            <button id="practiceBackBtn" class="text-btn" style="font-size: 1rem; font-weight: 600;">← Vault</button>
+            <div id="practiceFeedback" class="top-eval-display">Find Best Move</div>
+            <div style="width: 60px;"></div>
+        </div>
+        <section class="results-section">
+            <div class="analysis-board">
+                <div id="practiceBoardContainer" class="board-container"></div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Save Move Modal -->
+    <div id="saveModal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h2>Save to Vault</h2>
+            <p id="saveMoveText" class="save-move-text"></p>
+            <p id="saveBestMoveText" style="text-align: center; color: var(--accent-success); font-size: 0.95rem; margin-top: -0.5rem; margin-bottom: 0.5rem; font-weight: 600;"></p>
+            <div class="form-group">
+                <label>Category</label>
+                <select id="saveCategory" class="text-input" style="appearance: auto;">
+                    <option value="blunder">Blunder (??)</option>
+                    <option value="mistake">Mistake (?)</option>
+                    <option value="missed">Missed Win (?!)</option>
+                    <option value="tactic">Tactical Error</option>
+                    <option value="positional">Positional Error</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Notes (Optional)</label>
+                <textarea id="saveNotes" placeholder="Why did you play this? What was the right move?" style="height: 80px;"></textarea>
+            </div>
+            <div class="modal-actions">
+                <button id="cancelSaveBtn" class="text-btn">Cancel</button>
+                <button id="confirmSaveBtn" class="primary-btn">Save Move</button>
+            </div>
         </div>
     </div>
 

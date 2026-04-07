@@ -44,20 +44,17 @@ header {
 }
 
 header h1 {
-    font-size: 2.5rem;
-    font-weight: 700;
-    letter-spacing: -0.5px;
-    background: linear-gradient(135deg, #fff, #a0aec0);
+    font-size: 3rem;
+    font-weight: 800;
+    letter-spacing: -1px;
+    background: linear-gradient(135deg, #ffffff, var(--primary-color));
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
-    margin-bottom: 0.5rem;
+    margin-bottom: 1.5rem;
 }
 
-header p {
-    color: var(--text-secondary);
-    font-size: 1.1rem;
-}
+/* Removed header p styles as the element is deleted */
 
 main {
     display: flex;
@@ -134,6 +131,16 @@ main {
 .game-item.win { border-left: 4px solid var(--accent-success); }
 .game-item.loss { border-left: 4px solid var(--accent-danger); }
 .game-item.draw { border-left: 4px solid var(--text-secondary); }
+
+.delete-vault-btn {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 1.2rem;
+    cursor: pointer;
+    padding: 0.5rem;
+}
+.delete-vault-btn:hover { color: var(--accent-danger); }
 
 .manual-input-toggle {
     text-align: center;
@@ -342,6 +349,18 @@ textarea:focus {
     transform: scale(0.95);
 }
 
+.save-btn {
+    background: rgba(92, 106, 196, 0.2);
+    color: var(--primary-color);
+    border-color: rgba(92, 106, 196, 0.4);
+}
+
+.save-btn:hover {
+    background: rgba(92, 106, 196, 0.4);
+    border-color: var(--primary-color);
+    color: #fff;
+}
+
 .engine-lines-container {
     padding: 0.5rem 1rem;
     background: var(--bg-panel);
@@ -439,9 +458,51 @@ th {
     background: rgba(255, 255, 255, 0.02);
 }
 
+/* Modal Styles */
+.modal-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(4px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+
+.modal-content {
+    background: #191c23;
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 1.5rem;
+    width: 90%;
+    max-width: 400px;
+    display: flex;
+    flex-direction: column;
+    gap: 1.2rem;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    animation: fadeInUp 0.3s ease-out;
+}
+
+.modal-content h2 { margin: 0; font-size: 1.4rem; color: #fff; }
+.save-move-text { 
+    font-family: monospace; 
+    font-size: 1.2rem; 
+    color: var(--primary-color); 
+    font-weight: bold; 
+    text-align: center; 
+    background: rgba(0,0,0,0.2); 
+    padding: 0.8rem; 
+    border-radius: 8px;
+}
+.modal-actions { display: flex; justify-content: flex-end; gap: 1rem; margin-top: 0.5rem; }
+.form-group { display: flex; flex-direction: column; gap: 0.5rem; }
+.form-group label { font-size: 0.9rem; color: var(--text-secondary); }
+.form-group select option { background: var(--bg-dark); color: #fff; }
+
 @media (max-width: 768px) {
     header h1 {
-        font-size: 1.8rem;
+        font-size: 2.2rem;
     }
     .api-controls {
         flex-direction: column;
