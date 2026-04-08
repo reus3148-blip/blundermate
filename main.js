@@ -4,6 +4,19 @@ import { StockfishEngine } from './engine.js';
 import { renderGamesList, renderMovesTable, updateUIWithEval, highlightActiveMove, renderEngineLines } from './ui.js';
 
 // ==========================================
+// 0. Style Injection for Mobile Fixes
+// ==========================================
+const style = document.createElement('style');
+style.textContent = `
+/* Mobile fix for chessground coordinates */
+@media (max-width: 420px) {
+  .cg-board .coord {
+    font-size: 0.75em;
+  }
+}
+`;
+document.head.appendChild(style);
+// ==========================================
 // 1. DOM Elements
 // ==========================================
 // Manual inputs
@@ -95,6 +108,12 @@ toggleManualBtn.addEventListener('click', () => {
 backBtn.addEventListener('click', () => {
     analysisView.classList.add('hidden');
     homeView.classList.remove('hidden');
+    
+    // Stop engine to save resources when returning to home view
+    stockfish.stop();
+    isAnalyzing = false;
+    isWaitingForStop = false;
+    pendingQueue = null;
 });
 
 vaultBackBtn.addEventListener('click', () => {
@@ -193,11 +212,18 @@ cancelSaveBtn.addEventListener('click', () => {
 
 confirmSaveBtn.addEventListener('click', () => {
     const move = analysisQueue[currentlyViewedIndex];
+    let initialMoveFen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+    try {
+        if (chess && chess.header() && chess.header().FEN) {
+            initialMoveFen = chess.header().FEN;
+        }
+    } catch(e) {}
+
     const vaultItem = {
         id: Date.now(),
         date: new Date().toISOString(),
         fen: move.fen,
-        prevFen: currentlyViewedIndex > 0 ? analysisQueue[currentlyViewedIndex - 1].fen : 'start',
+        prevFen: currentlyViewedIndex > 0 ? analysisQueue[currentlyViewedIndex - 1].fen : initialMoveFen,
         san: move.san,
         bestMove: currentBestMoveForVault,
         moveNumber: move.moveNumber,
@@ -249,13 +275,13 @@ function renderVaultList() {
         el.style.borderLeft = `4px solid ${borderCol}`;
         
         el.innerHTML = `
-            <div style="flex: 1;">
+            <div style="flex: 1; min-width: 0; overflow-wrap: break-word; word-break: break-word;">
                 <div style="font-weight: 600; color: ${borderCol}; text-transform: uppercase; font-size: 0.85rem;">${item.category}</div>
                 <div style="font-size: 1rem; margin-top: 4px;">Played: <strong>${item.san}</strong></div>
                 <div style="font-size: 0.85rem; color: var(--accent-success); margin-top: 2px;">Best: ${item.bestMove || 'Unknown'}</div>
                 ${item.notes ? `<div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 6px;">📝 ${item.notes}</div>` : ''}
             </div>
-            <button class="delete-vault-btn">❌</button>
+            <button class="delete-vault-btn" style="flex-shrink: 0; margin-left: 10px; padding: 0.5rem;">❌</button>
         `;
         
         // 삭제 버튼 이벤트
@@ -469,10 +495,44 @@ function handlePgnReviewStart(e = null, isWhiteGame = null) {
     if (!pgnText) return;
 
     chess = new Chess();
-    const loaded = chess.load_pgn(pgnText);
+    let loaded = chess.load_pgn(pgnText);
     
     if (!loaded) {
-        alert('Invalid PGN format. Please check your data.');
+        // PGN 형식이 아니거나 헤더가 없는 단순 기보일 경우, 순서대로 수를 읽어 복구 시도
+        chess = new Chess();
+        // "1.e4" 와 같이 점 뒤에 공백 없이 영문자가 오는 경우 공백 추가
+        const cleanedText = pgnText.replace(/\.(?=[a-zA-Z])/g, '. ');
+        const tokens = cleanedText.replace(/\n/g, ' ').split(/\s+/).filter(t => t);
+        let validMoves = 0;
+        
+        for (const token of tokens) {
+            // 수 번호(예: 1, 1., 1...) 및 게임 결과 문자열은 건너뜀
+            if (/^\d+\.*$/.test(token)) continue;
+            if (['1-0', '0-1', '1/2-1/2', '*'].includes(token)) continue;
+            
+            // 숫자 0으로 입력된 캐슬링(0-0)을 영문자(O-O)로 교정
+            let cleanToken = token;
+            if (cleanToken === '0-0') cleanToken = 'O-O';
+            if (cleanToken === '0-0-0') cleanToken = 'O-O-O';
+            
+            try {
+                const moveRes = chess.move(cleanToken);
+                if (moveRes) validMoves++;
+                else { validMoves = 0; break; }
+            } catch (err) {
+                validMoves = 0; break;
+            }
+        }
+        
+        if (validMoves > 0) {
+            loaded = true;
+            // 올바른 기보라면 완성된 정규 PGN 형식으로 텍스트 입력창을 자동으로 변경
+            pgnInput.value = chess.pgn();
+        }
+    }
+
+    if (!loaded) {
+        alert('Invalid PGN or move format. Please check your text.');
         return;
     }
 
