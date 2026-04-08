@@ -309,12 +309,6 @@ textarea:focus {
     margin: 0 auto;
 }
 
-/* Ensure Chessground takes up full container space */
-.cg-wrap {
-    width: 100%;
-    height: 100%;
-}
-
 .board-controls {
     display: flex;
     justify-content: center;
