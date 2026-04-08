@@ -12,6 +12,7 @@ const analyzeBtn = document.getElementById('analyzeBtn');
 const toggleManualBtn = document.getElementById('toggleManualBtn');
 const manualInputWrapper = document.getElementById('manualInputWrapper');
 const openVaultBtn = document.getElementById('openVaultBtn');
+const openSavedGamesBtn = document.getElementById('openSavedGamesBtn');
 
 // API inputs
 const usernameInput = document.getElementById('usernameInput');
@@ -44,6 +45,17 @@ const saveNotes = document.getElementById('saveNotes');
 const cancelSaveBtn = document.getElementById('cancelSaveBtn');
 const confirmSaveBtn = document.getElementById('confirmSaveBtn');
 
+const saveChoiceModal = document.getElementById('saveChoiceModal');
+const choiceSaveMoveBtn = document.getElementById('choiceSaveMoveBtn');
+const choiceSaveGameBtn = document.getElementById('choiceSaveGameBtn');
+const cancelChoiceBtn = document.getElementById('cancelChoiceBtn');
+
+const saveGameModal = document.getElementById('saveGameModal');
+const saveGameTitle = document.getElementById('saveGameTitle');
+const saveGameNotes = document.getElementById('saveGameNotes');
+const cancelSaveGameBtn = document.getElementById('cancelSaveGameBtn');
+const confirmSaveGameBtn = document.getElementById('confirmSaveGameBtn');
+
 // Vault & Practice Elements
 const vaultView = document.getElementById('vaultView');
 const vaultList = document.getElementById('vaultList');
@@ -52,6 +64,11 @@ const practiceView = document.getElementById('practiceView');
 const practiceBoardContainer = document.getElementById('practiceBoardContainer');
 const practiceFeedback = document.getElementById('practiceFeedback');
 const practiceBackBtn = document.getElementById('practiceBackBtn');
+
+// Saved Games Elements
+const savedGamesView = document.getElementById('savedGamesView');
+const savedGamesList = document.getElementById('savedGamesList');
+const savedGamesBackBtn = document.getElementById('savedGamesBackBtn');
 
 // ==========================================
 // 2. Application State
@@ -120,6 +137,11 @@ vaultBackBtn.addEventListener('click', () => {
 practiceBackBtn.addEventListener('click', () => {
     practiceView.classList.add('hidden');
     vaultView.classList.remove('hidden');
+});
+
+savedGamesBackBtn.addEventListener('click', () => {
+    savedGamesView.classList.add('hidden');
+    homeView.classList.remove('hidden');
 });
 
 fetchBtn.addEventListener('click', handleApiFetch);
@@ -202,6 +224,16 @@ returnMainLineBtn.addEventListener('click', () => {
 
 // --- Save Move to Vault Logic ---
 saveMoveBtn.addEventListener('click', () => {
+    saveChoiceModal.classList.remove('hidden');
+});
+
+cancelChoiceBtn.addEventListener('click', () => {
+    saveChoiceModal.classList.add('hidden');
+});
+
+choiceSaveMoveBtn.addEventListener('click', () => {
+    saveChoiceModal.classList.add('hidden');
+    
     if (currentlyViewedIndex < 0 || !analysisQueue[currentlyViewedIndex]) {
         alert('Cannot save the starting position.');
         return;
@@ -280,6 +312,56 @@ confirmSaveBtn.addEventListener('click', () => {
     }, 1500);
 });
 
+// --- Save Entire Game Logic ---
+choiceSaveGameBtn.addEventListener('click', () => {
+    saveChoiceModal.classList.add('hidden');
+    
+    // PGN 헤더에서 플레이어 이름 추출 시도
+    let defaultTitle = "Saved Game";
+    try {
+        const h = chess.header();
+        if (h && h.White && h.Black && h.White !== '?' && h.Black !== '?') {
+            defaultTitle = `${h.White} vs ${h.Black}`;
+        }
+    } catch(e) {}
+
+    saveGameTitle.value = defaultTitle;
+    saveGameNotes.value = '';
+    saveGameModal.classList.remove('hidden');
+});
+
+cancelSaveGameBtn.addEventListener('click', () => {
+    saveGameModal.classList.add('hidden');
+});
+
+confirmSaveGameBtn.addEventListener('click', () => {
+    const title = saveGameTitle.value.trim() || 'Untitled Game';
+    const notes = saveGameNotes.value.trim();
+    const pgn = chess.pgn();
+    
+    const savedGameItem = {
+        id: Date.now(),
+        date: new Date().toISOString(),
+        title: title,
+        notes: notes,
+        pgn: pgn
+    };
+    
+    const savedGames = JSON.parse(localStorage.getItem('blundermate_saved_games') || '[]');
+    savedGames.push(savedGameItem);
+    localStorage.setItem('blundermate_saved_games', JSON.stringify(savedGames));
+    
+    saveGameModal.classList.add('hidden');
+    
+    const originalText = saveMoveBtn.textContent;
+    saveMoveBtn.textContent = '✔ Game Saved!';
+    saveMoveBtn.style.color = 'var(--accent-success)';
+    setTimeout(() => {
+        saveMoveBtn.textContent = originalText;
+        saveMoveBtn.style.color = '';
+    }, 1500);
+});
+
 // --- My Vault & Practice Logic ---
 openVaultBtn.addEventListener('click', () => {
     homeView.classList.add('hidden');
@@ -328,6 +410,56 @@ function renderVaultList() {
         // 연습 모드 실행 이벤트
         el.addEventListener('click', () => startPractice(item));
         vaultList.appendChild(el);
+    });
+}
+
+// --- Saved Games View Logic ---
+openSavedGamesBtn.addEventListener('click', () => {
+    homeView.classList.add('hidden');
+    savedGamesView.classList.remove('hidden');
+    renderSavedGamesList();
+});
+
+function renderSavedGamesList() {
+    const savedGames = JSON.parse(localStorage.getItem('blundermate_saved_games') || '[]');
+    savedGamesList.innerHTML = '';
+    if (savedGames.length === 0) {
+        savedGamesList.innerHTML = '<div class="empty-state">No saved games yet. Analyze a game and save it!</div>';
+        return;
+    }
+    
+    savedGames.sort((a, b) => new Date(b.date) - new Date(a.date)).forEach(item => {
+        const el = document.createElement('div');
+        el.className = 'game-item';
+        el.style.borderLeft = `4px solid var(--accent-success)`;
+        
+        el.innerHTML = `
+            <div style="flex: 1; min-width: 0; overflow-wrap: break-word; word-break: break-word;">
+                <div style="font-weight: 600; font-size: 1rem; color: var(--text-primary);">${item.title}</div>
+                <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 4px;">Saved: ${new Date(item.date).toLocaleDateString()}</div>
+                ${item.notes ? `<div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 6px;">📝 ${item.notes}</div>` : ''}
+            </div>
+            <button class="delete-saved-game-btn" style="flex-shrink: 0; margin-left: 10px; padding: 0.5rem; background:none; border:none; font-size:1.2rem; cursor:pointer; color:var(--text-secondary);">❌</button>
+        `;
+        
+        // 삭제 이벤트
+        el.querySelector('.delete-saved-game-btn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            if(confirm('Delete this saved game?')) {
+                const newGames = savedGames.filter(g => g.id !== item.id);
+                localStorage.setItem('blundermate_saved_games', JSON.stringify(newGames));
+                renderSavedGamesList();
+            }
+        });
+        
+        // 분석 창에 불러오기
+        el.addEventListener('click', () => {
+            savedGamesView.classList.add('hidden');
+            pgnInput.value = item.pgn;
+            handlePgnReviewStart(); // 저장된 PGN 텍스트를 통해 바로 분석 실행
+        });
+        
+        savedGamesList.appendChild(el);
     });
 }
 
@@ -437,7 +569,7 @@ function handleExplorationMove(orig, dest) {
     explorationEngineLines = [];
     updateTopEvalDisplay('...', 'Exploring');
     engineLinesContainer.innerHTML = '<div style="padding: 1rem; color: var(--text-secondary);">Analyzing variation...</div>';
-    stockfish.analyzeFen(explorationChess.fen(), 16);
+    stockfish.analyzeFen(explorationChess.fen(), 10);
 }
 
 function exitExplorationMode() {
@@ -753,8 +885,8 @@ function processNextInQueue() {
         return;
     }
 
-    // Depth 16 provides more accurate evaluations (at the cost of slightly slower analysis)
-    stockfish.analyzeFen(pos.fen, 16);
+    // Depth 10 for faster analysis during development
+    stockfish.analyzeFen(pos.fen, 10);
 }
 
 // ==========================================
