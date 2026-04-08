@@ -196,8 +196,12 @@ saveMoveBtn.addEventListener('click', () => {
     else saveBestMoveText.textContent = '';
 
     // Auto-select category based on engine classification
-    if (move.classification && ['blunder', 'mistake', 'missed'].includes(move.classification)) {
-        saveCategory.value = move.classification;
+    if (move.classification) {
+        const cls = move.classification.toLowerCase();
+        if (cls === 'blunder') saveCategory.value = 'blunder';
+        else if (cls === 'mistake') saveCategory.value = 'mistake';
+        else if (cls === 'missed win') saveCategory.value = 'missed';
+        else saveCategory.value = 'positional';
     } else {
         saveCategory.value = 'positional'; // Default fallback
     }
@@ -461,7 +465,7 @@ const engineCallbacks = {
         const classification = classifyMove(currentAnalysisIndex);
         analysisQueue[currentAnalysisIndex].classification = classification;
         
-        updateUIWithEval(currentAnalysisIndex, currentEval);
+        updateUIWithEval(currentAnalysisIndex, currentEval, classification);
         if (currentlyViewedIndex === currentAnalysisIndex) {
             updateTopEvalDisplay(currentEval, classification);
         }
@@ -632,8 +636,8 @@ function processNextInQueue() {
         return;
     }
 
-    // Depth 12 is fast enough for browser-based simple reviews
-    stockfish.analyzeFen(pos.fen, 12);
+    // Depth 16 provides more accurate evaluations (at the cost of slightly slower analysis)
+    stockfish.analyzeFen(pos.fen, 16);
 }
 
 // ==========================================
@@ -648,7 +652,7 @@ function updateBoardPosition(index, fen) {
     persistentShapes = [];
     if (index > 0 && analysisQueue[index]) {
         const cls = analysisQueue[index].classification;
-        if (cls === 'blunder' || cls === 'mistake' || cls === 'missed') {
+        if (cls === 'Blunder' || cls === 'Mistake' || cls === 'Missed Win') {
             const prevMove = analysisQueue[index - 1];
             if (prevMove && prevMove.engineLines && prevMove.engineLines[0] && prevMove.engineLines[0].uci) {
                 const bestUci = prevMove.engineLines[0].uci;
@@ -687,12 +691,19 @@ function getDests(tempChess) {
 function updateTopEvalDisplay(scoreStr, classification = '') {
     if (!topEvalDisplay) return;
     
-    let iconHtml = '';
-    if (classification === 'blunder') iconHtml = '<span style="color: var(--accent-danger); margin-left: 4px;">??</span>';
-    else if (classification === 'mistake') iconHtml = '<span style="color: var(--accent-warning); margin-left: 4px;">?</span>';
-    else if (classification === 'missed') iconHtml = '<span style="color: var(--accent-warning); margin-left: 4px;">?!</span>';
+    let classHtml = '';
+    if (classification) {
+        let color = 'var(--text-secondary)';
+        if (classification === 'Blunder') color = 'var(--accent-danger)';
+        else if (classification === 'Mistake' || classification === 'Missed Win') color = 'var(--accent-warning)';
+        else if (classification === 'Inaccuracy') color = '#fbbf24'; // Amber
+        else if (classification === 'Good') color = '#60a5fa'; // Blue
+        else if (classification === 'Best') color = 'var(--accent-success)'; // Green
+        
+        classHtml = `<span style="color: ${color}; margin-left: 8px; font-size: 0.95rem; font-weight: 600; text-transform: uppercase;">${classification}</span>`;
+    }
     
-    topEvalDisplay.innerHTML = (scoreStr || '-') + iconHtml;
+    topEvalDisplay.innerHTML = (scoreStr || '-') + classHtml;
     topEvalDisplay.className = 'top-eval-display'; // 색상 초기화
     
     const numVal = parseFloat(scoreStr);
@@ -770,33 +781,86 @@ function classifyMove(index) {
         return null;
     };
 
-    const prevMate = getMate(prevEval.scoreStr);
-    const currMate = getMate(currEval.scoreStr);
+    const rawPrevMate = getMate(prevEval.scoreStr);
+    const rawCurrMate = getMate(currEval.scoreStr);
 
-    // 수를 직접 둔 플레이어(백/흑) 관점에서의 점수와 메이트 (> 0 이면 유리함)
-    const isUserTurn = (isWhite === isUserWhite);
-    const prevPlayerMate = prevMate !== null ? (isUserTurn ? prevMate : -prevMate) : null;
-    const currPlayerMate = currMate !== null ? (isUserTurn ? currMate : -currMate) : null;
-    const prevPlayerScore = isUserTurn ? prevEval.scoreNum : -prevEval.scoreNum;
-    const currPlayerScore = isUserTurn ? currEval.scoreNum : -currEval.scoreNum;
-    const advantageChange = currPlayerScore - prevPlayerScore; // 음수면 불리해짐
+    // 수를 둔 플레이어(백/흑) 관점에서의 메이트 (양수면 승리, 음수면 패배)
+    const prevMate = rawPrevMate !== null ? (isWhite ? rawPrevMate : -rawPrevMate) : null;
+    const currMate = rawCurrMate !== null ? (isWhite ? rawCurrMate : -rawCurrMate) : null;
+    
+    // 수를 둔 플레이어 관점의 CP (Centipawn)
+    const prevCp = (isWhite ? prevEval.scoreNum : -prevEval.scoreNum) * 100;
+    const currCp = (isWhite ? currEval.scoreNum : -currEval.scoreNum) * 100;
 
-    // 1. Blunder (블런더): 유리한 상황에서 불리해짐 or 3수 이내 메이트 놓침 or 3점 이상 폭락
-    const missedMate = (prevPlayerMate !== null && prevPlayerMate > 0 && prevPlayerMate <= 3) && 
-                       (currPlayerMate === null || currPlayerMate > prevPlayerMate);
-    const lostAdvantage = prevPlayerScore > 0 && currPlayerScore < 0 && advantageChange <= -1.0;
-    const massiveDrop = advantageChange <= -3.0; 
-    if (missedMate || lostAdvantage || massiveDrop) return 'blunder';
-
-    // 2. Missed Win (놓친 수): 좋은 수가 유일수 인 상황 놓침 (1순위와 2순위 차이 1.5 이상)
-    if (prevLines && prevLines.length > 1 && prevLines[1]) {
-        const bestMoveScore = isUserTurn ? prevLines[0].scoreNum : -prevLines[0].scoreNum;
-        const secondBestScore = isUserTurn ? prevLines[1].scoreNum : -prevLines[1].scoreNum;
-        if (bestMoveScore > 0 && (bestMoveScore - secondBestScore >= 1.5) && advantageChange <= -1.0) return 'missed';
+    // ==========================================
+    // Edge Case 2: 체크메이트(Mate) 상황 보정
+    // ==========================================
+    if (prevMate !== null) {
+        if (prevMate > 0) {
+            if (currMate !== null && currMate > 0) {
+                if (currMate <= prevMate) return 'Best';
+                else return 'Good'; // 메이트가 길어졌지만 여전히 이김
+            } else if (currMate === null) {
+                return 'Missed Win'; // 메이트를 놓침
+            } else {
+                return 'Blunder'; // 메이트 이기던 상황을 지는 메이트로 역전당함
+            }
+        } else {
+            if (currMate !== null && currMate < 0) {
+                if (currMate > prevMate) return 'Blunder'; // 상대 메이트 공격을 더 짧게 허용함 (-1 > -2)
+                else return 'Best'; // 최선으로 버팀
+            } else {
+                return 'Best'; // 상대 메이트 공격 회피 성공
+            }
+        }
+    } else {
+        if (currMate !== null && currMate < 0) return 'Blunder'; // 새로 지는 메이트 허용
+        if (currMate !== null && currMate > 0) return 'Best'; // 멋진 메이트 발견
     }
 
-    // 3. Mistake (실수): 불리한 상황에서 1점 이상 더 불리해짐 or 단순 1.5점 이상 하락
-    if ((prevPlayerScore < 0 && advantageChange <= -1.0) || advantageChange <= -1.5) return 'mistake';
+    // ==========================================
+    // Edge Case 1: Sigmoid 승률(Win%) 변환 보정
+    // ==========================================
+    // 공식: W(cp) = 1 / (1 + exp(-0.00368208 * cp))
+    const wp = (cp) => 1 / (1 + Math.exp(-0.00368208 * cp));
+    const prevWp = wp(prevCp);
+    const currWp = wp(currCp);
+    
+    const cpl = prevCp - currCp; // Centipawn 손실 (양수면 손해)
+    const wpl = prevWp - currWp; // 승률 손실 (0.0 ~ 1.0 범위)
 
-    return '';
+    // 기준 1: CPL 등급
+    let gradeCpl = 0; // Best
+    if (cpl >= 300) gradeCpl = 4; // Blunder
+    else if (cpl >= 100) gradeCpl = 3; // Mistake
+    else if (cpl >= 50) gradeCpl = 2; // Inaccuracy
+    else if (cpl >= 10) gradeCpl = 1; // Good
+
+    // 기준 2: WPL 등급
+    let gradeWpl = 0;
+    if (wpl >= 0.20) gradeWpl = 4; // 20% 이상 승률 하락
+    else if (wpl >= 0.10) gradeWpl = 3; // 10% 이상 승률 하락
+    else if (wpl >= 0.05) gradeWpl = 2; // 5% 이상 승률 하락
+    else if (wpl >= 0.02) gradeWpl = 1; // 2% 이상 승률 하락
+
+    // 보조: 놓친 수 (Missed Win) 체크 - 유일수를 놓쳐 크게 불리해진 경우
+    if (prevLines && prevLines.length > 1 && prevLines[1]) {
+        const bestScore = (isWhite ? prevLines[0].scoreNum : -prevLines[0].scoreNum) * 100;
+        const secondScore = (isWhite ? prevLines[1].scoreNum : -prevLines[1].scoreNum) * 100;
+        if (bestScore > 150 && (bestScore - secondScore >= 150) && wpl >= 0.10) {
+            return 'Missed Win';
+        }
+    }
+
+    // 최종 등급: 압도적 유리 상황에서 억울한 Blunder가 나오지 않도록 CPL과 WPL 중 '더 관대한(낮은) 등급'을 최종 채택
+    const finalGrade = Math.min(gradeCpl, gradeWpl);
+
+    switch (finalGrade) {
+        case 4: return 'Blunder';
+        case 3: return 'Mistake';
+        case 2: return 'Inaccuracy';
+        case 1: return 'Good';
+        case 0: return 'Best';
+        default: return 'Best';
+    }
 }

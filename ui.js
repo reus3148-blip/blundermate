@@ -97,7 +97,7 @@ export function renderMovesTable(container, queue, onMoveClick) {
 /**
  * Updates a specific move's evaluation badge.
  */
-export function updateUIWithEval(index, scoreStr) {
+export function updateUIWithEval(index, scoreStr, classification = '') {
     const cell = document.getElementById(`move-${index}`);
     if (!cell) return;
     
@@ -115,6 +115,16 @@ export function updateUIWithEval(index, scoreStr) {
             badge.classList.add('positive');
         } else if (scoreStr.startsWith('-M')) {
             badge.classList.add('negative');
+        }
+    }
+
+    if (classification) {
+        const moveCell = cell.querySelector('.move-cell');
+        if (moveCell) {
+            if (classification === 'Blunder') moveCell.classList.add('bg-blunder');
+            else if (classification === 'Mistake') moveCell.classList.add('bg-mistake');
+            else if (classification === 'Missed Win') moveCell.classList.add('bg-missed-win');
+            else if (classification === 'Inaccuracy') moveCell.classList.add('bg-inaccuracy');
         }
     }
 }
