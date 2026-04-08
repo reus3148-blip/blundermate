@@ -99,8 +99,9 @@ main {
 }
 
 .text-input:focus {
+    background: rgba(255, 255, 255, 0.05);
     border-color: var(--primary-color);
-    box-shadow: 0 0 0 2px rgba(92, 106, 196, 0.3);
+    box-shadow: 0 0 0 3px rgba(92, 106, 196, 0.3);
 }
 
 .games-list {
@@ -114,7 +115,7 @@ main {
 .game-item {
     background: rgba(255, 255, 255, 0.03);
     border: 1px solid var(--border-color);
-    padding: 0.75rem 1rem;
+    padding: 1rem 1.25rem;
     border-radius: 8px;
     cursor: pointer;
     display: flex;
@@ -353,6 +354,16 @@ textarea:focus {
     display: flex;
     justify-content: center;
     align-items: center;
+}
+
+.control-btn.icon-btn {
+    gap: 0.75rem;
+}
+
+.control-btn.icon-btn svg {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
 }
 
 .control-btn:hover {

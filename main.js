@@ -29,6 +29,8 @@ const prevMoveBtn = document.getElementById('prevMoveBtn');
 const saveMoveBtn = document.getElementById('saveMoveBtn');
 const nextMoveBtn = document.getElementById('nextMoveBtn');
 const returnMainLineBtn = document.getElementById('returnMainLineBtn');
+const explainMoveBtn = document.getElementById('explainMoveBtn');
+const geminiExplanation = document.getElementById('geminiExplanation');
 
 // View Navigation Elements
 const homeView = document.getElementById('homeView');
@@ -219,6 +221,63 @@ returnMainLineBtn.addEventListener('click', () => {
     } else {
         const startFen = chess.header().FEN || 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
         updateBoardPosition(-1, startFen);
+    }
+});
+
+// --- Gemini Explanation Logic ---
+explainMoveBtn.addEventListener('click', async () => {
+    let apiKey = localStorage.getItem('blundermate_gemini_key');
+    if (!apiKey) {
+        apiKey = prompt("Please enter your Gemini API Key (It will be saved locally):");
+        if (!apiKey) return;
+        localStorage.setItem('blundermate_gemini_key', apiKey);
+    }
+
+    let promptText = '';
+    geminiExplanation.classList.remove('hidden');
+    geminiExplanation.innerHTML = '<div style="color: #a855f7;"><em>✨ Gemini is analyzing the position...</em></div>';
+
+    if (isExplorationMode) {
+        if (!explorationEngineLines[0]) return;
+        const fen = explorationChess.fen();
+        const bestMoveSan = explorationEngineLines[0].pv.split(' ')[0];
+        promptText = `Act as a chess grandmaster. The current position FEN is "${fen}". Stockfish recommends "${bestMoveSan}" as the best move. Briefly explain the positional or tactical idea behind "${bestMoveSan}" in 2-3 sentences.`;
+    } else {
+        if (currentlyViewedIndex < 0) return;
+        const move = analysisQueue[currentlyViewedIndex];
+        if (!move || !move.engineLines || !move.engineLines[0]) return;
+        
+        const fen = move.fen;
+        const playedMove = move.san;
+        const classification = move.classification || 'Move';
+        const bestMoveSan = move.engineLines[0].pv.split(' ')[0];
+
+        promptText = `Act as a chess grandmaster. The current position FEN is "${fen}". `;
+        if (['Blunder', 'Mistake', 'Missed Win', 'Inaccuracy'].includes(classification)) {
+            promptText += `The player played "${playedMove}", which is a ${classification}. `;
+        } else {
+            promptText += `The player played "${playedMove}". `;
+        }
+        promptText += `Stockfish recommends "${bestMoveSan}" as the best move. Briefly explain why "${bestMoveSan}" is good, and if "${playedMove}" was a mistake, explain the tactical or positional reason why in 2 to 3 sentences. Be clear and concise.`;
+    }
+
+    try {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contents: [{ parts: [{ text: promptText }] }] })
+        });
+        if (!response.ok) {
+            if (response.status === 400) throw new Error('Invalid API Key.');
+            throw new Error('API request failed.');
+        }
+        const data = await response.json();
+        let explanation = data.candidates[0].content.parts[0].text;
+        explanation = explanation.replace(/\*\*(.*?)\*\*/g, '<strong style="color: #fff;">$1</strong>');
+        geminiExplanation.innerHTML = `<div style="margin-bottom: 0.5rem; font-weight: bold; color: #a855f7;">✨ Gemini 1.5 Flash</div>${explanation.replace(/\n/g, '<br>')}`;
+    } catch (err) {
+        geminiExplanation.innerHTML = `<span style="color: var(--accent-danger);">Error: ${err.message} <button id="resetGeminiKey" class="text-btn" style="margin-left: 10px;">Reset Key</button></span>`;
+        document.getElementById('resetGeminiKey').addEventListener('click', () => { localStorage.removeItem('blundermate_gemini_key'); geminiExplanation.classList.add('hidden'); });
     }
 });
 
@@ -908,6 +967,11 @@ function updateBoardPosition(index, fen) {
     
     currentlyViewedIndex = index;
     highlightActiveMove(index);
+    
+    if (geminiExplanation) {
+        geminiExplanation.classList.add('hidden');
+        geminiExplanation.innerHTML = '';
+    }
     
     // 블런더나 실수인 경우, 이전 턴(index - 1)에서 엔진이 추천했던 최선의 수를 파란색 화살표로 표시
     persistentShapes = [];

@@ -11,32 +11,14 @@
     <link rel="stylesheet" href="styles.css">
     <style>
         /* Fix Home View layout to prevent full-page scrolling */
-        #homeView {
-            height: 100vh;
-            height: 100dvh; /* 모바일 브라우저 주소창 고려 */
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-        #homeView main, 
-        #homeView .input-section {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-        #homeView header, 
-        #homeView .api-controls, 
-        #homeView .manual-input-toggle,
-        #homeView .manual-input-wrapper,
-        #openVaultBtn {
-            flex-shrink: 0;
-        }
+        /* 
+         * The home view's height is now flexible.
+         * The game list has a max-height and will scroll internally if it overflows,
+         * preventing the layout from breaking or overlapping other elements.
+         */
         #gamesList {
-            flex: 1;
+            max-height: 320px; /* Set a maximum height for the games list */
             overflow-y: auto;
-            min-height: 0;
-            margin-top: 1rem;
         }
     </style>
 </head>
@@ -68,8 +50,14 @@
                         <button id="analyzeBtn" class="primary-btn">Start Review</button>
                     </div>
 
-                    <button id="openVaultBtn" class="control-btn" style="width: 100%; margin-top: 1rem; border-color: var(--primary-color); color: var(--primary-color); max-width: none;">📂 Open My Vault</button>
-                    <button id="openSavedGamesBtn" class="control-btn" style="width: 100%; margin-top: 0.5rem; border-color: var(--accent-success); color: var(--accent-success); max-width: none;">💾 Open Saved Games</button>
+                    <button id="openVaultBtn" class="control-btn icon-btn" style="width: 100%; margin-top: 1rem; border-color: var(--primary-color); color: var(--primary-color); max-width: none;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M17 21V7a2 2 0 0 0-2-2H9a2 2 0 0 0-2 2v14"></path></svg>
+                        <span>Open My Vault</span>
+                    </button>
+                    <button id="openSavedGamesBtn" class="control-btn icon-btn" style="width: 100%; margin-top: 0.5rem; border-color: var(--accent-success); color: var(--accent-success); max-width: none;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+                        <span>Open Saved Games</span>
+                    </button>
                 </section>
             </main>
         </div>
@@ -95,8 +83,12 @@
                         <button id="saveMoveBtn" class="control-btn save-btn">💾 Save</button>
                         <button id="nextMoveBtn" class="control-btn">Next ▶</button>
                     </div>
-                    <button id="returnMainLineBtn" class="control-btn hidden" style="width: calc(100% - 2rem); margin: 0 auto 0.5rem auto; max-width: none; background: rgba(245, 158, 11, 0.15); border-color: var(--accent-warning); color: var(--accent-warning);">↩ Return to Main Line</button>
+                    <div style="display: flex; flex-direction: column; gap: 0.5rem; padding: 0 1rem; margin-bottom: 0.5rem;">
+                        <button id="returnMainLineBtn" class="control-btn hidden" style="width: 100%; max-width: none; background: rgba(245, 158, 11, 0.15); border-color: var(--accent-warning); color: var(--accent-warning);">↩ Return to Main Line</button>
+                        <button id="explainMoveBtn" class="control-btn" style="width: 100%; max-width: none; background: rgba(168, 85, 247, 0.15); border-color: #a855f7; color: #a855f7;">✨ Explain with Gemini</button>
+                    </div>
                     <div id="engineLines" class="engine-lines-container"></div>
+                    <div id="geminiExplanation" class="hidden" style="padding: 1rem; background: rgba(168, 85, 247, 0.1); border-bottom: 1px solid var(--border-color); font-size: 0.9rem; line-height: 1.5; color: var(--text-primary);"></div>
                     <div class="moves-container">
                         <table id="movesTable">
                             <thead>
