@@ -133,8 +133,11 @@ export function updateUIWithEval(index, scoreStr, classification = '') {
  * Highlights the current active move in the table.
  */
 export function highlightActiveMove(index) {
-    document.querySelectorAll('.active-move').forEach(el => el.classList.remove('active-move'));
-    document.querySelectorAll('.active-move-row').forEach(el => el.classList.remove('active-move-row'));
+    const prevActiveCell = document.querySelector('.active-move');
+    if (prevActiveCell) prevActiveCell.classList.remove('active-move');
+    
+    const prevActiveRow = document.querySelector('.active-move-row');
+    if (prevActiveRow) prevActiveRow.classList.remove('active-move-row');
     
     const cell = document.getElementById(`move-${index}`);
     if (cell) {
@@ -157,6 +160,12 @@ export function highlightActiveMove(index) {
  * Renders the top engine recommended lines (MultiPV).
  */
 export function renderEngineLines(container, lines, onHover, onLeave) {
+    // 한 번만 이벤트 위임(Event Delegation)을 설정하여 메모리 누수 및 재할당 방지
+    if (!container.dataset.delegated) {
+        setupEngineLinesDelegation(container, onHover, onLeave);
+        container.dataset.delegated = "true";
+    }
+
     if (!lines || lines.length === 0) {
         container.innerHTML = '';
         return;
@@ -170,21 +179,28 @@ export function renderEngineLines(container, lines, onHover, onLeave) {
             <span style="color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${line.pv.split(' ').slice(0, 5).join(' ')} ...</span>
         </div>
     `).join('');
-    
+}
+
+function setupEngineLinesDelegation(container, onHover, onLeave) {
     if (typeof onHover === 'function') {
-        container.querySelectorAll('.engine-line').forEach(el => {
-            el.addEventListener('mouseenter', () => {
-                const uci = el.getAttribute('data-uci');
+        container.addEventListener('mouseover', (e) => {
+            const lineEl = e.target.closest('.engine-line');
+            if (lineEl) {
+                const uci = lineEl.getAttribute('data-uci');
                 if (uci && uci.length >= 4) onHover(uci.slice(0, 2), uci.slice(2, 4));
-            });
-            el.addEventListener('mouseleave', () => {
+            }
+        });
+        container.addEventListener('mouseout', (e) => {
+            if (e.target.closest('.engine-line')) {
                 if (typeof onLeave === 'function') onLeave();
-            });
-            // 모바일 터치(클릭) 지원
-            el.addEventListener('click', () => {
-                const uci = el.getAttribute('data-uci');
+            }
+        });
+        container.addEventListener('click', (e) => {
+            const lineEl = e.target.closest('.engine-line');
+            if (lineEl) {
+                const uci = lineEl.getAttribute('data-uci');
                 if (uci && uci.length >= 4) onHover(uci.slice(0, 2), uci.slice(2, 4));
-            });
+            }
         });
     }
 }

@@ -38,20 +38,33 @@ export class StockfishEngine {
     }
 
     parseEval(line) {
-        const matchCp = line.match(/score cp (-?\d+)/);
-        const matchMate = line.match(/score mate (-?\d+)/);
-        const matchMultiPv = line.match(/multipv (\d+)/);
-        const matchPv = line.match(/ pv (.+)/);
+        // 정규식(Regex) 대신 indexOf와 substring을 사용하여 엔진 파싱 속도를 극대화
+        if (!line.includes('score ')) return null;
         
-        const multipv = matchMultiPv ? parseInt(matchMultiPv[1], 10) : 1;
-        const pv = matchPv ? matchPv[1] : '';
+        let type, value, multipv = 1, pv = '';
         
-        if (matchCp) {
-            return { type: 'cp', value: parseInt(matchCp[1], 10) / 100, multipv, pv };
-        } else if (matchMate) {
-            return { type: 'mate', value: parseInt(matchMate[1], 10), multipv, pv };
+        const multipvIdx = line.indexOf('multipv ');
+        if (multipvIdx !== -1) {
+            multipv = parseInt(line.substring(multipvIdx + 8), 10);
         }
-        return null;
+        
+        const cpIdx = line.indexOf('score cp ');
+        const mateIdx = line.indexOf('score mate ');
+        
+        if (cpIdx !== -1) {
+            type = 'cp';
+            value = parseInt(line.substring(cpIdx + 9), 10) / 100;
+        } else if (mateIdx !== -1) {
+            type = 'mate';
+            value = parseInt(line.substring(mateIdx + 11), 10);
+        } else {
+            return null;
+        }
+        
+        const pvIdx = line.indexOf(' pv ');
+        if (pvIdx !== -1) pv = line.substring(pvIdx + 4);
+        
+        return { type, value, multipv, pv };
     }
 
     analyzeFen(fen, depth = 12) {

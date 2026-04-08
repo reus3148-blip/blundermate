@@ -359,13 +359,17 @@ function startPractice(item) {
 }
 
 // Redraw board on window resize or device rotation for better responsive behavior
+let resizeTimeout;
 window.addEventListener('resize', () => {
-    if (cg && !analysisView.classList.contains('hidden')) {
-        cg.redrawAll();
-    }
-    if (practiceCg && !practiceView.classList.contains('hidden')) {
-        practiceCg.redrawAll();
-    }
+    clearTimeout(resizeTimeout);
+    resizeTimeout = setTimeout(() => {
+        if (cg && !analysisView.classList.contains('hidden')) {
+            cg.redrawAll();
+        }
+        if (practiceCg && !practiceView.classList.contains('hidden')) {
+            practiceCg.redrawAll();
+        }
+    }, 100); // 100ms 디바운스 적용
 });
 
 // ==========================================
@@ -733,9 +737,11 @@ function clearEngineArrow() {
     });
 }
 
+const pvChess = new Chess(); // 매번 생성하지 않고 재사용하여 메모리 최적화
+
 function convertPvToSan(pv, fen) {
     if (!pv) return '';
-    const temp = new Chess(fen);
+    pvChess.load(fen);
     const moves = pv.split(' ');
     const sanMoves = [];
     
@@ -750,7 +756,7 @@ function convertPvToSan(pv, fen) {
         const to = uci.slice(2, 4);
         const promotion = uci.length > 4 ? uci.slice(4, 5) : undefined;
         
-        const moveRes = temp.move({ from, to, promotion });
+        const moveRes = pvChess.move({ from, to, promotion });
         if (moveRes) sanMoves.push(moveRes.san);
         else break; // 엔진이 보내준 수가 체스 규칙에 어긋나는 경우(드묾) 중단
     }
