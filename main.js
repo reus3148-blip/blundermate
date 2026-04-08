@@ -4,19 +4,6 @@ import { StockfishEngine } from './engine.js';
 import { renderGamesList, renderMovesTable, updateUIWithEval, highlightActiveMove, renderEngineLines } from './ui.js';
 
 // ==========================================
-// 0. Style Injection for Mobile Fixes
-// ==========================================
-const style = document.createElement('style');
-style.textContent = `
-/* Mobile fix for chessground coordinates */
-@media (max-width: 420px) {
-  .cg-board .coord {
-    font-size: 0.75em;
-  }
-}
-`;
-document.head.appendChild(style);
-// ==========================================
 // 1. DOM Elements
 // ==========================================
 // Manual inputs
@@ -40,6 +27,7 @@ const engineLinesContainer = document.getElementById('engineLines');
 const prevMoveBtn = document.getElementById('prevMoveBtn');
 const saveMoveBtn = document.getElementById('saveMoveBtn');
 const nextMoveBtn = document.getElementById('nextMoveBtn');
+const returnMainLineBtn = document.getElementById('returnMainLineBtn');
 
 // View Navigation Elements
 const homeView = document.getElementById('homeView');
@@ -83,18 +71,26 @@ let persistentShapes = []; // 블런더/실수 시 보드에 고정될 화살표
 let isUserWhite = true; // 분석 기준이 되는 사용자 색상 (기본: 백)
 let currentBestMoveForVault = ''; // 저장 시 함께 보관할 최선의 수
 let practiceCg; // 연습 모드용 체스 보드
+let isExplorationMode = false; // 엔진 라인 탐색 모드 여부
+let explorationChess = new Chess();
+let explorationEngineLines = [];
+let isSimulationMode = false; // 엔진 추천 라인 시뮬레이션 모드 여부
+let simulationQueue = [];
+let simulationIndex = -1;
 
 // ==========================================
 // 3. Initialization
 // ==========================================
 cg = Chessground(boardContainer, {
     fen: 'start',
-    viewOnly: true,
     animation: { enabled: true, duration: 250 },
     drawable: {
         enabled: true,
         visible: true,
         eraseOnClick: true
+    },
+    events: {
+        move: (orig, dest) => handleExplorationMove(orig, dest)
     }
 });
 
@@ -140,6 +136,17 @@ document.addEventListener('keydown', (e) => {
     
     // Ignore keyboard shortcuts if user is typing
     if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
+    
+    if (isSimulationMode) {
+        if (e.key === 'ArrowLeft') {
+            simulationIndex = Math.max(0, simulationIndex - 1);
+            updateBoardForSimulation(simulationIndex);
+        } else if (e.key === 'ArrowRight') {
+            simulationIndex = Math.min(simulationQueue.length - 1, simulationIndex + 1);
+            updateBoardForSimulation(simulationIndex);
+        }
+        return;
+    }
 
     let newIndex = currentlyViewedIndex;
     
@@ -158,6 +165,11 @@ document.addEventListener('keydown', (e) => {
 });
 
 prevMoveBtn.addEventListener('click', () => {
+    if (isSimulationMode) {
+        simulationIndex = Math.max(0, simulationIndex - 1);
+        updateBoardForSimulation(simulationIndex);
+        return;
+    }
     if (analysisQueue.length === 0) return;
     const newIndex = Math.max(0, currentlyViewedIndex - 1);
     if (newIndex !== currentlyViewedIndex) {
@@ -166,10 +178,25 @@ prevMoveBtn.addEventListener('click', () => {
 });
 
 nextMoveBtn.addEventListener('click', () => {
+    if (isSimulationMode) {
+        simulationIndex = Math.min(simulationQueue.length - 1, simulationIndex + 1);
+        updateBoardForSimulation(simulationIndex);
+        return;
+    }
     if (analysisQueue.length === 0) return;
     const newIndex = Math.min(analysisQueue.length - 1, currentlyViewedIndex + 1);
     if (newIndex !== currentlyViewedIndex) {
         updateBoardPosition(newIndex, analysisQueue[newIndex].fen);
+    }
+});
+
+returnMainLineBtn.addEventListener('click', () => {
+    exitExplorationMode();
+    if (currentlyViewedIndex >= 0 && analysisQueue[currentlyViewedIndex]) {
+        updateBoardPosition(currentlyViewedIndex, analysisQueue[currentlyViewedIndex].fen);
+    } else {
+        const startFen = chess.header().FEN || 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+        updateBoardPosition(-1, startFen);
     }
 });
 
@@ -372,6 +399,60 @@ window.addEventListener('resize', () => {
     }, 100); // 100ms 디바운스 적용
 });
 
+function handleExplorationMove(orig, dest) {
+    if (isSimulationMode) {
+        isSimulationMode = false;
+        isExplorationMode = true;
+        explorationChess.load(simulationQueue[simulationIndex].fen);
+        explorationEngineLines = [];
+        stockfish.stop();
+    } else if (!isExplorationMode) {
+        isExplorationMode = true;
+        returnMainLineBtn.classList.remove('hidden');
+        
+        let baseFen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+        if (currentlyViewedIndex >= 0 && analysisQueue[currentlyViewedIndex]) baseFen = analysisQueue[currentlyViewedIndex].fen;
+        else if (chess.header().FEN) baseFen = chess.header().FEN;
+        
+        explorationChess.load(baseFen);
+        explorationEngineLines = [];
+        
+        // 메인 기보 분석 중지
+        stockfish.stop();
+    }
+    
+    const moveRes = explorationChess.move({ from: orig, to: dest, promotion: 'q' });
+    if (!moveRes) {
+        cg.set({ fen: explorationChess.fen() });
+        return;
+    }
+    
+    const turnColor = explorationChess.turn() === 'w' ? 'white' : 'black';
+    cg.set({ 
+        fen: explorationChess.fen(),
+        turnColor: turnColor,
+        movable: { color: turnColor, free: false, dests: getDests(explorationChess) }
+    });
+    
+    explorationEngineLines = [];
+    updateTopEvalDisplay('...', 'Exploring');
+    engineLinesContainer.innerHTML = '<div style="padding: 1rem; color: var(--text-secondary);">Analyzing variation...</div>';
+    stockfish.analyzeFen(explorationChess.fen(), 16);
+}
+
+function exitExplorationMode() {
+    isExplorationMode = false;
+    isSimulationMode = false;
+    returnMainLineBtn.classList.add('hidden');
+    explorationEngineLines = [];
+    simulationQueue = [];
+    
+    // 메인 라인 전체 기보 분석이 중단된 상태였다면 재개
+    if (isEngineReady && currentAnalysisIndex < analysisQueue.length) {
+        processNextInQueue();
+    }
+}
+
 // ==========================================
 // 5. API Logic
 // ==========================================
@@ -421,6 +502,36 @@ const engineCallbacks = {
         }
     },
     onEval: (evalData) => {
+        if (isExplorationMode) {
+            const isBlackToMove = explorationChess.turn() === 'b';
+            let scoreStr = '';
+            let scoreNum = 0;
+            
+            if (evalData.type === 'cp') {
+                let score = evalData.value;
+                if (isBlackToMove) score = -score;
+                scoreNum = score;
+                scoreStr = score > 0 ? `+${score.toFixed(2)}` : score.toFixed(2);
+            } else if (evalData.type === 'mate') {
+                let mateIn = evalData.value;
+                if (isBlackToMove) mateIn = -mateIn;
+                scoreNum = mateIn > 0 ? 999 : -999;
+                scoreStr = `M${Math.abs(mateIn)}`;
+                scoreStr = mateIn > 0 ? `+${scoreStr}` : `-${scoreStr}`;
+            }
+            
+            const lineIndex = evalData.multipv - 1;
+            const sanPv = convertPvToSan(evalData.pv, explorationChess.fen());
+            const firstUci = evalData.pv ? evalData.pv.split(' ')[0] : '';
+            explorationEngineLines[lineIndex] = { scoreStr, scoreNum, pv: sanPv, uci: firstUci };
+            
+            if (explorationEngineLines[0]) {
+                renderEngineLines(engineLinesContainer, explorationEngineLines.filter(Boolean), drawEngineArrow, clearEngineArrow, handleEngineLineClick);
+                updateTopEvalDisplay(explorationEngineLines[0].scoreStr, 'Exploring');
+            }
+            return;
+        }
+
         const isBlackToMove = analysisQueue[currentAnalysisIndex].fen.includes(' b ');
         let scoreStr = '';
         let scoreNum = 0;
@@ -464,6 +575,8 @@ const engineCallbacks = {
             }
             return;
         }
+        
+        if (isExplorationMode) return;
         
         // 기보 분석 판별 로직 호출
         const classification = classifyMove(currentAnalysisIndex);
@@ -648,7 +761,19 @@ function processNextInQueue() {
 // 8. UI Rendering
 // ==========================================
 function updateBoardPosition(index, fen) {
-    cg.set({ fen: fen });
+    if (isExplorationMode) {
+        exitExplorationMode();
+    }
+
+    const validFen = fen === 'start' ? 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1' : fen;
+    const tempChess = new Chess(validFen);
+    const turnColor = tempChess.turn() === 'w' ? 'white' : 'black';
+    cg.set({ 
+        fen: fen,
+        turnColor: turnColor,
+        movable: { color: turnColor, free: false, dests: getDests(tempChess) }
+    });
+    
     currentlyViewedIndex = index;
     highlightActiveMove(index);
     
@@ -672,7 +797,7 @@ function updateBoardPosition(index, fen) {
     
     // 화면이 바뀔 때, 해당 수에 저장된 엔진 추천 라인이 있다면 화면에 다시 렌더링
     if (analysisQueue[index] && analysisQueue[index].engineLines && analysisQueue[index].engineLines.length > 0) {
-        renderEngineLines(engineLinesContainer, analysisQueue[index].engineLines.filter(Boolean), drawEngineArrow, clearEngineArrow);
+        renderEngineLines(engineLinesContainer, analysisQueue[index].engineLines.filter(Boolean), drawEngineArrow, clearEngineArrow, handleEngineLineClick);
         updateTopEvalDisplay(analysisQueue[index].engineLines[0].scoreStr, analysisQueue[index].classification);
     } else {
         engineLinesContainer.innerHTML = '';
@@ -695,19 +820,7 @@ function getDests(tempChess) {
 function updateTopEvalDisplay(scoreStr, classification = '') {
     if (!topEvalDisplay) return;
     
-    let classHtml = '';
-    if (classification) {
-        let color = 'var(--text-secondary)';
-        if (classification === 'Blunder') color = 'var(--accent-danger)';
-        else if (classification === 'Mistake' || classification === 'Missed Win') color = 'var(--accent-warning)';
-        else if (classification === 'Inaccuracy') color = '#fbbf24'; // Amber
-        else if (classification === 'Good') color = '#60a5fa'; // Blue
-        else if (classification === 'Best') color = 'var(--accent-success)'; // Green
-        
-        classHtml = `<span style="color: ${color}; margin-left: 8px; font-size: 0.95rem; font-weight: 600; text-transform: uppercase;">${classification}</span>`;
-    }
-    
-    topEvalDisplay.innerHTML = (scoreStr || '-') + classHtml;
+    topEvalDisplay.innerHTML = scoreStr || '-';
     topEvalDisplay.className = 'top-eval-display'; // 색상 초기화
     
     const numVal = parseFloat(scoreStr);
@@ -718,6 +831,25 @@ function updateTopEvalDisplay(scoreStr, classification = '') {
         topEvalDisplay.classList.add('positive');
     } else if (scoreStr && scoreStr.startsWith('-M')) {
         topEvalDisplay.classList.add('negative');
+    }
+
+    // 수에 대한 평가 텍스트 업데이트 (별도 영역)
+    const moveClassification = document.getElementById('moveClassification');
+    if (moveClassification) {
+        if (classification) {
+            let color = 'var(--text-secondary)';
+            if (classification === 'Blunder') color = 'var(--accent-danger)';
+            else if (classification === 'Mistake' || classification === 'Missed Win') color = 'var(--accent-warning)';
+            else if (classification === 'Inaccuracy') color = '#fbbf24'; // Amber
+            else if (classification === 'Good') color = '#60a5fa'; // Blue
+            else if (classification === 'Best') color = 'var(--accent-success)'; // Green
+            else if (classification === 'Exploring') color = 'var(--accent-warning)'; // Yellow for exploring
+            
+            moveClassification.textContent = classification;
+            moveClassification.style.color = color;
+        } else {
+            moveClassification.textContent = '';
+        }
     }
 }
 
@@ -869,4 +1001,48 @@ function classifyMove(index) {
         case 0: return 'Best';
         default: return 'Best';
     }
+}
+
+function handleEngineLineClick(lineIndex) {
+    let baseFen, lines;
+    if (isExplorationMode) {
+        baseFen = explorationChess.fen();
+        lines = explorationEngineLines;
+    } else {
+        if (currentlyViewedIndex < 0) return;
+        baseFen = analysisQueue[currentlyViewedIndex].fen;
+        lines = analysisQueue[currentlyViewedIndex].engineLines;
+    }
+
+    if (!lines || !lines[lineIndex]) return;
+    
+    const pv = lines[lineIndex].pv;
+    if (!pv) return;
+
+    const tempChess = new Chess(baseFen);
+    simulationQueue = [{ fen: baseFen, san: 'Start' }];
+    
+    const moves = pv.split(' ');
+    for (const move of moves) {
+        const moveRes = tempChess.move(move);
+        if (moveRes) simulationQueue.push({ fen: tempChess.fen(), san: moveRes.san });
+        else break;
+    }
+
+    isSimulationMode = true;
+    isExplorationMode = false;
+    simulationIndex = 1;
+    
+    stockfish.stop();
+    returnMainLineBtn.classList.remove('hidden');
+    updateBoardForSimulation(simulationIndex);
+}
+
+function updateBoardForSimulation(index) {
+    const item = simulationQueue[index];
+    const tempChess = new Chess(item.fen);
+    const turnColor = tempChess.turn() === 'w' ? 'white' : 'black';
+    cg.set({ fen: item.fen, turnColor: turnColor, movable: { color: turnColor, free: false, dests: getDests(tempChess) }, drawable: { autoShapes: [] } });
+    updateTopEvalDisplay('-', `Simulating`);
+    engineLinesContainer.innerHTML = `<div style="padding: 1rem; color: var(--text-secondary); text-align: center;">Simulating Move ${index} / ${simulationQueue.length - 1} <br><strong style="color: var(--text-primary); font-size: 1.1rem; display: inline-block; margin-top: 0.5rem;">${item.san}</strong></div>`;
 }

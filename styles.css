@@ -309,6 +309,27 @@ textarea:focus {
     margin: 0 auto;
 }
 
+/* --- Chessground Coordinates Alignment Fix --- */
+.cg-wrap coords {
+    font-family: 'Inter', sans-serif;
+    font-weight: 600;
+    pointer-events: none;
+}
+.cg-wrap coords.files coord {
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-end;
+    padding-bottom: 2px;
+    padding-right: 4px;
+}
+.cg-wrap coords.ranks coord {
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-start;
+    padding-top: 4px;
+    padding-left: 4px;
+}
+
 .board-controls {
     display: flex;
     justify-content: center;
@@ -321,7 +342,7 @@ textarea:focus {
     background: rgba(255, 255, 255, 0.05);
     color: var(--text-primary);
     border: 1px solid var(--border-color);
-    padding: 0.6rem 1.5rem;
+    padding: 0.4rem 1.5rem;
     border-radius: 8px;
     font-size: 1rem;
     font-weight: 600;
@@ -510,5 +531,9 @@ th {
         width: calc(100vw - 2rem);
         height: calc(100vw - 2rem);
         margin: 1rem auto 0.5rem auto;
+    }
+    
+    .cg-wrap coords coord {
+        font-size: 0.75rem !important;
     }
 }

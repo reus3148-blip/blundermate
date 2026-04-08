@@ -159,10 +159,10 @@ export function highlightActiveMove(index) {
 /**
  * Renders the top engine recommended lines (MultiPV).
  */
-export function renderEngineLines(container, lines, onHover, onLeave) {
+export function renderEngineLines(container, lines, onHover, onLeave, onClick) {
     // 한 번만 이벤트 위임(Event Delegation)을 설정하여 메모리 누수 및 재할당 방지
     if (!container.dataset.delegated) {
-        setupEngineLinesDelegation(container, onHover, onLeave);
+        setupEngineLinesDelegation(container, onHover, onLeave, onClick);
         container.dataset.delegated = "true";
     }
 
@@ -173,7 +173,7 @@ export function renderEngineLines(container, lines, onHover, onLeave) {
     
     container.innerHTML = `<div style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); margin-bottom: 0.5rem;">Top Engine Lines</div>` + 
         lines.map((line, index) => `
-        <div class="engine-line" data-uci="${line.uci || ''}" style="display: flex; gap: 1rem; margin-bottom: 0.3rem; font-family: monospace; font-size: 0.95rem; padding: 0.3rem 0.5rem; background: rgba(0,0,0,0.1); border-radius: 4px; cursor: pointer; transition: background 0.2s;">
+        <div class="engine-line" data-uci="${line.uci || ''}" data-index="${index}" style="display: flex; gap: 1rem; margin-bottom: 0.3rem; font-family: monospace; font-size: 0.95rem; padding: 0.3rem 0.5rem; background: rgba(0,0,0,0.1); border-radius: 4px; cursor: pointer; transition: background 0.2s;">
             <span style="color: var(--text-secondary);">#${index + 1}</span>
             <span style="min-width: 50px; font-weight: 600; color: ${line.scoreNum > 0.5 ? '#4ade80' : (line.scoreNum < -0.5 ? '#f87171' : 'inherit')};">${line.scoreStr}</span>
             <span style="color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${line.pv.split(' ').slice(0, 5).join(' ')} ...</span>
@@ -181,7 +181,7 @@ export function renderEngineLines(container, lines, onHover, onLeave) {
     `).join('');
 }
 
-function setupEngineLinesDelegation(container, onHover, onLeave) {
+function setupEngineLinesDelegation(container, onHover, onLeave, onClick) {
     if (typeof onHover === 'function') {
         container.addEventListener('mouseover', (e) => {
             const lineEl = e.target.closest('.engine-line');
@@ -198,8 +198,13 @@ function setupEngineLinesDelegation(container, onHover, onLeave) {
         container.addEventListener('click', (e) => {
             const lineEl = e.target.closest('.engine-line');
             if (lineEl) {
-                const uci = lineEl.getAttribute('data-uci');
-                if (uci && uci.length >= 4) onHover(uci.slice(0, 2), uci.slice(2, 4));
+                if (typeof onClick === 'function') {
+                    const idx = parseInt(lineEl.getAttribute('data-index'), 10);
+                    if (!isNaN(idx)) onClick(idx);
+                } else {
+                    const uci = lineEl.getAttribute('data-uci');
+                    if (uci && uci.length >= 4 && typeof onHover === 'function') onHover(uci.slice(0, 2), uci.slice(2, 4));
+                }
             }
         });
     }

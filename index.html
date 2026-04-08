@@ -9,6 +9,36 @@
     <link rel="stylesheet" href="https://unpkg.com/chessground@9.0.0/assets/chessground.brown.css">
     <link rel="stylesheet" href="https://unpkg.com/chessground@9.0.0/assets/chessground.cburnett.css">
     <link rel="stylesheet" href="styles.css">
+    <style>
+        /* Fix Home View layout to prevent full-page scrolling */
+        #homeView {
+            height: 100vh;
+            height: 100dvh; /* 모바일 브라우저 주소창 고려 */
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        #homeView main, 
+        #homeView .input-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        #homeView header, 
+        #homeView .api-controls, 
+        #homeView .manual-input-toggle,
+        #homeView .manual-input-wrapper,
+        #openVaultBtn {
+            flex-shrink: 0;
+        }
+        #gamesList {
+            flex: 1;
+            overflow-y: auto;
+            min-height: 0;
+            margin-top: 1rem;
+        }
+    </style>
 </head>
 <body>
     <div class="app-container">
@@ -46,8 +76,13 @@
         <!-- Analysis View (Hidden by default) -->
         <div id="analysisView" class="view-container hidden">
             <div class="analysis-top-bar">
-                <button id="backBtn" class="text-btn" style="font-size: 1rem; font-weight: 600;">← Back</button>
-                <div id="topEvalDisplay" class="top-eval-display">-</div>
+                <button id="backBtn" class="text-btn" style="font-size: 1rem; font-weight: 600; width: 60px; text-align: left;">← Back</button>
+                <div style="display: flex; align-items: center; width: 220px;">
+                    <div style="width: 100px; display: flex; justify-content: flex-end;">
+                        <div id="topEvalDisplay" class="top-eval-display">-</div>
+                    </div>
+                    <div id="moveClassification" style="width: 120px; text-align: left; padding-left: 10px; font-size: 0.95rem; font-weight: 600; text-transform: uppercase;"></div>
+                </div>
                 <div style="width: 60px;"></div>
             </div>
 
@@ -59,6 +94,7 @@
                         <button id="saveMoveBtn" class="control-btn save-btn">💾 Save</button>
                         <button id="nextMoveBtn" class="control-btn">Next ▶</button>
                     </div>
+                    <button id="returnMainLineBtn" class="control-btn hidden" style="width: calc(100% - 2rem); margin: 0 auto 0.5rem auto; max-width: none; background: rgba(245, 158, 11, 0.15); border-color: var(--accent-warning); color: var(--accent-warning);">↩ Return to Main Line</button>
                     <div id="engineLines" class="engine-lines-container"></div>
                     <div class="moves-container">
                         <table id="movesTable">
@@ -84,7 +120,6 @@
                 </div>
             </section>
         </div>
-    </div>
 
     <!-- Vault View -->
     <div id="vaultView" class="view-container hidden">
@@ -108,6 +143,7 @@
                 <div id="practiceBoardContainer" class="board-container"></div>
             </div>
         </section>
+    </div>
     </div>
 
     <!-- Save Move Modal -->
