@@ -11,6 +11,11 @@
     --accent-danger: #ef4444;
 }
 
+html {
+    /* 브라우저 레벨의 바운스 효과 및 전체 페이지 스크롤 원천 차단 */
+    overflow: hidden; 
+}
+
 * {
     margin: 0;
     padding: 0;
@@ -21,13 +26,16 @@ body {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     background-color: #000000; /* PC 배경: 앱 컨테이너와 확실히 구분되도록 순수 블랙 적용 */
     color: var(--text-primary);
-    min-height: 100vh;
+    height: 100vh; /* 하위 브라우저용 Fallback */
+    height: 100dvh; /* 모바일 브라우저 주소창(동적 뷰포트) 높이 완벽 대응 */
+    overflow: hidden; /* 페이지 밖으로 삐져나가는 전체 스크롤 및 하단 빈 공간 노출 차단 */
     background-image: radial-gradient(circle at 15% 50%, rgba(92, 106, 196, 0.15), transparent 25%),
                       radial-gradient(circle at 85% 30%, rgba(16, 185, 129, 0.1), transparent 25%);
     display: flex;
     justify-content: center;
     align-items: flex-start;
     padding: 0; /* Mobile edge-to-edge */
+    overscroll-behavior-y: none; /* 모바일(특히 iOS) 당겨서 새로고침(Pull-to-refresh) 및 바운스 효과 방지 */
 }
 
 .app-container {
@@ -116,6 +124,8 @@ main {
     box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
     min-height: 0;
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch; /* iOS 관성 스크롤 적용 */
+    overscroll-behavior-y: contain; /* 부모 요소로의 스크롤 체인 현상 방지 */
 }
 
 .search-input-container {
@@ -137,12 +147,14 @@ main {
     border-radius: 8px;
     color: var(--text-primary);
     padding: 0.75rem 1rem;
-    font-size: 1rem;
+    font-size: 16px; /* iOS 자동 확대 방지를 위해 시스템 기본값과 무관하게 명시적 16px 고정 */
     outline: none;
-    transition: all 0.3s ease;
+    transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
     cursor: text;
     pointer-events: auto !important;
-    user-select: auto !important;
+    user-select: text !important;
+    -webkit-user-select: text !important;
+    -webkit-appearance: none;
     position: relative;
     z-index: 999;
 }
@@ -166,7 +178,7 @@ main {
     justify-content: center;
     align-items: center;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, transform 0.2s ease;
     z-index: 1000;
 }
 .search-submit-btn:hover { background: var(--primary-hover); transform: translateX(2px); }
@@ -184,6 +196,8 @@ main {
     overflow-y: auto;
     flex: 1;
     min-height: 0;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
 }
 
 .game-item {
@@ -195,7 +209,7 @@ main {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
 }
 
 .game-item:hover {
@@ -337,7 +351,9 @@ textarea {
     padding: 1rem;
     resize: vertical;
     transition: all 0.3s ease;
-    font-size: 14px;
+    font-size: 16px; /* iOS Safari 강제 줌(Zoom-in) 방지를 위한 최소 크기 보장 */
+    -webkit-user-select: text !important;
+    -webkit-appearance: none;
     position: relative;
     z-index: 999;
 }
@@ -358,7 +374,7 @@ textarea:focus {
     font-size: 1rem;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
     box-shadow: 0 4px 12px rgba(92, 106, 196, 0.3);
     position: relative;
     z-index: 999;
@@ -444,7 +460,7 @@ textarea:focus {
     font-size: 1rem;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
     flex: 1;
     max-width: 140px;
     display: flex;
@@ -519,6 +535,8 @@ textarea:focus {
     overflow-y: auto;
     min-height: 120px; /* 아무리 화면이 좁아도 기보 창이 완전히 사라지지 않도록 최소 공간 보장 */
     background: var(--bg-panel);
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
 }
 
 table {
@@ -668,5 +686,13 @@ th {
         width: calc(100% - 2rem);
         max-width: 55vh; /* 모바일에서도 높이 비례 제한 일관성 유지 */
         margin: 1rem auto 0.5rem auto;
+    }
+    
+    /* 모바일 환경에서는 스크롤바를 숨겨 화면 공간을 최대한 확보하고 네이티브 터치 느낌을 강조 */
+    ::-webkit-scrollbar {
+        display: none;
+    }
+    * {
+        scrollbar-width: none; /* Firefox 모바일 대응 */
     }
 }
