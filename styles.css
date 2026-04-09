@@ -41,6 +41,7 @@ body {
     box-shadow: 0 0 40px rgba(0, 0, 0, 0.4); /* 앱 영역 강조 그림자 */
     overflow: hidden;
     position: relative;
+    padding-bottom: env(safe-area-inset-bottom); /* 모바일 Safe Area (하단 홈 바) 대응 */
 }
 
 /* 넓은 화면(PC/태블릿)에서 수직 중앙 정렬 및 스마트폰 화면 느낌 주기 */
@@ -58,7 +59,11 @@ body {
 }
 
 header {
-    text-align: center;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 3.5rem;
     animation: fadeInDown 0.6s ease-out;
 }
 
@@ -70,16 +75,33 @@ header h1 {
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
-    margin-bottom: 3.5rem;
+}
+
+.app-logo {
+    height: 4rem; /* PC 환경 로고 크기 조절 (원하는 크기로 숫자를 변경해 보세요) */
+    width: auto;
+    object-fit: contain;
 }
 
 main {
     display: flex;
     flex-direction: column;
-    gap: 1rem;
+    gap: 1.5rem;
     animation: fadeInUp 0.6s ease-out 0.2s both;
     flex: 1;
     min-height: 0;
+}
+
+.section-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.2rem;
 }
 
 .input-section {
@@ -96,10 +118,16 @@ main {
     overflow-y: auto;
 }
 
-.api-controls {
+.search-input-container {
+    position: relative;
     display: flex;
-    gap: 1rem;
     align-items: center;
+    width: 100%;
+}
+
+.search-input-container .text-input {
+    width: 100%;
+    padding-right: 3rem; /* 버튼이 들어갈 우측 여백 확보 */
 }
 
 .text-input {
@@ -123,6 +151,30 @@ main {
     background: rgba(255, 255, 255, 0.05);
     border-color: var(--primary-color);
     box-shadow: 0 0 0 3px rgba(92, 106, 196, 0.3);
+}
+
+.search-submit-btn {
+    position: absolute;
+    right: 0.4rem;
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    z-index: 1000;
+}
+.search-submit-btn:hover { background: var(--primary-hover); transform: translateX(2px); }
+.search-submit-btn:disabled {
+    background: #374151;
+    color: #9ca3af;
+    cursor: not-allowed;
+    transform: none;
 }
 
 .games-list {
@@ -257,6 +309,7 @@ main {
     padding: 0.75rem 1rem;
     background: var(--bg-panel);
     border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0; /* 공간 부족 시 축소 방지 */
 }
 
 .top-eval-display {
@@ -367,31 +420,10 @@ textarea:focus {
 
 .board-container {
     width: 100%;
-    max-width: 50vh; /* 화면 높이의 50%를 넘지 않도록 고정 (기보 창 공간 항상 확보) */
+    max-width: 55vh; /* 보드 크기를 10% 정도 더 확대 */
     aspect-ratio: 1 / 1;
     flex-shrink: 0; /* 강제로 찌그러져서 보드가 너무 작아지거나 깨지는 현상 방지 */
     margin: 0 auto;
-}
-
-/* --- Chessground Coordinates Alignment Fix --- */
-.cg-wrap coords {
-    font-family: 'Inter', sans-serif;
-    font-weight: 600;
-    pointer-events: none;
-}
-.cg-wrap coords.files coord {
-    display: flex;
-    align-items: flex-end;
-    justify-content: flex-end;
-    padding-bottom: 2px;
-    padding-right: 4px;
-}
-.cg-wrap coords.ranks coord {
-    display: flex;
-    align-items: flex-start;
-    justify-content: flex-start;
-    padding-top: 4px;
-    padding-left: 4px;
 }
 
 .board-controls {
@@ -400,6 +432,7 @@ textarea:focus {
     gap: 1rem;
     padding: 0.5rem 1rem;
     background: var(--bg-panel);
+    flex-shrink: 0; /* 공간 부족 시 축소 방지 */
 }
 
 .control-btn {
@@ -624,9 +657,8 @@ th {
     header h1 {
         font-size: 2.2rem;
     }
-    .api-controls {
-        flex-direction: column;
-        align-items: stretch;
+    .app-logo {
+        height: 3rem; /* 모바일 환경 로고 크기 조절 */
     }
     .primary-btn {
         align-self: stretch;
@@ -634,11 +666,7 @@ th {
     }
     .board-container {
         width: calc(100% - 2rem);
-        max-width: 50vh; /* 모바일에서도 높이 비례 제한 일관성 유지 */
+        max-width: 55vh; /* 모바일에서도 높이 비례 제한 일관성 유지 */
         margin: 1rem auto 0.5rem auto;
-    }
-    
-    .cg-wrap coords coord {
-        font-size: 0.75rem !important;
     }
 }

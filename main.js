@@ -12,6 +12,7 @@ import { getVaultItems, addVaultItem, removeVaultItem, getSavedGames, addSavedGa
 const pgnInput = document.getElementById('pgnInput');
 const analyzeBtn = document.getElementById('analyzeBtn');
 const toggleManualBtn = document.getElementById('toggleManualBtn');
+const openBoardInputBtn = document.getElementById('openBoardInputBtn');
 const manualInputWrapper = document.getElementById('manualInputWrapper');
 const openVaultBtn = document.getElementById('openVaultBtn');
 const openSavedGamesBtn = document.getElementById('openSavedGamesBtn');
@@ -40,6 +41,14 @@ const engineLinesToggleIcon = document.getElementById('engineLinesToggleIcon');
 const homeView = document.getElementById('homeView');
 const analysisView = document.getElementById('analysisView');
 const backBtn = document.getElementById('backBtn');
+
+// Board Input Elements
+const boardInputModal = document.getElementById('boardInputModal');
+const inputBoardContainer = document.getElementById('inputBoardContainer');
+const inputBoardPgn = document.getElementById('inputBoardPgn');
+const undoInputMoveBtn = document.getElementById('undoInputMoveBtn');
+const cancelInputBtn = document.getElementById('cancelInputBtn');
+const analyzeInputBtn = document.getElementById('analyzeInputBtn');
 
 // Modal Elements
 const saveModal = document.getElementById('saveModal');
@@ -100,6 +109,8 @@ let explorationEngineLines = [];
 let isSimulationMode = false; // 엔진 추천 라인 시뮬레이션 모드 여부
 let simulationQueue = [];
 let simulationIndex = -1;
+let inputChess = new window.Chess(); // 수동 보드 입력용 체스 인스턴스
+let inputCg; // 수동 보드 입력용 체스그라운드 인스턴스
 let lastEvalRenderTime = 0; // 엔진 UI 렌더링 스로틀링용 타임스탬프
 const EVAL_RENDER_THROTTLE = 100; // UI 업데이트 제한 시간(ms)
 
@@ -109,6 +120,7 @@ const EVAL_RENDER_THROTTLE = 100; // UI 업데이트 제한 시간(ms)
 cg = Chessground(boardContainer, {
     fen: 'start',
     animation: { enabled: true, duration: 250 },
+    coordinates: false,
     drawable: {
         enabled: true,
         visible: true,
@@ -124,6 +136,49 @@ cg = Chessground(boardContainer, {
 // ==========================================
 toggleManualBtn.addEventListener('click', () => {
     manualInputWrapper.classList.toggle('hidden');
+});
+
+openBoardInputBtn.addEventListener('click', () => {
+    boardInputModal.classList.remove('hidden');
+    inputChess.reset();
+    inputBoardPgn.value = '';
+    
+    const turnColor = inputChess.turn() === 'w' ? 'white' : 'black';
+    if (!inputCg) {
+        inputCg = Chessground(inputBoardContainer, {
+            animation: { enabled: true, duration: 250 },
+            movable: { free: false },
+            coordinates: false,
+            events: {
+                move: (orig, dest) => {
+                    inputChess.move({ from: orig, to: dest, promotion: 'q' });
+                    updateInputBoard();
+                }
+            }
+        });
+    }
+    updateInputBoard();
+    setTimeout(() => { if (inputCg) inputCg.redrawAll(); }, 50);
+});
+
+cancelInputBtn.addEventListener('click', () => {
+    boardInputModal.classList.add('hidden');
+});
+
+undoInputMoveBtn.addEventListener('click', () => {
+    inputChess.undo();
+    updateInputBoard();
+});
+
+analyzeInputBtn.addEventListener('click', () => {
+    if (inputChess.history().length === 0) {
+        alert('Please play at least one move to analyze.');
+        return;
+    }
+    // 완성된 PGN을 메인 입력창에 복사하고 분석 실행
+    pgnInput.value = inputChess.pgn();
+    boardInputModal.classList.add('hidden');
+    handlePgnReviewStart();
 });
 
 backBtn.addEventListener('click', () => {
@@ -152,6 +207,20 @@ savedGamesBackBtn.addEventListener('click', () => {
     savedGamesView.classList.add('hidden');
     homeView.classList.remove('hidden');
 });
+
+function updateInputBoard() {
+    const turnColor = inputChess.turn() === 'w' ? 'white' : 'black';
+    inputCg.set({
+        fen: inputChess.fen(),
+        turnColor: turnColor,
+        movable: {
+            color: turnColor,
+            dests: getDests(inputChess)
+        }
+    });
+    inputBoardPgn.value = inputChess.pgn();
+    inputBoardPgn.scrollTop = inputBoardPgn.scrollHeight;
+}
 
 fetchBtn.addEventListener('click', handleApiFetch);
 usernameInput.addEventListener('keyup', (e) => {
@@ -224,8 +293,12 @@ toggleEngineLinesBtn.addEventListener('click', () => {
 
 // --- Gemini Explanation Logic ---
 explainMoveBtn.addEventListener('click', () => {
-    geminiExplanation.classList.remove('hidden');
-    geminiExplanation.innerHTML = '<div style="color: var(--text-primary); font-weight: 500;">추후 지원 예정입니다.</div>';
+    if (geminiExplanation.classList.contains('hidden')) {
+        geminiExplanation.classList.remove('hidden');
+        geminiExplanation.innerHTML = '<div style="color: var(--text-primary); font-weight: 500;">추후 지원 예정입니다.</div>';
+    } else {
+        geminiExplanation.classList.add('hidden');
+    }
 });
 
 // --- UI Helpers ---
@@ -404,7 +477,7 @@ function startPractice(item) {
     const turnColor = practiceChess.turn() === 'w' ? 'white' : 'black';
 
     if (!practiceCg) {
-        practiceCg = Chessground(practiceBoardContainer, { animation: { enabled: true, duration: 250 } });
+        practiceCg = Chessground(practiceBoardContainer, { animation: { enabled: true, duration: 250 }, coordinates: false });
     }
 
     practiceCg.set({
@@ -458,6 +531,9 @@ window.addEventListener('resize', () => {
         }
         if (practiceCg && !practiceView.classList.contains('hidden')) {
             practiceCg.redrawAll();
+        }
+        if (inputCg && !boardInputModal.classList.contains('hidden')) {
+            inputCg.redrawAll();
         }
     }, 100); // 100ms 디바운스 적용
 });
@@ -530,7 +606,6 @@ async function handleApiFetch() {
     if (!username) return;
 
     fetchBtn.disabled = true;
-    fetchBtn.textContent = 'Fetching...';
     gamesList.innerHTML = '<div style="text-align:center; padding: 1rem;">Loading archives...</div>';
 
     try {
@@ -546,7 +621,6 @@ async function handleApiFetch() {
         gamesList.innerHTML = `<div style="color:var(--accent-danger); padding:1rem;">Failed to fetch games: ${e.message}</div>`;
     } finally {
         fetchBtn.disabled = false;
-        fetchBtn.textContent = 'Fetch Games';
     }
 }
 
