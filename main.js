@@ -1,7 +1,9 @@
 import { Chessground } from 'https://cdnjs.cloudflare.com/ajax/libs/chessground/9.0.0/chessground.min.js';
 import { fetchRecentGames } from './api.js';
 import { StockfishEngine } from './engine.js';
-import { renderGamesList, renderMovesTable, updateUIWithEval, highlightActiveMove, renderEngineLines } from './ui.js';
+import { parseEvalData, getDests, convertPvToSan, classifyMove } from './utils.js';
+import { renderGamesList, renderMovesTable, updateUIWithEval, highlightActiveMove, renderEngineLines, updateTopEvalDisplay, renderVaultList, renderSavedGamesList } from './ui.js';
+import { getVaultItems, addVaultItem, removeVaultItem, getSavedGames, addSavedGame, removeSavedGame } from './storage.js';
 
 // ==========================================
 // 1. DOM Elements
@@ -31,12 +33,13 @@ const nextMoveBtn = document.getElementById('nextMoveBtn');
 const returnMainLineBtn = document.getElementById('returnMainLineBtn');
 const explainMoveBtn = document.getElementById('explainMoveBtn');
 const geminiExplanation = document.getElementById('geminiExplanation');
+const toggleEngineLinesBtn = document.getElementById('toggleEngineLinesBtn');
+const engineLinesToggleIcon = document.getElementById('engineLinesToggleIcon');
 
 // View Navigation Elements
 const homeView = document.getElementById('homeView');
 const analysisView = document.getElementById('analysisView');
 const backBtn = document.getElementById('backBtn');
-const topEvalDisplay = document.getElementById('topEvalDisplay');
 
 // Modal Elements
 const saveModal = document.getElementById('saveModal');
@@ -97,6 +100,8 @@ let explorationEngineLines = [];
 let isSimulationMode = false; // 엔진 추천 라인 시뮬레이션 모드 여부
 let simulationQueue = [];
 let simulationIndex = -1;
+let lastEvalRenderTime = 0; // 엔진 UI 렌더링 스로틀링용 타임스탬프
+const EVAL_RENDER_THROTTLE = 100; // UI 업데이트 제한 시간(ms)
 
 // ==========================================
 // 3. Initialization
@@ -156,41 +161,8 @@ usernameInput.addEventListener('keyup', (e) => {
 });
 analyzeBtn.addEventListener('click', () => handlePgnReviewStart());
 
-// Keyboard Navigation
-document.addEventListener('keydown', (e) => {
-    if (analysisQueue.length === 0) return;
-    
-    // Ignore keyboard shortcuts if user is typing
-    if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
-    
-    if (isSimulationMode) {
-        if (e.key === 'ArrowLeft') {
-            simulationIndex = Math.max(0, simulationIndex - 1);
-            updateBoardForSimulation(simulationIndex);
-        } else if (e.key === 'ArrowRight') {
-            simulationIndex = Math.min(simulationQueue.length - 1, simulationIndex + 1);
-            updateBoardForSimulation(simulationIndex);
-        }
-        return;
-    }
-
-    let newIndex = currentlyViewedIndex;
-    
-    if (e.key === 'ArrowLeft') {
-        newIndex = Math.max(0, currentlyViewedIndex - 1);
-    } else if (e.key === 'ArrowRight') {
-        newIndex = Math.min(analysisQueue.length - 1, currentlyViewedIndex + 1);
-    } else {
-        return;
-    }
-
-    if (newIndex !== currentlyViewedIndex) {
-        e.preventDefault();
-        updateBoardPosition(newIndex, analysisQueue[newIndex].fen);
-    }
-});
-
-prevMoveBtn.addEventListener('click', () => {
+// --- Move Navigation Helpers ---
+function handlePrevMove() {
     if (isSimulationMode) {
         simulationIndex = Math.max(0, simulationIndex - 1);
         updateBoardForSimulation(simulationIndex);
@@ -201,9 +173,9 @@ prevMoveBtn.addEventListener('click', () => {
     if (newIndex !== currentlyViewedIndex) {
         updateBoardPosition(newIndex, analysisQueue[newIndex].fen);
     }
-});
+}
 
-nextMoveBtn.addEventListener('click', () => {
+function handleNextMove() {
     if (isSimulationMode) {
         simulationIndex = Math.min(simulationQueue.length - 1, simulationIndex + 1);
         updateBoardForSimulation(simulationIndex);
@@ -214,7 +186,26 @@ nextMoveBtn.addEventListener('click', () => {
     if (newIndex !== currentlyViewedIndex) {
         updateBoardPosition(newIndex, analysisQueue[newIndex].fen);
     }
+}
+
+// Keyboard Navigation
+document.addEventListener('keydown', (e) => {
+    if (analysisQueue.length === 0) return;
+    
+    // Ignore keyboard shortcuts if user is typing
+    if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
+    
+    if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        handlePrevMove();
+    } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        handleNextMove();
+    }
 });
+
+prevMoveBtn.addEventListener('click', handlePrevMove);
+nextMoveBtn.addEventListener('click', handleNextMove);
 
 returnMainLineBtn.addEventListener('click', () => {
     exitExplorationMode();
@@ -226,11 +217,27 @@ returnMainLineBtn.addEventListener('click', () => {
     }
 });
 
+toggleEngineLinesBtn.addEventListener('click', () => {
+    engineLinesContainer.classList.toggle('hidden');
+    engineLinesToggleIcon.textContent = engineLinesContainer.classList.contains('hidden') ? '▶' : '▼';
+});
+
 // --- Gemini Explanation Logic ---
 explainMoveBtn.addEventListener('click', () => {
     geminiExplanation.classList.remove('hidden');
     geminiExplanation.innerHTML = '<div style="color: var(--text-primary); font-weight: 500;">추후 지원 예정입니다.</div>';
 });
+
+// --- UI Helpers ---
+function showButtonSuccess(button, text) {
+    const originalText = button.textContent;
+    button.textContent = text;
+    button.style.color = 'var(--accent-success)';
+    setTimeout(() => {
+        button.textContent = originalText;
+        button.style.color = '';
+    }, 1500);
+}
 
 // --- Save Move to Vault Logic ---
 saveMoveBtn.addEventListener('click', () => {
@@ -301,20 +308,12 @@ confirmSaveBtn.addEventListener('click', () => {
         engineLines: move.engineLines
     };
     
-    const vault = JSON.parse(localStorage.getItem('blundermate_vault') || '[]');
-    vault.push(vaultItem);
-    localStorage.setItem('blundermate_vault', JSON.stringify(vault));
+    addVaultItem(vaultItem);
     
     saveModal.classList.add('hidden');
     
     // UX Feedback
-    const originalText = saveMoveBtn.textContent;
-    saveMoveBtn.textContent = '✔ Saved!';
-    saveMoveBtn.style.color = 'var(--accent-success)';
-    setTimeout(() => {
-        saveMoveBtn.textContent = originalText;
-        saveMoveBtn.style.color = '';
-    }, 1500);
+    showButtonSuccess(saveMoveBtn, '✔ Saved!');
 });
 
 // --- Save Entire Game Logic ---
@@ -350,119 +349,48 @@ confirmSaveGameBtn.addEventListener('click', () => {
         pgn: pgn
     };
     
-    const savedGames = JSON.parse(localStorage.getItem('blundermate_saved_games') || '[]');
-    savedGames.push(savedGameItem);
-    localStorage.setItem('blundermate_saved_games', JSON.stringify(savedGames));
+    addSavedGame(savedGameItem);
     
     saveGameModal.classList.add('hidden');
     
-    const originalText = saveMoveBtn.textContent;
-    saveMoveBtn.textContent = '✔ Game Saved!';
-    saveMoveBtn.style.color = 'var(--accent-success)';
-    setTimeout(() => {
-        saveMoveBtn.textContent = originalText;
-        saveMoveBtn.style.color = '';
-    }, 1500);
+    showButtonSuccess(saveMoveBtn, '✔ Game Saved!');
 });
 
 // --- My Vault & Practice Logic ---
 openVaultBtn.addEventListener('click', () => {
     homeView.classList.add('hidden');
     vaultView.classList.remove('hidden');
-    renderVaultList();
+    updateVaultView();
 });
 
-function renderVaultList() {
-    const vault = JSON.parse(localStorage.getItem('blundermate_vault') || '[]');
-    vaultList.innerHTML = '';
-    if (vault.length === 0) {
-        vaultList.innerHTML = '<div class="empty-state">Your Vault is empty. Analyze some games and save your mistakes!</div>';
-        return;
-    }
-    
-    // 최신 저장순으로 정렬
-    vault.sort((a, b) => new Date(b.date) - new Date(a.date)).forEach(item => {
-        let borderCol = 'var(--border-color)';
-        if(item.category === 'blunder') borderCol = 'var(--accent-danger)';
-        else if(item.category === 'mistake' || item.category === 'missed') borderCol = 'var(--accent-warning)';
-
-        const el = document.createElement('div');
-        el.className = 'game-item';
-        el.style.borderLeft = `4px solid ${borderCol}`;
-        
-        el.innerHTML = `
-            <div class="game-item-content">
-                <div class="game-category" style="color: ${borderCol};">${item.category}</div>
-                <div class="game-san">Played: <strong>${item.san}</strong></div>
-                <div class="game-best">Best: ${item.bestMove || 'Unknown'}</div>
-                ${item.notes ? `<div class="game-notes">📝 ${item.notes}</div>` : ''}
-            </div>
-            <button class="delete-btn">❌</button>
-        `;
-        
-        // 삭제 버튼 이벤트
-        el.querySelector('.delete-btn').addEventListener('click', (e) => {
-            e.stopPropagation();
-            if(confirm('Delete this saved move from your Vault?')) {
-                const newVault = vault.filter(v => v.id !== item.id);
-                localStorage.setItem('blundermate_vault', JSON.stringify(newVault));
-                renderVaultList();
-            }
-        });
-        
-        // 연습 모드 실행 이벤트
-        el.addEventListener('click', () => startPractice(item));
-        vaultList.appendChild(el);
-    });
+function updateVaultView() {
+    const items = getVaultItems();
+    renderVaultList(vaultList, items, (id) => {
+        if (confirm('Delete this saved move from your Vault?')) {
+            removeVaultItem(id);
+            updateVaultView();
+        }
+    }, startPractice);
 }
 
 // --- Saved Games View Logic ---
 openSavedGamesBtn.addEventListener('click', () => {
     homeView.classList.add('hidden');
     savedGamesView.classList.remove('hidden');
-    renderSavedGamesList();
+    updateSavedGamesView();
 });
 
-function renderSavedGamesList() {
-    const savedGames = JSON.parse(localStorage.getItem('blundermate_saved_games') || '[]');
-    savedGamesList.innerHTML = '';
-    if (savedGames.length === 0) {
-        savedGamesList.innerHTML = '<div class="empty-state">No saved games yet. Analyze a game and save it!</div>';
-        return;
-    }
-    
-    savedGames.sort((a, b) => new Date(b.date) - new Date(a.date)).forEach(item => {
-        const el = document.createElement('div');
-        el.className = 'game-item';
-        el.style.borderLeft = `4px solid var(--accent-success)`;
-        
-        el.innerHTML = `
-            <div class="game-item-content">
-                <div class="game-title">${item.title}</div>
-                <div class="game-date">Saved: ${new Date(item.date).toLocaleDateString()}</div>
-                ${item.notes ? `<div class="game-notes">📝 ${item.notes}</div>` : ''}
-            </div>
-            <button class="delete-btn">❌</button>
-        `;
-        
-        // 삭제 이벤트
-        el.querySelector('.delete-btn').addEventListener('click', (e) => {
-            e.stopPropagation();
-            if(confirm('Delete this saved game?')) {
-                const newGames = savedGames.filter(g => g.id !== item.id);
-                localStorage.setItem('blundermate_saved_games', JSON.stringify(newGames));
-                renderSavedGamesList();
-            }
-        });
-        
-        // 분석 창에 불러오기
-        el.addEventListener('click', () => {
-            savedGamesView.classList.add('hidden');
-            pgnInput.value = item.pgn;
-            handlePgnReviewStart(); // 저장된 PGN 텍스트를 통해 바로 분석 실행
-        });
-        
-        savedGamesList.appendChild(el);
+function updateSavedGamesView() {
+    const games = getSavedGames();
+    renderSavedGamesList(savedGamesList, games, (id) => {
+        if (confirm('Delete this saved game?')) {
+            removeSavedGame(id);
+            updateSavedGamesView();
+        }
+    }, (pgn) => {
+        savedGamesView.classList.add('hidden');
+        pgnInput.value = pgn;
+        handlePgnReviewStart();
     });
 }
 
@@ -645,16 +573,20 @@ const engineCallbacks = {
     onEval: (evalData) => {
         if (isExplorationMode) {
             const isBlackToMove = explorationChess.turn() === 'b';
-            const { scoreStr, scoreNum } = parseEvalData(evalData, isBlackToMove);
+            const { scoreStr, scoreNum } = parseEvalData(evalData, isBlackToMove, isUserWhite);
             
             const lineIndex = evalData.multipv - 1;
             const sanPv = convertPvToSan(evalData.pv, explorationChess.fen());
             const firstUci = evalData.pv ? evalData.pv.split(' ')[0] : '';
             explorationEngineLines[lineIndex] = { scoreStr, scoreNum, pv: sanPv, uci: firstUci };
             
-            if (explorationEngineLines[0]) {
-                renderEngineLines(engineLinesContainer, explorationEngineLines.filter(Boolean), drawEngineArrow, clearEngineArrow, handleEngineLineClick);
-                updateTopEvalDisplay(explorationEngineLines[0].scoreStr, 'Exploring');
+            const now = Date.now();
+            if (explorationEngineLines[0] && now - lastEvalRenderTime > EVAL_RENDER_THROTTLE) {
+                lastEvalRenderTime = now;
+                requestAnimationFrame(() => {
+                    renderEngineLines(engineLinesContainer, explorationEngineLines.filter(Boolean), drawEngineArrow, clearEngineArrow, handleEngineLineClick);
+                    updateTopEvalDisplay(explorationEngineLines[0].scoreStr, 'Exploring');
+                });
             }
             return;
         }
@@ -663,7 +595,7 @@ const engineCallbacks = {
         const currentMove = analysisQueue[currentAnalysisIndex];
         if (!currentMove) return; // 비동기 콜백 안전장치
 
-        const { scoreStr, scoreNum } = parseEvalData(evalData, isBlackToMove);
+        const { scoreStr, scoreNum } = parseEvalData(evalData, isBlackToMove, isUserWhite);
         
         const lineIndex = evalData.multipv - 1;
         const sanPv = convertPvToSan(evalData.pv, currentMove.fen);
@@ -673,10 +605,14 @@ const engineCallbacks = {
         // Update Main Evaluation from Top Line (MultiPV 1)
         if (currentMove.engineLines[0]) {
             currentEval = currentMove.engineLines[0].scoreStr;
-            // 현재 보고 있는 화면이 엔진이 분석 중인 수와 같을 때만 UI 실시간 업데이트
-            if (currentlyViewedIndex === currentAnalysisIndex) {
-                renderEngineLines(engineLinesContainer, currentMove.engineLines.filter(Boolean), drawEngineArrow, clearEngineArrow);
-                updateTopEvalDisplay(currentEval, currentMove.classification);
+            // 현재 보고 있는 화면이 엔진이 분석 중인 수와 같을 때만 UI 실시간 스로틀링 업데이트
+            const now = Date.now();
+            if (currentlyViewedIndex === currentAnalysisIndex && now - lastEvalRenderTime > EVAL_RENDER_THROTTLE) {
+                lastEvalRenderTime = now;
+                requestAnimationFrame(() => {
+                    renderEngineLines(engineLinesContainer, currentMove.engineLines.filter(Boolean), drawEngineArrow, clearEngineArrow, handleEngineLineClick);
+                    updateTopEvalDisplay(currentEval, currentMove.classification);
+                });
             }
         }
     },
@@ -703,11 +639,13 @@ const engineCallbacks = {
         }
 
         // 기보 분석 판별 로직 호출
-        const classification = classifyMove(currentAnalysisIndex);
+        const classification = classifyMove(currentAnalysisIndex, analysisQueue, isUserWhite);
         analysisQueue[currentAnalysisIndex].classification = classification;
         
         updateUIWithEval(currentAnalysisIndex, currentEval, classification);
         if (currentlyViewedIndex === currentAnalysisIndex) {
+            // 스로틀링으로 인해 생략되었을 수 있는 최종 평가 라인을 확실하게 다시 렌더링
+            renderEngineLines(engineLinesContainer, analysisQueue[currentAnalysisIndex].engineLines.filter(Boolean), drawEngineArrow, clearEngineArrow, handleEngineLineClick);
             updateTopEvalDisplay(currentEval, classification);
         }
         currentAnalysisIndex++;
@@ -922,7 +860,9 @@ function updateBoardPosition(index, fen) {
                 if (bestUci.length >= 4) {
                     const orig = bestUci.slice(0, 2);
                     const dest = bestUci.slice(2, 4);
-                    persistentShapes.push({ orig, dest, brush: 'blue' });
+                    if (/^[a-h][1-8]$/.test(orig) && /^[a-h][1-8]$/.test(dest)) {
+                        persistentShapes.push({ orig, dest, brush: 'blue' });
+                    }
                 }
             }
         }
@@ -942,71 +882,8 @@ function updateBoardPosition(index, fen) {
 // ==========================================
 // 9. Helpers
 // ==========================================
-function parseEvalData(evalData, isBlackToMove) {
-    let scoreStr = '';
-    let scoreNum = 0;
-    
-    if (evalData.type === 'cp') {
-        let score = evalData.value;
-        if (isBlackToMove) score = -score;
-        scoreNum = score;
-        scoreStr = score > 0 ? `+${score.toFixed(2)}` : score.toFixed(2);
-    } else if (evalData.type === 'mate') {
-        let mateIn = evalData.value;
-        if (isBlackToMove) mateIn = -mateIn;
-        scoreNum = mateIn > 0 ? 999 : -999;
-        scoreStr = `M${Math.abs(mateIn)}`;
-        scoreStr = mateIn > 0 ? `+${scoreStr}` : `-${scoreStr}`;
-    }
-    return { scoreStr, scoreNum };
-}
-
-function getDests(tempChess) {
-    const dests = new Map();
-    tempChess.SQUARES.forEach(s => {
-        const ms = tempChess.moves({ square: s, verbose: true });
-        if (ms.length) dests.set(s, ms.map(m => m.to));
-    });
-    return dests;
-}
-
-function updateTopEvalDisplay(scoreStr, classification = '') {
-    if (!topEvalDisplay) return;
-    
-    topEvalDisplay.innerHTML = scoreStr || '-';
-    topEvalDisplay.className = 'top-eval-display'; // 색상 초기화
-    
-    const numVal = parseFloat(scoreStr);
-    if (!isNaN(numVal)) {
-        if (numVal > 0.5) topEvalDisplay.classList.add('positive');
-        else if (numVal < -0.5) topEvalDisplay.classList.add('negative');
-    } else if (scoreStr && scoreStr.startsWith('+M')) {
-        topEvalDisplay.classList.add('positive');
-    } else if (scoreStr && scoreStr.startsWith('-M')) {
-        topEvalDisplay.classList.add('negative');
-    }
-
-    // 수에 대한 평가 텍스트 업데이트 (별도 영역)
-    const moveClassification = document.getElementById('moveClassification');
-    if (moveClassification) {
-        if (classification) {
-            let color = 'var(--text-secondary)';
-            if (classification === 'Blunder') color = 'var(--accent-danger)';
-            else if (classification === 'Mistake' || classification === 'Missed Win') color = 'var(--accent-warning)';
-            else if (classification === 'Inaccuracy') color = '#fbbf24'; // Amber
-            else if (classification === 'Good') color = '#60a5fa'; // Blue
-            else if (classification === 'Best') color = 'var(--accent-success)'; // Green
-            else if (classification === 'Exploring') color = 'var(--accent-warning)'; // Yellow for exploring
-            
-            moveClassification.textContent = classification;
-            moveClassification.style.color = color;
-        } else {
-            moveClassification.textContent = '';
-        }
-    }
-}
-
 function drawEngineArrow(orig, dest) {
+    if (!cg) return;
     cg.set({
         drawable: {
             autoShapes: [...persistentShapes, { orig, dest, brush: 'paleGreen' }]
@@ -1015,145 +892,12 @@ function drawEngineArrow(orig, dest) {
 }
 
 function clearEngineArrow() {
+    if (!cg) return;
     cg.set({
         drawable: {
             autoShapes: persistentShapes
         }
     });
-}
-
-const pvChess = new Chess(); // 매번 생성하지 않고 재사용하여 메모리 최적화
-
-function convertPvToSan(pv, fen) {
-    if (!pv) return '';
-    pvChess.load(fen);
-    const moves = pv.split(' ');
-    const sanMoves = [];
-    
-    // UI에서 최대 5수만 보여주므로, 성능을 위해 앞의 5수만 변환합니다.
-    const limit = Math.min(moves.length, 5); 
-    
-    for (let i = 0; i < limit; i++) {
-        const uci = moves[i];
-        if (!uci) continue;
-        
-        const from = uci.slice(0, 2);
-        const to = uci.slice(2, 4);
-        const promotion = uci.length > 4 ? uci.slice(4, 5) : undefined;
-        
-        const moveRes = pvChess.move({ from, to, promotion });
-        if (moveRes) sanMoves.push(moveRes.san);
-        else break; // 엔진이 보내준 수가 체스 규칙에 어긋나는 경우(드묾) 중단
-    }
-    return sanMoves.join(' ');
-}
-
-function classifyMove(index) {
-    if (index < 0) return '';
-    const move = analysisQueue[index];
-    if (!move.engineLines || !move.engineLines[0]) return '';
-    
-    const isWhite = move.isWhite;
-    const currEval = move.engineLines[0];
-    
-    let prevEval = { scoreNum: 0.2, scoreStr: '+0.20' }; // 기본 오프닝 점수
-    let prevLines = [];
-    if (index > 0) {
-        const prevMove = analysisQueue[index - 1];
-        if (!prevMove.engineLines || !prevMove.engineLines[0]) return '';
-        prevEval = prevMove.engineLines[0];
-        prevLines = prevMove.engineLines;
-    }
-
-    const getMate = (str) => {
-        if (!str) return null;
-        if (str.startsWith('+M')) return parseInt(str.substring(2));
-        if (str.startsWith('-M')) return -parseInt(str.substring(2));
-        return null;
-    };
-
-    const rawPrevMate = getMate(prevEval.scoreStr);
-    const rawCurrMate = getMate(currEval.scoreStr);
-
-    // 수를 둔 플레이어(백/흑) 관점에서의 메이트 (양수면 승리, 음수면 패배)
-    const prevMate = rawPrevMate !== null ? (isWhite ? rawPrevMate : -rawPrevMate) : null;
-    const currMate = rawCurrMate !== null ? (isWhite ? rawCurrMate : -rawCurrMate) : null;
-    
-    // 수를 둔 플레이어 관점의 CP (Centipawn)
-    const prevCp = (isWhite ? prevEval.scoreNum : -prevEval.scoreNum) * 100;
-    const currCp = (isWhite ? currEval.scoreNum : -currEval.scoreNum) * 100;
-
-    // ==========================================
-    // Edge Case 2: 체크메이트(Mate) 상황 보정
-    // ==========================================
-    if (prevMate !== null) {
-        if (prevMate > 0) {
-            if (currMate !== null && currMate > 0) {
-                if (currMate <= prevMate) return 'Best';
-                else return 'Good'; // 메이트가 길어졌지만 여전히 이김
-            } else if (currMate === null) {
-                return 'Missed Win'; // 메이트를 놓침
-            } else {
-                return 'Blunder'; // 메이트 이기던 상황을 지는 메이트로 역전당함
-            }
-        } else {
-            if (currMate !== null && currMate < 0) {
-                if (currMate > prevMate) return 'Blunder'; // 상대 메이트 공격을 더 짧게 허용함 (-1 > -2)
-                else return 'Best'; // 최선으로 버팀
-            } else {
-                return 'Best'; // 상대 메이트 공격 회피 성공
-            }
-        }
-    } else {
-        if (currMate !== null && currMate < 0) return 'Blunder'; // 새로 지는 메이트 허용
-        if (currMate !== null && currMate > 0) return 'Best'; // 멋진 메이트 발견
-    }
-
-    // ==========================================
-    // Edge Case 1: Sigmoid 승률(Win%) 변환 보정
-    // ==========================================
-    // 공식: W(cp) = 1 / (1 + exp(-0.00368208 * cp))
-    const wp = (cp) => 1 / (1 + Math.exp(-0.00368208 * cp));
-    const prevWp = wp(prevCp);
-    const currWp = wp(currCp);
-    
-    const cpl = prevCp - currCp; // Centipawn 손실 (양수면 손해)
-    const wpl = prevWp - currWp; // 승률 손실 (0.0 ~ 1.0 범위)
-
-    // 기준 1: CPL 등급
-    let gradeCpl = 0; // Best
-    if (cpl >= 300) gradeCpl = 4; // Blunder
-    else if (cpl >= 100) gradeCpl = 3; // Mistake
-    else if (cpl >= 50) gradeCpl = 2; // Inaccuracy
-    else if (cpl >= 10) gradeCpl = 1; // Good
-
-    // 기준 2: WPL 등급
-    let gradeWpl = 0;
-    if (wpl >= 0.20) gradeWpl = 4; // 20% 이상 승률 하락
-    else if (wpl >= 0.10) gradeWpl = 3; // 10% 이상 승률 하락
-    else if (wpl >= 0.05) gradeWpl = 2; // 5% 이상 승률 하락
-    else if (wpl >= 0.02) gradeWpl = 1; // 2% 이상 승률 하락
-
-    // 보조: 놓친 수 (Missed Win) 체크 - 유일수를 놓쳐 크게 불리해진 경우
-    if (prevLines && prevLines.length > 1 && prevLines[1]) {
-        const bestScore = (isWhite ? prevLines[0].scoreNum : -prevLines[0].scoreNum) * 100;
-        const secondScore = (isWhite ? prevLines[1].scoreNum : -prevLines[1].scoreNum) * 100;
-        if (bestScore > 150 && (bestScore - secondScore >= 150) && wpl >= 0.10) {
-            return 'Missed Win';
-        }
-    }
-
-    // 최종 등급: 압도적 유리 상황에서 억울한 Blunder가 나오지 않도록 CPL과 WPL 중 '더 관대한(낮은) 등급'을 최종 채택
-    const finalGrade = Math.min(gradeCpl, gradeWpl);
-
-    switch (finalGrade) {
-        case 4: return 'Blunder';
-        case 3: return 'Mistake';
-        case 2: return 'Inaccuracy';
-        case 1: return 'Good';
-        case 0: return 'Best';
-        default: return 'Best';
-    }
 }
 
 function handleEngineLineClick(lineIndex) {

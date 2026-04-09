@@ -107,6 +107,7 @@ export function updateUIWithEval(index, scoreStr, classification = '') {
     if (badge) {
         badge.textContent = scoreStr;
         
+        badge.classList.remove('positive', 'negative');
         const numVal = parseFloat(scoreStr);
         if (!isNaN(numVal)) {
             if (numVal > 0.5) badge.classList.add('positive');
@@ -149,7 +150,10 @@ export function highlightActiveMove(index) {
             // 화면 전체가 당겨지는 현상을 방지하기 위해 컨테이너 내부 스크롤만 조작합니다.
             const container = tr.closest('.moves-container');
             if (container) {
-                const scrollTarget = tr.offsetTop - (container.clientHeight / 2) + (tr.clientHeight / 2);
+                const rect = tr.getBoundingClientRect();
+                const containerRect = container.getBoundingClientRect();
+                const relativeTop = rect.top - containerRect.top + container.scrollTop;
+                const scrollTarget = relativeTop - (container.clientHeight / 2) + (rect.height / 2);
                 container.scrollTo({ top: scrollTarget, behavior: 'smooth' });
             }
         }
@@ -160,9 +164,14 @@ export function highlightActiveMove(index) {
  * Renders the top engine recommended lines (MultiPV).
  */
 export function renderEngineLines(container, lines, onHover, onLeave, onClick) {
+    // 항상 최신 콜백 함수를 참조하도록 컨테이너의 속성으로 저장합니다 (클로저 버그 해결)
+    container._onHover = onHover;
+    container._onLeave = onLeave;
+    container._onClick = onClick;
+
     // 한 번만 이벤트 위임(Event Delegation)을 설정하여 메모리 누수 및 재할당 방지
     if (!container.dataset.delegated) {
-        setupEngineLinesDelegation(container, onHover, onLeave, onClick);
+        setupEngineLinesDelegation(container);
         container.dataset.delegated = "true";
     }
 
@@ -171,8 +180,7 @@ export function renderEngineLines(container, lines, onHover, onLeave, onClick) {
         return;
     }
     
-    container.innerHTML = `<div style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); margin-bottom: 0.5rem;">Top Engine Lines</div>` + 
-        lines.map((line, index) => `
+    container.innerHTML = lines.map((line, index) => `
         <div class="engine-line" data-uci="${line.uci || ''}" data-index="${index}" style="display: flex; gap: 1rem; margin-bottom: 0.3rem; font-family: monospace; font-size: 0.95rem; padding: 0.3rem 0.5rem; background: rgba(0,0,0,0.1); border-radius: 4px; cursor: pointer; transition: background 0.2s;">
             <span style="color: var(--text-secondary);">#${index + 1}</span>
             <span style="min-width: 50px; font-weight: 600; color: ${line.scoreNum > 0.5 ? '#4ade80' : (line.scoreNum < -0.5 ? '#f87171' : 'inherit')};">${line.scoreStr}</span>
@@ -181,31 +189,157 @@ export function renderEngineLines(container, lines, onHover, onLeave, onClick) {
     `).join('');
 }
 
-function setupEngineLinesDelegation(container, onHover, onLeave, onClick) {
-    if (typeof onHover === 'function') {
-        container.addEventListener('mouseover', (e) => {
-            const lineEl = e.target.closest('.engine-line');
-            if (lineEl) {
-                const uci = lineEl.getAttribute('data-uci');
-                if (uci && uci.length >= 4) onHover(uci.slice(0, 2), uci.slice(2, 4));
-            }
-        });
-        container.addEventListener('mouseout', (e) => {
-            if (e.target.closest('.engine-line')) {
-                if (typeof onLeave === 'function') onLeave();
-            }
-        });
-        container.addEventListener('click', (e) => {
-            const lineEl = e.target.closest('.engine-line');
-            if (lineEl) {
-                if (typeof onClick === 'function') {
-                    const idx = parseInt(lineEl.getAttribute('data-index'), 10);
-                    if (!isNaN(idx)) onClick(idx);
-                } else {
-                    const uci = lineEl.getAttribute('data-uci');
-                    if (uci && uci.length >= 4 && typeof onHover === 'function') onHover(uci.slice(0, 2), uci.slice(2, 4));
+function setupEngineLinesDelegation(container) {
+    container.addEventListener('mouseover', (e) => {
+        const lineEl = e.target.closest('.engine-line');
+        if (lineEl && typeof container._onHover === 'function') {
+            const uci = lineEl.getAttribute('data-uci');
+            if (uci && uci.length >= 4) {
+                const orig = uci.slice(0, 2);
+                const dest = uci.slice(2, 4);
+                if (/^[a-h][1-8]$/.test(orig) && /^[a-h][1-8]$/.test(dest)) {
+                    container._onHover(orig, dest);
                 }
             }
-        });
+        }
+    });
+    container.addEventListener('mouseout', (e) => {
+        const lineEl = e.target.closest('.engine-line');
+        if (lineEl && typeof container._onLeave === 'function') {
+            if (e.relatedTarget && lineEl.contains(e.relatedTarget)) return;
+            container._onLeave();
+        }
+    });
+    container.addEventListener('click', (e) => {
+        const lineEl = e.target.closest('.engine-line');
+        if (lineEl) {
+            if (typeof container._onClick === 'function') {
+                const idx = parseInt(lineEl.getAttribute('data-index'), 10);
+                if (!isNaN(idx)) container._onClick(idx);
+            } else if (typeof container._onHover === 'function') {
+                const uci = lineEl.getAttribute('data-uci');
+                if (uci && uci.length >= 4) {
+                    const orig = uci.slice(0, 2);
+                    const dest = uci.slice(2, 4);
+                    if (/^[a-h][1-8]$/.test(orig) && /^[a-h][1-8]$/.test(dest)) {
+                        container._onHover(orig, dest);
+                    }
+                }
+            }
+        }
+    });
+}
+
+/**
+ * 상단 평가 점수판과 현재 수의 상태(Blunder, Mistake 등) 텍스트를 업데이트합니다.
+ */
+export function updateTopEvalDisplay(scoreStr, classification = '') {
+    const topEvalDisplay = document.getElementById('topEvalDisplay');
+    const moveClassification = document.getElementById('moveClassification');
+    
+    if (!topEvalDisplay) return;
+    
+    topEvalDisplay.innerHTML = scoreStr || '-';
+    topEvalDisplay.className = 'top-eval-display'; 
+    
+    const numVal = parseFloat(scoreStr);
+    if (!isNaN(numVal)) {
+        if (numVal > 0.5) topEvalDisplay.classList.add('positive');
+        else if (numVal < -0.5) topEvalDisplay.classList.add('negative');
+    } else if (scoreStr && scoreStr.startsWith('+M')) {
+        topEvalDisplay.classList.add('positive');
+    } else if (scoreStr && scoreStr.startsWith('-M')) {
+        topEvalDisplay.classList.add('negative');
     }
+
+    if (moveClassification) {
+        if (classification) {
+            const colorMap = {
+                'Blunder': 'var(--accent-danger)',
+                'Mistake': 'var(--accent-warning)',
+                'Missed Win': 'var(--accent-warning)',
+                'Inaccuracy': '#fbbf24',
+                'Good': '#60a5fa',
+                'Best': 'var(--accent-success)',
+                'Exploring': 'var(--accent-warning)'
+            };
+            moveClassification.textContent = classification;
+            moveClassification.style.color = colorMap[classification] || 'var(--text-secondary)';
+        } else {
+            moveClassification.textContent = '';
+        }
+    }
+}
+
+/**
+ * 오답노트(Vault) 리스트를 화면에 렌더링합니다.
+ */
+export function renderVaultList(container, vaultItems, onDelete, onPractice) {
+    container.innerHTML = '';
+    if (vaultItems.length === 0) {
+        container.innerHTML = '<div class="empty-state">Your Vault is empty. Analyze some games and save your mistakes!</div>';
+        return;
+    }
+    
+    vaultItems.sort((a, b) => new Date(b.date) - new Date(a.date)).forEach(item => {
+        let borderCol = 'var(--border-color)';
+        if(item.category === 'blunder') borderCol = 'var(--accent-danger)';
+        else if(item.category === 'mistake' || item.category === 'missed') borderCol = 'var(--accent-warning)';
+
+        const el = document.createElement('div');
+        el.className = 'game-item';
+        el.style.borderLeft = `4px solid ${borderCol}`;
+        
+        el.innerHTML = `
+            <div class="game-item-content">
+                <div class="game-category" style="color: ${borderCol};">${item.category}</div>
+                <div class="game-san">Played: <strong>${item.san}</strong></div>
+                <div class="game-best">Best: ${item.bestMove || 'Unknown'}</div>
+                ${item.notes ? `<div class="game-notes">📝 ${item.notes}</div>` : ''}
+            </div>
+            <button class="delete-btn">❌</button>
+        `;
+        
+        el.querySelector('.delete-btn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            onDelete(item.id);
+        });
+        
+        el.addEventListener('click', () => onPractice(item));
+        container.appendChild(el);
+    });
+}
+
+/**
+ * 저장된 전체 게임 리스트를 렌더링합니다.
+ */
+export function renderSavedGamesList(container, savedGames, onDelete, onLoad) {
+    container.innerHTML = '';
+    if (savedGames.length === 0) {
+        container.innerHTML = '<div class="empty-state">No saved games yet. Analyze a game and save it!</div>';
+        return;
+    }
+    
+    savedGames.sort((a, b) => new Date(b.date) - new Date(a.date)).forEach(item => {
+        const el = document.createElement('div');
+        el.className = 'game-item';
+        el.style.borderLeft = `4px solid var(--accent-success)`;
+        
+        el.innerHTML = `
+            <div class="game-item-content">
+                <div class="game-title">${item.title}</div>
+                <div class="game-date">Saved: ${new Date(item.date).toLocaleDateString()}</div>
+                ${item.notes ? `<div class="game-notes">📝 ${item.notes}</div>` : ''}
+            </div>
+            <button class="delete-btn">❌</button>
+        `;
+        
+        el.querySelector('.delete-btn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            onDelete(item.id);
+        });
+        
+        el.addEventListener('click', () => onLoad(item.pgn));
+        container.appendChild(el);
+    });
 }

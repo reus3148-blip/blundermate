@@ -87,7 +87,13 @@
                         <button id="returnMainLineBtn" class="control-btn hidden" style="width: 100%; max-width: none; background: rgba(245, 158, 11, 0.15); border-color: var(--accent-warning); color: var(--accent-warning);">↩ Return to Main Line</button>
                         <button id="explainMoveBtn" class="control-btn" style="width: 100%; max-width: none; background: rgba(168, 85, 247, 0.15); border-color: #a855f7; color: #a855f7;">✨ Explain with Gemini</button>
                     </div>
-                    <div id="engineLines" class="engine-lines-container"></div>
+                    <div class="engine-lines-wrapper">
+                        <button id="toggleEngineLinesBtn" class="engine-lines-header">
+                            <span>Top Engine Lines</span>
+                            <span id="engineLinesToggleIcon">▼</span>
+                        </button>
+                        <div id="engineLines" class="engine-lines-container"></div>
+                    </div>
                     <div id="geminiExplanation" class="hidden" style="padding: 1rem; background: rgba(168, 85, 247, 0.1); border-bottom: 1px solid var(--border-color); font-size: 0.9rem; line-height: 1.5; color: var(--text-primary);"></div>
                     <div class="moves-container">
                         <table id="movesTable">

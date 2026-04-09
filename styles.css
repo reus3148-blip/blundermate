@@ -19,7 +19,7 @@
 
 body {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    background-color: var(--bg-dark);
+    background-color: #000000; /* PC 배경: 앱 컨테이너와 확실히 구분되도록 순수 블랙 적용 */
     color: var(--text-primary);
     min-height: 100vh;
     background-image: radial-gradient(circle at 15% 50%, rgba(92, 106, 196, 0.15), transparent 25%),
@@ -35,7 +35,8 @@ body {
     max-width: 450px; /* PC 화면에서 모바일 비율 너비로 제한 */
     display: flex;
     flex-direction: column;
-    height: 100vh; /* App-like full height */
+    height: 100vh;
+    height: 100dvh; /* 모바일 브라우저 하단 스크롤 잘림(100vh 버그) 완벽 방지 */
     background-color: var(--bg-dark); /* PC 배경과 구분하기 위한 배경색 */
     box-shadow: 0 0 40px rgba(0, 0, 0, 0.4); /* 앱 영역 강조 그림자 */
     overflow: hidden;
@@ -48,10 +49,11 @@ body {
         align-items: center;
     }
     .app-container {
-        height: 90vh;
-        max-height: 900px;
-        border-radius: 20px;
+        height: 95vh;
+        max-height: 850px;
+        border-radius: 16px;
         border: 1px solid var(--border-color);
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6); /* 앱 영역 입체감 강화 */
     }
 }
 
@@ -236,7 +238,8 @@ main {
     display: flex;
     flex-direction: column;
     width: 100%;
-    height: 100%;
+    flex: 1;
+    min-height: 0;
     overflow: hidden;
 }
 
@@ -329,6 +332,7 @@ textarea:focus {
     display: flex;
     flex-direction: column;
     flex: 1;
+    min-height: 0;
     overflow: hidden;
 }
 
@@ -356,16 +360,16 @@ textarea:focus {
 .analysis-board {
     display: flex;
     flex-direction: column;
-    height: 100%;
+    flex: 1;
+    min-height: 0;
     overflow: hidden;
 }
 
 .board-container {
     width: 100%;
+    max-width: 50vh; /* 화면 높이의 50%를 넘지 않도록 고정 (기보 창 공간 항상 확보) */
     aspect-ratio: 1 / 1;
-    max-width: 600px;
-    max-height: 600px;
-    flex-shrink: 0;
+    flex-shrink: 0; /* 강제로 찌그러져서 보드가 너무 작아지거나 깨지는 현상 방지 */
     margin: 0 auto;
 }
 
@@ -446,16 +450,41 @@ textarea:focus {
     color: #fff;
 }
 
-.engine-lines-container {
-    padding: 0.5rem 1rem;
+.engine-lines-wrapper {
     background: var(--bg-panel);
     border-bottom: 1px solid var(--border-color);
     flex-shrink: 0;
 }
 
+.engine-lines-header {
+    width: 100%;
+    text-align: left;
+    padding: 0.5rem 1rem;
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: color 0.2s ease;
+}
+
+.engine-lines-header:hover {
+    color: var(--text-primary);
+}
+
+.engine-lines-container {
+    padding: 0 1rem 0.5rem 1rem;
+}
+
 .moves-container {
     flex: 1;
     overflow-y: auto;
+    min-height: 120px; /* 아무리 화면이 좁아도 기보 창이 완전히 사라지지 않도록 최소 공간 보장 */
     background: var(--bg-panel);
 }
 
@@ -496,6 +525,12 @@ th {
 
 .eval-badge.positive { color: var(--text-primary); background: rgba(16, 185, 129, 0.2); }
 .eval-badge.negative { color: var(--text-primary); background: rgba(239, 68, 68, 0.2); }
+
+/* 기보 테이블 셀 배경 하이라이트 (Blunder / Mistake 등) */
+.bg-blunder { background-color: rgba(239, 68, 68, 0.15) !important; border-radius: 4px; }
+.bg-mistake { background-color: rgba(245, 158, 11, 0.15) !important; border-radius: 4px; }
+.bg-missed-win { background-color: rgba(245, 158, 11, 0.15) !important; border-radius: 4px; }
+.bg-inaccuracy { background-color: rgba(251, 191, 36, 0.1) !important; border-radius: 4px; }
 
 .empty-state {
     text-align: center;
@@ -599,8 +634,7 @@ th {
     }
     .board-container {
         width: calc(100% - 2rem);
-        height: auto;
-        aspect-ratio: 1 / 1;
+        max-width: 50vh; /* 모바일에서도 높이 비례 제한 일관성 유지 */
         margin: 1rem auto 0.5rem auto;
     }
     
