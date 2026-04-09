@@ -134,6 +134,43 @@ cg = Chessground(boardContainer, {
 });
 
 // ==========================================
+// 3-1. UI Enhancements (Dynamic FAB)
+// ==========================================
+// 모바일 최적화: 기보 전체화면 토글용 플로팅 버튼(FAB) 동적 생성
+const fabToggleMoves = document.createElement('button');
+fabToggleMoves.className = 'fab-toggle-moves';
+fabToggleMoves.innerHTML = '📜 Full Moves';
+analysisView.appendChild(fabToggleMoves);
+
+fabToggleMoves.addEventListener('click', () => {
+    const analysisBoard = document.querySelector('.analysis-board');
+    if (!analysisBoard) return;
+    
+    analysisBoard.classList.toggle('moves-fullscreen-mode');
+    if (analysisBoard.classList.contains('moves-fullscreen-mode')) {
+        fabToggleMoves.innerHTML = '♟️ Show Board';
+        // 기보 화면이 열릴 때, 방금까지 탐색하던 활성화된 수의 위치로 자동 스크롤
+        setTimeout(() => {
+            const activeRow = document.querySelector('.active-move-row');
+            if (activeRow) {
+                const container = activeRow.closest('.moves-container');
+                if (container && container.offsetParent !== null) {
+                    const rect = activeRow.getBoundingClientRect();
+                    const containerRect = container.getBoundingClientRect();
+                    const relativeTop = rect.top - containerRect.top + container.scrollTop;
+                    const scrollTarget = relativeTop - (container.clientHeight / 2) + (rect.height / 2);
+                    container.scrollTo({ top: scrollTarget, behavior: 'auto' });
+                }
+            }
+        }, 50);
+    } else {
+        fabToggleMoves.innerHTML = '📜 Full Moves';
+        // 보드가 다시 나타날 때 컨테이너 크기 재계산 (체스판 깨짐/렌더링 중지 방지 Edge Case 처리)
+        setTimeout(() => { if (cg) cg.redrawAll(); }, 50);
+    }
+});
+
+// ==========================================
 // 4. Event Listeners
 // ==========================================
 toggleManualBtn.addEventListener('click', () => {

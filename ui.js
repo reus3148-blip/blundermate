@@ -151,7 +151,8 @@ export function highlightActiveMove(index) {
             
             // 화면 전체가 당겨지는 현상을 방지하기 위해 컨테이너 내부 스크롤만 조작합니다.
             const container = tr.closest('.moves-container');
-            if (container) {
+            // 기보 컨테이너가 화면에 보일 때(display: none이 아닐 때)만 스크롤 위치를 계산 (Edge Case 방어)
+            if (container && container.offsetParent !== null) {
                 const rect = tr.getBoundingClientRect();
                 const containerRect = container.getBoundingClientRect();
                 const relativeTop = rect.top - containerRect.top + container.scrollTop;

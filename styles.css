@@ -307,6 +307,7 @@ main {
     flex: 1;
     min-height: 0;
     overflow: hidden;
+    position: relative; /* FAB(플로팅 버튼)의 절대 위치 기준점 */
 }
 
 #homeView {
@@ -409,6 +410,7 @@ textarea:focus {
     display: flex;
     gap: 1rem;
     align-items: center;
+    margin-top: auto; /* 상단 내용과 관계없이 항상 화면 제일 아래에 위치하도록 밀어냄 */
 }
 
 .tag {
@@ -522,6 +524,41 @@ textarea:focus {
     transition: color 0.2s ease;
 }
 
+/* --- 모바일 최적화: 기보 전체화면 토글 모드 및 FAB --- */
+.fab-toggle-moves {
+    position: absolute;
+    bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px));
+    right: 1.5rem;
+    background: var(--primary-color);
+    color: #fff;
+    border: none;
+    border-radius: 30px;
+    padding: 0.8rem 1.2rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+    cursor: pointer;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: background-color 0.2s ease, transform 0.2s ease;
+}
+.fab-toggle-moves:hover { background: var(--primary-hover); transform: translateY(-2px); }
+.fab-toggle-moves:active { transform: translateY(1px); }
+
+/* 전체화면 기보 모드 적용 시 체스판 및 컨트롤 영역 숨김 */
+.moves-fullscreen-mode .board-container,
+.moves-fullscreen-mode .board-controls,
+.moves-fullscreen-mode .engine-lines-wrapper {
+    display: none !important;
+}
+.moves-fullscreen-mode .moves-container {
+    display: block; /* 전체화면 모드일 때만 기보를 표시 */
+    flex: 1;
+    height: 100%;
+}
+
 .engine-lines-header:hover {
     color: var(--text-primary);
 }
@@ -531,6 +568,7 @@ textarea:focus {
 }
 
 .moves-container {
+    display: none; /* 기본 화면에서는 기보 테이블을 숨겨서 깔끔한 보드 영역 확보 */
     flex: 1;
     overflow-y: auto;
     min-height: 120px; /* 아무리 화면이 좁아도 기보 창이 완전히 사라지지 않도록 최소 공간 보장 */
