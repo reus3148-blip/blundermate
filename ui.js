@@ -7,26 +7,28 @@ export function renderGamesList(container, games, searchedUsername, onGameClick)
 
     games.forEach(game => {
         const isWhite = game.white.username.toLowerCase() === searchLower;
-        const myColor = isWhite ? 'White' : 'Black';
         const opponent = isWhite ? game.black.username : game.white.username;
-        const myRating = isWhite ? game.white.rating : game.black.rating;
         
         // Determine Visual Status
         const resultCode = isWhite ? game.white.result : game.black.result;
         let resultClass = 'draw';
-        if (resultCode === 'win') resultClass = 'win';
-        else if (['checkmated', 'timeout', 'resigned', 'abandoned'].includes(resultCode)) resultClass = 'loss';
-
-        const timeClass = game.time_class.charAt(0).toUpperCase() + game.time_class.slice(1);
+        let resultText = 'Draw';
+        if (resultCode === 'win') {
+            resultClass = 'win';
+            resultText = 'Win';
+        } else if (['checkmated', 'timeout', 'resigned', 'abandoned'].includes(resultCode)) {
+            resultClass = 'loss';
+            resultText = 'Loss';
+        }
 
         const item = document.createElement('div');
         item.className = `game-item ${resultClass}`;
         item.innerHTML = `
-            <div>
-                <div style="font-weight: 600;">vs ${opponent}</div>
-                <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.2rem;">
-                    Played as ${myColor} (${myRating} ELO) • ${timeClass}
-                </div>
+            <div style="font-weight: 600; font-size: 1rem;">
+                ${resultText} 
+                <span style="font-size: 0.85rem; color: var(--text-secondary); font-weight: normal; margin-left: 0.5rem;">
+                    vs ${opponent}
+                </span>
             </div>
             <div class="eval-badge" style="background:var(--bg-dark);">Review</div>
         `;

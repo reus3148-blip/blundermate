@@ -181,8 +181,8 @@ main {
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
-    max-height: 250px;
     overflow-y: auto;
+    flex: 1;
     min-height: 0;
 }
 

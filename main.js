@@ -14,6 +14,8 @@ const analyzeBtn = document.getElementById('analyzeBtn');
 const toggleManualBtn = document.getElementById('toggleManualBtn');
 const openBoardInputBtn = document.getElementById('openBoardInputBtn');
 const manualInputWrapper = document.getElementById('manualInputWrapper');
+const manualInputContainer = document.getElementById('manualInputContainer');
+const myLibrarySection = document.getElementById('myLibrarySection');
 const openVaultBtn = document.getElementById('openVaultBtn');
 const openSavedGamesBtn = document.getElementById('openSavedGamesBtn');
 
@@ -226,6 +228,16 @@ fetchBtn.addEventListener('click', handleApiFetch);
 usernameInput.addEventListener('keyup', (e) => {
     if (e.key === 'Enter') {
         handleApiFetch();
+    }
+});
+
+// 검색창이 비워지면 원래 메뉴들을 다시 보여줍니다.
+usernameInput.addEventListener('input', (e) => {
+    if (e.target.value.trim() === '') {
+        gamesList.innerHTML = '';
+        myLibrarySection.classList.remove('hidden');
+        manualInputContainer.classList.remove('hidden');
+        manualInputWrapper.classList.add('hidden');
     }
 });
 analyzeBtn.addEventListener('click', () => handlePgnReviewStart());
@@ -615,6 +627,11 @@ async function handleApiFetch() {
             pgnInput.value = pgn;
             handlePgnReviewStart(null, isWhiteGame);
         });
+        
+        // 검색 성공 시 화면을 넓게 쓰기 위해 다른 메뉴 숨김
+        myLibrarySection.classList.add('hidden');
+        manualInputContainer.classList.add('hidden');
+        manualInputWrapper.classList.add('hidden');
 
     } catch (e) {
         console.error(e);
