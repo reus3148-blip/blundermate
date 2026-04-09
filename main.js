@@ -75,6 +75,7 @@ const savedGamesBackBtn = document.getElementById('savedGamesBackBtn');
 // ==========================================
 // 2. Application State
 // ==========================================
+const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 let stockfish;
 let isEngineReady = false;
 let chess = new Chess();
@@ -129,6 +130,7 @@ backBtn.addEventListener('click', () => {
     isAnalyzing = false;
     isWaitingForStop = false;
     pendingQueue = null;
+    analysisQueue = []; // 큐도 초기화하여 백그라운드 엔진 메시지로 인한 충돌 방지
 });
 
 vaultBackBtn.addEventListener('click', () => {
@@ -219,66 +221,15 @@ returnMainLineBtn.addEventListener('click', () => {
     if (currentlyViewedIndex >= 0 && analysisQueue[currentlyViewedIndex]) {
         updateBoardPosition(currentlyViewedIndex, analysisQueue[currentlyViewedIndex].fen);
     } else {
-        const startFen = chess.header().FEN || 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+        const startFen = chess.header().FEN || START_FEN;
         updateBoardPosition(-1, startFen);
     }
 });
 
 // --- Gemini Explanation Logic ---
-explainMoveBtn.addEventListener('click', async () => {
-    let apiKey = localStorage.getItem('blundermate_gemini_key');
-    if (!apiKey) {
-        apiKey = prompt("Please enter your Gemini API Key (It will be saved locally):");
-        if (!apiKey) return;
-        localStorage.setItem('blundermate_gemini_key', apiKey);
-    }
-
-    let promptText = '';
+explainMoveBtn.addEventListener('click', () => {
     geminiExplanation.classList.remove('hidden');
-    geminiExplanation.innerHTML = '<div style="color: #a855f7;"><em>✨ Gemini is analyzing the position...</em></div>';
-
-    if (isExplorationMode) {
-        if (!explorationEngineLines[0]) return;
-        const fen = explorationChess.fen();
-        const bestMoveSan = explorationEngineLines[0].pv.split(' ')[0];
-        promptText = `Act as a chess grandmaster. The current position FEN is "${fen}". Stockfish recommends "${bestMoveSan}" as the best move. Briefly explain the positional or tactical idea behind "${bestMoveSan}" in 2-3 sentences.`;
-    } else {
-        if (currentlyViewedIndex < 0) return;
-        const move = analysisQueue[currentlyViewedIndex];
-        if (!move || !move.engineLines || !move.engineLines[0]) return;
-        
-        const fen = move.fen;
-        const playedMove = move.san;
-        const classification = move.classification || 'Move';
-        const bestMoveSan = move.engineLines[0].pv.split(' ')[0];
-
-        promptText = `Act as a chess grandmaster. The current position FEN is "${fen}". `;
-        if (['Blunder', 'Mistake', 'Missed Win', 'Inaccuracy'].includes(classification)) {
-            promptText += `The player played "${playedMove}", which is a ${classification}. `;
-        } else {
-            promptText += `The player played "${playedMove}". `;
-        }
-        promptText += `Stockfish recommends "${bestMoveSan}" as the best move. Briefly explain why "${bestMoveSan}" is good, and if "${playedMove}" was a mistake, explain the tactical or positional reason why in 2 to 3 sentences. Be clear and concise.`;
-    }
-
-    try {
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ contents: [{ parts: [{ text: promptText }] }] })
-        });
-        if (!response.ok) {
-            if (response.status === 400) throw new Error('Invalid API Key.');
-            throw new Error('API request failed.');
-        }
-        const data = await response.json();
-        let explanation = data.candidates[0].content.parts[0].text;
-        explanation = explanation.replace(/\*\*(.*?)\*\*/g, '<strong style="color: #fff;">$1</strong>');
-        geminiExplanation.innerHTML = `<div style="margin-bottom: 0.5rem; font-weight: bold; color: #a855f7;">✨ Gemini 1.5 Flash</div>${explanation.replace(/\n/g, '<br>')}`;
-    } catch (err) {
-        geminiExplanation.innerHTML = `<span style="color: var(--accent-danger);">Error: ${err.message} <button id="resetGeminiKey" class="text-btn" style="margin-left: 10px;">Reset Key</button></span>`;
-        document.getElementById('resetGeminiKey').addEventListener('click', () => { localStorage.removeItem('blundermate_gemini_key'); geminiExplanation.classList.add('hidden'); });
-    }
+    geminiExplanation.innerHTML = '<div style="color: var(--text-primary); font-weight: 500;">추후 지원 예정입니다.</div>';
 });
 
 // --- Save Move to Vault Logic ---
@@ -334,12 +285,7 @@ cancelSaveBtn.addEventListener('click', () => {
 
 confirmSaveBtn.addEventListener('click', () => {
     const move = analysisQueue[currentlyViewedIndex];
-    let initialMoveFen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
-    try {
-        if (chess && chess.header() && chess.header().FEN) {
-            initialMoveFen = chess.header().FEN;
-        }
-    } catch(e) {}
+    const initialMoveFen = chess?.header?.()?.FEN || START_FEN;
 
     const vaultItem = {
         id: Date.now(),
@@ -377,12 +323,10 @@ choiceSaveGameBtn.addEventListener('click', () => {
     
     // PGN 헤더에서 플레이어 이름 추출 시도
     let defaultTitle = "Saved Game";
-    try {
-        const h = chess.header();
-        if (h && h.White && h.Black && h.White !== '?' && h.Black !== '?') {
-            defaultTitle = `${h.White} vs ${h.Black}`;
-        }
-    } catch(e) {}
+    const h = chess?.header?.();
+    if (h && h.White && h.Black && h.White !== '?' && h.Black !== '?') {
+        defaultTitle = `${h.White} vs ${h.Black}`;
+    }
 
     saveGameTitle.value = defaultTitle;
     saveGameNotes.value = '';
@@ -447,17 +391,17 @@ function renderVaultList() {
         el.style.borderLeft = `4px solid ${borderCol}`;
         
         el.innerHTML = `
-            <div style="flex: 1; min-width: 0; overflow-wrap: break-word; word-break: break-word;">
-                <div style="font-weight: 600; color: ${borderCol}; text-transform: uppercase; font-size: 0.85rem;">${item.category}</div>
-                <div style="font-size: 1rem; margin-top: 4px;">Played: <strong>${item.san}</strong></div>
-                <div style="font-size: 0.85rem; color: var(--accent-success); margin-top: 2px;">Best: ${item.bestMove || 'Unknown'}</div>
-                ${item.notes ? `<div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 6px;">📝 ${item.notes}</div>` : ''}
+            <div class="game-item-content">
+                <div class="game-category" style="color: ${borderCol};">${item.category}</div>
+                <div class="game-san">Played: <strong>${item.san}</strong></div>
+                <div class="game-best">Best: ${item.bestMove || 'Unknown'}</div>
+                ${item.notes ? `<div class="game-notes">📝 ${item.notes}</div>` : ''}
             </div>
-            <button class="delete-vault-btn" style="flex-shrink: 0; margin-left: 10px; padding: 0.5rem;">❌</button>
+            <button class="delete-btn">❌</button>
         `;
         
         // 삭제 버튼 이벤트
-        el.querySelector('.delete-vault-btn').addEventListener('click', (e) => {
+        el.querySelector('.delete-btn').addEventListener('click', (e) => {
             e.stopPropagation();
             if(confirm('Delete this saved move from your Vault?')) {
                 const newVault = vault.filter(v => v.id !== item.id);
@@ -493,16 +437,16 @@ function renderSavedGamesList() {
         el.style.borderLeft = `4px solid var(--accent-success)`;
         
         el.innerHTML = `
-            <div style="flex: 1; min-width: 0; overflow-wrap: break-word; word-break: break-word;">
-                <div style="font-weight: 600; font-size: 1rem; color: var(--text-primary);">${item.title}</div>
-                <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 4px;">Saved: ${new Date(item.date).toLocaleDateString()}</div>
-                ${item.notes ? `<div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 6px;">📝 ${item.notes}</div>` : ''}
+            <div class="game-item-content">
+                <div class="game-title">${item.title}</div>
+                <div class="game-date">Saved: ${new Date(item.date).toLocaleDateString()}</div>
+                ${item.notes ? `<div class="game-notes">📝 ${item.notes}</div>` : ''}
             </div>
-            <button class="delete-saved-game-btn" style="flex-shrink: 0; margin-left: 10px; padding: 0.5rem; background:none; border:none; font-size:1.2rem; cursor:pointer; color:var(--text-secondary);">❌</button>
+            <button class="delete-btn">❌</button>
         `;
         
         // 삭제 이벤트
-        el.querySelector('.delete-saved-game-btn').addEventListener('click', (e) => {
+        el.querySelector('.delete-btn').addEventListener('click', (e) => {
             e.stopPropagation();
             if(confirm('Delete this saved game?')) {
                 const newGames = savedGames.filter(g => g.id !== item.id);
@@ -601,7 +545,7 @@ function handleExplorationMove(orig, dest) {
         isExplorationMode = true;
         returnMainLineBtn.classList.remove('hidden');
         
-        let baseFen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+        let baseFen = START_FEN;
         if (currentlyViewedIndex >= 0 && analysisQueue[currentlyViewedIndex]) baseFen = analysisQueue[currentlyViewedIndex].fen;
         else if (chess.header().FEN) baseFen = chess.header().FEN;
         
@@ -628,7 +572,10 @@ function handleExplorationMove(orig, dest) {
     explorationEngineLines = [];
     updateTopEvalDisplay('...', 'Exploring');
     engineLinesContainer.innerHTML = '<div style="padding: 1rem; color: var(--text-secondary);">Analyzing variation...</div>';
-    stockfish.analyzeFen(explorationChess.fen(), 10);
+    
+    analysisStatus.className = 'tag engine-loading';
+    analysisStatus.textContent = 'Exploring position...';
+    stockfish.analyzeFen(explorationChess.fen(), 12);
 }
 
 function exitExplorationMode() {
@@ -641,6 +588,9 @@ function exitExplorationMode() {
     // 메인 라인 전체 기보 분석이 중단된 상태였다면 재개
     if (isEngineReady && currentAnalysisIndex < analysisQueue.length) {
         processNextInQueue();
+    } else {
+        analysisStatus.className = 'tag engine-ready';
+        analysisStatus.textContent = 'Analysis Complete';
     }
 }
 
@@ -695,21 +645,7 @@ const engineCallbacks = {
     onEval: (evalData) => {
         if (isExplorationMode) {
             const isBlackToMove = explorationChess.turn() === 'b';
-            let scoreStr = '';
-            let scoreNum = 0;
-            
-            if (evalData.type === 'cp') {
-                let score = evalData.value;
-                if (isBlackToMove) score = -score;
-                scoreNum = score;
-                scoreStr = score > 0 ? `+${score.toFixed(2)}` : score.toFixed(2);
-            } else if (evalData.type === 'mate') {
-                let mateIn = evalData.value;
-                if (isBlackToMove) mateIn = -mateIn;
-                scoreNum = mateIn > 0 ? 999 : -999;
-                scoreStr = `M${Math.abs(mateIn)}`;
-                scoreStr = mateIn > 0 ? `+${scoreStr}` : `-${scoreStr}`;
-            }
+            const { scoreStr, scoreNum } = parseEvalData(evalData, isBlackToMove);
             
             const lineIndex = evalData.multipv - 1;
             const sanPv = convertPvToSan(evalData.pv, explorationChess.fen());
@@ -724,24 +660,12 @@ const engineCallbacks = {
         }
 
         const isBlackToMove = analysisQueue[currentAnalysisIndex].fen.includes(' b ');
-        let scoreStr = '';
-        let scoreNum = 0;
-        
-        if (evalData.type === 'cp') {
-            let score = evalData.value;
-            if (isBlackToMove) score = -score;
-            scoreNum = score;
-            scoreStr = score > 0 ? `+${score.toFixed(2)}` : score.toFixed(2);
-        } else if (evalData.type === 'mate') {
-            let mateIn = evalData.value;
-            if (isBlackToMove) mateIn = -mateIn;
-            scoreNum = mateIn > 0 ? 999 : -999;
-            scoreStr = `M${Math.abs(mateIn)}`;
-            scoreStr = mateIn > 0 ? `+${scoreStr}` : `-${scoreStr}`;
-        }
+        const currentMove = analysisQueue[currentAnalysisIndex];
+        if (!currentMove) return; // 비동기 콜백 안전장치
+
+        const { scoreStr, scoreNum } = parseEvalData(evalData, isBlackToMove);
         
         const lineIndex = evalData.multipv - 1;
-        const currentMove = analysisQueue[currentAnalysisIndex];
         const sanPv = convertPvToSan(evalData.pv, currentMove.fen);
         const firstUci = evalData.pv ? evalData.pv.split(' ')[0] : '';
         currentMove.engineLines[lineIndex] = { scoreStr, scoreNum, pv: sanPv, uci: firstUci };
@@ -767,8 +691,17 @@ const engineCallbacks = {
             return;
         }
         
-        if (isExplorationMode) return;
+        if (isExplorationMode) {
+            analysisStatus.className = 'tag engine-ready';
+            analysisStatus.textContent = 'Exploration Complete';
+            return;
+        }
         
+        if (!analysisQueue || currentAnalysisIndex >= analysisQueue.length) {
+            isAnalyzing = false;
+            return;
+        }
+
         // 기보 분석 판별 로직 호출
         const classification = classifyMove(currentAnalysisIndex);
         analysisQueue[currentAnalysisIndex].classification = classification;
@@ -887,6 +820,11 @@ function startNewAnalysis(newQueue) {
     homeView.classList.add('hidden');
     analysisView.classList.remove('hidden');
     
+    // 이전 탐색(Exploration) 및 시뮬레이션 모드 상태 완전 초기화
+    isExplorationMode = false;
+    isSimulationMode = false;
+    returnMainLineBtn.classList.add('hidden');
+
     // Force Chessground to recalculate board size for mobile
     setTimeout(() => { if (cg) cg.redrawAll(); }, 50);
 
@@ -944,8 +882,8 @@ function processNextInQueue() {
         return;
     }
 
-    // Depth 10 for faster analysis during development
-    stockfish.analyzeFen(pos.fen, 10);
+    // 일관된 분석을 위해 엔진 깊이(Depth)를 12로 고정
+    stockfish.analyzeFen(pos.fen, 12);
 }
 
 // ==========================================
@@ -956,7 +894,7 @@ function updateBoardPosition(index, fen) {
         exitExplorationMode();
     }
 
-    const validFen = fen === 'start' ? 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1' : fen;
+    const validFen = fen === 'start' ? START_FEN : fen;
     const tempChess = new Chess(validFen);
     const turnColor = tempChess.turn() === 'w' ? 'white' : 'black';
     cg.set({ 
@@ -1004,6 +942,25 @@ function updateBoardPosition(index, fen) {
 // ==========================================
 // 9. Helpers
 // ==========================================
+function parseEvalData(evalData, isBlackToMove) {
+    let scoreStr = '';
+    let scoreNum = 0;
+    
+    if (evalData.type === 'cp') {
+        let score = evalData.value;
+        if (isBlackToMove) score = -score;
+        scoreNum = score;
+        scoreStr = score > 0 ? `+${score.toFixed(2)}` : score.toFixed(2);
+    } else if (evalData.type === 'mate') {
+        let mateIn = evalData.value;
+        if (isBlackToMove) mateIn = -mateIn;
+        scoreNum = mateIn > 0 ? 999 : -999;
+        scoreStr = `M${Math.abs(mateIn)}`;
+        scoreStr = mateIn > 0 ? `+${scoreStr}` : `-${scoreStr}`;
+    }
+    return { scoreStr, scoreNum };
+}
+
 function getDests(tempChess) {
     const dests = new Map();
     tempChess.SQUARES.forEach(s => {
