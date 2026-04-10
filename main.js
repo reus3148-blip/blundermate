@@ -1,5 +1,5 @@
 import { Chessground } from 'https://cdnjs.cloudflare.com/ajax/libs/chessground/9.0.0/chessground.min.js';
-import { fetchRecentGames } from './api.js';
+import { fetchRecentGames } from './chessApi.js';
 import { StockfishEngine } from './engine.js';
 import { parseEvalData, getDests, convertPvToSan, classifyMove } from './utils.js';
 import { renderGamesList, renderMovesTable, updateUIWithEval, highlightActiveMove, renderEngineLines, updateTopEvalDisplay, renderVaultList, renderSavedGamesList } from './ui.js';
@@ -341,12 +341,81 @@ toggleEngineLinesBtn.addEventListener('click', () => {
 });
 
 // --- Gemini Explanation Logic ---
-explainMoveBtn.addEventListener('click', () => {
-    if (geminiExplanation.classList.contains('hidden')) {
-        geminiExplanation.classList.remove('hidden');
-        geminiExplanation.innerHTML = '<div style="color: var(--text-primary); font-weight: 500;">추후 지원 예정입니다.</div>';
-    } else {
+explainMoveBtn.addEventListener('click', async () => {
+    if (!geminiExplanation.classList.contains('hidden')) {
         geminiExplanation.classList.add('hidden');
+        return;
+    }
+
+    // 예외 처리 1: 시작 위치(0번째 수 이전)에서는 해설 불가
+    if (currentlyViewedIndex < 0 || !analysisQueue[currentlyViewedIndex]) {
+        geminiExplanation.classList.remove('hidden');
+        geminiExplanation.innerHTML = '<div style="color: var(--accent-warning); padding: 1rem;">시작 위치에서는 AI 해설을 사용할 수 없습니다. 체스 수를 하나 선택해 주세요.</div>';
+        return;
+    }
+
+    // 예외 처리 2: 자유 탐색 모드에서는 지원하지 않음
+    if (isExplorationMode || isSimulationMode) {
+        geminiExplanation.classList.remove('hidden');
+        geminiExplanation.innerHTML = '<div style="color: var(--accent-warning); padding: 1rem;">자유 탐색 모드에서는 AI 해설을 지원하지 않습니다. 메인 기보로 돌아가 주세요.</div>';
+        return;
+    }
+
+    // 로딩 UI 표시
+    geminiExplanation.classList.remove('hidden');
+    geminiExplanation.innerHTML = '<div style="color: var(--text-primary); font-weight: 500; padding: 1rem;">🤖 Gemini AI가 국면을 분석하고 있습니다... (약 2~5초 소요)</div>';
+
+    const move = analysisQueue[currentlyViewedIndex];
+    let bestMove = 'Unknown';
+    
+    // 이전 수에서 엔진이 추천했던 최선의 수(Best Move) 추출
+    if (currentlyViewedIndex > 0) {
+        const prevMove = analysisQueue[currentlyViewedIndex - 1];
+        if (prevMove && prevMove.engineLines && prevMove.engineLines[0] && prevMove.engineLines[0].pv) {
+            bestMove = prevMove.engineLines[0].pv.split(' ')[0];
+        }
+    }
+
+    try {
+        const response = await fetch('/api/analyze', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                fen: move.fen,
+                playedMove: move.san,
+                bestMove: bestMove,
+                classification: move.classification || 'Move',
+                isUserWhite: isUserWhite
+            })
+        });
+
+        const responseText = await response.text();
+        let data;
+        try {
+            data = JSON.parse(responseText);
+        } catch (e) {
+            console.error("Non-JSON Response:", responseText);
+            throw new Error(`서버 연결 오류입니다. 브라우저 주소창이 http://localhost:3000 인지 확인해 주세요. (Live Server 사용 금지)`);
+        }
+
+        if (!response.ok) {
+            throw new Error(data.error || `Server error: ${response.status}`);
+        }
+
+        // 해설 결과 UI 렌더링
+        geminiExplanation.innerHTML = `
+            <div style="padding: 1rem;">
+                <h4 style="color: var(--primary-color); margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+                    ✨ AI Coach
+                </h4>
+                <p id="geminiText" style="color: var(--text-primary); line-height: 1.5; font-size: 0.95rem;"></p>
+            </div>
+        `;
+        // XSS 해킹 방지를 위해 innerHTML 대신 textContent 사용 (보안 기준 D 충족)
+        document.getElementById('geminiText').textContent = data.explanation;
+    } catch (error) {
+        console.error("Gemini AI Error:", error);
+        geminiExplanation.innerHTML = `<div style="color: var(--accent-danger); padding: 1rem;">❌ AI 해설을 불러오는 데 실패했습니다.<br><span style="font-size: 0.85rem;">${error.message}</span></div>`;
     }
 });
 
@@ -642,8 +711,8 @@ function exitExplorationMode() {
     if (isEngineReady && currentAnalysisIndex < analysisQueue.length) {
         processNextInQueue();
     } else {
-        analysisStatus.className = 'tag engine-ready';
-        analysisStatus.textContent = 'Analysis Complete';
+        analysisStatus.className = 'tag engine-ready hidden';
+        analysisStatus.textContent = '';
     }
 }
 
@@ -690,8 +759,8 @@ const engineCallbacks = {
     },
     onUciOk: () => {
         isEngineReady = true;
-        engineStatus.textContent = 'Engine Ready';
-        engineStatus.className = 'tag engine-ready';
+        engineStatus.textContent = '';
+        engineStatus.className = 'tag engine-ready hidden';
     },
     onReady: () => {
         if (analysisQueue.length > 0 && !isAnalyzing) {
@@ -756,8 +825,8 @@ const engineCallbacks = {
         }
         
         if (isExplorationMode) {
-            analysisStatus.className = 'tag engine-ready';
-            analysisStatus.textContent = 'Exploration Complete';
+            analysisStatus.className = 'tag engine-ready hidden';
+            analysisStatus.textContent = '';
             return;
         }
         
@@ -924,8 +993,8 @@ function startNewAnalysis(newQueue) {
 
 function processNextInQueue() {
     if (currentAnalysisIndex >= analysisQueue.length) {
-        analysisStatus.textContent = 'Analysis Complete';
-        analysisStatus.className = 'tag engine-ready';
+        analysisStatus.textContent = '';
+        analysisStatus.className = 'tag hidden';
         analyzeBtn.disabled = false;
         
         // 분석 완료 시 체스판을 제일 첫 화면(시작 위치)으로 되돌리기

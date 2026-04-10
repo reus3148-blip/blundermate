@@ -1,4 +1,17 @@
 /**
+ * Escapes HTML characters to prevent XSS attacks.
+ */
+export function escapeHtml(unsafe) {
+    if (!unsafe) return '';
+    return unsafe.toString()
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+/**
  * Renders the list of fetched games into the provided container.
  */
 export function renderGamesList(container, games, searchedUsername, onGameClick) {
@@ -7,7 +20,7 @@ export function renderGamesList(container, games, searchedUsername, onGameClick)
 
     games.forEach(game => {
         const isWhite = game.white.username.toLowerCase() === searchLower;
-        const opponent = isWhite ? game.black.username : game.white.username;
+        const opponent = escapeHtml(isWhite ? game.black.username : game.white.username);
         
         // Determine Visual Status
         const resultCode = isWhite ? game.white.result : game.black.result;
@@ -296,9 +309,9 @@ export function renderVaultList(container, vaultItems, onDelete, onPractice) {
         el.innerHTML = `
             <div class="game-item-content">
                 <div class="game-category" style="color: ${borderCol};">${item.category}</div>
-                <div class="game-san">Played: <strong>${item.san}</strong></div>
-                <div class="game-best">Best: ${item.bestMove || 'Unknown'}</div>
-                ${item.notes ? `<div class="game-notes">📝 ${item.notes}</div>` : ''}
+                <div class="game-san">Played: <strong>${escapeHtml(item.san)}</strong></div>
+                <div class="game-best">Best: ${escapeHtml(item.bestMove) || 'Unknown'}</div>
+                ${item.notes ? `<div class="game-notes">📝 ${escapeHtml(item.notes)}</div>` : ''}
             </div>
             <button class="delete-btn">❌</button>
         `;
@@ -330,9 +343,9 @@ export function renderSavedGamesList(container, savedGames, onDelete, onLoad) {
         
         el.innerHTML = `
             <div class="game-item-content">
-                <div class="game-title">${item.title}</div>
+                <div class="game-title">${escapeHtml(item.title)}</div>
                 <div class="game-date">Saved: ${new Date(item.date).toLocaleDateString()}</div>
-                ${item.notes ? `<div class="game-notes">📝 ${item.notes}</div>` : ''}
+                ${item.notes ? `<div class="game-notes">📝 ${escapeHtml(item.notes)}</div>` : ''}
             </div>
             <button class="delete-btn">❌</button>
         `;

@@ -37,6 +37,6 @@
 - **`utils.js` (Logic)**: 엔진 평가값 파싱, 체스 기보 변환, 수학적 계산을 통한 국면 평가(Blunder 판별) 등 순수 연산 로직
 - **`ui.js` (View)**: 복잡한 DOM 조작 및 화면 렌더링 전담 (기보 테이블, 오답노트 리스트, 평가 점수판 등)
 - **`storage.js` (Model)**: 브라우저 `localStorage`를 활용한 데이터(My Vault, Saved Games)의 저장, 삭제, 불러오기 전담
-- **`api.js`**: 외부 API (Chess.com 등)와의 네트워크 통신 및 데이터 가져오기 전담
+- **`chessApi.js`**: 외부 API (Chess.com 등)와의 네트워크 통신 및 데이터 가져오기 전담
 - **`engine.js`**: 브라우저 백그라운드용 로컬 Stockfish Web Worker 구동 및 엔진 메시지 파싱(래퍼) 클래스
 - **`engine/` 디렉토리**: Stockfish 엔진 코어 바이너리(`stockfish-18-lite-single.js`) 보관
