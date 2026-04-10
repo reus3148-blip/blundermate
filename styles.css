@@ -628,14 +628,20 @@ th {
     font-style: italic;
 }
 
-/* AI 코치 해설창 UI 최적화 (내부 스크롤 방식) */
+/* AI 코치 해설창 전체화면 오버레이 */
 #geminiExplanation {
-    max-height: 140px; /* 원하는 높이로 조절 가능 */
-    overflow-y: auto; /* 내용이 넘치면 스크롤 생성 */
-    flex-shrink: 0; /* 화면이 좁아져도 상자가 찌그러지지 않도록 보호 */
-    -webkit-overflow-scrolling: touch; /* iOS에서 부드러운 관성 스크롤 지원 */
-    overscroll-behavior-y: contain; /* 부모 화면이 같이 스크롤되는 현상 방지 */
-    background: var(--bg-panel);
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(15, 17, 21, 0.98); /* 가독성을 위해 더 어두운 배경 */
+    backdrop-filter: blur(16px);
+    z-index: 3000;
+    display: flex;
+    flex-direction: column;
 }
 
 @keyframes fadeInDown {

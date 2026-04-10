@@ -119,7 +119,7 @@ export function updateUIWithEval(index, scoreStr, classification = '') {
     // 기보 테이블 내부에서는 오직 평가 점수(eval-badge) 숫자만 업데이트합니다.
     
     const badge = cell.querySelector('.eval-badge');
-    if (badge) {
+    if (badge && scoreStr) { // scoreStr이 undefined일 경우 예외 발생(TypeError) 방어
         badge.textContent = scoreStr;
         
         badge.classList.remove('positive', 'negative');

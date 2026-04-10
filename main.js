@@ -115,6 +115,8 @@ let inputChess = new window.Chess(); // 수동 보드 입력용 체스 인스턴
 let inputCg; // 수동 보드 입력용 체스그라운드 인스턴스
 let lastEvalRenderTime = 0; // 엔진 UI 렌더링 스로틀링용 타임스탬프
 const EVAL_RENDER_THROTTLE = 100; // UI 업데이트 제한 시간(ms)
+let isGeminiLoading = false; // Gemini API 중복 호출 방지용 플래그
+let geminiAbortController = null; // Gemini API 요청 취소용 컨트롤러
 
 // ==========================================
 // 3. Initialization
@@ -166,7 +168,7 @@ fabToggleMoves.addEventListener('click', () => {
     } else {
         fabToggleMoves.innerHTML = '📜 Full Moves';
         // 보드가 다시 나타날 때 컨테이너 크기 재계산 (체스판 깨짐/렌더링 중지 방지 Edge Case 처리)
-        setTimeout(() => { if (cg) cg.redrawAll(); }, 50);
+            forceRedraw(cg);
     }
 });
 
@@ -182,7 +184,6 @@ openBoardInputBtn.addEventListener('click', () => {
     inputChess.reset();
     inputBoardPgn.value = '';
     
-    const turnColor = inputChess.turn() === 'w' ? 'white' : 'black';
     if (!inputCg) {
         inputCg = Chessground(inputBoardContainer, {
             animation: { enabled: true, duration: 250 },
@@ -197,7 +198,7 @@ openBoardInputBtn.addEventListener('click', () => {
         });
     }
     updateInputBoard();
-    setTimeout(() => { if (inputCg) inputCg.redrawAll(); }, 50);
+    forceRedraw(inputCg);
 });
 
 cancelInputBtn.addEventListener('click', () => {
@@ -340,10 +341,15 @@ toggleEngineLinesBtn.addEventListener('click', () => {
     engineLinesToggleIcon.textContent = engineLinesContainer.classList.contains('hidden') ? '▶' : '▼';
 });
 
-// --- Gemini Explanation Logic ---
-explainMoveBtn.addEventListener('click', async () => {
+// --- Gemini AI Coach Logic ---
+explainMoveBtn.addEventListener('click', handleGeminiExplanation);
+
+async function handleGeminiExplanation() {
+    if (isGeminiLoading) return; // API 중복 호출 방지 (Edge Case 대응)
+
     if (!geminiExplanation.classList.contains('hidden')) {
         geminiExplanation.classList.add('hidden');
+        if (geminiAbortController) geminiAbortController.abort(); // 창을 닫으면 진행 중인 요청 즉시 취소
         return;
     }
 
@@ -361,63 +367,135 @@ explainMoveBtn.addEventListener('click', async () => {
         return;
     }
 
+    isGeminiLoading = true; // 로딩 상태 활성화
+
     // 로딩 UI 표시
     geminiExplanation.classList.remove('hidden');
-    geminiExplanation.innerHTML = '<div style="color: var(--text-primary); font-weight: 500; padding: 1rem;">🤖 Gemini AI가 국면을 분석하고 있습니다... (약 2~5초 소요)</div>';
+    geminiExplanation.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 1.5rem; border-bottom: 1px solid var(--border-color); background: rgba(0,0,0,0.5);">
+            <h3 style="color: var(--primary-color); margin: 0; font-size: 1.3rem; display: flex; align-items: center; gap: 0.5rem;">
+                ✨ AI Coach
+            </h3>
+            <button id="closeGeminiBtn" style="background: none; border: none; color: var(--text-secondary); font-size: 2.2rem; line-height: 1; cursor: pointer; padding: 0 0.5rem;">&times;</button>
+        </div>
+        <div id="geminiText" style="padding: 1.5rem; color: var(--text-primary); line-height: 1.8; font-size: 1.05rem; overflow-y: auto; flex: 1; overscroll-behavior-y: contain;">
+            <div style="text-align: center; color: var(--text-secondary); padding: 4rem 0;">
+                <div style="font-size: 2.5rem; margin-bottom: 1rem;">🤖</div>
+                AI가 국면을 꼼꼼하게 분석하고 있습니다...<br><span style="font-size:0.9rem; opacity: 0.7;">(약 2~5초 소요)</span>
+            </div>
+        </div>
+    `;
+
+    document.getElementById('closeGeminiBtn').addEventListener('click', () => {
+        geminiExplanation.classList.add('hidden');
+        if (geminiAbortController) geminiAbortController.abort();
+    });
 
     const move = analysisQueue[currentlyViewedIndex];
-    let bestMove = 'Unknown';
+    let ascii_board = '';
+    let evalDrop = '0.0';
+    let best_move = 'Unknown';
+    let best_pv = '';
+    let punishment_pv = '';
+
+    try {
+        const tempChess = new window.Chess(move.fen);
+        ascii_board = tempChess.ascii();
+    } catch(e) {}
     
-    // 이전 수에서 엔진이 추천했던 최선의 수(Best Move) 추출
+    // 이전 수에서 엔진이 추천했던 최선의 수 및 점수 하락폭(evalDrop) 추출
     if (currentlyViewedIndex > 0) {
         const prevMove = analysisQueue[currentlyViewedIndex - 1];
-        if (prevMove && prevMove.engineLines && prevMove.engineLines[0] && prevMove.engineLines[0].pv) {
-            bestMove = prevMove.engineLines[0].pv.split(' ')[0];
+        if (prevMove && prevMove.engineLines && prevMove.engineLines[0]) {
+            best_move = prevMove.engineLines[0].pv?.split(' ')[0] || 'Unknown';
+            best_pv = prevMove.engineLines[0].pv || '';
+            
+            if (move.engineLines && move.engineLines[0]) {
+                const pScore = prevMove.engineLines[0].scoreNum;
+                const cScore = move.engineLines[0].scoreNum;
+                evalDrop = (cScore - pScore).toFixed(2);
+            }
         }
     }
+
+    if (move.engineLines && move.engineLines[0]) {
+        punishment_pv = move.engineLines[0].pv || '';
+    }
+
+    geminiAbortController = new AbortController();
 
     try {
         const response = await fetch('/api/analyze', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            signal: geminiAbortController.signal,
             body: JSON.stringify({
                 fen: move.fen,
+                ascii_board: ascii_board,
                 playedMove: move.san,
-                bestMove: bestMove,
                 classification: move.classification || 'Move',
-                isUserWhite: isUserWhite
+                evalDrop: evalDrop,
+                best_move: best_move,
+                punishment_pv: punishment_pv,
+                best_pv: best_pv
             })
         });
 
-        const responseText = await response.text();
-        let data;
-        try {
-            data = JSON.parse(responseText);
-        } catch (e) {
-            console.error("Non-JSON Response:", responseText);
-            throw new Error(`서버 연결 오류입니다. 브라우저 주소창이 http://localhost:3000 인지 확인해 주세요. (Live Server 사용 금지)`);
-        }
-
         if (!response.ok) {
-            throw new Error(data.error || `Server error: ${response.status}`);
+            let errorMsg = `Server error: ${response.status}`;
+            try { const errObj = await response.json(); if(errObj.error) errorMsg = errObj.error; } catch(e){}
+            throw new Error(errorMsg);
         }
 
-        // 해설 결과 UI 렌더링
-        geminiExplanation.innerHTML = `
-            <div style="padding: 1rem;">
-                <h4 style="color: var(--primary-color); margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
-                    ✨ AI Coach
-                </h4>
-                <p id="geminiText" style="color: var(--text-primary); line-height: 1.5; font-size: 0.95rem;"></p>
-            </div>
-        `;
-        // XSS 해킹 방지를 위해 innerHTML 대신 textContent 사용 (보안 기준 D 충족)
-        document.getElementById('geminiText').textContent = data.explanation;
+        if (!response.body) throw new Error('ReadableStream not supported');
+
+        const geminiTextEl = document.getElementById('geminiText');
+        geminiTextEl.innerHTML = ''; // 로딩 텍스트 제거
+        
+        // 3. 스트림 데이터를 읽기 위한 Reader 준비
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder('utf-8');
+        let fullText = '';
+        
+        // 4. 데이터가 끝날 때까지 계속 읽어오는 루프 (가장 중요!)
+        while (true) {
+            const { done, value } = await reader.read();
+            
+            // done이 true면 서버가 모든 데이터를 다 보냈다는 뜻
+            if (done) break;
+            
+            // 도착한 바이너리 조각(Chunk)을 텍스트로 변환
+            const chunkText = decoder.decode(value, { stream: true });
+            fullText += chunkText;
+            
+            // 실시간 스트리밍 텍스트 마크다운 파싱 (굵은 글씨, 줄바꿈)
+            const formattedText = fullText
+                .replace(/\*\*(.*?)\*\*/g, '<strong style="color: #fff;">$1</strong>')
+                .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                .replace(/\n/g, '<br>');
+            
+            geminiTextEl.innerHTML = formattedText;
+            
+            // 글자가 추가될 때마다 스크롤을 맨 아래로 자동 이동
+            geminiTextEl.scrollTop = geminiTextEl.scrollHeight;
+        }
     } catch (error) {
+        if (error.name === 'AbortError') {
+            console.log('Gemini request aborted by user.');
+            return; // 사용자가 의도적으로 취소한 경우 빨간색 에러 텍스트 렌더링 무시
+        }
         console.error("Gemini AI Error:", error);
-        geminiExplanation.innerHTML = `<div style="color: var(--accent-danger); padding: 1rem;">❌ AI 해설을 불러오는 데 실패했습니다.<br><span style="font-size: 0.85rem;">${error.message}</span></div>`;
+        const geminiTextEl = document.getElementById('geminiText');
+        if (geminiTextEl) {
+            geminiTextEl.innerHTML = `<div style="color: var(--accent-danger);">❌ AI 해설을 불러오는 데 실패했습니다.<br><span style="font-size: 0.85rem;">${error.message}</span></div>`;
+        } else {
+            geminiExplanation.innerHTML = `<div style="color: var(--accent-danger); padding: 1rem;">❌ AI 해설을 불러오는 데 실패했습니다.<br><span style="font-size: 0.85rem;">${error.message}</span></div>`;
+        }
+    } finally {
+        isGeminiLoading = false; // 작업 완료 후 로딩 상태 해제
+        geminiAbortController = null;
     }
-});
+}
 
 // --- UI Helpers ---
 function showButtonSuccess(button, text) {
@@ -636,7 +714,7 @@ function startPractice(item) {
             }
         }
     });
-    setTimeout(() => practiceCg.redrawAll(), 50);
+    forceRedraw(practiceCg);
 }
 
 // Redraw board on window resize or device rotation for better responsive behavior
@@ -875,41 +953,7 @@ function handlePgnReviewStart(e = null, isWhiteGame = null) {
     if (!pgnText) return;
 
     chess = new Chess();
-    let loaded = chess.load_pgn(pgnText);
-    
-    if (!loaded) {
-        // PGN 형식이 아니거나 헤더가 없는 단순 기보일 경우, 순서대로 수를 읽어 복구 시도
-        chess = new Chess();
-        // "1.e4" 와 같이 점 뒤에 공백 없이 영문자가 오는 경우 공백 추가
-        const cleanedText = pgnText.replace(/\.(?=[a-zA-Z])/g, '. ');
-        const tokens = cleanedText.replace(/\n/g, ' ').split(/\s+/).filter(t => t);
-        let validMoves = 0;
-        
-        for (const token of tokens) {
-            // 수 번호(예: 1, 1., 1...) 및 게임 결과 문자열은 건너뜀
-            if (/^\d+\.*$/.test(token)) continue;
-            if (['1-0', '0-1', '1/2-1/2', '*'].includes(token)) continue;
-            
-            // 숫자 0으로 입력된 캐슬링(0-0)을 영문자(O-O)로 교정
-            let cleanToken = token;
-            if (cleanToken === '0-0') cleanToken = 'O-O';
-            if (cleanToken === '0-0-0') cleanToken = 'O-O-O';
-            
-            try {
-                const moveRes = chess.move(cleanToken);
-                if (moveRes) validMoves++;
-                else { validMoves = 0; break; }
-            } catch (err) {
-                validMoves = 0; break;
-            }
-        }
-        
-        if (validMoves > 0) {
-            loaded = true;
-            // 올바른 기보라면 완성된 정규 PGN 형식으로 텍스트 입력창을 자동으로 변경
-            pgnInput.value = chess.pgn();
-        }
-    }
+    let loaded = parseAndLoadPgn(chess, pgnText);
 
     if (!loaded) {
         alert('Invalid PGN or move format. Please check your text.');
@@ -961,7 +1005,7 @@ function startNewAnalysis(newQueue) {
     returnMainLineBtn.classList.add('hidden');
 
     // Force Chessground to recalculate board size for mobile
-    setTimeout(() => { if (cg) cg.redrawAll(); }, 50);
+    forceRedraw(cg);
 
     analysisQueue = newQueue;
     analyzeBtn.disabled = true;
@@ -1014,6 +1058,7 @@ function processNextInQueue() {
     // If not ready, we skip sending 'go' and rely on onReady callback
     if (!isEngineReady) {
         analysisStatus.textContent = 'Waiting for Engine...';
+        isAnalyzing = false; // 엔진 준비 콜백(onReady)에서 큐를 정상적으로 재개할 수 있도록 상태 해제 (교착 상태 방지)
         return;
     }
 
@@ -1027,6 +1072,11 @@ function processNextInQueue() {
 function updateBoardPosition(index, fen) {
     if (isExplorationMode) {
         exitExplorationMode();
+    }
+
+    // 다른 수로 이동 시 기존에 진행 중이던 AI 해설이 있다면 즉시 취소하여 리소스 및 서버 연결 확보
+    if (geminiAbortController) {
+        geminiAbortController.abort();
     }
 
     const validFen = fen === 'start' ? START_FEN : fen;
@@ -1079,6 +1129,45 @@ function updateBoardPosition(index, fen) {
 // ==========================================
 // 9. Helpers
 // ==========================================
+function forceRedraw(instance) {
+    if (!instance) return;
+    setTimeout(() => instance.redrawAll(), 50);
+}
+
+function parseAndLoadPgn(chessInstance, pgnText) {
+    if (chessInstance.load_pgn(pgnText)) return true;
+
+    // PGN 형식이 아니거나 헤더가 없는 단순 기보일 경우, 순서대로 수를 읽어 복구 시도
+    chessInstance.reset();
+    const cleanedText = pgnText.replace(/\.(?=[a-zA-Z])/g, '. ');
+    const tokens = cleanedText.replace(/\n/g, ' ').split(/\s+/).filter(t => t);
+    let validMoves = 0;
+    
+    for (const token of tokens) {
+        // 수 번호(예: 1, 1., 1...) 및 게임 결과 문자열은 건너뜀
+        if (/^\d+\.*$/.test(token)) continue;
+        if (['1-0', '0-1', '1/2-1/2', '*'].includes(token)) continue;
+        
+        // 숫자 0으로 입력된 캐슬링(0-0)을 영문자(O-O)로 교정
+        let cleanToken = token;
+        if (cleanToken === '0-0') cleanToken = 'O-O';
+        if (cleanToken === '0-0-0') cleanToken = 'O-O-O';
+        
+        try {
+            if (chessInstance.move(cleanToken)) validMoves++;
+            else break;
+        } catch (err) {
+            break;
+        }
+    }
+    
+    if (validMoves > 0) {
+        pgnInput.value = chessInstance.pgn(); // 올바른 기보라면 완성된 정규 PGN 형식으로 텍스트 입력창을 자동으로 변경
+        return true;
+    }
+    return false;
+}
+
 function drawEngineArrow(orig, dest) {
     if (!cg) return;
     cg.set({
