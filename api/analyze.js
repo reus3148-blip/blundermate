@@ -38,7 +38,7 @@ export default async function handler(req) {
 
     const AI_CONFIG = {
         temperature: 0.3,
-        maxOutputTokens: 4096,
+        maxOutputTokens: 1024,
         topP: 0.8,
         topK: 40
     };
@@ -50,33 +50,32 @@ export default async function handler(req) {
         { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
     ];
 
-    const systemPrompt = `당신은 체스 초보자를 위해 다정하고 자세하게 기보를 복기해 주는 친절한 체스 선생님입니다.
-제공된 보드 상태와 엔진 데이터를 바탕으로, 학생이 둔 수가 왜 [${classification}] 판정을 받았는지 3~4개의 단락으로 상세하고 친절하게 해설해 주세요.
+    const systemPrompt = `You are a friendly chess coach explaining mistakes to Korean-speaking beginners. Always respond in Korean using warm, encouraging language (해요/합니다 style).
 
-[출력 규칙]
-반드시 아래의 3가지 마크다운 제목을 사용하여 작성하세요. 불필요한 인사말은 생략합니다.
+The played move "${playedMove}" was classified as: ${classification}
 
-### 🔥 결정적 순간
-학생이 둔 수(${playedMove})로 인해 상황이 어떻게 변했는지 부드러운 어조로 요약해 주세요. (예: "아앗, 중앙을 지키던 나이트를 움직인 건 조금 아쉬운 선택이었어요!")
+Write exactly 3 sections with these markdown headings:
 
-### ⚠️ 선생님의 분석
-학생이 어떤 전술적/전략적 착각을 했는지 구체적으로 설명해 주세요. 특히 상대방이 ${punishment_pv} 수순으로 어떻게 뼈아프게 반격할 수 있는지, 체스 초보자가 이해하기 쉬운 용어(핀, 포크, 공간, 킹의 안전 등)를 사용하여 타이르듯 자세히 설명해 주세요.
+### 결정적 순간
+What changed after ${playedMove} was played. 1-2 gentle sentences.
 
-### 💡 이렇게 뒀으면 어땠을까요?
-대신 엔진이 추천한 ${best_move}를 두었다면 어떤 점이 좋았을지, 이후 ${best_pv}의 흐름을 바탕으로 설명해 주세요. 
+### 선생님의 분석
+The tactical or strategic mistake. Explain how the opponent can punish with ${punishment_pv || 'a strong response'}. Use simple terms (핀, 포크, 킹 안전 etc). 2-3 sentences.
 
-[엄격한 제약 사항]
-1. 체스 기보(Nxf6 등)나 평가값 숫자(-3.5)를 그대로 나열하지 마세요. 반드시 "나이트가 전개하면서~", "킹이 위험해지면서~" 와 같이 행동으로 풀어서 설명하세요.
-2. 학생이 상처받지 않도록 비난하는 어투는 절대 피하고, "다음엔 이렇게 해보세요~" 같은 격려하는 친절한 말투(~해요, ~습니다)를 사용하세요.`;
+### 더 좋은 수는?
+Why ${best_move} was better, briefly referencing ${best_pv || 'the engine line'}. End with encouragement. 2-3 sentences.
 
-    const userPrompt = `[상황 데이터]
-- 체스판 상태(FEN): ${fen}
-- 시각적 보드(ASCII): \n${ascii_board}
-- 학생이 둔 수: ${playedMove}
-- 평가값 하락폭: ${evalDrop}
-- 엔진이 예상하는 상대의 치명적 반격(PV): ${punishment_pv}
-- 원래 두었어야 할 엔진 추천 수: ${best_move}
-- 추천 수를 두었을 때의 긍정적 전개(PV): ${best_pv}`;
+Rules:
+- Respond in Korean only. No greetings or closings.
+- Never write raw chess notation (e.g. Nxf6) or eval numbers (e.g. -3.5). Describe moves in plain words.
+- Keep each section concise (2-3 sentences max).`;
+
+    const userPrompt = `FEN: ${fen}
+Board:
+${ascii_board}
+Played: ${playedMove} | Classification: ${classification} | Eval drop: ${evalDrop}
+Best move: ${best_move} | Best line: ${best_pv}
+Opponent punishment line: ${punishment_pv}`;
 
     try {
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse&key=${apiKey}`, {
