@@ -347,15 +347,14 @@ main {
    Analysis View: Top Bar
    ========================================== */
 .analysis-top-bar {
-    display: flex;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
     align-items: center;
-    justify-content: space-between;
     padding: 0 0.75rem;
     height: 38px;
     background: var(--bg-panel);
     border-bottom: 1px solid var(--border-color);
     flex-shrink: 0;
-    position: relative;
 }
 
 .back-btn {
@@ -371,6 +370,7 @@ main {
     padding: 0.25rem 0.5rem;
     border-radius: 6px;
     transition: color 0.15s ease, background 0.15s ease;
+    justify-self: start;
 }
 .back-btn:hover { color: var(--text-primary); background: rgba(255,255,255,0.06); }
 
@@ -381,6 +381,7 @@ main {
     padding: 0.2rem 0.55rem;
     border-radius: 20px;
     border: 1px solid var(--border-color);
+    justify-self: end;
 }
 .engine-status.engine-ready  { background: rgba(16,185,129,0.1); border-color: rgba(16,185,129,0.3); color: var(--accent-success); }
 .engine-status.engine-loading { background: rgba(245,158,11,0.1); border-color: rgba(245,158,11,0.3); color: var(--accent-warning); }
@@ -398,11 +399,8 @@ main {
 .top-bar-eval {
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 0.5rem;
-    position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
-    pointer-events: none;
 }
 
 .practice-feedback {
