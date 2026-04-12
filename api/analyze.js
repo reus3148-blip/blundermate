@@ -38,7 +38,7 @@ export default async function handler(req) {
 
     const AI_CONFIG = {
         temperature: 0.3,
-        maxOutputTokens: 1024,
+        maxOutputTokens: 2048,
         topP: 0.8,
         topK: 40
     };
