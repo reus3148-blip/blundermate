@@ -1,15 +1,4 @@
-/**
- * Escapes HTML characters to prevent XSS attacks.
- */
-export function escapeHtml(unsafe) {
-    if (!unsafe) return '';
-    return unsafe.toString()
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
-}
+import { escapeHtml } from './utils.js';
 
 /**
  * Renders the list of fetched games into the provided container.
@@ -137,10 +126,12 @@ export function updateUIWithEval(index, scoreStr, classification = '') {
     if (classification) {
         const moveCell = cell.querySelector('.move-cell');
         if (moveCell) {
-            if (classification === 'Blunder') moveCell.classList.add('bg-blunder');
+            if (classification === 'Brilliant') moveCell.classList.add('bg-brilliant');
+            else if (classification === 'Blunder') moveCell.classList.add('bg-blunder');
             else if (classification === 'Mistake') moveCell.classList.add('bg-mistake');
             else if (classification === 'Missed Win') moveCell.classList.add('bg-missed-win');
             else if (classification === 'Inaccuracy') moveCell.classList.add('bg-inaccuracy');
+            else if (classification === 'Excellent') moveCell.classList.add('bg-excellent');
         }
     }
 }
@@ -271,13 +262,15 @@ export function updateTopEvalDisplay(scoreStr, classification = '') {
     if (moveClassification) {
         if (classification) {
             const colorMap = {
-                'Blunder': 'var(--accent-danger)',
-                'Mistake': 'var(--accent-warning)',
-                'Missed Win': 'var(--accent-warning)',
+                'Brilliant':  '#22d3ee',
+                'Best':       'var(--accent-success)',
+                'Excellent':  'var(--accent-success)',
+                'Good':       '#60a5fa',
                 'Inaccuracy': '#fbbf24',
-                'Good': '#60a5fa',
-                'Best': 'var(--accent-success)',
-                'Exploring': 'var(--accent-warning)'
+                'Missed Win': 'var(--accent-warning)',
+                'Mistake':    'var(--accent-warning)',
+                'Blunder':    'var(--accent-danger)',
+                'Exploring':  'var(--accent-warning)'
             };
             moveClassification.textContent = classification;
             moveClassification.style.color = colorMap[classification] || 'var(--text-secondary)';

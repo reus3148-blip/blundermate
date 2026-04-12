@@ -64,17 +64,29 @@ export function convertPvToSan(pv, fen) {
 }
 
 /**
- * 승률 변동폭(WPL)과 평가 점수 손실(CPL)을 분석하여 사용자의 수를 평가(Blunder 등)합니다.
+ * Chess.com의 EPL(Expected Points Loss) 방식에 준하여 수를 평가합니다.
+ *
+ * 승률 공식 (Lichess 공개): 50 + 50 * (2 / (1 + e^(-0.00368208 * cp)) - 1)  [0~100%]
+ * EPL ≈ WPL(Win% Loss). Chess.com은 EPL 0~1 스케일, 여기서는 0~100% 스케일 사용.
+ *
+ * 분류 기준 (Chess.com EPL 기준):
+ *   Blunder    WPL ≥ 20%  (EPL ≥ 0.20)
+ *   Mistake    WPL ≥ 10%  (EPL ≥ 0.10)
+ *   Inaccuracy WPL ≥  5%  (EPL ≥ 0.05)
+ *   Good       WPL ≥  2%  (EPL ≥ 0.02)
+ *   Excellent  WPL <  2%  — 엔진 1순위 수가 아닌 경우
+ *   Best       WPL <  2%  — 엔진 1순위 수와 일치
  */
 export function classifyMove(index, analysisQueue, isUserWhite) {
     if (index < 0) return '';
     const move = analysisQueue[index];
     if (!move.engineLines || !move.engineLines[0]) return '';
-    
+
     const isWhite = move.isWhite;
     const currEval = move.engineLines[0];
-    
-    let prevEval = { scoreNum: isUserWhite ? 0.2 : -0.2, scoreStr: isUserWhite ? '+0.20' : '-0.20' }; 
+
+    // 첫 번째 수는 초기 국면 평가(백 미세 우세)를 기준점으로 사용
+    let prevEval = { scoreNum: isUserWhite ? 0.2 : -0.2, scoreStr: isUserWhite ? '+0.20' : '-0.20' };
     let prevLines = [];
     if (index > 0) {
         const prevMove = analysisQueue[index - 1];
@@ -83,6 +95,10 @@ export function classifyMove(index, analysisQueue, isUserWhite) {
         prevLines = prevMove.engineLines;
     }
 
+    // scoreNum은 사용자 시점 기준이므로, 수를 둔 쪽이 사용자가 아니면 부호 반전
+    const perspectiveMultiplier = (isUserWhite === isWhite) ? 1 : -1;
+
+    // --- 메이트 표기 파싱 ---
     const getMate = (str) => {
         if (!str) return null;
         if (str.startsWith('+M')) return parseInt(str.substring(2));
@@ -90,62 +106,85 @@ export function classifyMove(index, analysisQueue, isUserWhite) {
         return null;
     };
 
-    const rawPrevMate = getMate(prevEval.scoreStr);
-    const rawCurrMate = getMate(currEval.scoreStr);
-    const perspectiveMultiplier = (isUserWhite === isWhite) ? 1 : -1;
+    // 양수 = 현재 수를 둔 플레이어가 메이트 선언 중
+    const prevMate = getMate(prevEval.scoreStr) !== null ? getMate(prevEval.scoreStr) * perspectiveMultiplier : null;
+    const currMate = getMate(currEval.scoreStr) !== null ? getMate(currEval.scoreStr) * perspectiveMultiplier : null;
 
-    const prevMate = rawPrevMate !== null ? (perspectiveMultiplier === 1 ? rawPrevMate : -rawPrevMate) : null;
-    const currMate = rawCurrMate !== null ? (perspectiveMultiplier === 1 ? rawCurrMate : -rawCurrMate) : null;
-    
-    const prevCp = prevEval.scoreNum * perspectiveMultiplier * 100;
-    const currCp = currEval.scoreNum * perspectiveMultiplier * 100;
-
-    // Edge Case: 체크메이트 보정
+    // --- 메이트 엣지 케이스 ---
     if (prevMate !== null) {
         if (prevMate > 0) {
-            if (currMate !== null && currMate > 0) {
-                if (currMate <= prevMate) return 'Best';
-                else return 'Good';
-            } else if (currMate === null) return 'Missed Win';
-            else return 'Blunder';
+            if (currMate !== null && currMate > 0) return currMate <= prevMate ? 'Best' : 'Good';
+            if (currMate === null) return 'Missed Win';
+            return 'Blunder';
         } else {
-            if (currMate !== null && currMate < 0) {
-                if (currMate > prevMate) return 'Blunder';
-                else return 'Best';
-            } else return 'Best';
+            if (currMate !== null && currMate < 0) return currMate > prevMate ? 'Blunder' : 'Best';
+            return 'Best';
         }
     } else {
         if (currMate !== null && currMate < 0) return 'Blunder';
         if (currMate !== null && currMate > 0) return 'Best';
     }
 
-    // Edge Case: Sigmoid 승률 보정
-    const wp = (cp) => 1 / (1 + Math.exp(-0.00368208 * cp));
-    const prevWp = wp(prevCp);
-    const currWp = wp(currCp);
-    
-    const cpl = prevCp - currCp;
-    const wpl = prevWp - currWp;
+    // --- 승률 계산 ---
+    // ±1000 CP 클램핑으로 포화 구간(압도적 우세/열세)에서의 왜곡 방지
+    const clamp = (v) => Math.max(-1000, Math.min(1000, v));
+    const prevCp = clamp(prevEval.scoreNum * perspectiveMultiplier * 100);
+    const currCp = clamp(currEval.scoreNum * perspectiveMultiplier * 100);
+    const winPct = (cp) => 50 + 50 * (2 / (1 + Math.exp(-0.00368208 * cp)) - 1);
+    const prevWp = winPct(prevCp);
+    const currWp = winPct(currCp);
+    const wpl = prevWp - currWp; // Win% 손실 (양수 = 악수)
 
-    let gradeCpl = 0;
-    if (cpl >= 300) gradeCpl = 4; else if (cpl >= 100) gradeCpl = 3; else if (cpl >= 50) gradeCpl = 2; else if (cpl >= 10) gradeCpl = 1;
-
-    let gradeWpl = 0;
-    if (wpl >= 0.20) gradeWpl = 4; else if (wpl >= 0.10) gradeWpl = 3; else if (wpl >= 0.05) gradeWpl = 2; else if (wpl >= 0.02) gradeWpl = 1;
-
-    if (prevLines && prevLines.length > 1 && prevLines[1]) {
-        const bestScore = prevLines[0].scoreNum * perspectiveMultiplier * 100;
-        const secondScore = prevLines[1].scoreNum * perspectiveMultiplier * 100;
-        if (bestScore > 150 && (bestScore - secondScore >= 150) && wpl >= 0.10) return 'Missed Win';
+    // --- Missed Win 감지 ---
+    // 엔진 1순위 수가 유일한 승리 수(1·2순위 WP 차이 ≥ 15%)였고, 그걸 놓쳐서 WPL ≥ 15%
+    if (prevLines.length > 1 && prevLines[1]) {
+        const bestWp   = winPct(clamp(prevLines[0].scoreNum * perspectiveMultiplier * 100));
+        const secondWp = winPct(clamp(prevLines[1].scoreNum * perspectiveMultiplier * 100));
+        if (bestWp > 65 && (bestWp - secondWp) >= 15 && wpl >= 15) return 'Missed Win';
     }
 
-    const finalGrade = Math.min(gradeCpl, gradeWpl);
-    switch (finalGrade) {
-        case 4: return 'Blunder';
-        case 3: return 'Mistake';
-        case 2: return 'Inaccuracy';
-        case 1: return 'Good';
-        case 0: return 'Best';
-        default: return 'Best';
+    // --- Chess.com EPL 기준 분류 ---
+    if (wpl >= 20) return 'Blunder';
+    if (wpl >= 10) return 'Mistake';
+    if (wpl >=  5) return 'Inaccuracy';
+    if (wpl >=  2) return 'Good';
+
+    // WPL < 2%: Best / Excellent / Brilliant 구분
+    const engineTopSan = prevLines[0]?.pv?.split(' ')[0];
+    const isTopMove = engineTopSan && engineTopSan === move.san;
+
+    if (isTopMove) {
+        // ── Brilliant 감지 (Chess.com 기준) ─────────────────────────────────
+        // 조건: 엔진 1순위 수 + 기물/교환 희생 + 압도적 우세 국면이 아님
+        // - 폰 희생은 제외 (move.movedPiece === 'p')
+        // - 직전 WP 75% 초과 = 이미 완전 우세 → Brilliant 해당 없음
+        if (move.isSacrifice && move.movedPiece !== 'p' && prevWp <= 75) {
+            return 'Brilliant';
+        }
+        return 'Best';
     }
+    return 'Excellent';
+}
+
+/**
+ * HTML 특수문자를 이스케이프하여 XSS 공격을 방지합니다.
+ */
+export function escapeHtml(unsafe) {
+    if (!unsafe) return '';
+    return unsafe.toString()
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+/**
+ * 간단한 마크다운(**굵게**, *기울임*, 줄바꿈)을 HTML로 변환합니다.
+ */
+export function formatMarkdownToHtml(text) {
+    return text
+        .replace(/\*\*(.*?)\*\*/g, '<strong style="color: #fff;">$1</strong>')
+        .replace(/\*(.*?)\*/g, '<em>$1</em>')
+        .replace(/\n/g, '<br>');
 }

@@ -1,0 +1,193 @@
+import { formatMarkdownToHtml } from './utils.js';
+
+/**
+ * Gemini AI 해설 핸들러를 생성합니다.
+ * main.js의 상태에 대한 접근을 getState/setState 콜백으로 추상화하여 결합도를 낮춥니다.
+ *
+ * @param {object} ctx
+ * @param {Function} ctx.getState  - 현재 앱 상태 스냅샷을 반환하는 함수
+ * @param {Function} ctx.setState  - isGeminiLoading, geminiAbortController 를 업데이트하는 함수
+ * @param {HTMLElement} ctx.geminiEl - Gemini 해설 패널 DOM 엘리먼트
+ * @returns {Function} handleGeminiExplanation 핸들러
+ */
+export function createGeminiHandler({ getState, setState, geminiEl, onOpen, onClose, isOpen }) {
+    return async function handleGeminiExplanation() {
+        const state = getState();
+
+        if (state.isGeminiLoading) return;
+
+        // 이미 AI 탭이 열려 있으면 취소하고 엔진 탭으로 복귀
+        if (isOpen()) {
+            onClose();
+            if (state.geminiAbortController) state.geminiAbortController.abort();
+            return;
+        }
+
+        // 예외 1: 시작 위치
+        if (state.currentlyViewedIndex < 0 || !state.analysisQueue[state.currentlyViewedIndex]) {
+            geminiEl.innerHTML = '<div style="color: var(--accent-warning); padding: 1rem;">시작 위치에서는 AI 해설을 사용할 수 없습니다. 체스 수를 하나 선택해 주세요.</div>';
+            onOpen();
+            return;
+        }
+
+        // 예외 2: 탐색/시뮬레이션 모드
+        if (state.isExplorationMode || state.isSimulationMode) {
+            geminiEl.innerHTML = '<div style="color: var(--accent-warning); padding: 1rem;">자유 탐색 모드에서는 AI 해설을 지원하지 않습니다. 메인 기보로 돌아가 주세요.</div>';
+            onOpen();
+            return;
+        }
+
+        const move = state.analysisQueue[state.currentlyViewedIndex];
+
+        // 예외 3: 오답 상황이 아닌 경우 (API 비용 절약)
+        const needsExplanation = ['Blunder', 'Mistake', 'Missed Win', 'Inaccuracy'].includes(move.classification);
+        if (!needsExplanation) {
+            geminiEl.innerHTML = renderGoodMovePanel();
+            onOpen();
+            return;
+        }
+
+        // 캐시 HIT: 재요청 없이 즉시 렌더링
+        if (move.cachedExplanation) {
+            geminiEl.innerHTML = renderExplanationPanel(move.cachedExplanation);
+            onOpen();
+            return;
+        }
+
+        // 로딩 UI 표시
+        setState({ isGeminiLoading: true });
+        geminiEl.innerHTML = renderExplanationPanel(`
+            <div style="text-align: center; color: var(--text-secondary); padding: 4rem 0;">
+                <div style="font-size: 2.5rem; margin-bottom: 1rem;">🤖</div>
+                AI가 국면을 꼼꼼하게 분석하고 있습니다...<br><span style="font-size:0.9rem; opacity: 0.7;">(약 2~5초 소요)</span>
+            </div>
+        `);
+        onOpen();
+
+        const abortController = new AbortController();
+        setState({ geminiAbortController: abortController });
+
+        // 엔진 데이터 추출
+        let ascii_board = '';
+        let evalDrop = '0.0';
+        let best_move = 'Unknown';
+        let best_pv = '';
+        let punishment_pv = '';
+
+        try {
+            ascii_board = new window.Chess(move.fen).ascii();
+        } catch(e) {}
+
+        const { analysisQueue, currentlyViewedIndex } = state;
+        if (currentlyViewedIndex > 0) {
+            const prevMove = analysisQueue[currentlyViewedIndex - 1];
+            if (prevMove?.engineLines?.[0]) {
+                best_move = prevMove.engineLines[0].pv?.split(' ')[0] || 'Unknown';
+                best_pv = prevMove.engineLines[0].pv || '';
+                if (move.engineLines?.[0]) {
+                    evalDrop = (move.engineLines[0].scoreNum - prevMove.engineLines[0].scoreNum).toFixed(2);
+                }
+            }
+        }
+        if (move.engineLines?.[0]) {
+            punishment_pv = move.engineLines[0].pv || '';
+        }
+
+        try {
+            const geminiTextEl = document.getElementById('geminiText');
+            geminiTextEl.innerHTML = '';
+
+            if (state.isGeminiEnabled) {
+                // 실제 Gemini API 호출 및 SSE 스트리밍
+                const response = await fetch('/api/analyze', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    signal: abortController.signal,
+                    body: JSON.stringify({
+                        fen: move.fen, ascii_board, playedMove: move.san,
+                        classification: move.classification || 'Move',
+                        evalDrop, best_move, punishment_pv, best_pv
+                    })
+                });
+
+                if (!response.ok) {
+                    let errorMsg = `Server error: ${response.status}`;
+                    try { const err = await response.json(); if (err.error) errorMsg = err.error; } catch(e) {}
+                    throw new Error(errorMsg);
+                }
+                if (!response.body) throw new Error('ReadableStream not supported');
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder('utf-8');
+                let fullText = '';
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    fullText += decoder.decode(value, { stream: true });
+                    geminiTextEl.innerHTML = formatMarkdownToHtml(fullText);
+                    geminiTextEl.scrollTop = geminiTextEl.scrollHeight;
+                }
+            } else {
+                // 더미 데이터 시뮬레이션 (Settings OFF 상태)
+                const dummyData = `### 🔥 결정적 순간\n아앗, 학생이 둔 수(${move.san})는 조금 아쉬운 선택이었어요! 이 수로 인해 상황이 불리하게 변했습니다.\n\n### ⚠️ 선생님의 분석\n상대방이 **${punishment_pv || '강력한 공격'}** 수순으로 치명적인 반격을 가할 수 있는 틈을 내어주고 말았어요. 킹의 안전이 크게 위협받을 수 있는 위험한 상황입니다. \n\n### 💡 이렇게 뒀으면 어땠을까요?\n대신 엔진이 추천한 **${best_move}**를 두었다면 방어를 튼튼히 하고 주도권을 유지할 수 있었을 거예요. 다음엔 이 부분을 먼저 생각해보아요~`;
+
+                let fullText = '';
+                let chunkIndex = 0;
+                await new Promise((resolve, reject) => {
+                    const interval = setInterval(() => {
+                        if (abortController.signal.aborted) {
+                            clearInterval(interval);
+                            reject(new DOMException('Aborted', 'AbortError'));
+                            return;
+                        }
+                        if (chunkIndex < dummyData.length) {
+                            fullText += dummyData.substring(chunkIndex, chunkIndex + 2);
+                            chunkIndex += 2;
+                            geminiTextEl.innerHTML = formatMarkdownToHtml(fullText);
+                            geminiTextEl.scrollTop = geminiTextEl.scrollHeight;
+                        } else {
+                            clearInterval(interval);
+                            resolve();
+                        }
+                    }, 20);
+                });
+            }
+
+            // 스트리밍 완료 후 결과 캐싱
+            move.cachedExplanation = geminiTextEl.innerHTML;
+
+        } catch (error) {
+            if (error.name === 'AbortError') return;
+            console.error("Gemini AI Error:", error);
+            const geminiTextEl = document.getElementById('geminiText');
+            const errHtml = `<div style="color: var(--accent-danger);">❌ AI 해설을 불러오는 데 실패했습니다.<br><span style="font-size: 0.85rem;">${error.message}</span></div>`;
+            if (geminiTextEl) geminiTextEl.innerHTML = errHtml;
+            else geminiEl.innerHTML = `<div style="color: var(--accent-danger); padding: 1rem;">${errHtml}</div>`;
+        } finally {
+            setState({ isGeminiLoading: false, geminiAbortController: null });
+        }
+    };
+}
+
+// ==========================================
+// 내부 UI 렌더링 헬퍼
+// ==========================================
+function renderExplanationPanel(content) {
+    return `
+        <div id="geminiText" style="padding: 1.5rem; color: var(--text-primary); line-height: 1.8; font-size: 1.05rem; overflow-y: auto; flex: 1; overscroll-behavior-y: contain;">
+            ${content}
+        </div>
+    `;
+}
+
+function renderGoodMovePanel() {
+    return `
+        <div style="padding: 3rem 1.5rem; text-align: center; color: var(--text-primary); line-height: 1.6; flex: 1;">
+            <div style="font-size: 3.5rem; margin-bottom: 1rem;">🌟</div>
+            <strong style="font-size: 1.2rem;">이미 훌륭한 수입니다!</strong>
+            <div style="color: var(--text-secondary); font-size: 0.95rem; margin-top: 0.8rem;">
+                API 사용량 절약을 위해, AI 코치는<br><span style="color: var(--accent-danger);">치명적인 실수(Blunder)</span>나 <span style="color: var(--accent-warning);">놓친 기회(Mistake)</span> 등<br>설명이 꼭 필요한 상황에서만 부를 수 있습니다.
+            </div>
+        </div>
+    `;
+}

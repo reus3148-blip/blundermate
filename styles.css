@@ -570,18 +570,6 @@ textarea:focus {
 .fab-toggle-moves:hover { background: var(--primary-hover); transform: translateY(-2px); }
 .fab-toggle-moves:active { transform: translateY(1px); }
 
-/* 전체화면 기보 모드 적용 시 체스판 및 컨트롤 영역 숨김 */
-.moves-fullscreen-mode .board-container,
-.moves-fullscreen-mode .board-controls,
-.moves-fullscreen-mode .engine-lines-wrapper {
-    display: none !important;
-}
-.moves-fullscreen-mode .moves-container {
-    display: block; /* 전체화면 모드일 때만 기보를 표시 */
-    flex: 1;
-    height: 100%;
-}
-
 .engine-lines-header:hover {
     color: var(--text-primary);
 }
@@ -591,10 +579,9 @@ textarea:focus {
 }
 
 .moves-container {
-    display: none; /* 기본 화면에서는 기보 테이블을 숨겨서 깔끔한 보드 영역 확보 */
+    display: block;
     flex: 1;
     overflow-y: auto;
-    min-height: 120px; /* 아무리 화면이 좁아도 기보 창이 완전히 사라지지 않도록 최소 공간 보장 */
     background: var(--bg-panel);
     -webkit-overflow-scrolling: touch;
     overscroll-behavior-y: contain;
@@ -638,11 +625,13 @@ th {
 .eval-badge.positive { color: var(--text-primary); background: rgba(16, 185, 129, 0.2); }
 .eval-badge.negative { color: var(--text-primary); background: rgba(239, 68, 68, 0.2); }
 
-/* 기보 테이블 셀 배경 하이라이트 (Blunder / Mistake 등) */
-.bg-blunder { background-color: rgba(239, 68, 68, 0.15) !important; border-radius: 4px; }
-.bg-mistake { background-color: rgba(245, 158, 11, 0.15) !important; border-radius: 4px; }
-.bg-missed-win { background-color: rgba(245, 158, 11, 0.15) !important; border-radius: 4px; }
-.bg-inaccuracy { background-color: rgba(251, 191, 36, 0.1) !important; border-radius: 4px; }
+/* 기보 테이블 셀 배경 하이라이트 (분류별 색상) */
+.bg-brilliant  { background-color: rgba(34,  211, 238, 0.15) !important; border-radius: 4px; }
+.bg-blunder    { background-color: rgba(239, 68,  68,  0.15) !important; border-radius: 4px; }
+.bg-mistake    { background-color: rgba(245, 158, 11,  0.15) !important; border-radius: 4px; }
+.bg-missed-win { background-color: rgba(245, 158, 11,  0.15) !important; border-radius: 4px; }
+.bg-inaccuracy { background-color: rgba(251, 191, 36,  0.10) !important; border-radius: 4px; }
+.bg-excellent  { background-color: rgba(16,  185, 129, 0.10) !important; border-radius: 4px; }
 
 .empty-state {
     text-align: center;
@@ -651,20 +640,137 @@ th {
     font-style: italic;
 }
 
-/* AI 코치 해설창 전체화면 오버레이 */
+/* AI 코치 해설 패널 (탭 내부에 배치, 전체 공간 채움) */
 #geminiExplanation {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(15, 17, 21, 0.98); /* 가독성을 위해 더 어두운 배경 */
-    backdrop-filter: blur(16px);
-    z-index: 3000;
     display: flex;
     flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
+/* ==========================================
+   패널 탭 시스템 (Engine / Moves / AI Coach)
+   ========================================== */
+.panel-tabs {
+    display: flex;
+    flex-shrink: 0;
+    background: var(--bg-panel);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.panel-tab {
+    flex: 1;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text-secondary);
+    padding: 0.6rem 0.4rem;
+    font-size: 0.82rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.panel-tab:hover {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.panel-tab.active {
+    color: var(--primary-color);
+    border-bottom-color: var(--primary-color);
+    background: rgba(92, 106, 196, 0.05);
+    font-weight: 600;
+}
+
+.panel-content {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.tab-panel {
+    display: none;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+}
+
+.tab-panel.active {
+    display: flex;
+}
+
+.ai-panel-content {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+}
+
+.ai-panel-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    padding: 2rem 1rem;
+    text-align: center;
+    color: var(--text-secondary);
+}
+
+/* 내비게이션 버튼 (◀, ▶) - 아이콘 전용 소형 스타일 */
+.nav-btn {
+    flex: 0 0 auto !important;
+    min-width: 44px !important;
+    max-width: 52px !important;
+    padding: 0.4rem 0.5rem !important;
+    font-size: 1.1rem;
+}
+
+/* AI Coach 버튼 */
+.ai-btn {
+    background: rgba(92, 106, 196, 0.15);
+    color: var(--primary-color);
+    border-color: rgba(92, 106, 196, 0.3);
+}
+.ai-btn:hover {
+    background: rgba(92, 106, 196, 0.35);
+    border-color: var(--primary-color);
+    color: #fff;
+}
+
+/* 메인 라인 복귀 버튼 래퍼 */
+.return-line-wrapper {
+    display: flex;
+    justify-content: center;
+    padding: 0.25rem 1rem;
+    flex-shrink: 0;
+    background: var(--bg-panel);
+}
+
+.return-btn {
+    background: rgba(245, 158, 11, 0.1) !important;
+    color: var(--accent-warning) !important;
+    border-color: rgba(245, 158, 11, 0.3) !important;
+    font-size: 0.85rem !important;
+    padding: 0.25rem 1rem !important;
+    max-width: none !important;
+    width: 100%;
+    flex: none !important;
+}
+.return-btn:hover {
+    background: rgba(245, 158, 11, 0.25) !important;
+    border-color: var(--accent-warning) !important;
 }
 
 @keyframes fadeInDown {

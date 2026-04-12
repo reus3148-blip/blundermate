@@ -4,6 +4,7 @@ import { StockfishEngine } from './engine.js';
 import { parseEvalData, getDests, convertPvToSan, classifyMove } from './utils.js';
 import { renderGamesList, renderMovesTable, updateUIWithEval, highlightActiveMove, renderEngineLines, updateTopEvalDisplay, renderVaultList, renderSavedGamesList } from './ui.js';
 import { getVaultItems, addVaultItem, removeVaultItem, getSavedGames, addSavedGame, removeSavedGame } from './storage.js';
+import { createGeminiHandler } from './gemini.js';
 
 // ==========================================
 // 1. DOM Elements
@@ -36,8 +37,7 @@ const nextMoveBtn = document.getElementById('nextMoveBtn');
 const returnMainLineBtn = document.getElementById('returnMainLineBtn');
 const explainMoveBtn = document.getElementById('explainMoveBtn');
 const geminiExplanation = document.getElementById('geminiExplanation');
-const toggleEngineLinesBtn = document.getElementById('toggleEngineLinesBtn');
-const engineLinesToggleIcon = document.getElementById('engineLinesToggleIcon');
+const panelTabs = document.getElementById('panelTabs');
 
 // View Navigation Elements
 const homeView = document.getElementById('homeView');
@@ -86,6 +86,13 @@ const savedGamesView = document.getElementById('savedGamesView');
 const savedGamesList = document.getElementById('savedGamesList');
 const savedGamesBackBtn = document.getElementById('savedGamesBackBtn');
 
+// FAB & Settings Elements (정적 HTML에서 참조)
+const fabToggleMoves = document.getElementById('fabToggleMoves');
+const settingsBtn = document.getElementById('settingsBtn');
+const settingsModal = document.getElementById('settingsModal');
+const coordsToggle = document.getElementById('coordsToggle');
+const geminiToggle = document.getElementById('geminiToggle');
+
 // ==========================================
 // 2. Application State
 // ==========================================
@@ -118,6 +125,7 @@ const EVAL_RENDER_THROTTLE = 100; // UI 업데이트 제한 시간(ms)
 let isGeminiLoading = false; // Gemini API 중복 호출 방지용 플래그
 let geminiAbortController = null; // Gemini API 요청 취소용 컨트롤러
 let isCoordsEnabled = localStorage.getItem('coordsEnabled') === 'true'; // 보드 좌표 표시 여부
+let isGeminiEnabled = localStorage.getItem('geminiEnabled') === 'true'; // Gemini AI 토글 상태
 
 // ==========================================
 // 3. Initialization
@@ -137,14 +145,8 @@ cg = Chessground(boardContainer, {
 });
 
 // ==========================================
-// 3-1. UI Enhancements (Dynamic FAB)
+// 3-1. FAB Toggle Moves
 // ==========================================
-// 모바일 최적화: 기보 전체화면 토글용 플로팅 버튼(FAB) 동적 생성
-const fabToggleMoves = document.createElement('button');
-fabToggleMoves.className = 'fab-toggle-moves';
-fabToggleMoves.innerHTML = '📜 Full Moves';
-analysisView.appendChild(fabToggleMoves);
-
 fabToggleMoves.addEventListener('click', () => {
     const analysisBoard = document.querySelector('.analysis-board');
     if (!analysisBoard) return;
@@ -176,73 +178,16 @@ fabToggleMoves.addEventListener('click', () => {
 // ==========================================
 // 3-2. Settings UI
 // ==========================================
-const settingsBtn = document.createElement('button');
-settingsBtn.className = 'settings-btn';
-settingsBtn.innerHTML = 'Settings';
-homeView.appendChild(settingsBtn);
-
-const settingsModal = document.createElement('div');
-settingsModal.className = 'modal-overlay hidden';
-settingsModal.id = 'settingsModal';
-settingsModal.innerHTML = `
-    <div class="modal-content">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-            <h2>⚙️ Settings</h2>
-            <button id="closeSettingsBtn" style="background: none; border: none; color: var(--text-secondary); font-size: 2rem; cursor: pointer; line-height: 1;">&times;</button>
-        </div>
-        
-        <div class="form-group" style="margin-top: 1rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border-color);">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <span style="font-weight: 500; color: var(--text-primary);">🔢 Board Coordinates</span>
-                <label class="switch">
-                    <input type="checkbox" id="coordsToggle">
-                    <span class="slider round"></span>
-                </label>
-            </div>
-            <span style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.5rem; display: block; line-height: 1.4;">
-                Show algebraic coordinates (a-h, 1-8) on the board.
-            </span>
-        </div>
-
-        <div class="form-group" style="padding-bottom: 1rem; border-bottom: 1px solid var(--border-color);">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <span style="font-weight: 500; color: var(--text-primary);">✨ Gemini AI Coach</span>
-                <label class="switch">
-                    <input type="checkbox" id="geminiToggle">
-                    <span class="slider round"></span>
-                </label>
-            </div>
-            <span style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.5rem; display: block; line-height: 1.4;">
-                Toggle real AI analysis (ON) or dummy test data (OFF).
-            </span>
-        </div>
-        <!-- Future settings can be added here -->
-    </div>
-`;
-
-const appContainer = document.querySelector('.app-container');
-if (appContainer) {
-    appContainer.appendChild(settingsModal);
-} else {
-    document.body.appendChild(settingsModal);
-}
-
-let isGeminiEnabled = localStorage.getItem('geminiEnabled') === 'true'; // Default is false
-const geminiToggle = settingsModal.querySelector('#geminiToggle');
 geminiToggle.checked = isGeminiEnabled;
-
 geminiToggle.addEventListener('change', (e) => {
     isGeminiEnabled = e.target.checked;
     localStorage.setItem('geminiEnabled', isGeminiEnabled);
 });
 
-const coordsToggle = settingsModal.querySelector('#coordsToggle');
 coordsToggle.checked = isCoordsEnabled;
-
 coordsToggle.addEventListener('change', (e) => {
     isCoordsEnabled = e.target.checked;
     localStorage.setItem('coordsEnabled', isCoordsEnabled);
-    
     if (cg) cg.set({ coordinates: isCoordsEnabled });
     if (inputCg) inputCg.set({ coordinates: isCoordsEnabled });
     if (practiceCg) practiceCg.set({ coordinates: isCoordsEnabled });
@@ -251,16 +196,11 @@ coordsToggle.addEventListener('change', (e) => {
 settingsBtn.addEventListener('click', () => {
     settingsModal.classList.remove('hidden');
 });
-
-settingsModal.querySelector('#closeSettingsBtn').addEventListener('click', () => {
+document.getElementById('closeSettingsBtn').addEventListener('click', () => {
     settingsModal.classList.add('hidden');
 });
-
-// 모달 바깥 배경 클릭 시 닫기
 settingsModal.addEventListener('click', (e) => {
-    if (e.target === settingsModal) {
-        settingsModal.classList.add('hidden');
-    }
+    if (e.target === settingsModal) settingsModal.classList.add('hidden');
 });
 
 // ==========================================
@@ -438,244 +378,57 @@ returnMainLineBtn.addEventListener('click', () => {
     }
 });
 
-toggleEngineLinesBtn.addEventListener('click', () => {
-    engineLinesContainer.classList.toggle('hidden');
-    engineLinesToggleIcon.textContent = engineLinesContainer.classList.contains('hidden') ? '▶' : '▼';
+// ==========================================
+// 3-3. Panel Tab Navigation
+// ==========================================
+function switchTab(tabName) {
+    document.querySelectorAll('.panel-tab').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.tab === tabName);
+    });
+    document.querySelectorAll('.tab-panel').forEach(panel => {
+        panel.classList.toggle('active', panel.id === `tab-${tabName}`);
+    });
+}
+
+panelTabs.addEventListener('click', (e) => {
+    const tab = e.target.closest('.panel-tab');
+    if (tab && tab.dataset.tab) switchTab(tab.dataset.tab);
 });
 
 // --- Gemini AI Coach Logic ---
+const PLACEHOLDER_HTML = `
+    <div class="ai-panel-placeholder">
+        <div style="font-size: 2.5rem; margin-bottom: 0.75rem;">✨</div>
+        <div style="font-weight: 600; margin-bottom: 0.4rem;">AI Coach</div>
+        <div style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5;">블런더, 실수 상황에서<br>아래 버튼을 눌러보세요</div>
+        <div style="margin-top: 1rem; font-size: 0.8rem; color: var(--primary-color); opacity: 0.7;">✨ AI 버튼 → AI Coach 탭</div>
+    </div>
+`;
+
+const handleGeminiExplanation = createGeminiHandler({
+    getState: () => ({
+        isGeminiLoading,
+        geminiAbortController,
+        isGeminiEnabled,
+        isExplorationMode,
+        isSimulationMode,
+        currentlyViewedIndex,
+        analysisQueue,
+    }),
+    setState: (patch) => {
+        if ('isGeminiLoading' in patch) isGeminiLoading = patch.isGeminiLoading;
+        if ('geminiAbortController' in patch) geminiAbortController = patch.geminiAbortController;
+    },
+    geminiEl: geminiExplanation,
+    isOpen: () => document.getElementById('tab-ai')?.classList.contains('active') ?? false,
+    onOpen: () => switchTab('ai'),
+    onClose: () => {
+        switchTab('engine');
+        if (geminiExplanation) geminiExplanation.innerHTML = PLACEHOLDER_HTML;
+    },
+});
 explainMoveBtn.addEventListener('click', handleGeminiExplanation);
 
-async function handleGeminiExplanation() {
-    if (isGeminiLoading) return; // API 중복 호출 방지 (Edge Case 대응)
-
-    if (!geminiExplanation.classList.contains('hidden')) {
-        geminiExplanation.classList.add('hidden');
-        if (geminiAbortController) geminiAbortController.abort(); // 창을 닫으면 진행 중인 요청 즉시 취소
-        return;
-    }
-
-    // 예외 처리 1: 시작 위치(0번째 수 이전)에서는 해설 불가
-    if (currentlyViewedIndex < 0 || !analysisQueue[currentlyViewedIndex]) {
-        geminiExplanation.classList.remove('hidden');
-        geminiExplanation.innerHTML = '<div style="color: var(--accent-warning); padding: 1rem;">시작 위치에서는 AI 해설을 사용할 수 없습니다. 체스 수를 하나 선택해 주세요.</div>';
-        return;
-    }
-
-    // 예외 처리 2: 자유 탐색 모드에서는 지원하지 않음
-    if (isExplorationMode || isSimulationMode) {
-        geminiExplanation.classList.remove('hidden');
-        geminiExplanation.innerHTML = '<div style="color: var(--accent-warning); padding: 1rem;">자유 탐색 모드에서는 AI 해설을 지원하지 않습니다. 메인 기보로 돌아가 주세요.</div>';
-        return;
-    }
-
-    const move = analysisQueue[currentlyViewedIndex];
-
-    // 예외 처리 3: 블런더, 실수 등 해설이 필요한 상황이 아닌 경우 호출 제한 (API 비용 절약)
-    const needsExplanation = ['Blunder', 'Mistake', 'Missed Win', 'Inaccuracy'].includes(move.classification);
-    if (!needsExplanation) {
-        geminiExplanation.classList.remove('hidden');
-        geminiExplanation.innerHTML = `
-            <div style="display: flex; justify-content: space-between; align-items: center; padding: 1.5rem; border-bottom: 1px solid var(--border-color); background: rgba(0,0,0,0.5);">
-                <h3 style="color: var(--primary-color); margin: 0; font-size: 1.3rem; display: flex; align-items: center; gap: 0.5rem;">
-                    ✨ AI Coach
-                </h3>
-                <button id="closeGeminiBtn" style="background: none; border: none; color: var(--text-secondary); font-size: 2.2rem; line-height: 1; cursor: pointer; padding: 0 0.5rem;">&times;</button>
-            </div>
-            <div style="padding: 3rem 1.5rem; text-align: center; color: var(--text-primary); line-height: 1.6;">
-                <div style="font-size: 3.5rem; margin-bottom: 1rem;">🌟</div>
-                <strong style="font-size: 1.2rem;">이미 훌륭한 수입니다!</strong>
-                <div style="color: var(--text-secondary); font-size: 0.95rem; margin-top: 0.8rem;">
-                    API 사용량 절약을 위해, AI 코치는<br><span style="color: var(--accent-danger);">치명적인 실수(Blunder)</span>나 <span style="color: var(--accent-warning);">놓친 기회(Mistake)</span> 등<br>설명이 꼭 필요한 상황에서만 부를 수 있습니다.
-                </div>
-            </div>
-        `;
-        document.getElementById('closeGeminiBtn').addEventListener('click', () => {
-            geminiExplanation.classList.add('hidden');
-        });
-        return;
-    }
-
-    // 캐시된 해설이 있다면 재요청 없이 즉시 렌더링하고 함수 종료
-    if (move.cachedExplanation) {
-        geminiExplanation.classList.remove('hidden');
-        geminiExplanation.innerHTML = `
-            <div style="display: flex; justify-content: space-between; align-items: center; padding: 1.5rem; border-bottom: 1px solid var(--border-color); background: rgba(0,0,0,0.5);">
-                <h3 style="color: var(--primary-color); margin: 0; font-size: 1.3rem; display: flex; align-items: center; gap: 0.5rem;">
-                    ✨ AI Coach
-                </h3>
-                <button id="closeGeminiBtn" style="background: none; border: none; color: var(--text-secondary); font-size: 2.2rem; line-height: 1; cursor: pointer; padding: 0 0.5rem;">&times;</button>
-            </div>
-            <div id="geminiText" style="padding: 1.5rem; color: var(--text-primary); line-height: 1.8; font-size: 1.05rem; overflow-y: auto; flex: 1; overscroll-behavior-y: contain;">
-                ${move.cachedExplanation}
-            </div>
-        `;
-        document.getElementById('closeGeminiBtn').addEventListener('click', () => {
-            geminiExplanation.classList.add('hidden');
-        });
-        return;
-    }
-
-    isGeminiLoading = true; // 로딩 상태 활성화
-
-    // 로딩 UI 표시
-    geminiExplanation.classList.remove('hidden');
-    geminiExplanation.innerHTML = `
-        <div style="display: flex; justify-content: space-between; align-items: center; padding: 1.5rem; border-bottom: 1px solid var(--border-color); background: rgba(0,0,0,0.5);">
-            <h3 style="color: var(--primary-color); margin: 0; font-size: 1.3rem; display: flex; align-items: center; gap: 0.5rem;">
-                ✨ AI Coach
-            </h3>
-            <button id="closeGeminiBtn" style="background: none; border: none; color: var(--text-secondary); font-size: 2.2rem; line-height: 1; cursor: pointer; padding: 0 0.5rem;">&times;</button>
-        </div>
-        <div id="geminiText" style="padding: 1.5rem; color: var(--text-primary); line-height: 1.8; font-size: 1.05rem; overflow-y: auto; flex: 1; overscroll-behavior-y: contain;">
-            <div style="text-align: center; color: var(--text-secondary); padding: 4rem 0;">
-                <div style="font-size: 2.5rem; margin-bottom: 1rem;">🤖</div>
-                AI가 국면을 꼼꼼하게 분석하고 있습니다...<br><span style="font-size:0.9rem; opacity: 0.7;">(약 2~5초 소요)</span>
-            </div>
-        </div>
-    `;
-
-    document.getElementById('closeGeminiBtn').addEventListener('click', () => {
-        geminiExplanation.classList.add('hidden');
-        if (geminiAbortController) geminiAbortController.abort();
-    });
-
-    let ascii_board = '';
-    let evalDrop = '0.0';
-    let best_move = 'Unknown';
-    let best_pv = '';
-    let punishment_pv = '';
-
-    try {
-        const tempChess = new window.Chess(move.fen);
-        ascii_board = tempChess.ascii();
-    } catch(e) {}
-    
-    // 이전 수에서 엔진이 추천했던 최선의 수 및 점수 하락폭(evalDrop) 추출
-    if (currentlyViewedIndex > 0) {
-        const prevMove = analysisQueue[currentlyViewedIndex - 1];
-        if (prevMove && prevMove.engineLines && prevMove.engineLines[0]) {
-            best_move = prevMove.engineLines[0].pv?.split(' ')[0] || 'Unknown';
-            best_pv = prevMove.engineLines[0].pv || '';
-            
-            if (move.engineLines && move.engineLines[0]) {
-                const pScore = prevMove.engineLines[0].scoreNum;
-                const cScore = move.engineLines[0].scoreNum;
-                evalDrop = (cScore - pScore).toFixed(2);
-            }
-        }
-    }
-
-    if (move.engineLines && move.engineLines[0]) {
-        punishment_pv = move.engineLines[0].pv || '';
-    }
-
-    geminiAbortController = new AbortController();
-
-    try {
-        const geminiTextEl = document.getElementById('geminiText');
-        geminiTextEl.innerHTML = ''; // 로딩 텍스트 제거
-        
-        if (isGeminiEnabled) {
-            // 설정이 ON일 경우: 실제 Gemini API 호출 및 스트리밍 처리
-            const response = await fetch('/api/analyze', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                signal: geminiAbortController.signal,
-                body: JSON.stringify({
-                    fen: move.fen,
-                    ascii_board: ascii_board,
-                    playedMove: move.san,
-                    classification: move.classification || 'Move',
-                    evalDrop: evalDrop,
-                    best_move: best_move,
-                    punishment_pv: punishment_pv,
-                    best_pv: best_pv
-                })
-            });
-
-            if (!response.ok) {
-                let errorMsg = `Server error: ${response.status}`;
-                try { const errObj = await response.json(); if(errObj.error) errorMsg = errObj.error; } catch(e){}
-                throw new Error(errorMsg);
-            }
-
-            if (!response.body) throw new Error('ReadableStream not supported');
-            
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder('utf-8');
-            let fullText = '';
-            
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                
-                const chunkText = decoder.decode(value, { stream: true });
-                fullText += chunkText;
-                
-                const formattedText = fullText
-                    .replace(/\*\*(.*?)\*\*/g, '<strong style="color: #fff;">$1</strong>')
-                    .replace(/\*(.*?)\*/g, '<em>$1</em>')
-                    .replace(/\n/g, '<br>');
-                
-                geminiTextEl.innerHTML = formattedText;
-                geminiTextEl.scrollTop = geminiTextEl.scrollHeight;
-            }
-        } else {
-            // 설정이 OFF일 경우: 더미 데이터 시뮬레이션 (프론트엔드 개선용)
-            const dummyData = `### 🔥 결정적 순간\n아앗, 학생이 둔 수(${move.san})는 조금 아쉬운 선택이었어요! 이 수로 인해 상황이 불리하게 변했습니다.\n\n### ⚠️ 선생님의 분석\n상대방이 **${punishment_pv || '강력한 공격'}** 수순으로 치명적인 반격을 가할 수 있는 틈을 내어주고 말았어요. 킹의 안전이 크게 위협받을 수 있는 위험한 상황입니다. \n\n### 💡 이렇게 뒀으면 어땠을까요?\n대신 엔진이 추천한 **${best_move}**를 두었다면 방어를 튼튼히 하고 주도권을 유지할 수 있었을 거예요. 다음엔 이 부분을 먼저 생각해보아요~`;
-
-            let fullText = '';
-            const chunkSize = 2; // 한 번에 출력할 글자 수
-            let index = 0;
-            
-            await new Promise((resolve, reject) => {
-                const interval = setInterval(() => {
-                    if (geminiAbortController.signal.aborted) {
-                        clearInterval(interval);
-                        reject(new DOMException('Aborted', 'AbortError'));
-                        return;
-                    }
-
-                    if (index < dummyData.length) {
-                        fullText += dummyData.substring(index, index + chunkSize);
-                        index += chunkSize;
-
-                        const formattedText = fullText
-                            .replace(/\*\*(.*?)\*\*/g, '<strong style="color: #fff;">$1</strong>')
-                            .replace(/\*(.*?)\*/g, '<em>$1</em>')
-                            .replace(/\n/g, '<br>');
-                        
-                        geminiTextEl.innerHTML = formattedText;
-                        geminiTextEl.scrollTop = geminiTextEl.scrollHeight;
-                    } else {
-                        clearInterval(interval);
-                        resolve();
-                    }
-                }, 20); // 20ms 간격으로 스트리밍 흉내
-            });
-        }
-
-        // 스트리밍이 정상적으로 완료되면 결과를 현재 수(Move) 객체에 캐싱
-        move.cachedExplanation = geminiTextEl.innerHTML;
-
-    } catch (error) {
-        if (error.name === 'AbortError') {
-            console.log('Gemini request aborted by user.');
-            return; // 사용자가 의도적으로 취소한 경우 빨간색 에러 텍스트 렌더링 무시
-        }
-        console.error("Gemini AI Error:", error);
-        const geminiTextEl = document.getElementById('geminiText');
-        if (geminiTextEl) {
-            geminiTextEl.innerHTML = `<div style="color: var(--accent-danger);">❌ AI 해설을 불러오는 데 실패했습니다.<br><span style="font-size: 0.85rem;">${error.message}</span></div>`;
-        } else {
-            geminiExplanation.innerHTML = `<div style="color: var(--accent-danger); padding: 1rem;">❌ AI 해설을 불러오는 데 실패했습니다.<br><span style="font-size: 0.85rem;">${error.message}</span></div>`;
-        }
-    } finally {
-        isGeminiLoading = false; // 작업 완료 후 로딩 상태 해제
-        geminiAbortController = null;
-    }
-}
 
 // --- UI Helpers ---
 function showButtonSuccess(button, text) {
@@ -1148,15 +901,45 @@ function handlePgnReviewStart(e = null, isWhiteGame = null) {
         tempChess.load(startFen);
     }
     
+    // 기물 가치 (Brilliant 희생 감지용)
+    const PIECE_VALUES = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
+
     chess.history({ verbose: true }).forEach((move, index) => {
         tempChess.move(move);
+
+        // ── Brilliant 감지용 희생 여부 사전 계산 ──────────────────────────────
+        // Chess.com: 폰 희생은 Brilliant 대상 제외, 기물/교환 희생만 인정
+        let isSacrifice = false;
+        if (move.piece !== 'p') {
+            const movedVal = PIECE_VALUES[move.piece] || 0;
+
+            // Case 1: 더 가치 있는 기물로 덜 가치 있는 기물을 포획 (교환 손실)
+            if (move.captured && movedVal > (PIECE_VALUES[move.captured] || 0)) {
+                isSacrifice = true;
+            }
+
+            // Case 2: 이동한 기물이 상대의 더 싼 기물에게 잡힐 수 있는 칸으로 이동 (기물 희생)
+            if (!isSacrifice) {
+                try {
+                    const opponentMoves = tempChess.moves({ verbose: true });
+                    const minAttackerVal = opponentMoves
+                        .filter(m => m.to === move.to)
+                        .reduce((min, m) => Math.min(min, PIECE_VALUES[m.piece] || 0), Infinity);
+                    if (movedVal > minAttackerVal) isSacrifice = true;
+                } catch(e) {}
+            }
+        }
+        // ─────────────────────────────────────────────────────────────────────
+
         newQueue.push({
             fen: tempChess.fen(),
             san: move.san,
             turn: tempChess.turn() === 'w' ? 'b' : 'w',
             moveNumber: Math.floor(index / 2) + 1,
             isWhite: index % 2 === 0,
-            engineLines: [] // 각 수마다 엔진 추천 라인을 저장할 배열 추가
+            engineLines: [],
+            isSacrifice,          // Brilliant 감지용
+            movedPiece: move.piece, // 폰 희생 제외 판별용
         });
     });
 
@@ -1271,10 +1054,9 @@ function updateBoardPosition(index, fen) {
     currentlyViewedIndex = index;
     highlightActiveMove(index);
     
-    if (geminiExplanation) {
-        geminiExplanation.classList.add('hidden');
-        geminiExplanation.innerHTML = '';
-    }
+    // 수 이동 시 엔진 탭으로 복귀하고 AI 패널은 플레이스홀더로 초기화
+    if (geminiExplanation) geminiExplanation.innerHTML = PLACEHOLDER_HTML;
+    switchTab('engine');
     
     // 블런더나 실수인 경우, 이전 턴(index - 1)에서 엔진이 추천했던 최선의 수를 파란색 화살표로 표시
     persistentShapes = [];
