@@ -1182,6 +1182,28 @@ function updateBoardForSimulation(index) {
     const tempChess = new Chess(item.fen);
     const turnColor = tempChess.turn() === 'w' ? 'white' : 'black';
     cg.set({ fen: item.fen, turnColor: turnColor, movable: { color: turnColor, free: false, dests: getDests(tempChess) }, drawable: { autoShapes: [] } });
-    updateTopEvalDisplay('-', `Simulating`);
-    engineLinesContainer.innerHTML = `<div style="padding: 1rem; color: var(--text-secondary); text-align: center;">Simulating Move ${index} / ${simulationQueue.length - 1} <br><strong style="color: var(--text-primary); font-size: 1.1rem; display: inline-block; margin-top: 0.5rem;">${item.san}</strong></div>`;
+    updateTopEvalDisplay('—', 'Simulating');
+    switchTab('engine');
+
+    const movesHtml = simulationQueue.map((m, i) => {
+        let state = i < index ? 'done' : i === index ? 'active' : 'upcoming';
+        return `<span class="sim-move sim-move--${state}" data-sim-index="${i}">${i === 0 ? 'Start' : m.san}</span>`;
+    }).join('');
+
+    engineLinesContainer.innerHTML = `
+        <div class="sim-panel">
+            <div class="sim-header">
+                <span class="sim-label">Engine Line</span>
+                <span class="sim-counter">${index} / ${simulationQueue.length - 1}</span>
+            </div>
+            <div class="sim-moves">${movesHtml}</div>
+        </div>
+    `;
+
+    engineLinesContainer.querySelectorAll('.sim-move').forEach(el => {
+        el.addEventListener('click', () => {
+            simulationIndex = parseInt(el.dataset.simIndex, 10);
+            updateBoardForSimulation(simulationIndex);
+        });
+    });
 }

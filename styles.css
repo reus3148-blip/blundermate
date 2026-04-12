@@ -1061,6 +1061,80 @@ th {
     background: #4b5563; 
 }
 
+/* ==========================================
+   Simulation Panel
+   ========================================== */
+.sim-panel {
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.sim-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.sim-label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-secondary);
+    font-weight: 600;
+}
+
+.sim-counter {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    font-family: monospace;
+}
+
+.sim-moves {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    align-items: center;
+}
+
+.sim-move {
+    font-family: monospace;
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 0.3rem 0.65rem;
+    border-radius: 5px;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: opacity 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+    user-select: none;
+}
+
+.sim-move--done {
+    color: var(--text-secondary);
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.08);
+}
+
+.sim-move--active {
+    color: #fff;
+    background: rgba(92, 106, 196, 0.28);
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(92, 106, 196, 0.18);
+}
+
+.sim-move--upcoming {
+    color: var(--text-secondary);
+    background: transparent;
+    border-color: rgba(255, 255, 255, 0.06);
+    opacity: 0.5;
+}
+
+.sim-move:hover {
+    opacity: 1;
+    border-color: rgba(255, 255, 255, 0.25);
+}
+
 /* Row highlighting for active move */
 .active-move {
     background: rgba(92, 106, 196, 0.2);
