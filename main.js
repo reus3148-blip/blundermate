@@ -420,12 +420,7 @@ const handleGeminiExplanation = createGeminiHandler({
         if ('geminiAbortController' in patch) geminiAbortController = patch.geminiAbortController;
     },
     geminiEl: geminiExplanation,
-    isOpen: () => document.getElementById('tab-ai')?.classList.contains('active') ?? false,
     onOpen: () => switchTab('ai'),
-    onClose: () => {
-        switchTab('engine');
-        if (geminiExplanation) geminiExplanation.innerHTML = PLACEHOLDER_HTML;
-    },
 });
 explainMoveBtn.addEventListener('click', handleGeminiExplanation);
 

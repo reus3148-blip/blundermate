@@ -10,17 +10,16 @@ import { formatMarkdownToHtml } from './utils.js';
  * @param {HTMLElement} ctx.geminiEl - Gemini 해설 패널 DOM 엘리먼트
  * @returns {Function} handleGeminiExplanation 핸들러
  */
-export function createGeminiHandler({ getState, setState, geminiEl, onOpen, onClose, isOpen }) {
+export function createGeminiHandler({ getState, setState, geminiEl, onOpen }) {
     return async function handleGeminiExplanation() {
         const state = getState();
 
         if (state.isGeminiLoading) return;
 
-        // 이미 AI 탭이 열려 있으면 취소하고 엔진 탭으로 복귀
-        if (isOpen()) {
-            onClose();
-            if (state.geminiAbortController) state.geminiAbortController.abort();
-            return;
+        // 스트리밍 중 재클릭 시 요청 취소 (isGeminiLoading으로 이미 보호되지만 abort도 처리)
+        if (state.geminiAbortController) {
+            state.geminiAbortController.abort();
+            setState({ geminiAbortController: null });
         }
 
         // 예외 1: 시작 위치
