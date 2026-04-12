@@ -425,11 +425,12 @@ main {
 
 .eval-track {
     flex: 1;
-    height: 6px;
-    background: #1a1a2a;
+    height: 10px;
+    background: #080808;
     border-radius: 3px;
-    overflow: hidden;
+    overflow: visible;
     position: relative;
+    border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .eval-fill {
@@ -438,9 +439,24 @@ main {
     top: 0;
     height: 100%;
     width: 50%;
-    background: #e8e8e8;
-    border-radius: 3px;
-    transition: width 0.4s ease;
+    background: #f2f2f2;
+    border-radius: 2px 0 0 2px;
+    transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    clip-path: inset(0);
+}
+
+/* 중앙 기준선 (균세 표시) */
+.eval-mid {
+    position: absolute;
+    left: 50%;
+    top: -3px;
+    bottom: -3px;
+    width: 2px;
+    background: rgba(255, 255, 255, 0.25);
+    transform: translateX(-50%);
+    border-radius: 1px;
+    z-index: 2;
+    pointer-events: none;
 }
 
 .eval-meta {
@@ -454,10 +470,10 @@ main {
 
 .eval-score {
     font-family: 'SF Mono', 'Fira Code', monospace;
-    font-size: 0.85rem;
+    font-size: 0.9rem;
     font-weight: 700;
     color: var(--text-primary);
-    min-width: 42px;
+    min-width: 46px;
     text-align: right;
 }
 .eval-score.positive { color: var(--accent-success); }
