@@ -153,7 +153,7 @@ fabToggleMoves.addEventListener('click', () => {
     
     analysisBoard.classList.toggle('moves-fullscreen-mode');
     if (analysisBoard.classList.contains('moves-fullscreen-mode')) {
-        fabToggleMoves.innerHTML = '♟️ Show Board';
+        fabToggleMoves.innerHTML = 'Show Board';
         // 기보 화면이 열릴 때, 방금까지 탐색하던 활성화된 수의 위치로 자동 스크롤
         setTimeout(() => {
             const activeRow = document.querySelector('.active-move-row');
@@ -169,7 +169,7 @@ fabToggleMoves.addEventListener('click', () => {
             }
         }, 50);
     } else {
-        fabToggleMoves.innerHTML = '📜 Full Moves';
+        fabToggleMoves.innerHTML = 'Full Moves';
         // 보드가 다시 나타날 때 컨테이너 크기 재계산 (체스판 깨짐/렌더링 중지 방지 Edge Case 처리)
             forceRedraw(cg);
     }
@@ -398,10 +398,9 @@ panelTabs.addEventListener('click', (e) => {
 // --- Gemini AI Coach Logic ---
 const PLACEHOLDER_HTML = `
     <div class="ai-panel-placeholder">
-        <div style="font-size: 2.5rem; margin-bottom: 0.75rem;">✨</div>
-        <div style="font-weight: 600; margin-bottom: 0.4rem;">AI Coach</div>
-        <div style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5;">블런더, 실수 상황에서<br>아래 버튼을 눌러보세요</div>
-        <div style="margin-top: 1rem; font-size: 0.8rem; color: var(--primary-color); opacity: 0.7;">✨ AI 버튼 → AI Coach 탭</div>
+        <svg class="ai-placeholder-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.582a.5.5 0 0 1 0 .962L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg>
+        <p class="ai-placeholder-title">AI Coach</p>
+        <p class="ai-placeholder-hint">블런더나 실수가 발생한 포지션에서<br>위의 AI 버튼을 눌러보세요</p>
     </div>
 `;
 
@@ -427,11 +426,11 @@ explainMoveBtn.addEventListener('click', handleGeminiExplanation);
 
 // --- UI Helpers ---
 function showButtonSuccess(button, text) {
-    const originalText = button.textContent;
-    button.textContent = text;
+    const originalHTML = button.innerHTML;
+    button.innerHTML = text;
     button.style.color = 'var(--accent-success)';
     setTimeout(() => {
-        button.textContent = originalText;
+        button.innerHTML = originalHTML;
         button.style.color = '';
     }, 1500);
 }
@@ -510,7 +509,7 @@ confirmSaveBtn.addEventListener('click', () => {
     saveModal.classList.add('hidden');
     
     // UX Feedback
-    showButtonSuccess(saveMoveBtn, '✔ Saved!');
+    showButtonSuccess(saveMoveBtn, 'Saved!');
 });
 
 // --- Save Entire Game Logic ---
@@ -550,7 +549,7 @@ confirmSaveGameBtn.addEventListener('click', () => {
     
     saveGameModal.classList.add('hidden');
     
-    showButtonSuccess(saveMoveBtn, '✔ Game Saved!');
+    showButtonSuccess(saveMoveBtn, 'Saved!');
 });
 
 // --- My Vault & Practice Logic ---
@@ -594,7 +593,7 @@ function updateSavedGamesView() {
 function startPractice(item) {
     vaultView.classList.add('hidden');
     practiceView.classList.remove('hidden');
-    practiceFeedback.className = 'top-eval-display';
+    practiceFeedback.className = 'practice-feedback';
     practiceFeedback.textContent = 'Find Best Move';
 
     const practiceChess = new Chess(item.prevFen);
@@ -626,17 +625,17 @@ function startPractice(item) {
                 
                 if (isCorrect) {
                     practiceFeedback.textContent = 'Correct! ' + moveRes.san;
-                    practiceFeedback.className = 'top-eval-display positive';
+                    practiceFeedback.className = 'practice-feedback positive';
                     practiceCg.set({ fen: practiceChess.fen(), movable: { color: undefined } }); // Lock board
                 } else {
                     const isBlunder = (moveRes.san === item.san);
                     practiceFeedback.textContent = (isBlunder ? 'Blunder played! ' : 'Incorrect: ') + moveRes.san;
-                    practiceFeedback.className = 'top-eval-display negative';
+                    practiceFeedback.className = 'practice-feedback negative';
                     setTimeout(() => {
                         practiceChess.undo();
                         practiceCg.set({ fen: practiceChess.fen(), turnColor: turnColor });
                         practiceFeedback.textContent = 'Try again';
-                        practiceFeedback.className = 'top-eval-display';
+                        practiceFeedback.className = 'practice-feedback';
                     }, 800);
                 }
             }
@@ -759,14 +758,14 @@ async function handleApiFetch() {
 const engineCallbacks = {
     onError: (e) => {
         console.error("Failed to load Stockfish worker:", e);
-        engineStatus.textContent = 'Engine Error';
-        engineStatus.className = 'tag';
+        engineStatus.textContent = 'Error';
+        engineStatus.className = 'engine-status';
         engineStatus.style.color = 'var(--accent-danger)';
     },
     onUciOk: () => {
         isEngineReady = true;
-        engineStatus.textContent = '';
-        engineStatus.className = 'tag engine-ready hidden';
+        engineStatus.textContent = '● Ready';
+        engineStatus.className = 'engine-status engine-ready';
     },
     onReady: () => {
         if (analysisQueue.length > 0 && !isAnalyzing) {

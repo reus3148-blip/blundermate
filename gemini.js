@@ -24,14 +24,14 @@ export function createGeminiHandler({ getState, setState, geminiEl, onOpen }) {
 
         // 예외 1: 시작 위치
         if (state.currentlyViewedIndex < 0 || !state.analysisQueue[state.currentlyViewedIndex]) {
-            geminiEl.innerHTML = '<div style="color: var(--accent-warning); padding: 1rem;">시작 위치에서는 AI 해설을 사용할 수 없습니다. 체스 수를 하나 선택해 주세요.</div>';
+            geminiEl.innerHTML = '<p class="ai-notice">시작 위치에서는 AI 해설을 사용할 수 없습니다. 체스 수를 하나 선택해 주세요.</p>';
             onOpen();
             return;
         }
 
         // 예외 2: 탐색/시뮬레이션 모드
         if (state.isExplorationMode || state.isSimulationMode) {
-            geminiEl.innerHTML = '<div style="color: var(--accent-warning); padding: 1rem;">자유 탐색 모드에서는 AI 해설을 지원하지 않습니다. 메인 기보로 돌아가 주세요.</div>';
+            geminiEl.innerHTML = '<p class="ai-notice">자유 탐색 모드에서는 AI 해설을 지원하지 않습니다. 메인 기보로 돌아가 주세요.</p>';
             onOpen();
             return;
         }
@@ -55,12 +55,7 @@ export function createGeminiHandler({ getState, setState, geminiEl, onOpen }) {
 
         // 로딩 UI 표시
         setState({ isGeminiLoading: true });
-        geminiEl.innerHTML = renderExplanationPanel(`
-            <div style="text-align: center; color: var(--text-secondary); padding: 4rem 0;">
-                <div style="font-size: 2.5rem; margin-bottom: 1rem;">🤖</div>
-                AI가 국면을 꼼꼼하게 분석하고 있습니다...<br><span style="font-size:0.9rem; opacity: 0.7;">(약 2~5초 소요)</span>
-            </div>
-        `);
+        geminiEl.innerHTML = renderExplanationPanel('<p class="ai-loading">AI가 국면을 분석하고 있습니다...<br><span class="ai-loading-sub">(약 2~5초 소요)</span></p>');
         onOpen();
 
         const abortController = new AbortController();
@@ -128,7 +123,7 @@ export function createGeminiHandler({ getState, setState, geminiEl, onOpen }) {
                 }
             } else {
                 // 더미 데이터 시뮬레이션 (Settings OFF 상태)
-                const dummyData = `### 🔥 결정적 순간\n아앗, 학생이 둔 수(${move.san})는 조금 아쉬운 선택이었어요! 이 수로 인해 상황이 불리하게 변했습니다.\n\n### ⚠️ 선생님의 분석\n상대방이 **${punishment_pv || '강력한 공격'}** 수순으로 치명적인 반격을 가할 수 있는 틈을 내어주고 말았어요. 킹의 안전이 크게 위협받을 수 있는 위험한 상황입니다. \n\n### 💡 이렇게 뒀으면 어땠을까요?\n대신 엔진이 추천한 **${best_move}**를 두었다면 방어를 튼튼히 하고 주도권을 유지할 수 있었을 거예요. 다음엔 이 부분을 먼저 생각해보아요~`;
+                const dummyData = `### 결정적 순간\n학생이 둔 수(${move.san})는 조금 아쉬운 선택이었어요! 이 수로 인해 상황이 불리하게 변했습니다.\n\n### 선생님의 분석\n상대방이 **${punishment_pv || '강력한 공격'}** 수순으로 치명적인 반격을 가할 수 있는 틈을 내어주고 말았어요. 킹의 안전이 크게 위협받을 수 있는 위험한 상황입니다. \n\n### 이렇게 뒀으면 어땠을까요?\n대신 엔진이 추천한 **${best_move}**를 두었다면 방어를 튼튼히 하고 주도권을 유지할 수 있었을 거예요. 다음엔 이 부분을 먼저 생각해보아요.`;
 
                 let fullText = '';
                 let chunkIndex = 0;
@@ -159,9 +154,9 @@ export function createGeminiHandler({ getState, setState, geminiEl, onOpen }) {
             if (error.name === 'AbortError') return;
             console.error("Gemini AI Error:", error);
             const geminiTextEl = document.getElementById('geminiText');
-            const errHtml = `<div style="color: var(--accent-danger);">❌ AI 해설을 불러오는 데 실패했습니다.<br><span style="font-size: 0.85rem;">${error.message}</span></div>`;
+            const errHtml = `<p class="ai-error">AI 해설을 불러오는 데 실패했습니다.<br><span class="ai-error-detail">${error.message}</span></p>`;
             if (geminiTextEl) geminiTextEl.innerHTML = errHtml;
-            else geminiEl.innerHTML = `<div style="color: var(--accent-danger); padding: 1rem;">${errHtml}</div>`;
+            else geminiEl.innerHTML = errHtml;
         } finally {
             setState({ isGeminiLoading: false, geminiAbortController: null });
         }
@@ -172,21 +167,18 @@ export function createGeminiHandler({ getState, setState, geminiEl, onOpen }) {
 // 내부 UI 렌더링 헬퍼
 // ==========================================
 function renderExplanationPanel(content) {
-    return `
-        <div id="geminiText" style="padding: 1.5rem; color: var(--text-primary); line-height: 1.8; font-size: 1.05rem; overflow-y: auto; flex: 1; overscroll-behavior-y: contain;">
-            ${content}
-        </div>
-    `;
+    return `<div id="geminiText" class="gemini-text-panel">${content}</div>`;
 }
 
 function renderGoodMovePanel() {
     return `
-        <div style="padding: 3rem 1.5rem; text-align: center; color: var(--text-primary); line-height: 1.6; flex: 1;">
-            <div style="font-size: 3.5rem; margin-bottom: 1rem;">🌟</div>
-            <strong style="font-size: 1.2rem;">이미 훌륭한 수입니다!</strong>
-            <div style="color: var(--text-secondary); font-size: 0.95rem; margin-top: 0.8rem;">
-                API 사용량 절약을 위해, AI 코치는<br><span style="color: var(--accent-danger);">치명적인 실수(Blunder)</span>나 <span style="color: var(--accent-warning);">놓친 기회(Mistake)</span> 등<br>설명이 꼭 필요한 상황에서만 부를 수 있습니다.
-            </div>
+        <div class="ai-good-move-panel">
+            <svg class="ai-good-move-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
+            <strong class="ai-good-move-title">이미 훌륭한 수입니다</strong>
+            <p class="ai-good-move-desc">
+                AI 코치는 <span class="text-danger">Blunder</span>·<span class="text-warning">Mistake</span> 등<br>
+                설명이 꼭 필요한 상황에서만 분석합니다.
+            </p>
         </div>
     `;
 }

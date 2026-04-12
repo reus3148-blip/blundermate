@@ -238,25 +238,43 @@ function setupEngineLinesDelegation(container) {
 }
 
 /**
- * 상단 평가 점수판과 현재 수의 상태(Blunder, Mistake 등) 텍스트를 업데이트합니다.
+ * Converts a numeric eval score to a percentage for the eval bar (0–100).
+ * 50% = equal. White advantage pushes toward 100%, black toward 0%.
+ */
+function evalToBarPercent(scoreStr) {
+    if (!scoreStr) return 50;
+    if (scoreStr.startsWith('+M')) return 95;
+    if (scoreStr.startsWith('-M')) return 5;
+    const n = parseFloat(scoreStr);
+    if (isNaN(n)) return 50;
+    return Math.max(5, Math.min(95, 50 + n * 9));
+}
+
+/**
+ * Updates the eval bar, score display, and move classification label.
  */
 export function updateTopEvalDisplay(scoreStr, classification = '') {
     const topEvalDisplay = document.getElementById('topEvalDisplay');
     const moveClassification = document.getElementById('moveClassification');
-    
+    const evalBarFill = document.getElementById('evalBarFill');
+
     if (!topEvalDisplay) return;
-    
-    topEvalDisplay.innerHTML = scoreStr || '-';
-    topEvalDisplay.className = 'top-eval-display'; 
-    
+
+    topEvalDisplay.textContent = scoreStr || '—';
+    topEvalDisplay.className = 'eval-score';
+
     const numVal = parseFloat(scoreStr);
     if (!isNaN(numVal)) {
-        if (numVal > 0.5) topEvalDisplay.classList.add('positive');
-        else if (numVal < -0.5) topEvalDisplay.classList.add('negative');
+        if (numVal > 0.3) topEvalDisplay.classList.add('positive');
+        else if (numVal < -0.3) topEvalDisplay.classList.add('negative');
     } else if (scoreStr && scoreStr.startsWith('+M')) {
         topEvalDisplay.classList.add('positive');
     } else if (scoreStr && scoreStr.startsWith('-M')) {
         topEvalDisplay.classList.add('negative');
+    }
+
+    if (evalBarFill) {
+        evalBarFill.style.width = `${evalToBarPercent(scoreStr)}%`;
     }
 
     if (moveClassification) {
@@ -276,6 +294,7 @@ export function updateTopEvalDisplay(scoreStr, classification = '') {
             moveClassification.style.color = colorMap[classification] || 'var(--text-secondary)';
         } else {
             moveClassification.textContent = '';
+            moveClassification.style.color = '';
         }
     }
 }
@@ -304,9 +323,11 @@ export function renderVaultList(container, vaultItems, onDelete, onPractice) {
                 <div class="game-category" style="color: ${borderCol};">${item.category}</div>
                 <div class="game-san">Played: <strong>${escapeHtml(item.san)}</strong></div>
                 <div class="game-best">Best: ${escapeHtml(item.bestMove) || 'Unknown'}</div>
-                ${item.notes ? `<div class="game-notes">📝 ${escapeHtml(item.notes)}</div>` : ''}
+                ${item.notes ? `<div class="game-notes">${escapeHtml(item.notes)}</div>` : ''}
             </div>
-            <button class="delete-btn">❌</button>
+            <button class="delete-btn" title="Delete">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+            </button>
         `;
         
         el.querySelector('.delete-btn').addEventListener('click', (e) => {
@@ -338,9 +359,11 @@ export function renderSavedGamesList(container, savedGames, onDelete, onLoad) {
             <div class="game-item-content">
                 <div class="game-title">${escapeHtml(item.title)}</div>
                 <div class="game-date">Saved: ${new Date(item.date).toLocaleDateString()}</div>
-                ${item.notes ? `<div class="game-notes">📝 ${escapeHtml(item.notes)}</div>` : ''}
+                ${item.notes ? `<div class="game-notes">${escapeHtml(item.notes)}</div>` : ''}
             </div>
-            <button class="delete-btn">❌</button>
+            <button class="delete-btn" title="Delete">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+            </button>
         `;
         
         el.querySelector('.delete-btn').addEventListener('click', (e) => {
