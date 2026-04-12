@@ -123,7 +123,7 @@ export function createGeminiHandler({ getState, setState, geminiEl, onOpen }) {
                 }
             } else {
                 // 더미 데이터 시뮬레이션 (Settings OFF 상태)
-                const dummyData = `### 결정적 순간\n학생이 둔 수(${move.san})는 조금 아쉬운 선택이었어요! 이 수로 인해 상황이 불리하게 변했습니다.\n\n### 선생님의 분석\n상대방이 **${punishment_pv || '강력한 공격'}** 수순으로 치명적인 반격을 가할 수 있는 틈을 내어주고 말았어요. 킹의 안전이 크게 위협받을 수 있는 위험한 상황입니다. \n\n### 이렇게 뒀으면 어땠을까요?\n대신 엔진이 추천한 **${best_move}**를 두었다면 방어를 튼튼히 하고 주도권을 유지할 수 있었을 거예요. 다음엔 이 부분을 먼저 생각해보아요.`;
+                const dummyData = `### 문제점\n${move.san}은 상대에게 ${punishment_pv || '결정적인 반격'}의 기회를 준다. 이 수순이 이어지면 포지션의 균형이 무너지고 수비가 어려워진다.\n\n### 개선안\n${best_move}를 뒀다면 ${best_pv ? '이어지는 전개에서' : '이후 수순에서'} 중앙 장악력을 유지하며 주도권을 가져올 수 있었다.`;
 
                 let fullText = '';
                 let chunkIndex = 0;
