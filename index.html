@@ -38,7 +38,7 @@
                     <!-- Manual PGN Fallback -->
                     <div id="manualInputContainer" class="manual-input-toggle">
                         <button id="toggleManualBtn" class="text-btn">Paste PGN manually</button>
-                        <span style="color: var(--text-secondary); margin: 0 0.5rem;">|</span>
+                        <span class="text-divider">|</span>
                         <button id="openBoardInputBtn" class="text-btn">Play on board</button>
                     </div>
 
@@ -54,11 +54,11 @@
                         My Library
                     </div>
                     
-                    <button id="openVaultBtn" class="control-btn icon-btn" style="width: 100%; border-color: var(--primary-color); color: var(--primary-color); max-width: none;">
+                    <button id="openVaultBtn" class="control-btn icon-btn btn-full btn-primary-outline">
                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M17 21V7a2 2 0 0 0-2-2H9a2 2 0 0 0-2 2v14"></path></svg>
                         <span>Open My Vault</span>
                     </button>
-                    <button id="openSavedGamesBtn" class="control-btn icon-btn" style="width: 100%; border-color: var(--accent-success); color: var(--accent-success); max-width: none;">
+                    <button id="openSavedGamesBtn" class="control-btn icon-btn btn-full btn-success-outline">
                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
                         <span>Open Saved Games</span>
                     </button>
@@ -245,10 +245,9 @@
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- Board Input Modal -->
-    <div id="boardInputModal" class="modal-overlay hidden">
+        <!-- Board Input Modal -->
+        <div id="boardInputModal" class="modal-overlay hidden">
         <div class="modal-content modal-content--wide">
             <h2 class="modal-title-center">Enter Moves</h2>
             <div id="inputBoardContainer" class="board-container board-container--input"></div>
@@ -265,63 +264,65 @@
         </div>
     </div>
 
-    <!-- Save Choice Modal -->
-    <div id="saveChoiceModal" class="modal-overlay hidden">
-        <div class="modal-content" style="max-width: 320px;">
-            <h2 style="text-align: center;">What to save?</h2>
-            <div class="modal-actions" style="display: flex; flex-direction: column; gap: 1rem; margin-top: 1rem;">
-                <button id="choiceSaveMoveBtn" class="primary-btn" style="width: 100%; text-align: center; justify-content: center; display: flex;">Save This Move (Vault)</button>
-                <button id="choiceSaveGameBtn" class="control-btn" style="width: 100%; max-width: none; color: var(--text-primary);">Save Entire Game</button>
-                <button id="cancelChoiceBtn" class="text-btn" style="margin-top: 0.5rem;">Cancel</button>
+        <!-- Save Choice Modal -->
+        <div id="saveChoiceModal" class="modal-overlay hidden">
+            <div class="modal-content modal-content--narrow">
+                <h2 class="modal-title-center">What to save?</h2>
+                <div class="modal-actions modal-actions--col">
+                    <button id="choiceSaveMoveBtn" class="primary-btn btn-full">Save This Move (Vault)</button>
+                    <button id="choiceSaveGameBtn" class="control-btn btn-full">Save Entire Game</button>
+                    <button id="cancelChoiceBtn" class="text-btn">Cancel</button>
+                </div>
             </div>
         </div>
-    </div>
 
-    <!-- Save Game Modal -->
-    <div id="saveGameModal" class="modal-overlay hidden">
-        <div class="modal-content">
-            <h2>Save Entire Game</h2>
-            <div class="form-group">
-                <label>Title / Players</label>
-                <input type="text" id="saveGameTitle" class="text-input" placeholder="e.g. Me vs Magnus">
-            </div>
-            <div class="form-group">
-                <label>Notes (Optional)</label>
-                <textarea id="saveGameNotes" placeholder="Great attacking game..." style="height: 80px;"></textarea>
-            </div>
-            <div class="modal-actions">
-                <button id="cancelSaveGameBtn" class="text-btn">Cancel</button>
-                <button id="confirmSaveGameBtn" class="primary-btn">Save Game</button>
+        <!-- Save Game Modal -->
+        <div id="saveGameModal" class="modal-overlay hidden">
+            <div class="modal-content">
+                <h2>Save Entire Game</h2>
+                <div class="form-group">
+                    <label>Title / Players</label>
+                    <input type="text" id="saveGameTitle" class="text-input" placeholder="e.g. Me vs Magnus">
+                </div>
+                <div class="form-group">
+                    <label>Notes (Optional)</label>
+                    <textarea id="saveGameNotes" class="textarea-short" placeholder="Great attacking game..."></textarea>
+                </div>
+                <div class="modal-actions">
+                    <button id="cancelSaveGameBtn" class="text-btn">Cancel</button>
+                    <button id="confirmSaveGameBtn" class="primary-btn">Save Game</button>
+                </div>
             </div>
         </div>
-    </div>
 
-    <!-- Save Move Modal -->
-    <div id="saveModal" class="modal-overlay hidden">
-        <div class="modal-content">
-            <h2>Save to Vault</h2>
-            <p id="saveMoveText" class="save-move-text"></p>
-            <p id="saveBestMoveText" style="text-align: center; color: var(--accent-success); font-size: 0.95rem; margin-top: -0.5rem; margin-bottom: 0.5rem; font-weight: 600;"></p>
-            <div class="form-group">
-                <label>Category</label>
-                <select id="saveCategory" class="text-input" style="appearance: auto;">
-                    <option value="blunder">Blunder (??)</option>
-                    <option value="mistake">Mistake (?)</option>
-                    <option value="missed">Missed Win (?!)</option>
-                    <option value="tactic">Tactical Error</option>
-                    <option value="positional">Positional Error</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label>Notes (Optional)</label>
-                <textarea id="saveNotes" placeholder="Why did you play this? What was the right move?" style="height: 80px;"></textarea>
-            </div>
-            <div class="modal-actions">
-                <button id="cancelSaveBtn" class="text-btn">Cancel</button>
-                <button id="confirmSaveBtn" class="primary-btn">Save Move</button>
+        <!-- Save Move Modal -->
+        <div id="saveModal" class="modal-overlay hidden">
+            <div class="modal-content">
+                <h2>Save to Vault</h2>
+                <p id="saveMoveText" class="save-move-text"></p>
+                <p id="saveBestMoveText" class="save-best-move-text"></p>
+                <div class="form-group">
+                    <label>Category</label>
+                    <select id="saveCategory" class="text-input select-auto">
+                        <option value="blunder">Blunder (??)</option>
+                        <option value="mistake">Mistake (?)</option>
+                        <option value="missed">Missed Win (?!)</option>
+                        <option value="tactic">Tactical Error</option>
+                        <option value="positional">Positional Error</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Notes (Optional)</label>
+                    <textarea id="saveNotes" class="textarea-short" placeholder="Why did you play this? What was the right move?"></textarea>
+                </div>
+                <div class="modal-actions">
+                    <button id="cancelSaveBtn" class="text-btn">Cancel</button>
+                    <button id="confirmSaveBtn" class="primary-btn">Save Move</button>
+                </div>
             </div>
         </div>
-    </div>
+
+    </div><!-- /.app-container -->
 
     <!-- Chess.js library for PGN parsing -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>

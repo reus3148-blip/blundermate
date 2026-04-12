@@ -144,36 +144,7 @@ cg = Chessground(boardContainer, {
     }
 });
 
-// ==========================================
-// 3-1. FAB Toggle Moves
-// ==========================================
-fabToggleMoves.addEventListener('click', () => {
-    const analysisBoard = document.querySelector('.analysis-board');
-    if (!analysisBoard) return;
-    
-    analysisBoard.classList.toggle('moves-fullscreen-mode');
-    if (analysisBoard.classList.contains('moves-fullscreen-mode')) {
-        fabToggleMoves.innerHTML = 'Show Board';
-        // 기보 화면이 열릴 때, 방금까지 탐색하던 활성화된 수의 위치로 자동 스크롤
-        setTimeout(() => {
-            const activeRow = document.querySelector('.active-move-row');
-            if (activeRow) {
-                const container = activeRow.closest('.moves-container');
-                if (container && container.offsetParent !== null) {
-                    const rect = activeRow.getBoundingClientRect();
-                    const containerRect = container.getBoundingClientRect();
-                    const relativeTop = rect.top - containerRect.top + container.scrollTop;
-                    const scrollTarget = relativeTop - (container.clientHeight / 2) + (rect.height / 2);
-                    container.scrollTo({ top: scrollTarget, behavior: 'auto' });
-                }
-            }
-        }, 50);
-    } else {
-        fabToggleMoves.innerHTML = 'Full Moves';
-        // 보드가 다시 나타날 때 컨테이너 크기 재계산 (체스판 깨짐/렌더링 중지 방지 Edge Case 처리)
-            forceRedraw(cg);
-    }
-});
+// (FAB toggle removed — element is hidden and no longer functional)
 
 // ==========================================
 // 3-2. Settings UI
@@ -698,7 +669,7 @@ function handleExplorationMove(orig, dest) {
     
     explorationEngineLines = [];
     updateTopEvalDisplay('...', 'Exploring');
-    engineLinesContainer.innerHTML = '<div style="padding: 1rem; color: var(--text-secondary);">Analyzing variation...</div>';
+    engineLinesContainer.innerHTML = '<div class="container-message">Analyzing variation...</div>';
     
     analysisStatus.className = 'tag engine-loading';
     analysisStatus.textContent = 'Exploring position...';
@@ -729,16 +700,16 @@ async function handleApiFetch() {
     if (!username) return;
 
     fetchBtn.disabled = true;
-    gamesList.innerHTML = '<div style="text-align:center; padding: 1rem;">Loading archives...</div>';
+    gamesList.innerHTML = '<div class="container-message">Loading archives...</div>';
 
     try {
-        gamesList.innerHTML = '<div style="text-align:center; padding: 1rem;">Fetching latest games...</div>';
+        gamesList.innerHTML = '<div class="container-message">Fetching latest games...</div>';
         const recentGames = await fetchRecentGames(username);
         renderGamesList(gamesList, recentGames, username, (pgn, isWhiteGame) => {
             pgnInput.value = pgn;
             handlePgnReviewStart(null, isWhiteGame);
         });
-        
+
         // 검색 성공 시 화면을 넓게 쓰기 위해 다른 메뉴 숨김
         myLibrarySection.classList.add('hidden');
         manualInputContainer.classList.add('hidden');
@@ -746,7 +717,11 @@ async function handleApiFetch() {
 
     } catch (e) {
         console.error(e);
-        gamesList.innerHTML = `<div style="color:var(--accent-danger); padding:1rem;">Failed to fetch games: ${e.message}</div>`;
+        const errEl = document.createElement('div');
+        errEl.className = 'container-message container-message--error';
+        errEl.textContent = `Failed to fetch games: ${e.message}`;
+        gamesList.innerHTML = '';
+        gamesList.appendChild(errEl);
     } finally {
         fetchBtn.disabled = false;
     }
@@ -758,9 +733,8 @@ async function handleApiFetch() {
 const engineCallbacks = {
     onError: (e) => {
         console.error("Failed to load Stockfish worker:", e);
-        engineStatus.textContent = 'Error';
-        engineStatus.className = 'engine-status';
-        engineStatus.style.color = 'var(--accent-danger)';
+        engineStatus.textContent = '● Error';
+        engineStatus.className = 'engine-status engine-error';
     },
     onUciOk: () => {
         isEngineReady = true;
