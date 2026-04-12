@@ -187,13 +187,19 @@ export function renderEngineLines(container, lines, onHover, onLeave, onClick) {
         return;
     }
     
-    container.innerHTML = lines.map((line, index) => `
-        <div class="engine-line" data-uci="${line.uci || ''}" data-index="${index}" style="display: flex; gap: 1rem; margin-bottom: 0.3rem; font-family: monospace; font-size: 0.95rem; padding: 0.3rem 0.5rem; background: rgba(0,0,0,0.1); border-radius: 4px; cursor: pointer; transition: background 0.2s;">
-            <span style="color: var(--text-secondary);">#${index + 1}</span>
-            <span style="min-width: 50px; font-weight: 600; color: ${line.scoreNum > 0.5 ? '#4ade80' : (line.scoreNum < -0.5 ? '#f87171' : 'inherit')};">${line.scoreStr}</span>
-            <span style="color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${line.pv.split(' ').slice(0, 5).join(' ')} ...</span>
-        </div>
-    `).join('');
+    const linesHtml = lines.map((line, index) => {
+        const scoreClass = line.scoreNum > 0.3 ? 'positive' : line.scoreNum < -0.3 ? 'negative' : '';
+        const moves = line.pv ? line.pv.split(' ').slice(0, 5).join('  ') : '';
+        return `
+            <div class="engine-line${index === 0 ? ' engine-line--best' : ''}" data-uci="${line.uci || ''}" data-index="${index}">
+                <span class="el-rank">${index + 1}</span>
+                <span class="el-score ${scoreClass}">${line.scoreStr}</span>
+                <span class="el-moves">${moves}</span>
+            </div>
+        `;
+    }).join('');
+
+    container.innerHTML = linesHtml + `<p class="engine-hint">hover to preview &nbsp;·&nbsp; click to simulate</p>`;
 }
 
 function setupEngineLinesDelegation(container) {

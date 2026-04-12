@@ -713,6 +713,70 @@ textarea:focus {
     transition: color 0.2s ease;
 }
 
+/* ==========================================
+   Engine Lines
+   ========================================== */
+.engine-line {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.6rem 0.75rem;
+    cursor: pointer;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    transition: background 0.15s ease;
+}
+
+.engine-line:last-of-type {
+    border-bottom: none;
+}
+
+.engine-line:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.engine-line--best {
+    border-left: 2px solid rgba(92, 106, 196, 0.5);
+}
+
+.el-rank {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    min-width: 12px;
+    opacity: 0.5;
+    font-weight: 500;
+}
+
+.el-score {
+    font-family: monospace;
+    font-size: 0.88rem;
+    font-weight: 700;
+    min-width: 48px;
+    color: var(--text-primary);
+}
+
+.el-score.positive { color: var(--accent-success); }
+.el-score.negative { color: var(--accent-danger); }
+
+.el-moves {
+    font-family: monospace;
+    font-size: 0.84rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+    letter-spacing: 0.01em;
+}
+
+.engine-hint {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    opacity: 0.35;
+    text-align: center;
+    padding: 0.9rem 0.75rem 0.5rem;
+    user-select: none;
+}
+
 /* --- 모바일 최적화: 기보 전체화면 토글 모드 및 FAB --- */
 .fab-toggle-moves {
     position: absolute;
@@ -741,7 +805,7 @@ textarea:focus {
 }
 
 .engine-lines-container {
-    padding: 0 1rem 0.5rem 1rem;
+    padding: 0.25rem 0 0;
 }
 
 .moves-container {
