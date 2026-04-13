@@ -260,47 +260,53 @@ function evalToBarPercent(scoreStr) {
  * Updates the eval bar, score display, and move classification label.
  */
 export function updateTopEvalDisplay(scoreStr, classification = '') {
-    const topEvalDisplay = document.getElementById('topEvalDisplay');
-    const moveClassification = document.getElementById('moveClassification');
+    const evalScore = document.getElementById('evalScore');
+    const evalLabel = document.getElementById('evalLabel');
     const evalBarFill = document.getElementById('evalBarFill');
 
-    if (!topEvalDisplay) return;
+    if (!evalScore) return;
 
-    topEvalDisplay.textContent = scoreStr || '—';
-    topEvalDisplay.className = 'eval-score';
+    evalScore.textContent = scoreStr || '—';
 
     const numVal = parseFloat(scoreStr);
+    let scoreColor;
     if (!isNaN(numVal)) {
-        if (numVal > 0.3) topEvalDisplay.classList.add('positive');
-        else if (numVal < -0.3) topEvalDisplay.classList.add('negative');
+        if (numVal < -0.3) scoreColor = '#C84040';
+        else if (numVal > 0.1) scoreColor = '#5A9E60';
+        else scoreColor = '#8A8070';
     } else if (scoreStr && scoreStr.startsWith('+M')) {
-        topEvalDisplay.classList.add('positive');
+        scoreColor = '#5A9E60';
     } else if (scoreStr && scoreStr.startsWith('-M')) {
-        topEvalDisplay.classList.add('negative');
+        scoreColor = '#C84040';
+    } else {
+        scoreColor = '#8A8070';
     }
+    evalScore.style.color = scoreColor;
 
     if (evalBarFill) {
+        evalBarFill.classList.remove('loading');
+        evalBarFill.style.background = '';
         evalBarFill.style.width = `${evalToBarPercent(scoreStr)}%`;
     }
 
-    if (moveClassification) {
+    if (evalLabel) {
         if (classification) {
             const colorMap = {
                 'Brilliant':  '#22d3ee',
-                'Best':       'var(--accent-success)',
-                'Excellent':  'var(--accent-success)',
-                'Good':       '#60a5fa',
+                'Best':       '#5A9E60',
+                'Excellent':  '#5A9E60',
+                'Good':       '#5A9E60',
                 'Inaccuracy': '#fbbf24',
-                'Missed Win': 'var(--accent-warning)',
-                'Mistake':    'var(--accent-warning)',
-                'Blunder':    'var(--accent-danger)',
-                'Exploring':  'var(--accent-warning)'
+                'Missed Win': '#f59e0b',
+                'Mistake':    '#f59e0b',
+                'Blunder':    '#C84040',
+                'Exploring':  '#f59e0b'
             };
-            moveClassification.textContent = classification;
-            moveClassification.style.color = colorMap[classification] || 'var(--text-secondary)';
+            evalLabel.textContent = classification.toUpperCase();
+            evalLabel.style.color = colorMap[classification] || '#8A8070';
         } else {
-            moveClassification.textContent = '';
-            moveClassification.style.color = '';
+            evalLabel.textContent = '';
+            evalLabel.style.color = '';
         }
     }
 }

@@ -180,11 +180,15 @@ export function escapeHtml(unsafe) {
 }
 
 /**
- * 간단한 마크다운(**굵게**, *기울임*, 줄바꿈)을 HTML로 변환합니다.
+ * 마크다운 텍스트를 HTML로 변환합니다. marked 라이브러리 사용.
  */
 export function formatMarkdownToHtml(text) {
+    if (typeof window !== 'undefined' && window.marked) {
+        return window.marked.parse(text);
+    }
+    // fallback: basic markdown
     return text
-        .replace(/\*\*(.*?)\*\*/g, '<strong style="color: #fff;">$1</strong>')
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
         .replace(/\*(.*?)\*/g, '<em>$1</em>')
         .replace(/\n/g, '<br>');
 }

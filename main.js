@@ -26,7 +26,6 @@ const fetchBtn = document.getElementById('fetchBtn');
 const gamesList = document.getElementById('gamesList');
 
 // Analysis Board UI
-const engineStatus = document.getElementById('engineStatus');
 const analysisStatus = document.getElementById('analysisStatus');
 const movesBody = document.getElementById('movesBody');
 const boardContainer = document.getElementById('boardContainer');
@@ -733,13 +732,13 @@ async function handleApiFetch() {
 const engineCallbacks = {
     onError: (e) => {
         console.error("Failed to load Stockfish worker:", e);
-        engineStatus.textContent = '● Error';
-        engineStatus.className = 'engine-status engine-error';
+        const fb = document.getElementById('evalBarFill');
+        if (fb) { fb.classList.remove('loading'); fb.style.background = '#C84040'; }
     },
     onUciOk: () => {
         isEngineReady = true;
-        engineStatus.textContent = '● Ready';
-        engineStatus.className = 'engine-status engine-ready';
+        const fb = document.getElementById('evalBarFill');
+        if (fb) fb.classList.remove('loading');
     },
     onReady: () => {
         if (analysisQueue.length > 0 && !isAnalyzing) {

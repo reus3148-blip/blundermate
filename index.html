@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1">
     <title>Blundermate</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/chessground@9.0.0/assets/chessground.base.css">
     <link rel="stylesheet" href="https://unpkg.com/chessground@9.0.0/assets/chessground.brown.css">
     <link rel="stylesheet" href="https://unpkg.com/chessground@9.0.0/assets/chessground.cburnett.css">
@@ -76,24 +77,22 @@
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
                     Back
                 </button>
-                <div class="top-bar-eval">
-                    <span id="topEvalDisplay" class="eval-score">—</span>
-                    <span id="moveClassification" class="move-classification"></span>
-                </div>
-                <span id="engineStatus" class="engine-status engine-loading">●</span>
-            </div>
-
-            <!-- Eval Bar (full width) -->
-            <div class="eval-row">
-                <div class="eval-track">
-                    <div class="eval-fill" id="evalBarFill"></div>
-                    <div class="eval-mid"></div>
-                </div>
+                <span class="app-title">blundermate</span>
+                <div class="top-bar-spacer"></div>
             </div>
 
             <!-- Board -->
             <div class="board-wrapper">
                 <div id="boardContainer" class="board-container"></div>
+            </div>
+
+            <!-- Eval Row (보드 바로 아래) -->
+            <div class="eval-row" id="evalRow">
+                <div class="eval-bar-wrap">
+                    <div class="eval-bar-fill" id="evalBarFill"></div>
+                </div>
+                <span class="eval-score" id="evalScore">—</span>
+                <span class="eval-label" id="evalLabel"></span>
             </div>
 
             <!-- Navigation Controls -->
