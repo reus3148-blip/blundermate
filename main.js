@@ -37,6 +37,9 @@ const returnMainLineBtn = document.getElementById('returnMainLineBtn');
 const explainMoveBtn = document.getElementById('explainMoveBtn');
 const geminiExplanation = document.getElementById('geminiExplanation');
 const panelTabs = document.getElementById('panelTabs');
+const movesOverlay = document.getElementById('movesOverlay');
+const movesOverlayBtn = document.getElementById('movesOverlayBtn');
+const movesOverlayCloseBtn = document.getElementById('movesOverlayCloseBtn');
 
 // View Navigation Elements
 const homeView = document.getElementById('homeView');
@@ -366,6 +369,15 @@ panelTabs.addEventListener('click', (e) => {
         switchTab(tab.dataset.tab);
         if (tab.dataset.tab === 'ai') renderAiTabContent();
     }
+});
+
+function openMovesOverlay() { movesOverlay.classList.add('open'); }
+function closeMovesOverlay() { movesOverlay.classList.remove('open'); }
+
+movesOverlayBtn.addEventListener('click', openMovesOverlay);
+movesOverlayCloseBtn.addEventListener('click', closeMovesOverlay);
+movesOverlay.addEventListener('click', (e) => {
+    if (e.target === movesOverlay) closeMovesOverlay();
 });
 
 // --- Gemini AI Coach Logic ---
@@ -951,6 +963,7 @@ function startNewAnalysis(newQueue) {
 
     renderMovesTable(movesBody, analysisQueue, (index) => {
         updateBoardPosition(index, analysisQueue[index].fen);
+        closeMovesOverlay();
     });
     
     currentAnalysisIndex = 0;

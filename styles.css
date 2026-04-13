@@ -379,6 +379,23 @@ main {
 }
 .back-btn:hover { color: var(--text-primary); background: rgba(255,255,255,0.06); }
 
+.topbar-icon-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    width: 34px;
+    height: 30px;
+    border-radius: 6px;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+    flex-shrink: 0;
+}
+.topbar-icon-btn:hover { background: rgba(255, 255, 255, 0.1); color: var(--text-primary); }
+
 .engine-status {
     font-size: 0.7rem;
     font-weight: 600;
@@ -1558,4 +1575,90 @@ input:checked + .slider:before { transform: translateX(20px); background: #C49A3
     * {
         scrollbar-width: none;
     }
+}
+
+/* ==========================================
+   Moves Overlay
+   ========================================== */
+.moves-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    background: rgba(0, 0, 0, 0.5);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.moves-overlay.open {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.moves-overlay-sheet {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    max-height: 80dvh;
+    background: #1B1814;
+    border-radius: 12px 12px 0 0;
+    display: flex;
+    flex-direction: column;
+    transform: translateY(100%);
+    transition: transform 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+    overflow: hidden;
+}
+
+.moves-overlay.open .moves-overlay-sheet {
+    transform: translateY(0);
+}
+
+.moves-overlay-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 48px;
+    padding: 0 1rem;
+    border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0;
+}
+
+.moves-overlay-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.moves-overlay-close {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 1.1rem;
+    cursor: pointer;
+    padding: 0.25rem 0.5rem;
+    line-height: 1;
+    transition: color 0.15s ease;
+}
+.moves-overlay-close:hover { color: var(--text-primary); }
+
+.moves-overlay .moves-container {
+    overflow-y: auto;
+    flex: 1;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+}
+
+.moves-overlay tr {
+    height: 44px;
+}
+
+.moves-overlay td,
+.moves-overlay th {
+    padding: 0 1rem;
+}
+
+.moves-overlay .active-move-row td {
+    background: rgba(196, 154, 60, 0.12);
+    color: #C49A3C;
 }

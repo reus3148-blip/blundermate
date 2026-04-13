@@ -78,7 +78,7 @@
                     Back
                 </button>
                 <span class="app-title">blundermate</span>
-                <div class="top-bar-spacer"></div>
+                <button id="movesOverlayBtn" class="topbar-icon-btn" title="기보">☰</button>
             </div>
 
             <!-- Board -->
@@ -129,20 +129,6 @@
                     <div id="engineLines" class="engine-lines-container"></div>
                 </div>
 
-                <!-- Moves Tab -->
-                <div class="tab-panel" id="tab-moves">
-                    <div class="moves-container">
-                        <table id="movesTable">
-                            <thead>
-                                <tr><th>#</th><th>White</th><th>Black</th></tr>
-                            </thead>
-                            <tbody id="movesBody">
-                                <tr><td colspan="3" class="empty-state">No moves analyzed yet.</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
                 <!-- AI Coach Tab -->
                 <div class="tab-panel" id="tab-ai">
                     <div id="geminiExplanation" class="ai-panel-content">
@@ -159,6 +145,26 @@
 
             <!-- FAB: hidden, kept for JS compatibility -->
             <button id="fabToggleMoves" class="fab-toggle-moves hidden">Moves</button>
+
+            <!-- Moves Overlay -->
+            <div id="movesOverlay" class="moves-overlay">
+                <div class="moves-overlay-sheet">
+                    <div class="moves-overlay-header">
+                        <span class="moves-overlay-title">기보</span>
+                        <button id="movesOverlayCloseBtn" class="moves-overlay-close">✕</button>
+                    </div>
+                    <div class="moves-container">
+                        <table id="movesTable">
+                            <thead>
+                                <tr><th>#</th><th>White</th><th>Black</th></tr>
+                            </thead>
+                            <tbody id="movesBody">
+                                <tr><td colspan="3" class="empty-state">No moves analyzed yet.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
 
         </div>
 
