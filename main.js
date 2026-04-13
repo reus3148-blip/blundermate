@@ -362,17 +362,22 @@ function switchTab(tabName) {
 
 panelTabs.addEventListener('click', (e) => {
     const tab = e.target.closest('.panel-tab');
-    if (tab && tab.dataset.tab) switchTab(tab.dataset.tab);
+    if (tab && tab.dataset.tab) {
+        switchTab(tab.dataset.tab);
+        if (tab.dataset.tab === 'ai') renderAiTabContent();
+    }
 });
 
 // --- Gemini AI Coach Logic ---
-const PLACEHOLDER_HTML = `
-    <div class="ai-panel-placeholder">
-        <svg class="ai-placeholder-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.582a.5.5 0 0 1 0 .962L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg>
-        <p class="ai-placeholder-title">AI Coach</p>
-        <p class="ai-placeholder-hint">블런더나 실수가 발생한 포지션에서<br>위의 AI 버튼을 눌러보세요</p>
-    </div>
-`;
+function renderAiTabContent() {
+    if (!geminiExplanation) return;
+    const move = analysisQueue[currentlyViewedIndex];
+    if (move?.cachedExplanation) {
+        geminiExplanation.innerHTML = `<div id="geminiText" class="gemini-text-panel">${move.cachedExplanation}</div>`;
+    } else {
+        geminiExplanation.innerHTML = `<button id="aiAnalyzeBtn" class="ai-analyze-btn">✦ 이 포지션 분석하기</button>`;
+    }
+}
 
 const handleGeminiExplanation = createGeminiHandler({
     getState: () => ({
@@ -391,7 +396,10 @@ const handleGeminiExplanation = createGeminiHandler({
     geminiEl: geminiExplanation,
     onOpen: () => switchTab('ai'),
 });
-explainMoveBtn.addEventListener('click', handleGeminiExplanation);
+
+geminiExplanation.addEventListener('click', (e) => {
+    if (e.target.closest('#aiAnalyzeBtn')) handleGeminiExplanation();
+});
 
 
 // --- UI Helpers ---
@@ -1021,8 +1029,8 @@ function updateBoardPosition(index, fen) {
     currentlyViewedIndex = index;
     highlightActiveMove(index);
     
-    // 수 이동 시 엔진 탭으로 복귀하고 AI 패널은 플레이스홀더로 초기화
-    if (geminiExplanation) geminiExplanation.innerHTML = PLACEHOLDER_HTML;
+    // 수 이동 시 엔진 탭으로 복귀하고 AI 패널은 현재 포지션에 맞게 갱신
+    renderAiTabContent();
     switchTab('engine');
     
     // 블런더나 실수인 경우, 이전 턴(index - 1)에서 엔진이 추천했던 최선의 수를 파란색 화살표로 표시

@@ -911,6 +911,34 @@ th {
     overscroll-behavior-y: contain;
 }
 
+.ai-analyze-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: calc(100% - 1.5rem);
+    height: 44px;
+    margin: 0.75rem;
+    background: rgba(196, 154, 60, 0.12);
+    border: 1px solid rgba(196, 154, 60, 0.28);
+    border-radius: 8px;
+    color: #C49A3C;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
+    flex-shrink: 0;
+}
+
+.ai-analyze-btn:hover {
+    background: rgba(196, 154, 60, 0.2);
+    border-color: rgba(196, 154, 60, 0.5);
+}
+
+.ai-analyze-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
 .ai-panel-placeholder {
     display: flex;
     flex-direction: column;
