@@ -767,6 +767,12 @@ textarea:focus {
     user-select: none;
 }
 
+@media (hover: none) and (pointer: coarse) {
+    .engine-hint {
+        display: none;
+    }
+}
+
 /* --- 모바일 최적화: 기보 전체화면 토글 모드 및 FAB --- */
 .fab-toggle-moves {
     position: absolute;
