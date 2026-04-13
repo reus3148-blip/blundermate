@@ -1514,17 +1514,13 @@ input:checked + .slider:before { transform: translateX(20px); background: #C49A3
 .form-group select option { background: var(--bg-dark); color: #fff; }
 
 /* ==========================================
-   Chess Board Color Override
+   Chess Board Color Override (보드 내부만)
    ========================================== */
-.light-square { background: #E8DCBF; }
-.dark-square  { background: #8C6840; }
-
-/* chessground board: SVG 패턴 제거 후 직접 색상 지정 */
-cg-board {
+.board-container cg-board {
     background-color: #E8DCBF !important;
     background-image: none !important;
 }
-cg-board square.dark {
+.board-container cg-board square.dark {
     background-color: #8C6840;
 }
 
