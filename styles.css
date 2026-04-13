@@ -1518,10 +1518,14 @@ input:checked + .slider:before { transform: translateX(20px); background: #C49A3
    ========================================== */
 .board-container cg-board {
     background-color: #E8DCBF !important;
-    background-image: none !important;
-}
-.board-container cg-board square.dark {
-    background-color: #8C6840;
+    background-image: conic-gradient(
+        #8C6840 0.25turn,
+        #E8DCBF 0.25turn 0.5turn,
+        #8C6840 0.5turn 0.75turn,
+        #E8DCBF 0.75turn
+    ) !important;
+    background-size: 25% 25% !important;
+    background-position: 0 0 !important;
 }
 
 @media (max-width: 768px) {
