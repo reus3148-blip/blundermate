@@ -257,26 +257,34 @@ function evalToWinChance(scoreStr) {
 }
 
 /**
- * Updates the win chance display in the bottom bar.
+ * Updates the win chance and move classification label in the bottom bar.
  */
-export function updateTopEvalDisplay(scoreStr) {
+export function updateTopEvalDisplay(scoreStr, classification = '') {
     const el = document.getElementById('winChanceDisplay');
+    const labelEl = document.getElementById('moveClassLabel');
     if (!el) return;
 
     const pct = evalToWinChance(scoreStr);
+    let color;
     if (pct === null) {
         el.textContent = '—';
-        el.style.color = 'var(--tx2)';
-        return;
-    }
-
-    el.textContent = pct + '%';
-    if (pct >= 50) {
-        el.style.color = 'var(--best)';
-    } else if (pct < 40) {
-        el.style.color = 'var(--blunder)';
+        color = 'var(--tx2)';
     } else {
-        el.style.color = 'var(--tx2)';
+        el.textContent = pct + '%';
+        if (pct >= 50)      color = 'var(--best)';
+        else if (pct < 40)  color = 'var(--blunder)';
+        else                color = 'var(--tx2)';
+    }
+    el.style.color = color;
+
+    if (labelEl) {
+        const META = ['Exploring', 'Simulating'];
+        if (classification && !META.includes(classification)) {
+            labelEl.textContent = classification.toUpperCase();
+            labelEl.style.color = color;
+        } else {
+            labelEl.textContent = '';
+        }
     }
 }
 

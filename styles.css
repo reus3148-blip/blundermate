@@ -19,6 +19,7 @@
     --tx2:     #8A8070;
     --best:    #5A9E60;
     --blunder: #C84040;
+    --brd2:    rgba(237, 232, 223, 0.13);
 }
 
 html {
@@ -890,13 +891,33 @@ th {
     font-weight: 600;
 }
 
+.bar-separator {
+    width: 1px;
+    height: 16px;
+    background: var(--brd2);
+    flex-shrink: 0;
+}
+
+.win-group {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+}
+
 .win-chance-display {
     font-family: 'IBM Plex Mono', 'SF Mono', 'Fira Code', monospace;
     font-size: 18px;
     font-weight: 700;
     color: var(--tx2);
-    flex-shrink: 0;
-    margin-left: auto;
+    line-height: 1;
+}
+
+.move-class-label {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
     line-height: 1;
 }
 
