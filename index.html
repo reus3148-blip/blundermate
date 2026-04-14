@@ -21,7 +21,10 @@
                     <img src="logo.png" alt="Blundermate Logo" class="app-logo">
                     <h1 class="home-brand-text"><span class="brand-blunder">blunder</span><span class="brand-mate">mate</span></h1>
                 </div>
-                <button id="settingsBtn" class="topbar-icon-btn" title="Settings">⚙</button>
+                <div class="header-actions" style="display: flex; gap: 8px;">
+                    <button id="feedbackBtn" class="topbar-icon-btn" title="피드백 남기기">💭</button>
+                    <button id="settingsBtn" class="topbar-icon-btn" title="Settings">⚙</button>
+                </div>
             </header>
 
             <!-- State A: No vault items -->
@@ -232,6 +235,23 @@
                 <div class="modal-actions modal-actions--col">
                     <button id="chooseWhiteBtn" class="primary-btn btn-full" data-i18n="chooseWhite">백 (White)</button>
                     <button id="chooseBlackBtn" class="control-btn btn-full" data-i18n="chooseBlack">흑 (Black)</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Feedback Modal -->
+        <div id="feedbackModal" class="modal-overlay hidden">
+            <div class="modal-content modal-content--narrow">
+                <h2 class="modal-title-center" data-i18n="leaveFeedback">피드백 남기기</h2>
+                <div class="form-group">
+                    <textarea id="feedbackInput" class="text-input" placeholder="웹사이트에 대한 의견이나 버그를 자유롭게 남겨주세요..." style="min-height: 120px; font-family: inherit; font-size: 0.9rem; padding: 12px; resize: vertical;"></textarea>
+                </div>
+                <div class="modal-actions modal-actions--spread" style="margin-top:20px;">
+                    <div id="feedbackStatusText" style="font-size: 0.85rem; color: var(--tx2); width: 100%;"></div>
+                </div>
+                <div class="modal-actions" style="margin-top: 10px;">
+                    <button id="cancelFeedbackBtn" class="text-btn" data-i18n="cancel">취소</button>
+                    <button id="submitFeedbackBtn" class="primary-btn" data-i18n="send">전송</button>
                 </div>
             </div>
         </div>

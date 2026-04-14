@@ -114,6 +114,14 @@ const settingsModal = document.getElementById('settingsModal');
 const coordsToggle = document.getElementById('coordsToggle');
 const geminiToggle = document.getElementById('geminiToggle');
 
+// Feedback Elements
+const feedbackBtn = document.getElementById('feedbackBtn');
+const feedbackModal = document.getElementById('feedbackModal');
+const feedbackInput = document.getElementById('feedbackInput');
+const cancelFeedbackBtn = document.getElementById('cancelFeedbackBtn');
+const submitFeedbackBtn = document.getElementById('submitFeedbackBtn');
+const feedbackStatusText = document.getElementById('feedbackStatusText');
+
 // ==========================================
 // 2. Application State
 // ==========================================
@@ -286,6 +294,69 @@ document.getElementById('closeSettingsBtn').addEventListener('click', () => {
 settingsModal.addEventListener('click', (e) => {
     if (e.target === settingsModal) settingsModal.classList.add('hidden');
 });
+
+// Feedback Logic
+if (feedbackBtn) {
+    feedbackBtn.addEventListener('click', () => {
+        feedbackInput.value = '';
+        feedbackStatusText.textContent = '';
+        feedbackModal.classList.remove('hidden');
+    });
+}
+if (cancelFeedbackBtn) {
+    cancelFeedbackBtn.addEventListener('click', () => {
+        feedbackModal.classList.add('hidden');
+    });
+}
+if (feedbackModal) {
+    feedbackModal.addEventListener('click', (e) => {
+        if (e.target === feedbackModal) feedbackModal.classList.add('hidden');
+    });
+}
+if (submitFeedbackBtn) {
+    submitFeedbackBtn.addEventListener('click', async () => {
+        const content = feedbackInput.value.trim();
+        if (!content) {
+            feedbackStatusText.textContent = '내용을 입력해주세요.';
+            feedbackStatusText.style.color = 'var(--accent-danger, red)';
+            return;
+        }
+
+        submitFeedbackBtn.disabled = true;
+        submitFeedbackBtn.textContent = '전송 중...';
+        feedbackStatusText.textContent = '';
+
+        try {
+            const res = await fetch('/api/feedback', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ content })
+            });
+
+            if (res.ok) {
+                feedbackStatusText.textContent = '소중한 피드백 감사합니다!';
+                feedbackStatusText.style.color = 'var(--accent-success, green)';
+                setTimeout(() => {
+                    feedbackModal.classList.add('hidden');
+                }, 1500);
+            } else {
+                let errText = '전송 실패';
+                try {
+                    const errJson = await res.json();
+                    if (errJson.error) errText = errJson.error;
+                } catch(e) {}
+                feedbackStatusText.textContent = errText;
+                feedbackStatusText.style.color = 'var(--accent-danger, red)';
+            }
+        } catch (error) {
+            feedbackStatusText.textContent = '네트워크 오류가 발생했습니다.';
+            feedbackStatusText.style.color = 'var(--accent-danger, red)';
+        } finally {
+            submitFeedbackBtn.disabled = false;
+            submitFeedbackBtn.textContent = '전송';
+        }
+    });
+}
 
 document.getElementById('langKoBtn').addEventListener('click', () => {
     setLocale('ko');
