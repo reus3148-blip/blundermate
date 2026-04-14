@@ -939,10 +939,9 @@ textarea:focus {
    ========================================== */
 .unified-controls {
     display: flex;
-    justify-content: center;
     align-items: center;
-    gap: 0.5rem;
-    padding: 0.35rem 0.75rem;
+    height: 44px;
+    padding: 0 8px;
     background: var(--bg-panel);
     border-top: 1px solid var(--border-color);
     flex-shrink: 0;
@@ -1001,7 +1000,7 @@ textarea:focus {
     cursor: pointer;
     transition: color 0.15s ease;
     min-height: 44px;
-    padding: 0 0.75rem;
+    padding: 0;
     white-space: nowrap;
 }
 
@@ -1009,13 +1008,15 @@ textarea:focus {
 .ctrl-btn:active { transform: scale(0.95); }
 
 .ctrl-nav {
-    flex: 0 0 auto;
-    width: 44px;
+    width: 36px;
+    flex-shrink: 0;
     padding: 0;
 }
 
 .ctrl-save {
-    flex: 0 0 auto;
+    width: 36px;
+    flex-shrink: 0;
+    padding: 0;
     color: var(--text-secondary);
 }
 
@@ -1225,35 +1226,39 @@ th {
 }
 
 .tab-toggle-btn {
+    width: 90px;
+    flex-shrink: 0;
     background: transparent;
     border: none;
     color: var(--ac);
     font-weight: 700;
     font-size: 12px;
     cursor: pointer;
-    padding: 0 0.5rem;
-    min-height: 44px;
+    padding: 0;
+    text-align: center;
     white-space: nowrap;
     transition: opacity 0.15s ease;
-    flex-shrink: 0;
 }
 .tab-toggle-btn:hover { opacity: 0.75; }
 
 .win-chance-display {
+    width: 52px;
+    flex-shrink: 0;
     font-family: 'IBM Plex Mono', 'SF Mono', 'Fira Code', monospace;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 700;
     color: var(--tx2);
     line-height: 1;
-    flex-shrink: 0;
+    text-align: center;
 }
 
 .move-class-label {
+    width: 88px;
+    flex-shrink: 0;
     font-size: 10px;
     font-weight: 700;
     letter-spacing: 0.08em;
     line-height: 1;
-    flex: 1;
     text-align: center;
 }
 
