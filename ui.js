@@ -291,19 +291,8 @@ export function updateTopEvalDisplay(scoreStr, classification = '') {
 
     if (evalLabel) {
         if (classification) {
-            const colorMap = {
-                'Brilliant':  '#22d3ee',
-                'Best':       '#5A9E60',
-                'Excellent':  '#5A9E60',
-                'Good':       '#5A9E60',
-                'Inaccuracy': '#fbbf24',
-                'Missed Win': '#f59e0b',
-                'Mistake':    '#f59e0b',
-                'Blunder':    '#C84040',
-                'Exploring':  '#f59e0b'
-            };
             evalLabel.textContent = classification.toUpperCase();
-            evalLabel.style.color = colorMap[classification] || '#8A8070';
+            evalLabel.style.color = scoreColor;
         } else {
             evalLabel.textContent = '';
             evalLabel.style.color = '';
