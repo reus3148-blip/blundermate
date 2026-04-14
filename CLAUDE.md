@@ -1,0 +1,83 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Project: Blundermate
+
+Mobile-first chess game review web app. Users load games via Chess.com API or PGN paste, then get Stockfish engine analysis with optional Gemini AI explanations. Built with zero build step — pure ES6 modules deployed on Vercel.
+
+## Development
+
+**No build step.** Open `index.html` directly in a browser for local development.
+
+**Deploy:** Push to main branch → auto-deploys via Vercel.
+
+**Environment:** Copy `.env` with `GEMINI_API_KEY` for Gemini features locally. In production, the key lives in Vercel Environment Variables — never expose it client-side.
+
+**Gemini backend:** `api/analyze.js` is a Vercel Edge Function. To test it locally, use `vercel dev` (requires Vercel CLI).
+
+## Architecture
+
+### Module Responsibilities
+
+| File | Role |
+|------|------|
+| `main.js` | App controller — all global state, event wiring, view navigation, analysis queue |
+| `ui.js` | Pure DOM rendering functions — no state mutations |
+| `utils.js` | Pure logic — eval parsing, move classification, FEN/PGN helpers |
+| `engine.js` | `StockfishEngine` class — wraps Web Worker, parses UCI protocol |
+| `gemini.js` | `createGeminiHandler()` — SSE streaming from `/api/analyze`, caches results |
+| `chessApi.js` | Chess.com REST API — fetches recent games by username |
+| `storage.js` | localStorage CRUD — vault items, saved games, settings |
+| `api/analyze.js` | Vercel Edge Function — Gemini proxy with system prompt, streams plain text |
+
+### Data Flow
+
+```
+User Input (PGN / Chess.com API / board)
+  → Chess.js parse → analysisQueue[] built
+  → Each position FEN → Stockfish Web Worker (MultiPV=3, depth=12)
+  → Parse UCI output → classifyMove() (EPL algorithm in utils.js)
+  → Render moves table + board via ui.js
+  → On mistake: Gemini explanation fetched via /api/analyze (SSE)
+  → Explanation cached in analysisQueue[i].geminiExplanation
+  → Vault/saved games persisted to localStorage
+```
+
+### Key State (global in `main.js`)
+
+- `chess` — Chess.js instance tracking main game
+- `analysisQueue` — array of move objects with evals, classifications, cached Gemini text
+- `currentlyViewedIndex` — which move is displayed
+- `isUserWhite` — player perspective (flips board + eval sign)
+- `isExplorationMode` / `isSimulationMode` — alternate interaction modes
+
+### Views
+
+Two main screens toggled via CSS class on `.app-container`:
+- **Home** — game input (Chess.com / PGN / board), My Vault, Saved Games, Practice Mode
+- **Analysis** — Chessground board, eval bar, moves table, engine lines, Gemini panel
+
+### Move Classification (EPL Algorithm)
+
+`classifyMove()` in `utils.js` maps centipawn loss to: Blunder / Mistake / Inaccuracy / Good / Excellent / Best. Eval is always from the current player's perspective — `parseEvalData()` handles sign flipping.
+
+### Stockfish Integration
+
+Runs in a Web Worker (`engine/stockfish-18-lite-single.js` + `.wasm`). The lite single-thread build is used for mobile compatibility. Eval rendering is throttled at 100ms. `pvChess` is a reused Chess.js instance for PV → SAN conversion.
+
+### Gemini Integration
+
+- `gemini.js` sends board context (FEN, move, classification, eval drop) to `/api/analyze`
+- Backend builds a Korean-language teacher persona prompt, streams Gemini 2.5 Flash response
+- Client renders streamed markdown into the Gemini panel
+- Results cached per `analysisQueue` entry — no repeat API calls for the same position
+
+## Critical Constraints
+
+- **Mobile-first, always.** Use `100dvh` for viewport height (iOS Safari fix). All interactive elements must be touch-friendly.
+- **No npm dependencies on the frontend.** Chessground and Chess.js are loaded via CDN/static files. Do not introduce a build pipeline.
+- **XSS prevention.** All user-supplied strings (username, PGN content) must go through `escapeHtml()` before DOM insertion.
+- **Gemini API key must never reach the client.** All Gemini calls go through `api/analyze.js`.
+- **localStorage operations must be wrapped in try/catch** — storage can be unavailable (private browsing, quota exceeded).
+- **UI is Korean-language.** Button labels, prompts, and AI explanations are in Korean.

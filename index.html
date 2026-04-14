@@ -15,46 +15,81 @@
     <div class="app-container">
         <!-- Home View -->
         <div id="homeView" class="view-container">
-            <header>
+            <!-- Shared Header -->
+            <header class="home-header">
                 <div class="header-brand">
                     <img src="logo.png" alt="Blundermate Logo" class="app-logo">
-                    <h1>Blundermate</h1>
+                    <h1 class="home-brand-text"><span class="brand-blunder">blunder</span><span class="brand-mate">mate</span></h1>
                 </div>
                 <button id="settingsBtn" class="topbar-icon-btn" title="Settings">⚙</button>
             </header>
 
-            <main>
-                <section class="input-section">
-                    <div class="section-title">New analysis</div>
-                    <!-- API Input Layout -->
-                    <div class="search-input-container">
-                        <input type="text" id="usernameInput" class="text-input" placeholder="Enter Chess.com Username" value="" />
-                        <button id="fetchBtn" class="search-submit-btn" title="Fetch Games">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
-                        </button>
-                    </div>
-
-                    <div id="gamesList" class="games-list"></div>
-
-                    <!-- Manual PGN Fallback -->
-                    <div id="manualInputContainer" class="manual-input-toggle">
-                        <button id="toggleManualBtn" class="text-btn">Paste PGN manually</button>
-                        <span class="text-divider">|</span>
-                        <button id="openBoardInputBtn" class="text-btn">Play on board</button>
-                    </div>
-
-                    <div id="manualInputWrapper" class="manual-input-wrapper hidden">
-                        <textarea id="pgnInput" placeholder="Paste your PGN here... e.g. 1. e4 e5"></textarea>
-                        <button id="analyzeBtn" class="primary-btn">Start Review</button>
-                    </div>
+            <!-- State A: No vault items -->
+            <div id="homeStateA" class="home-state home-scroll">
+                <section class="home-hero">
+                    <div class="hero-title">어떤 게임을 분석할까요?</div>
+                    <div class="hero-subtitle">Chess.com 유저네임을 입력하세요</div>
                 </section>
 
-                <section id="myLibrarySection" class="input-section">
-                    <div class="section-title">My library</div>
-                    <button id="openVaultBtn" class="btn-vault-primary">Open My Vault</button>
-                    <button id="openSavedGamesBtn" class="btn-saved-secondary">Open Saved Games</button>
+                <div class="username-input-row">
+                    <input type="text" id="usernameInput" class="home-text-input" placeholder="Chess.com 유저네임" value="" />
+                    <button id="fetchBtn" class="home-submit-btn" title="게임 불러오기">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+                    </button>
+                </div>
+
+                <div id="manualInputContainer" class="home-secondary-links">
+                    <button id="toggleManualBtn" class="home-link-btn">PGN 붙여넣기</button>
+                    <span class="home-link-sep">·</span>
+                    <button id="openBoardInputBtn" class="home-link-btn">직접 입력</button>
+                </div>
+
+                <div id="manualInputWrapper" class="manual-input-wrapper hidden">
+                    <textarea id="pgnInput" placeholder="PGN을 붙여넣으세요... e.g. 1. e4 e5"></textarea>
+                    <button id="analyzeBtn" class="primary-btn">분석 시작</button>
+                </div>
+
+                <div id="gamesList" class="games-list"></div>
+
+                <div class="home-divider"></div>
+
+                <section id="myLibrarySection" class="my-library-section">
+                    <div class="library-label">My library</div>
+                    <div class="library-btn-row">
+                        <button id="openVaultBtn" class="lib-vault-btn">Vault</button>
+                        <button id="openSavedGamesBtn" class="lib-archive-btn">Archive</button>
+                    </div>
                 </section>
-            </main>
+            </div>
+
+            <!-- State B: Vault has items -->
+            <div id="homeStateB" class="home-state home-scroll hidden">
+                <section class="home-greeting">
+                    <div class="greeting-title">복습할 항목이 있어요</div>
+                    <div id="greetingSubtitle" class="greeting-subtitle">저장된 블런더 0개</div>
+                </section>
+
+                <div id="vaultPreviewCard" class="vault-preview-card">
+                    <div class="vault-preview-header">
+                        <span class="vault-preview-label">VAULT</span>
+                        <span id="vaultPreviewCount" class="vault-preview-count"></span>
+                    </div>
+                    <div id="vaultPreviewRows"></div>
+                    <div class="vault-preview-footer" id="vaultPreviewAllBtn">전체보기 →</div>
+                </div>
+
+                <div class="username-input-row username-input-row--compact">
+                    <input type="text" id="usernameInputB" class="home-text-input home-text-input--compact" placeholder="Chess.com 유저네임" value="" />
+                    <button id="fetchBtnB" class="home-submit-btn home-submit-btn--compact" title="게임 불러오기">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+                    </button>
+                </div>
+
+                <div class="home-bottom-row">
+                    <button id="openVaultBtnB" class="lib-vault-btn lib-btn--full">Vault 전체보기</button>
+                    <button id="openSavedGamesBtnB" class="lib-archive-btn lib-btn--full">Archive</button>
+                </div>
+            </div>
         </div>
 
         <!-- Analysis View (Hidden by default) -->
