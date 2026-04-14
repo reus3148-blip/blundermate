@@ -950,11 +950,20 @@ textarea:focus {
 .unified-controls {
     display: flex;
     align-items: center;
+    justify-content: center;
     height: 44px;
     padding: 0 8px;
     background: var(--bg-panel);
     border-top: 1px solid var(--border-color);
     flex-shrink: 0;
+}
+
+.unified-controls-inner {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    max-width: 480px;
+    gap: 0;
 }
 
 /* Base style for action buttons in library/modals (kept for other views) */
