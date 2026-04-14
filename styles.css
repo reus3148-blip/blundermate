@@ -15,11 +15,13 @@
     --accent-warning: #f59e0b;
     --accent-danger: #ef4444;
     /* Semantic aliases */
-    --ac:      #C49A3C;
-    --tx2:     #8A8070;
-    --best:    #5A9E60;
-    --blunder: #C84040;
-    --brd2:    rgba(237, 232, 223, 0.13);
+    --ac:         #C49A3C;
+    --tx2:        #8A8070;
+    --best:       #5A9E60;
+    --blunder:    #C84040;
+    --inaccuracy: #E8A838;
+    --mistake:    #D06030;
+    --brd2:       rgba(237, 232, 223, 0.13);
 }
 
 html {
@@ -898,27 +900,37 @@ th {
     flex-shrink: 0;
 }
 
-.win-group {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 5px;
+.tab-toggle-btn {
+    background: transparent;
+    border: none;
+    color: var(--ac);
+    font-weight: 700;
+    font-size: 12px;
+    cursor: pointer;
+    padding: 0 0.5rem;
+    min-height: 44px;
+    white-space: nowrap;
+    transition: opacity 0.15s ease;
+    flex-shrink: 0;
 }
+.tab-toggle-btn:hover { opacity: 0.75; }
 
 .win-chance-display {
     font-family: 'IBM Plex Mono', 'SF Mono', 'Fira Code', monospace;
-    font-size: 18px;
+    font-size: 14px;
     font-weight: 700;
     color: var(--tx2);
     line-height: 1;
+    flex-shrink: 0;
 }
 
 .move-class-label {
-    font-size: 9px;
+    font-size: 10px;
     font-weight: 700;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.08em;
     line-height: 1;
+    flex: 1;
+    text-align: center;
 }
 
 .panel-content {

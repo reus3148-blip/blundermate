@@ -34,7 +34,7 @@ const prevMoveBtn = document.getElementById('prevMoveBtn');
 const saveMoveBtn = document.getElementById('saveMoveBtn');
 const nextMoveBtn = document.getElementById('nextMoveBtn');
 const returnMainLineBtn = document.getElementById('returnMainLineBtn');
-const explainMoveBtn = document.getElementById('explainMoveBtn');
+const tabToggleBtn = document.getElementById('tabToggleBtn');
 const geminiExplanation = document.getElementById('geminiExplanation');
 const panelTabs = document.getElementById('panelTabs');
 const movesOverlay = document.getElementById('movesOverlay');
@@ -373,21 +373,20 @@ returnMainLineBtn.addEventListener('click', () => {
 // ==========================================
 // 3-3. Panel Tab Navigation
 // ==========================================
+let currentTab = 'engine';
+
 function switchTab(tabName) {
-    document.querySelectorAll('.panel-tab').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.tab === tabName);
-    });
+    currentTab = tabName;
+    if (tabToggleBtn) tabToggleBtn.textContent = tabName === 'engine' ? 'Engine ⇄' : 'AI ⇄';
     document.querySelectorAll('.tab-panel').forEach(panel => {
         panel.classList.toggle('active', panel.id === `tab-${tabName}`);
     });
 }
 
-panelTabs.addEventListener('click', (e) => {
-    const tab = e.target.closest('.panel-tab');
-    if (tab && tab.dataset.tab) {
-        switchTab(tab.dataset.tab);
-        if (tab.dataset.tab === 'ai') renderAiTabContent();
-    }
+tabToggleBtn.addEventListener('click', () => {
+    const next = currentTab === 'engine' ? 'ai' : 'engine';
+    switchTab(next);
+    if (next === 'ai') renderAiTabContent();
 });
 
 function openMovesOverlay() { movesOverlay.classList.add('open'); }
