@@ -5,6 +5,7 @@ import { parseEvalData, getDests, convertPvToSan, classifyMove } from './utils.j
 import { renderGamesList, renderMovesTable, updateUIWithEval, highlightActiveMove, renderEngineLines, updateTopEvalDisplay, renderVaultList, renderSavedGamesList } from './ui.js';
 import { getVaultItems, addVaultItem, removeVaultItem, getSavedGames, addSavedGame, removeSavedGame } from './storage.js';
 import { createGeminiHandler } from './gemini.js';
+import { t, setLocale, getLocale } from './strings.js';
 
 // ==========================================
 // 1. DOM Elements
@@ -226,7 +227,27 @@ function escapeHtmlLocal(str) {
         .replace(/"/g, '&quot;');
 }
 
+// ==========================================
+// 3-2b. i18n
+// ==========================================
+function applyLocale() {
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+        el.textContent = t(el.dataset.i18n);
+    });
+    document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+        el.placeholder = t(el.dataset.i18nPlaceholder);
+    });
+    document.querySelectorAll('[data-i18n-title]').forEach(el => {
+        el.title = t(el.dataset.i18nTitle);
+    });
+    // Sync lang button active state
+    const locale = getLocale();
+    document.getElementById('langKoBtn')?.classList.toggle('active', locale === 'ko');
+    document.getElementById('langEnBtn')?.classList.toggle('active', locale === 'en');
+}
+
 initHomeState();
+applyLocale();
 
 // ==========================================
 // 3-3. Settings UI
@@ -264,6 +285,17 @@ document.getElementById('closeSettingsBtn').addEventListener('click', () => {
 });
 settingsModal.addEventListener('click', (e) => {
     if (e.target === settingsModal) settingsModal.classList.add('hidden');
+});
+
+document.getElementById('langKoBtn').addEventListener('click', () => {
+    setLocale('ko');
+    applyLocale();
+    if (!analysisView.classList.contains('hidden')) renderAiTabContent();
+});
+document.getElementById('langEnBtn').addEventListener('click', () => {
+    setLocale('en');
+    applyLocale();
+    if (!analysisView.classList.contains('hidden')) renderAiTabContent();
 });
 
 // ==========================================
@@ -483,7 +515,7 @@ function renderAiTabContent() {
     if (move?.cachedExplanation) {
         geminiExplanation.innerHTML = `<div id="geminiText" class="gemini-text-panel">${move.cachedExplanation}</div>`;
     } else {
-        geminiExplanation.innerHTML = `<button id="aiAnalyzeBtn" class="ai-analyze-btn">✦ 이 포지션 분석하기</button>`;
+        geminiExplanation.innerHTML = `<button id="aiAnalyzeBtn" class="ai-analyze-btn">${t('analyzePosition')}</button>`;
     }
 }
 
@@ -703,7 +735,7 @@ function startPractice(item) {
     vaultView.classList.add('hidden');
     practiceView.classList.remove('hidden');
     practiceFeedback.className = 'practice-feedback';
-    practiceFeedback.textContent = 'Find Best Move';
+    practiceFeedback.textContent = t('findBestMove');
 
     const practiceChess = new Chess(item.prevFen);
     const turnColor = practiceChess.turn() === 'w' ? 'white' : 'black';

@@ -1766,6 +1766,27 @@ input:checked + .slider:before { transform: translateX(20px); background: #C49A3
     line-height: 1.4;
 }
 
+.lang-toggle {
+    display: flex;
+    gap: 0.25rem;
+}
+
+.lang-btn {
+    padding: 0.25rem 0.6rem;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+
+.lang-btn.active {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+    color: #fff;
+}
+
 /* ==========================================
    Utility & Modal Helpers
    ========================================== */
