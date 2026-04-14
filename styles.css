@@ -1261,14 +1261,16 @@ th {
 .tab-toggle-btn:hover { opacity: 0.75; }
 
 .win-chance-display {
-    width: 52px;
+    width: 44px;
     flex-shrink: 0;
     font-family: 'IBM Plex Mono', 'SF Mono', 'Fira Code', monospace;
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 700;
     color: var(--tx2);
     line-height: 1;
     text-align: center;
+    cursor: pointer;
+    transition: opacity 0.15s ease;
 }
 
 .move-class-label {

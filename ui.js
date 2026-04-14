@@ -256,6 +256,21 @@ function evalToWinChance(scoreStr) {
     return Math.round(50 + 50 * (2 / (1 + Math.exp(-0.00368 * n * 100)) - 1));
 }
 
+/**
+ * Formats a scoreStr for score display mode.
+ * e.g. "+1.23" → "+1.2", "-3.20" → "−3.2", "+M5" → "+M5", "-M3" → "−M3"
+ */
+function formatScoreMode(scoreStr) {
+    if (!scoreStr || scoreStr === '-' || scoreStr === '—') return '—';
+    if (scoreStr.startsWith('+M')) return scoreStr;
+    if (scoreStr.startsWith('-M')) return '\u2212' + scoreStr.slice(1);
+    const n = parseFloat(scoreStr);
+    if (isNaN(n)) return '—';
+    if (n > 0) return '+' + n.toFixed(1);
+    if (n < 0) return '\u2212' + Math.abs(n).toFixed(1);
+    return '0.0';
+}
+
 const CLASS_COLOR = {
     'Brilliant':  'var(--best)',
     'Best':       'var(--best)',
@@ -275,15 +290,20 @@ export function updateTopEvalDisplay(scoreStr, classification = '') {
     const labelEl = document.getElementById('moveClassLabel');
     if (!el) return;
 
-    // Win %
+    // Cache scoreStr and classification on the element for use by the toggle handler
+    el.dataset.scoreStr = scoreStr || '';
+    el.dataset.classification = classification || '';
+
+    const mode = localStorage.getItem('evalDisplayMode') || 'percent';
     const pct = evalToWinChance(scoreStr);
-    if (pct === null) {
-        el.textContent = '—';
-        el.style.color = 'var(--tx2)';
+    const color = pct === null ? 'var(--tx2)' : pct >= 50 ? 'var(--best)' : pct < 40 ? 'var(--blunder)' : 'var(--tx2)';
+
+    if (mode === 'score') {
+        el.textContent = formatScoreMode(scoreStr);
     } else {
-        el.textContent = pct + '%';
-        el.style.color = pct >= 50 ? 'var(--best)' : pct < 40 ? 'var(--blunder)' : 'var(--tx2)';
+        el.textContent = pct === null ? '—' : pct + '%';
     }
+    el.style.color = color;
 
     // Classification label
     if (labelEl) {

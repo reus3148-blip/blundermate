@@ -499,6 +499,19 @@ tabToggleBtn.addEventListener('click', () => {
     if (next === 'ai') renderAiTabContent();
 });
 
+// Win% / eval score toggle
+document.getElementById('winChanceDisplay').addEventListener('click', () => {
+    const el = document.getElementById('winChanceDisplay');
+    const current = localStorage.getItem('evalDisplayMode') || 'percent';
+    const next = current === 'percent' ? 'score' : 'percent';
+    localStorage.setItem('evalDisplayMode', next);
+    el.style.opacity = '0';
+    setTimeout(() => {
+        updateTopEvalDisplay(el.dataset.scoreStr || '', el.dataset.classification || '');
+        el.style.opacity = '1';
+    }, 150);
+});
+
 function openMovesOverlay() { movesOverlay.classList.add('open'); }
 function closeMovesOverlay() { movesOverlay.classList.remove('open'); }
 

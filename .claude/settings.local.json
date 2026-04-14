@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(domain:lichess.org)",
+      "WebFetch(domain:support.chess.com)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:www.chess.com)",
+      "WebFetch(domain:notjoemartinez.com)",
+      "WebFetch(domain:www.chessigma.com)",
+      "Bash(ls:*)"
+    ]
+  }
+}
