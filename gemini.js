@@ -30,8 +30,8 @@ export function createGeminiHandler({ getState, setState, geminiEl, onOpen }) {
         }
 
         // 예외 2: 탐색/시뮬레이션 모드
-        if (state.isExplorationMode || state.isSimulationMode) {
-            geminiEl.innerHTML = '<p class="ai-notice">자유 탐색 모드에서는 AI 해설을 지원하지 않습니다. 메인 기보로 돌아가 주세요.</p>';
+        if (state.appMode !== 'main') {
+            geminiEl.innerHTML = '<p class="ai-notice">자유 탐색 모드에서는 지원하지 않습니다. 메인 기보로 돌아가 주세요.</p>';
             onOpen();
             return;
         }

@@ -1,7 +1,7 @@
 import { Chessground } from 'https://cdnjs.cloudflare.com/ajax/libs/chessground/9.0.0/chessground.min.js';
 import { fetchRecentGames } from './chessApi.js';
 import { StockfishEngine } from './engine.js';
-import { parseEvalData, getDests, convertPvToSan, classifyMove } from './utils.js';
+import { parseEvalData, getDests, convertPvToSan, classifyMove, parseAndLoadPgn } from './utils.js';
 import { renderGamesList, renderMovesTable, updateUIWithEval, highlightActiveMove, renderEngineLines, updateTopEvalDisplay, renderVaultList, renderSavedGamesList } from './ui.js';
 import { getVaultItems, addVaultItem, removeVaultItem, getSavedGames, addSavedGame, removeSavedGame } from './storage.js';
 import { createGeminiHandler } from './gemini.js';
@@ -107,8 +107,7 @@ const chooseWhiteBtn = document.getElementById('chooseWhiteBtn');
 const chooseBlackBtn = document.getElementById('chooseBlackBtn');
 let pendingAnalysisCallback = null;
 
-// FAB & Settings Elements (정적 HTML에서 참조)
-const fabToggleMoves = document.getElementById('fabToggleMoves');
+// Settings Elements
 const settingsBtn = document.getElementById('settingsBtn');
 const settingsModal = document.getElementById('settingsModal');
 const coordsToggle = document.getElementById('coordsToggle');
@@ -141,10 +140,9 @@ let persistentShapes = []; // 블런더/실수 시 보드에 고정될 화살표
 let isUserWhite = true; // 분석 기준이 되는 사용자 색상 (기본: 백)
 let currentBestMoveForVault = ''; // 저장 시 함께 보관할 최선의 수
 let practiceCg; // 연습 모드용 체스 보드
-let isExplorationMode = false; // 엔진 라인 탐색 모드 여부
+let appMode = 'main'; // 'main', 'explore', 'simulate'
 let explorationChess = new Chess();
 let explorationEngineLines = [];
-let isSimulationMode = false; // 엔진 추천 라인 시뮬레이션 모드 여부
 let simulationQueue = [];
 let simulationIndex = -1;
 let inputChess = new window.Chess(); // 수동 보드 입력용 체스 인스턴스
@@ -172,8 +170,6 @@ cg = Chessground(boardContainer, {
         move: (orig, dest) => handleExplorationMove(orig, dest)
     }
 });
-
-// (FAB toggle removed — element is hidden and no longer functional)
 
 // ==========================================
 // 3-2. Home State Initialization
@@ -288,11 +284,24 @@ chooseBlackBtn.addEventListener('click', () => {
 settingsBtn.addEventListener('click', () => {
     settingsModal.classList.remove('hidden');
 });
-document.getElementById('closeSettingsBtn').addEventListener('click', () => {
-    settingsModal.classList.add('hidden');
-});
-settingsModal.addEventListener('click', (e) => {
-    if (e.target === settingsModal) settingsModal.classList.add('hidden');
+
+function closeModal(modal) {
+    if (modal) modal.classList.add('hidden');
+}
+
+const modalConfigs = [
+    { modal: settingsModal, closeBtn: document.getElementById('closeSettingsBtn') },
+    { modal: feedbackModal, closeBtn: cancelFeedbackBtn },
+    { modal: boardInputModal, closeBtn: cancelInputBtn, noBg: true },
+    { modal: saveChoiceModal, closeBtn: cancelChoiceBtn, noBg: true },
+    { modal: saveModal, closeBtn: cancelSaveBtn, noBg: true },
+    { modal: saveGameModal, closeBtn: cancelSaveGameBtn, noBg: true }
+];
+
+modalConfigs.forEach(({ modal, closeBtn, noBg }) => {
+    if (!modal) return;
+    if (closeBtn) closeBtn.addEventListener('click', () => closeModal(modal));
+    if (!noBg) modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(modal); });
 });
 
 // Feedback Logic
@@ -301,16 +310,6 @@ if (feedbackBtn) {
         feedbackInput.value = '';
         feedbackStatusText.textContent = '';
         feedbackModal.classList.remove('hidden');
-    });
-}
-if (cancelFeedbackBtn) {
-    cancelFeedbackBtn.addEventListener('click', () => {
-        feedbackModal.classList.add('hidden');
-    });
-}
-if (feedbackModal) {
-    feedbackModal.addEventListener('click', (e) => {
-        if (e.target === feedbackModal) feedbackModal.classList.add('hidden');
     });
 }
 if (submitFeedbackBtn) {
@@ -398,9 +397,7 @@ openBoardInputBtn.addEventListener('click', () => {
     forceRedraw(inputCg);
 });
 
-cancelInputBtn.addEventListener('click', () => {
-    boardInputModal.classList.add('hidden');
-});
+// removed cancelInputBtn event listener
 
 undoInputMoveBtn.addEventListener('click', () => {
     inputChess.undo();
@@ -486,7 +483,7 @@ analyzeBtn.addEventListener('click', () => {
 
 // --- Move Navigation Helpers ---
 function handlePrevMove() {
-    if (isSimulationMode) {
+    if (appMode === 'simulate') {
         simulationIndex = Math.max(0, simulationIndex - 1);
         updateBoardForSimulation(simulationIndex);
         return;
@@ -499,7 +496,7 @@ function handlePrevMove() {
 }
 
 function handleNextMove() {
-    if (isSimulationMode) {
+    if (appMode === 'simulate') {
         simulationIndex = Math.min(simulationQueue.length - 1, simulationIndex + 1);
         updateBoardForSimulation(simulationIndex);
         return;
@@ -608,8 +605,7 @@ const handleGeminiExplanation = createGeminiHandler({
         isGeminiLoading,
         geminiAbortController,
         isGeminiEnabled,
-        isExplorationMode,
-        isSimulationMode,
+        appMode,
         currentlyViewedIndex,
         analysisQueue,
     }),
@@ -642,9 +638,7 @@ saveMoveBtn.addEventListener('click', () => {
     saveChoiceModal.classList.remove('hidden');
 });
 
-cancelChoiceBtn.addEventListener('click', () => {
-    saveChoiceModal.classList.add('hidden');
-});
+// removed cancelChoiceBtn event listener
 
 choiceSaveMoveBtn.addEventListener('click', () => {
     saveChoiceModal.classList.add('hidden');
@@ -684,9 +678,7 @@ choiceSaveMoveBtn.addEventListener('click', () => {
     saveModal.classList.remove('hidden');
 });
 
-cancelSaveBtn.addEventListener('click', () => {
-    saveModal.classList.add('hidden');
-});
+// removed cancelSaveBtn event listener
 
 confirmSaveBtn.addEventListener('click', () => {
     const move = analysisQueue[currentlyViewedIndex];
@@ -730,9 +722,7 @@ choiceSaveGameBtn.addEventListener('click', () => {
     saveGameModal.classList.remove('hidden');
 });
 
-cancelSaveGameBtn.addEventListener('click', () => {
-    saveGameModal.classList.add('hidden');
-});
+// removed cancelSaveGameBtn event listener
 
 confirmSaveGameBtn.addEventListener('click', () => {
     const title = saveGameTitle.value.trim() || 'Untitled Game';
@@ -887,14 +877,13 @@ window.addEventListener('resize', () => {
 });
 
 function handleExplorationMove(orig, dest) {
-    if (isSimulationMode) {
-        isSimulationMode = false;
-        isExplorationMode = true;
+    if (appMode === 'simulate') {
+        appMode = 'explore';
         explorationChess.load(simulationQueue[simulationIndex].fen);
         explorationEngineLines = [];
         stockfish.stop();
-    } else if (!isExplorationMode) {
-        isExplorationMode = true;
+    } else if (appMode !== 'explore') {
+        appMode = 'explore';
         returnMainLineBtn.classList.remove('hidden');
         
         let baseFen = START_FEN;
@@ -931,8 +920,7 @@ function handleExplorationMove(orig, dest) {
 }
 
 function exitExplorationMode() {
-    isExplorationMode = false;
-    isSimulationMode = false;
+    appMode = 'main';
     returnMainLineBtn.classList.add('hidden');
     explorationEngineLines = [];
     simulationQueue = [];
@@ -997,7 +985,7 @@ const engineCallbacks = {
         }
     },
     onEval: (evalData) => {
-        if (isExplorationMode) {
+        if (appMode === 'explore') {
             const isBlackToMove = explorationChess.turn() === 'b';
             const { scoreStr, scoreNum } = parseEvalData(evalData, isBlackToMove, isUserWhite);
             
@@ -1053,7 +1041,7 @@ const engineCallbacks = {
             return;
         }
         
-        if (isExplorationMode) {
+        if (appMode === 'explore') {
             analysisStatus.className = 'tag engine-ready hidden';
             analysisStatus.textContent = '';
             return;
@@ -1092,11 +1080,15 @@ function handlePgnReviewStart(e = null, isWhiteGame = null) {
     if (!pgnText) return;
 
     chess = new Chess();
-    let loaded = parseAndLoadPgn(chess, pgnText);
+    const result = parseAndLoadPgn(chess, pgnText);
 
-    if (!loaded) {
+    if (!result.success) {
         alert('Invalid PGN or move format. Please check your text.');
         return;
+    }
+    
+    if (result.pgn) {
+        pgnInput.value = result.pgn;
     }
 
     // Build processing queue
@@ -1169,8 +1161,7 @@ function startNewAnalysis(newQueue) {
     analysisView.classList.remove('hidden');
     
     // 이전 탐색(Exploration) 및 시뮬레이션 모드 상태 완전 초기화
-    isExplorationMode = false;
-    isSimulationMode = false;
+    appMode = 'main';
     returnMainLineBtn.classList.add('hidden');
 
     // Force Chessground to recalculate board size for mobile
@@ -1240,7 +1231,7 @@ function processNextInQueue() {
 // 8. UI Rendering
 // ==========================================
 function updateBoardPosition(index, fen) {
-    if (isExplorationMode) {
+    if (appMode === 'explore') {
         exitExplorationMode();
     }
 
@@ -1303,39 +1294,7 @@ function forceRedraw(instance) {
     setTimeout(() => instance.redrawAll(), 50);
 }
 
-function parseAndLoadPgn(chessInstance, pgnText) {
-    if (chessInstance.load_pgn(pgnText)) return true;
-
-    // PGN 형식이 아니거나 헤더가 없는 단순 기보일 경우, 순서대로 수를 읽어 복구 시도
-    chessInstance.reset();
-    const cleanedText = pgnText.replace(/\.(?=[a-zA-Z])/g, '. ');
-    const tokens = cleanedText.replace(/\n/g, ' ').split(/\s+/).filter(t => t);
-    let validMoves = 0;
-    
-    for (const token of tokens) {
-        // 수 번호(예: 1, 1., 1...) 및 게임 결과 문자열은 건너뜀
-        if (/^\d+\.*$/.test(token)) continue;
-        if (['1-0', '0-1', '1/2-1/2', '*'].includes(token)) continue;
-        
-        // 숫자 0으로 입력된 캐슬링(0-0)을 영문자(O-O)로 교정
-        let cleanToken = token;
-        if (cleanToken === '0-0') cleanToken = 'O-O';
-        if (cleanToken === '0-0-0') cleanToken = 'O-O-O';
-        
-        try {
-            if (chessInstance.move(cleanToken)) validMoves++;
-            else break;
-        } catch (err) {
-            break;
-        }
-    }
-    
-    if (validMoves > 0) {
-        pgnInput.value = chessInstance.pgn(); // 올바른 기보라면 완성된 정규 PGN 형식으로 텍스트 입력창을 자동으로 변경
-        return true;
-    }
-    return false;
-}
+// parseAndLoadPgn moved to utils.js
 
 function drawEngineArrow(orig, dest) {
     if (!cg) return;
@@ -1357,7 +1316,7 @@ function clearEngineArrow() {
 
 function handleEngineLineClick(lineIndex) {
     let baseFen, lines;
-    if (isExplorationMode) {
+    if (appMode === 'explore') {
         baseFen = explorationChess.fen();
         lines = explorationEngineLines;
     } else {
@@ -1381,8 +1340,7 @@ function handleEngineLineClick(lineIndex) {
         else break;
     }
 
-    isSimulationMode = true;
-    isExplorationMode = false;
+    appMode = 'simulate';
     simulationIndex = 1;
     
     stockfish.stop();

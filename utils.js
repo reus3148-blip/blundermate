@@ -192,3 +192,36 @@ export function formatMarkdownToHtml(text) {
         .replace(/\*(.*?)\*/g, '<em>$1</em>')
         .replace(/\n/g, '<br>');
 }
+
+/**
+ * PGN 스트링 또는 단순 텍스트 기보를 Chess 인스턴스에 로드하고 결과와 PGN 텍스트를 반환합니다.
+ */
+export function parseAndLoadPgn(chessInstance, pgnText) {
+    if (chessInstance.load_pgn(pgnText)) return { success: true, pgn: chessInstance.pgn() };
+
+    chessInstance.reset();
+    const cleanedText = pgnText.replace(/\.(?=[a-zA-Z])/g, '. ');
+    const tokens = cleanedText.replace(/\n/g, ' ').split(/\s+/).filter(t => t);
+    let validMoves = 0;
+    
+    for (const token of tokens) {
+        if (/^\d+\.*$/.test(token)) continue;
+        if (['1-0', '0-1', '1/2-1/2', '*'].includes(token)) continue;
+        
+        let cleanToken = token;
+        if (cleanToken === '0-0') cleanToken = 'O-O';
+        if (cleanToken === '0-0-0') cleanToken = 'O-O-O';
+        
+        try {
+            if (chessInstance.move(cleanToken)) validMoves++;
+            else break;
+        } catch (err) {
+            break;
+        }
+    }
+    
+    if (validMoves > 0) {
+        return { success: true, pgn: chessInstance.pgn() };
+    }
+    return { success: false };
+}
