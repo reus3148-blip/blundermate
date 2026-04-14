@@ -14,6 +14,11 @@
     --accent-success: #10b981;
     --accent-warning: #f59e0b;
     --accent-danger: #ef4444;
+    /* Semantic aliases */
+    --ac:      #C49A3C;
+    --tx2:     #8A8070;
+    --best:    #5A9E60;
+    --blunder: #C84040;
 }
 
 html {
@@ -883,6 +888,16 @@ th {
     color: var(--primary-color);
     border: none;
     font-weight: 600;
+}
+
+.win-chance-display {
+    font-family: 'IBM Plex Mono', 'SF Mono', 'Fira Code', monospace;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--tx2);
+    flex-shrink: 0;
+    margin-left: auto;
+    line-height: 1;
 }
 
 .panel-content {

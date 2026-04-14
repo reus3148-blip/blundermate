@@ -88,6 +88,12 @@ const savedGamesView = document.getElementById('savedGamesView');
 const savedGamesList = document.getElementById('savedGamesList');
 const savedGamesBackBtn = document.getElementById('savedGamesBackBtn');
 
+// Color Choice Modal Elements
+const colorChoiceModal = document.getElementById('colorChoiceModal');
+const chooseWhiteBtn = document.getElementById('chooseWhiteBtn');
+const chooseBlackBtn = document.getElementById('chooseBlackBtn');
+let pendingAnalysisCallback = null;
+
 // FAB & Settings Elements (정적 HTML에서 참조)
 const fabToggleMoves = document.getElementById('fabToggleMoves');
 const settingsBtn = document.getElementById('settingsBtn');
@@ -166,6 +172,15 @@ coordsToggle.addEventListener('change', (e) => {
     if (practiceCg) practiceCg.set({ coordinates: isCoordsEnabled });
 });
 
+chooseWhiteBtn.addEventListener('click', () => {
+    colorChoiceModal.classList.add('hidden');
+    if (pendingAnalysisCallback) { pendingAnalysisCallback(true); pendingAnalysisCallback = null; }
+});
+chooseBlackBtn.addEventListener('click', () => {
+    colorChoiceModal.classList.add('hidden');
+    if (pendingAnalysisCallback) { pendingAnalysisCallback(false); pendingAnalysisCallback = null; }
+});
+
 settingsBtn.addEventListener('click', () => {
     settingsModal.classList.remove('hidden');
 });
@@ -219,10 +234,10 @@ analyzeInputBtn.addEventListener('click', () => {
         alert('Please play at least one move to analyze.');
         return;
     }
-    // 완성된 PGN을 메인 입력창에 복사하고 분석 실행
     pgnInput.value = inputChess.pgn();
     boardInputModal.classList.add('hidden');
-    handlePgnReviewStart();
+    pendingAnalysisCallback = (isWhite) => handlePgnReviewStart(null, isWhite);
+    colorChoiceModal.classList.remove('hidden');
 });
 
 backBtn.addEventListener('click', () => {
@@ -282,7 +297,11 @@ usernameInput.addEventListener('input', (e) => {
         manualInputWrapper.classList.add('hidden');
     }
 });
-analyzeBtn.addEventListener('click', () => handlePgnReviewStart());
+analyzeBtn.addEventListener('click', () => {
+    if (!pgnInput.value.trim()) return;
+    pendingAnalysisCallback = (isWhite) => handlePgnReviewStart(null, isWhite);
+    colorChoiceModal.classList.remove('hidden');
+});
 
 // --- Move Navigation Helpers ---
 function handlePrevMove() {
@@ -752,13 +771,9 @@ async function handleApiFetch() {
 const engineCallbacks = {
     onError: (e) => {
         console.error("Failed to load Stockfish worker:", e);
-        const fb = document.getElementById('evalBarFill');
-        if (fb) { fb.classList.remove('loading'); fb.style.background = '#C84040'; }
     },
     onUciOk: () => {
         isEngineReady = true;
-        const fb = document.getElementById('evalBarFill');
-        if (fb) fb.classList.remove('loading');
     },
     onReady: () => {
         if (analysisQueue.length > 0 && !isAnalyzing) {
@@ -855,19 +870,7 @@ stockfish = new StockfishEngine('./engine/stockfish-18-lite-single.js', engineCa
 // 7. Analysis Workflow
 // ==========================================
 function handlePgnReviewStart(e = null, isWhiteGame = null) {
-    if (isWhiteGame !== null) {
-        isUserWhite = isWhiteGame;
-    } else {
-        isUserWhite = true; // 수동 입력 시 기본값
-        // 수동으로 붙여넣은 PGN 텍스트에 검색된 사용자 이름(Black)이 있는지 감지합니다.
-        const username = usernameInput.value.trim().toLowerCase();
-        if (username && pgnInput.value) {
-            const blackPlayerMatch = pgnInput.value.match(/\[Black\s+"([^"]+)"\]/i);
-            if (blackPlayerMatch && blackPlayerMatch[1].toLowerCase() === username) {
-                isUserWhite = false;
-            }
-        }
-    }
+    isUserWhite = isWhiteGame !== null ? isWhiteGame : true;
 
     const pgnText = pgnInput.value.trim();
     if (!pgnText) return;

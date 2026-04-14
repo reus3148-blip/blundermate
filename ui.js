@@ -244,59 +244,39 @@ function setupEngineLinesDelegation(container) {
 }
 
 /**
- * Converts a numeric eval score to a percentage for the eval bar (0–100).
- * 50% = equal. White advantage pushes toward 100%, black toward 0%.
+ * Converts a user-perspective eval score (in pawns) to win chance % using Lichess formula.
+ * scoreStr is already from the user's POV (positive = user winning).
  */
-function evalToBarPercent(scoreStr) {
-    if (!scoreStr) return 50;
-    if (scoreStr.startsWith('+M')) return 95;
-    if (scoreStr.startsWith('-M')) return 5;
+function evalToWinChance(scoreStr) {
+    if (!scoreStr || scoreStr === '-' || scoreStr === '—') return null;
+    if (scoreStr.startsWith('+M')) return 99;
+    if (scoreStr.startsWith('-M')) return 1;
     const n = parseFloat(scoreStr);
-    if (isNaN(n)) return 50;
-    return Math.max(5, Math.min(95, 50 + n * 9));
+    if (isNaN(n)) return null;
+    return Math.round(50 + 50 * (2 / (1 + Math.exp(-0.00368 * n * 100)) - 1));
 }
 
 /**
- * Updates the eval bar, score display, and move classification label.
+ * Updates the win chance display in the bottom bar.
  */
-export function updateTopEvalDisplay(scoreStr, classification = '') {
-    const evalScore = document.getElementById('evalScore');
-    const evalLabel = document.getElementById('evalLabel');
-    const evalBarFill = document.getElementById('evalBarFill');
+export function updateTopEvalDisplay(scoreStr) {
+    const el = document.getElementById('winChanceDisplay');
+    if (!el) return;
 
-    if (!evalScore) return;
+    const pct = evalToWinChance(scoreStr);
+    if (pct === null) {
+        el.textContent = '—';
+        el.style.color = 'var(--tx2)';
+        return;
+    }
 
-    evalScore.textContent = scoreStr || '—';
-
-    const numVal = parseFloat(scoreStr);
-    let scoreColor;
-    if (!isNaN(numVal)) {
-        if (numVal < -0.3) scoreColor = '#C84040';
-        else if (numVal > 0.1) scoreColor = '#5A9E60';
-        else scoreColor = '#8A8070';
-    } else if (scoreStr && scoreStr.startsWith('+M')) {
-        scoreColor = '#5A9E60';
-    } else if (scoreStr && scoreStr.startsWith('-M')) {
-        scoreColor = '#C84040';
+    el.textContent = pct + '%';
+    if (pct >= 50) {
+        el.style.color = 'var(--best)';
+    } else if (pct < 40) {
+        el.style.color = 'var(--blunder)';
     } else {
-        scoreColor = '#8A8070';
-    }
-    evalScore.style.color = scoreColor;
-
-    if (evalBarFill) {
-        evalBarFill.classList.remove('loading');
-        evalBarFill.style.background = '';
-        evalBarFill.style.width = `${evalToBarPercent(scoreStr)}%`;
-    }
-
-    if (evalLabel) {
-        if (classification) {
-            evalLabel.textContent = classification.toUpperCase();
-            evalLabel.style.color = scoreColor;
-        } else {
-            evalLabel.textContent = '';
-            evalLabel.style.color = '';
-        }
+        el.style.color = 'var(--tx2)';
     }
 }
 

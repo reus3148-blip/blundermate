@@ -89,17 +89,6 @@
                 <div id="boardContainer" class="board-container"></div>
             </div>
 
-            <!-- Eval Row (보드 바로 아래) -->
-            <div class="eval-row" id="evalRow">
-                <div class="eval-info">
-                    <span class="eval-score" id="evalScore">—</span>
-                    <span class="eval-label" id="evalLabel"></span>
-                </div>
-                <div class="eval-bar-wrap">
-                    <div class="eval-bar-fill" id="evalBarFill"></div>
-                </div>
-            </div>
-
             <!-- Return to Main Line -->
             <div class="return-line-wrapper">
                 <button id="returnMainLineBtn" class="control-btn return-btn hidden">
@@ -114,13 +103,11 @@
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
                 </button>
                 <button class="panel-tab ctrl-tab active" data-tab="engine">Engine</button>
+                <button id="explainMoveBtn" class="panel-tab ctrl-tab" data-tab="ai" title="Ask AI Coach">AI</button>
                 <button id="saveMoveBtn" class="ctrl-btn ctrl-save" title="Save position">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
-                    Save
                 </button>
-                <button id="explainMoveBtn" class="panel-tab ctrl-tab" data-tab="ai" title="Ask AI Coach">
-                    AI
-                </button>
+                <span id="winChanceDisplay" class="win-chance-display">—</span>
                 <button id="nextMoveBtn" class="ctrl-btn ctrl-nav" title="Next move">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
                 </button>
@@ -213,6 +200,17 @@
             <div id="practiceBoardContainer" class="board-container"></div>
         </div>
     </div>
+        <!-- Player Color Choice Modal -->
+        <div id="colorChoiceModal" class="modal-overlay hidden">
+            <div class="modal-content modal-content--narrow">
+                <h2 class="modal-title-center">어느 진영으로 플레이하셨나요?</h2>
+                <div class="modal-actions modal-actions--col">
+                    <button id="chooseWhiteBtn" class="primary-btn btn-full">백 (White)</button>
+                    <button id="chooseBlackBtn" class="control-btn btn-full">흑 (Black)</button>
+                </div>
+            </div>
+        </div>
+
         <!-- Settings Modal (app-container 내부에 배치하여 PC 환경에서 앱 영역 밖을 덮지 않도록 함) -->
         <div id="settingsModal" class="modal-overlay hidden">
             <div class="modal-content">
