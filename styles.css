@@ -1,32 +1,59 @@
 :root {
-    --bg-base:    #100E0B;
-    --bg-dark:    #100E0B;
-    --bg-surface: #1B1814;
-    --bg-panel:   #1B1814;
-    --bg-elevated:#242019;
-    --border:     rgba(237, 232, 223, 0.07);
-    --border-mid: rgba(237, 232, 223, 0.13);
-    --border-color: rgba(237, 232, 223, 0.07);
-    --text-primary: #EDE8DF;
-    --text-secondary: #8A8070;
-    --primary-color: #C49A3C;
-    --primary-hover: #B08A32;
+    /* 1. Base Colors (Source of truth) */
+    --c-bg-0: #100E0B;
+    --c-bg-1: #1B1814;
+    --c-bg-2: #242019;
+    --c-tx-1: #EDE8DF;
+    --c-tx-2: #8A8070;
+    --c-tx-3: rgba(237, 232, 223, 0.35);
+    --c-brd-1: rgba(237, 232, 223, 0.07);
+    --c-brd-2: rgba(237, 232, 223, 0.13);
+    --c-gold: #C49A3C;
+    --c-gold-hover: #B08A32;
+
+    /* 2. Semantic Backgrounds & Borders */
+    --bg-base:      var(--c-bg-0);
+    --bg-dark:      var(--c-bg-0);
+    --bg-surface:   var(--c-bg-1);
+    --bg-panel:     var(--c-bg-1);
+    --bg-elevated:  var(--c-bg-2);
+
+    --border:       var(--c-brd-1);
+    --border-color: var(--c-brd-1);
+    --border-mid:   var(--c-brd-2);
+    --brd:          var(--c-brd-1);
+    --brd2:         var(--c-brd-2);
+
+    /* 3. Text Colors */
+    --text-primary:   var(--c-tx-1);
+    --text-secondary: var(--c-tx-2);
+    --tx:             var(--c-tx-1);
+    --tx2:            var(--c-tx-2);
+    --tx3:            var(--c-tx-3);
+
+    /* 4. Primary Accents */
+    --primary-color:  var(--c-gold);
+    --primary-hover:  var(--c-gold-hover);
+    --ac:             var(--c-gold);
+    --ac-lo:          rgba(196, 154, 60, 0.12);
+    --ac-br:          rgba(196, 154, 60, 0.30);
+
+    /* 5. Classification Accents & Status */
     --accent-success: #10b981;
     --accent-warning: #f59e0b;
-    --accent-danger: #ef4444;
-    /* Semantic aliases */
-    --tx:         #EDE8DF;
-    --tx2:        #8A8070;
-    --tx3:        rgba(237, 232, 223, 0.35);
-    --ac:         #C49A3C;
-    --ac-lo:      rgba(196, 154, 60, 0.12);
-    --ac-br:      rgba(196, 154, 60, 0.30);
-    --best:       #5A9E60;
-    --blunder:    #C84040;
-    --inaccuracy: #E8A838;
-    --mistake:    #D06030;
-    --brd:        rgba(237, 232, 223, 0.07);
-    --brd2:       rgba(237, 232, 223, 0.13);
+    --accent-danger:  #ef4444;
+    --best:           #5A9E60;
+    --blunder:        #C84040;
+    --mistake:        #D06030;
+    --inaccuracy:     #E8A838;
+
+    /* 6. Z-Index Layers */
+    --z-board-coords: 2;
+    --z-overlay:      200;
+    --z-dropdown:     800;
+    --z-sticky:       999;   /* Text inputs, primary buttons over background */
+    --z-sticky-top:   1000;  /* Search button over text inputs */
+    --z-modal:        9999;  /* Highest layer for modal overlays */
 }
 
 html {
@@ -508,7 +535,7 @@ body {
     -webkit-user-select: text !important;
     -webkit-appearance: none;
     position: relative;
-    z-index: 999;
+    z-index: var(--z-sticky);
 }
 
 .text-input:focus {
@@ -531,7 +558,7 @@ body {
     align-items: center;
     cursor: pointer;
     transition: background-color 0.2s ease, transform 0.2s ease;
-    z-index: 1000;
+    z-index: var(--z-sticky-top);
 }
 .search-submit-btn:hover { background: var(--primary-hover); transform: translateX(2px); }
 .search-submit-btn:disabled {
@@ -638,7 +665,7 @@ body {
     text-decoration: underline;
     transition: color 0.2s ease;
     position: relative;
-    z-index: 999;
+    z-index: var(--z-sticky);
 }
 
 .text-btn:hover {
@@ -860,7 +887,7 @@ textarea {
     -webkit-user-select: text !important;
     -webkit-appearance: none;
     position: relative;
-    z-index: 999;
+    z-index: var(--z-sticky);
 }
 
 textarea:focus {
@@ -882,7 +909,7 @@ textarea:focus {
     transition: background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
     box-shadow: 0 4px 12px rgba(196, 154, 60, 0.25);
     position: relative;
-    z-index: 999;
+    z-index: var(--z-sticky);
 }
 
 .primary-btn:hover {
@@ -1111,28 +1138,6 @@ textarea:focus {
     }
 }
 
-/* --- 모바일 최적화: 기보 전체화면 토글 모드 및 FAB --- */
-.fab-toggle-moves {
-    position: absolute;
-    bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px));
-    right: 1.5rem;
-    background: rgba(196, 154, 60, 0.15);
-    color: #C49A3C;
-    border: 1px solid rgba(196, 154, 60, 0.3);
-    border-radius: 30px;
-    padding: 0.8rem 1.2rem;
-    font-size: 0.95rem;
-    font-weight: 600;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
-    cursor: pointer;
-    z-index: 1000;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    transition: background-color 0.2s ease, transform 0.2s ease;
-}
-.fab-toggle-moves:hover { background: rgba(196, 154, 60, 0.25); transform: translateY(-2px); }
-.fab-toggle-moves:active { transform: translateY(1px); }
 
 .engine-lines-container {
     padding: 0.25rem 0 0;
@@ -1657,7 +1662,7 @@ th {
     position: absolute;
     display: flex;
     pointer-events: none;
-    z-index: 2;
+    z-index: var(--z-board-coords);
     font-family: 'Inter', sans-serif;
     font-size: 11px;
     font-weight: 500;
@@ -1830,35 +1835,6 @@ input:checked + .slider:before { transform: translateX(20px); background: #C49A3
     background: rgba(196, 154, 60, 0.12);
 }
 
-/* Home screen library buttons (legacy — superseded by lib-vault-btn / lib-archive-btn) */
-.btn-vault-primary {
-    width: 100%;
-    height: 48px;
-    border-radius: 8px;
-    background: var(--ac-lo);
-    border: 1px solid var(--ac-br);
-    color: var(--ac);
-    font-size: 14px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: opacity 0.15s ease;
-}
-.btn-vault-primary:hover { opacity: 0.8; }
-.btn-vault-primary:active { opacity: 0.65; }
-
-.btn-saved-secondary {
-    width: 100%;
-    height: 40px;
-    border-radius: 8px;
-    background: transparent;
-    border: none;
-    color: var(--tx2);
-    font-size: 13px;
-    font-weight: 400;
-    cursor: pointer;
-    transition: color 0.15s ease;
-}
-.btn-saved-secondary:hover { color: var(--tx); }
 
 /* Short textarea (80px) */
 .textarea-short { height: 80px !important; }
@@ -1947,7 +1923,7 @@ input:checked + .slider:before { transform: translateX(20px); background: #C49A3
     display: flex;
     justify-content: center;
     align-items: center;
-    z-index: 9999;
+    z-index: var(--z-modal);
 }
 
 .modal-content {
@@ -2016,7 +1992,7 @@ input:checked + .slider:before { transform: translateX(20px); background: #C49A3
 .moves-overlay {
     position: fixed;
     inset: 0;
-    z-index: 200;
+    z-index: var(--z-overlay);
     background: rgba(0, 0, 0, 0.5);
     opacity: 0;
     pointer-events: none;
