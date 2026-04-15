@@ -104,7 +104,7 @@ body {
     }
     .app-container {
         height: 95vh;
-        max-height: 850px;
+        max-height: 900px;
         border-radius: 16px;
         border: 1px solid var(--border-color);
         box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6); /* 앱 영역 입체감 강화 */
@@ -2070,7 +2070,7 @@ input:checked + .slider:before { transform: translateX(20px); background: #C49A3
    Moves Overlay
    ========================================== */
 .moves-overlay {
-    position: fixed;
+    position: absolute;
     inset: 0;
     z-index: var(--z-overlay);
     background: rgba(0, 0, 0, 0.5);

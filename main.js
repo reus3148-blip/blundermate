@@ -238,8 +238,29 @@ chooseBlackBtn.addEventListener('click', () => {
     if (pendingAnalysisCallback) { pendingAnalysisCallback(false); pendingAnalysisCallback = null; }
 });
 
+let _lastPushFetched = false;
+async function fetchLastPushTime() {
+    const el = document.getElementById('lastPushTime');
+    if (!el) return;
+    if (_lastPushFetched) return;
+    el.textContent = 'Loading...';
+    try {
+        const res = await fetch('https://api.github.com/repos/reus3148-blip/blundermate/commits/main');
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        const iso = data?.commit?.committer?.date;
+        if (!iso) throw new Error('no date');
+        const d = new Date(iso);
+        el.textContent = d.toLocaleString();
+        _lastPushFetched = true;
+    } catch (e) {
+        el.textContent = 'Failed to fetch';
+    }
+}
+
 settingsBtn.addEventListener('click', () => {
     settingsModal.classList.remove('hidden');
+    fetchLastPushTime();
 });
 
 function closeModal(modal) {
