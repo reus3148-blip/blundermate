@@ -1,14 +1,19 @@
-Rename "Vault" to use i18n strings throughout the app.
+Update all UI text for the library/archive section using i18n strings.
 
-In ko.js, update:
-  vault_btn: "복기"
-  vault_label: "복기"
-  vault_see_all: "전체보기 →"
-  vault_empty: "저장된 항목이 없습니다"
-  vault_title: "복기"  (overlay/page title)
+In ko.js, update or add:
+  archive_label: "보관함"
+  archive_vault_btn: "복기"
+  archive_saved_games_btn: "저장된 게임"
 
-In en.js (if exists), keep as "Vault".
+In en.js, update or add:
+  archive_label: "Archive"
+  archive_vault_btn: "Vault"
+  archive_saved_games_btn: "Saved Games"
 
-Then find every hardcoded "Vault" string in the UI and replace
-with the i18n key. Do not change variable names, function names,
-localStorage keys, or any code logic — only visible UI text.
+Then replace in the UI:
+- "My library" → strings.archive_label
+- "Vault" (home screen button) → strings.archive_vault_btn
+- "Archive" (home screen button) → strings.archive_saved_games_btn
+
+Do not change variable names, function names, localStorage keys,
+or any code logic. Only visible UI text.
