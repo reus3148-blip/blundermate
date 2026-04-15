@@ -43,9 +43,6 @@ const movesOverlayBtn = document.getElementById('movesOverlayBtn');
 const movesOverlayCloseBtn = document.getElementById('movesOverlayCloseBtn');
 const downloadPgnBtn = document.getElementById('downloadPgnBtn');
 const inputViewMovesBtn = document.getElementById('inputViewMovesBtn');
-const vaultBanner = document.getElementById('vaultBanner');
-const vaultBannerCategory = document.getElementById('vaultBannerCategory');
-const vaultBannerNotes = document.getElementById('vaultBannerNotes');
 
 // View Navigation Elements
 const homeView = document.getElementById('homeView');
@@ -88,6 +85,19 @@ const vaultCountBadge = document.getElementById('vaultCountBadge');
 const vaultView = document.getElementById('vaultView');
 const vaultList = document.getElementById('vaultList');
 const vaultBackBtn = document.getElementById('vaultBackBtn');
+const vaultDetailView = document.getElementById('vaultDetailView');
+const vaultDetailBackBtn = document.getElementById('vaultDetailBackBtn');
+const vaultDetailTitle = document.getElementById('vaultDetailTitle');
+const vaultDetailMovesBtn = document.getElementById('vaultDetailMovesBtn');
+const vaultDetailBoard = document.getElementById('vaultDetailBoard');
+const vaultDetailPrevBtn = document.getElementById('vaultDetailPrevBtn');
+const vaultDetailNextBtn = document.getElementById('vaultDetailNextBtn');
+const vaultDetailMoveLabel = document.getElementById('vaultDetailMoveLabel');
+const vaultDetailCounter = document.getElementById('vaultDetailCounter');
+const vaultInfoCategory = document.getElementById('vaultInfoCategory');
+const vaultInfoPlayed = document.getElementById('vaultInfoPlayed');
+const vaultInfoBest = document.getElementById('vaultInfoBest');
+const vaultInfoNotes = document.getElementById('vaultInfoNotes');
 
 // Saved Games Elements
 const savedGamesView = document.getElementById('savedGamesView');
@@ -130,7 +140,6 @@ let cg;
 let isWaitingForStop = false;
 let pendingQueue = null;
 let pendingTargetIndex = null;
-let vaultContext = null; // { moveIndex, category, notes } — set when opening a vault item
 let persistentShapes = []; // 블런더/실수 시 보드에 고정될 화살표를 저장하는 배열
 let isUserWhite = true; // 분석 기준이 되는 사용자 색상 (기본: 백)
 let currentBestMoveForVault = ''; // 저장 시 함께 보관할 최선의 수
@@ -217,6 +226,7 @@ coordsToggle.addEventListener('change', (e) => {
     localStorage.setItem('coordsEnabled', isCoordsEnabled);
     if (cg) cg.set({ coordinates: isCoordsEnabled });
     if (inputCg) inputCg.set({ coordinates: isCoordsEnabled });
+    if (vaultDetailCg) vaultDetailCg.set({ coordinates: isCoordsEnabled });
 });
 
 chooseWhiteBtn.addEventListener('click', () => {
@@ -401,8 +411,6 @@ backBtn.addEventListener('click', () => {
     isWaitingForStop = false;
     pendingQueue = null;
     analysisQueue = []; // 큐도 초기화하여 백그라운드 엔진 메시지로 인한 충돌 방지
-    vaultContext = null;
-    updateVaultBanner();
 });
 
 vaultBackBtn.addEventListener('click', () => {
@@ -482,21 +490,28 @@ function handleNextMove() {
 
 // Keyboard Navigation
 document.addEventListener('keydown', (e) => {
-    if (analysisQueue.length === 0) return;
-    
     // Ignore keyboard shortcuts if user is typing
     if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
-    
+
+    const inVaultDetail = vaultDetailView && !vaultDetailView.classList.contains('hidden');
+
+    if (!inVaultDetail && analysisQueue.length === 0) return;
+
     if (e.key === 'ArrowLeft') {
         e.preventDefault();
-        handlePrevMove();
+        if (inVaultDetail) setVaultDetailIndex(vaultDetailIndex - 1);
+        else handlePrevMove();
     } else if (e.key === 'ArrowRight') {
         e.preventDefault();
-        handleNextMove();
+        if (inVaultDetail) setVaultDetailIndex(vaultDetailIndex + 1);
+        else handleNextMove();
     } else if (e.key.toLowerCase() === 'f') {
         // 'F' 키를 누르면 보드 시점(White/Black)을 수동으로 뒤집습니다.
         e.preventDefault();
-        if (cg) {
+        if (inVaultDetail && vaultDetailCg) {
+            const o = vaultDetailCg.state.orientation;
+            vaultDetailCg.set({ orientation: o === 'white' ? 'black' : 'white' });
+        } else if (cg) {
             const currentOrientation = cg.state.orientation;
             cg.set({ orientation: currentOrientation === 'white' ? 'black' : 'white' });
         }
@@ -781,31 +796,113 @@ function updateVaultView() {
     }, openVaultItem);
 }
 
+// --- Vault Detail View ---
+let vaultDetailCg = null;
+let vaultDetailChess = null;
+let vaultDetailFens = []; // fens[i] = position AFTER move i; fens[-1] handled via startFen
+let vaultDetailSans = []; // san strings per move
+let vaultDetailStartFen = START_FEN;
+let vaultDetailIndex = -1;
+let vaultDetailItem = null;
+
 function openVaultItem(item) {
     if (!item.pgn) {
         alert('This saved move is from an older version and cannot be opened. Please delete it.');
         return;
     }
+
+    const tempChess = new Chess();
+    const result = parseAndLoadPgn(tempChess, item.pgn);
+    if (!result.success) {
+        alert('Saved PGN could not be parsed.');
+        return;
+    }
+
+    vaultDetailItem = item;
+    vaultDetailStartFen = tempChess.header().FEN || START_FEN;
+
+    const replay = new Chess();
+    if (tempChess.header().FEN) replay.load(tempChess.header().FEN);
+    vaultDetailFens = [];
+    vaultDetailSans = [];
+    tempChess.history({ verbose: true }).forEach(m => {
+        const r = replay.move(m);
+        vaultDetailFens.push(replay.fen());
+        vaultDetailSans.push(r.san);
+    });
+
+    vaultDetailChess = new Chess();
+    if (!vaultDetailCg) {
+        vaultDetailCg = Chessground(vaultDetailBoard, {
+            fen: vaultDetailStartFen,
+            animation: { enabled: true, duration: 250 },
+            coordinates: isCoordsEnabled,
+            movable: { free: false, color: undefined },
+            draggable: { enabled: false },
+        });
+    }
+
+    vaultDetailTitle.textContent = item.gameTitle || '복기';
+    vaultInfoCategory.textContent = item.category || '';
+    vaultInfoPlayed.textContent = (item.moveNumber ? `${item.moveNumber}${item.isWhite ? '. ' : '... '}` : '') + (item.san || '');
+    vaultInfoBest.textContent = item.bestMove || 'Unknown';
+    vaultInfoNotes.textContent = item.notes || '';
+
     vaultView.classList.add('hidden');
-    pgnInput.value = item.pgn;
-    const ctx = {
-        moveIndex: item.moveIndex,
-        category: item.category || '',
-        notes: item.notes || '',
-    };
-    handlePgnReviewStart(null, item.isUserWhite !== undefined ? item.isUserWhite : item.isWhite, item.moveIndex, ctx);
+    vaultDetailView.classList.remove('hidden');
+
+    const targetIdx = (typeof item.moveIndex === 'number' && item.moveIndex >= 0 && item.moveIndex < vaultDetailFens.length)
+        ? item.moveIndex
+        : vaultDetailFens.length - 1;
+    setVaultDetailIndex(targetIdx);
+    forceRedraw(vaultDetailCg);
 }
 
-function updateVaultBanner() {
-    if (!vaultBanner) return;
-    if (vaultContext && currentlyViewedIndex === vaultContext.moveIndex) {
-        vaultBannerCategory.textContent = vaultContext.category;
-        vaultBannerNotes.textContent = vaultContext.notes;
-        vaultBanner.classList.remove('hidden');
+function setVaultDetailIndex(index) {
+    if (vaultDetailFens.length === 0) return;
+    vaultDetailIndex = Math.max(-1, Math.min(vaultDetailFens.length - 1, index));
+    const fen = vaultDetailIndex < 0 ? vaultDetailStartFen : vaultDetailFens[vaultDetailIndex];
+
+    vaultDetailChess.load(fen);
+    const orientation = vaultDetailItem && (vaultDetailItem.isUserWhite !== undefined ? vaultDetailItem.isUserWhite : vaultDetailItem.isWhite) ? 'white' : 'black';
+    vaultDetailCg.set({
+        fen,
+        orientation,
+        turnColor: vaultDetailChess.turn() === 'w' ? 'white' : 'black',
+        movable: { free: false, color: undefined },
+    });
+
+    if (vaultDetailIndex < 0) {
+        vaultDetailMoveLabel.textContent = 'Start';
+        vaultDetailCounter.textContent = `0 / ${vaultDetailFens.length}`;
     } else {
-        vaultBanner.classList.add('hidden');
+        const moveNumber = Math.floor(vaultDetailIndex / 2) + 1;
+        const isWhite = vaultDetailIndex % 2 === 0;
+        vaultDetailMoveLabel.textContent = `${moveNumber}${isWhite ? '.' : '...'} ${vaultDetailSans[vaultDetailIndex]}`;
+        vaultDetailCounter.textContent = `${vaultDetailIndex + 1} / ${vaultDetailFens.length}`;
     }
 }
+
+vaultDetailBackBtn.addEventListener('click', () => {
+    vaultDetailView.classList.add('hidden');
+    vaultView.classList.remove('hidden');
+});
+vaultDetailPrevBtn.addEventListener('click', () => setVaultDetailIndex(vaultDetailIndex - 1));
+vaultDetailNextBtn.addEventListener('click', () => setVaultDetailIndex(vaultDetailIndex + 1));
+vaultDetailMovesBtn.addEventListener('click', () => showMovesOverlay({
+    getPgn: () => vaultDetailItem ? vaultDetailItem.pgn : '',
+    renderBody: () => {
+        const queue = vaultDetailSans.map((san, i) => ({
+            san,
+            moveNumber: Math.floor(i / 2) + 1,
+            isWhite: i % 2 === 0,
+        }));
+        renderMovesTable(movesBody, queue, (i) => {
+            setVaultDetailIndex(i);
+            closeMovesOverlay();
+        });
+    },
+}));
 
 // --- Saved Games View Logic ---
 function openSavedGamesFromHome() {
@@ -840,6 +937,9 @@ window.addEventListener('resize', () => {
         }
         if (inputCg && !inputView.classList.contains('hidden')) {
             inputCg.redrawAll();
+        }
+        if (vaultDetailCg && !vaultDetailView.classList.contains('hidden')) {
+            vaultDetailCg.redrawAll();
         }
     }, 100); // 100ms 디바운스 적용
 });
@@ -1044,9 +1144,8 @@ stockfish = new StockfishEngine('./engine/stockfish-18-lite-single.js', engineCa
 // ==========================================
 // 7. Analysis Workflow
 // ==========================================
-function handlePgnReviewStart(e = null, isWhiteGame = null, targetIndex = null, vaultCtx = null) {
+function handlePgnReviewStart(e = null, isWhiteGame = null, targetIndex = null) {
     isUserWhite = isWhiteGame !== null ? isWhiteGame : true;
-    vaultContext = vaultCtx;
 
     const pgnText = pgnInput.value.trim();
     if (!pgnText) return;
@@ -1228,7 +1327,6 @@ function updateBoardPosition(index, fen) {
     
     currentlyViewedIndex = index;
     highlightActiveMove(index);
-    updateVaultBanner();
 
     // 수 이동 시 엔진 탭으로 복귀하고 AI 패널은 현재 포지션에 맞게 갱신
     renderAiTabContent();
