@@ -195,74 +195,59 @@ body {
    Home View: Username Input Row
    ========================================== */
 .username-input-row {
-    display: flex;
     width: 100%;
-    gap: 8px;
-    align-items: center;
     padding: 0 16px;
     box-sizing: border-box;
-    overflow: hidden;
+}
+
+.username-input-wrap {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    height: 48px;
+    background: var(--bg-surface);
+    border: 1px solid var(--brd2);
+    border-radius: 8px;
+    transition: border-color 0.2s ease;
+}
+
+.username-input-wrap:focus-within {
+    border-color: var(--ac-br);
 }
 
 .home-text-input {
     flex: 1;
-    min-width: 0;
-    width: 0;
-    height: 44px;
-    background: var(--bg-surface);
-    border: 1px solid var(--brd2);
-    border-radius: 8px;
+    height: 100%;
+    background: transparent;
+    border: none;
+    outline: none;
     padding: 0 14px;
     font-size: 14px;
     color: var(--tx);
-    outline: none;
     -webkit-appearance: none;
-    transition: border-color 0.2s ease;
     font-family: inherit;
+    min-width: 0;
 }
 
 .home-text-input::placeholder {
     color: var(--tx3);
 }
 
-.home-text-input:focus {
-    border-color: var(--ac);
-    box-shadow: 0 0 0 2px var(--ac-lo);
-}
-
-.home-text-input--compact {
-    height: 40px;
-    font-size: 13px;
-}
-
 .home-submit-btn {
     width: 44px;
-    height: 44px;
+    height: 100%;
     flex-shrink: 0;
-    border-radius: 8px;
-    background: var(--ac);
-    color: #100E0B;
+    background: none;
     border: none;
+    color: var(--ac);
+    font-size: 18px;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: opacity 0.15s ease;
 }
 
-.home-submit-btn:hover { opacity: 0.85; }
-.home-submit-btn:active { opacity: 0.7; }
 .home-submit-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-
-.home-submit-btn--compact {
-    width: 40px;
-    height: 40px;
-}
-
-.username-input-row--compact {
-    margin: 0 16px 12px;
-    padding: 0;
-}
 
 /* ==========================================
    Home View: Secondary Links
@@ -2106,6 +2091,19 @@ input:checked + .slider:before { transform: translateX(20px); background: #C49A3
     transition: color 0.15s ease;
 }
 .moves-overlay-close:hover { color: var(--text-primary); }
+
+.moves-overlay-download {
+    background: none;
+    border: none;
+    color: var(--ac);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0.25rem 0.5rem;
+    margin-left: auto;
+    font-family: inherit;
+}
+.moves-overlay-download:hover { opacity: 0.75; }
 
 .moves-overlay .moves-container {
     overflow-y: auto;

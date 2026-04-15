@@ -41,6 +41,8 @@ const panelTabs = document.getElementById('panelTabs');
 const movesOverlay = document.getElementById('movesOverlay');
 const movesOverlayBtn = document.getElementById('movesOverlayBtn');
 const movesOverlayCloseBtn = document.getElementById('movesOverlayCloseBtn');
+const downloadPgnBtn = document.getElementById('downloadPgnBtn');
+const inputViewMovesBtn = document.getElementById('inputViewMovesBtn');
 
 // View Navigation Elements
 const homeView = document.getElementById('homeView');
@@ -554,13 +556,31 @@ document.getElementById('winChanceDisplay').addEventListener('click', () => {
     }, 150);
 });
 
-function openMovesOverlay() { movesOverlay.classList.add('open'); }
+let _overlayGetPgn = null;
+
+function showMovesOverlay(getPgnFn) {
+    _overlayGetPgn = getPgnFn || null;
+    movesOverlay.classList.add('open');
+}
 function closeMovesOverlay() { movesOverlay.classList.remove('open'); }
 
-movesOverlayBtn.addEventListener('click', openMovesOverlay);
+movesOverlayBtn.addEventListener('click', () => showMovesOverlay(() => chess.pgn()));
+inputViewMovesBtn.addEventListener('click', () => showMovesOverlay(() => inputBoardPgn.value.trim() || inputChess.pgn()));
 movesOverlayCloseBtn.addEventListener('click', closeMovesOverlay);
 movesOverlay.addEventListener('click', (e) => {
     if (e.target === movesOverlay) closeMovesOverlay();
+});
+
+downloadPgnBtn.addEventListener('click', () => {
+    const pgn = _overlayGetPgn ? _overlayGetPgn() : chess.pgn();
+    if (!pgn) return;
+    const blob = new Blob([pgn], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'blundermate.pgn';
+    a.click();
+    URL.revokeObjectURL(url);
 });
 
 // --- Gemini AI Coach Logic ---

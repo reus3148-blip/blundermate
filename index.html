@@ -35,10 +35,10 @@
                 </section>
 
                 <div class="username-input-row">
-                    <input type="text" id="usernameInput" class="home-text-input" placeholder="Chess.com 유저네임" data-i18n-placeholder="usernamePlaceholder" value="" />
-                    <button id="fetchBtn" class="home-submit-btn" title="게임 불러오기">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
-                    </button>
+                    <div class="username-input-wrap">
+                        <input type="text" id="usernameInput" class="home-text-input" placeholder="Chess.com 유저네임" data-i18n-placeholder="usernamePlaceholder" value="" />
+                        <button id="fetchBtn" class="home-submit-btn" title="게임 불러오기">→</button>
+                    </div>
                 </div>
 
                 <div id="manualInputContainer" class="home-secondary-links">
@@ -74,7 +74,10 @@
                     <span data-i18n="back">Back</span>
                 </button>
                 <span class="app-title">수 입력</span>
-                <button id="inputViewUndoBtn" class="topbar-icon-btn" title="Undo">↺</button>
+                <div style="display:flex;gap:4px;">
+                    <button id="inputViewUndoBtn" class="topbar-icon-btn" title="Undo">↺</button>
+                    <button id="inputViewMovesBtn" class="topbar-icon-btn" title="기보">☰</button>
+                </div>
             </div>
 
             <div class="board-wrapper">
@@ -161,25 +164,6 @@
                 <span id="analysisStatus" class="tag hidden">분석 중...</span>
             </div>
 
-            <!-- Moves Overlay -->
-            <div id="movesOverlay" class="moves-overlay">
-                <div class="moves-overlay-sheet">
-                    <div class="moves-overlay-header">
-                        <span class="moves-overlay-title" data-i18n="moves">기보</span>
-                        <button id="movesOverlayCloseBtn" class="moves-overlay-close">✕</button>
-                    </div>
-                    <div class="moves-container">
-                        <table id="movesTable">
-                            <thead>
-                                <tr><th data-i18n="moveNumHeader">#</th><th data-i18n="whiteHeader">White</th><th data-i18n="blackHeader">Black</th></tr>
-                            </thead>
-                            <tbody id="movesBody">
-                                <tr><td colspan="3" class="empty-state" data-i18n="noMovesYet">No moves analyzed yet.</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
 
         </div>
 
@@ -347,6 +331,27 @@
                 <div class="modal-actions">
                     <button id="cancelSaveBtn" class="text-btn" data-i18n="cancel">Cancel</button>
                     <button id="confirmSaveBtn" class="primary-btn" data-i18n="saveMove">Save Move</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Moves Overlay (shared) -->
+        <div id="movesOverlay" class="moves-overlay">
+            <div class="moves-overlay-sheet">
+                <div class="moves-overlay-header">
+                    <span class="moves-overlay-title" data-i18n="moves">기보</span>
+                    <button id="downloadPgnBtn" class="moves-overlay-download">PGN</button>
+                    <button id="movesOverlayCloseBtn" class="moves-overlay-close">✕</button>
+                </div>
+                <div class="moves-container">
+                    <table id="movesTable">
+                        <thead>
+                            <tr><th data-i18n="moveNumHeader">#</th><th data-i18n="whiteHeader">White</th><th data-i18n="blackHeader">Black</th></tr>
+                        </thead>
+                        <tbody id="movesBody">
+                            <tr><td colspan="3" class="empty-state" data-i18n="noMovesYet">No moves analyzed yet.</td></tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
