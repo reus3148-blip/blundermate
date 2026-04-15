@@ -48,12 +48,13 @@ const analysisView = document.getElementById('analysisView');
 const backBtn = document.getElementById('backBtn');
 
 // Board Input Elements
-const boardInputModal = document.getElementById('boardInputModal');
+const inputView = document.getElementById('inputView');
+const inputViewBackBtn = document.getElementById('inputViewBackBtn');
+const inputViewUndoBtn = document.getElementById('inputViewUndoBtn');
+const inputViewUndoBtnBottom = document.getElementById('inputViewUndoBtnBottom');
+const inputViewAnalyzeBtn = document.getElementById('inputViewAnalyzeBtn');
 const inputBoardContainer = document.getElementById('inputBoardContainer');
 const inputBoardPgn = document.getElementById('inputBoardPgn');
-const undoInputMoveBtn = document.getElementById('undoInputMoveBtn');
-const cancelInputBtn = document.getElementById('cancelInputBtn');
-const analyzeInputBtn = document.getElementById('analyzeInputBtn');
 
 // Modal Elements
 const saveModal = document.getElementById('saveModal');
@@ -237,7 +238,6 @@ function closeModal(modal) {
 const modalConfigs = [
     { modal: settingsModal, closeBtn: document.getElementById('closeSettingsBtn') },
     { modal: feedbackModal, closeBtn: cancelFeedbackBtn },
-    { modal: boardInputModal, closeBtn: cancelInputBtn, noBg: true },
     { modal: saveChoiceModal, closeBtn: cancelChoiceBtn, noBg: true },
     { modal: saveModal, closeBtn: cancelSaveBtn, noBg: true },
     { modal: saveGameModal, closeBtn: cancelSaveGameBtn, noBg: true }
@@ -316,15 +316,12 @@ document.getElementById('langEnBtn').addEventListener('click', () => {
 // ==========================================
 // 4. Event Listeners
 // ==========================================
-toggleManualBtn.addEventListener('click', () => {
-    manualInputWrapper.classList.toggle('hidden');
-});
-
-openBoardInputBtn.addEventListener('click', () => {
-    boardInputModal.classList.remove('hidden');
+function openInputView() {
+    homeView.classList.add('hidden');
+    inputView.classList.remove('hidden');
     inputChess.reset();
     inputBoardPgn.value = '';
-    
+
     if (!inputCg) {
         inputCg = Chessground(inputBoardContainer, {
             animation: { enabled: true, duration: 250 },
@@ -340,22 +337,54 @@ openBoardInputBtn.addEventListener('click', () => {
     }
     updateInputBoard();
     forceRedraw(inputCg);
+}
+
+toggleManualBtn.addEventListener('click', openInputView);
+openBoardInputBtn.addEventListener('click', openInputView);
+
+inputViewBackBtn.addEventListener('click', () => {
+    inputView.classList.add('hidden');
+    homeView.classList.remove('hidden');
+    initHomeState();
 });
 
-// removed cancelInputBtn event listener
-
-undoInputMoveBtn.addEventListener('click', () => {
+function doUndoInput() {
     inputChess.undo();
     updateInputBoard();
-});
+}
+inputViewUndoBtn.addEventListener('click', doUndoInput);
+inputViewUndoBtnBottom.addEventListener('click', doUndoInput);
 
-analyzeInputBtn.addEventListener('click', () => {
-    if (inputChess.history().length === 0) {
-        alert('Please play at least one move to analyze.');
+inputBoardPgn.addEventListener('input', () => {
+    const text = inputBoardPgn.value.trim();
+    if (!text) {
+        inputChess.reset();
+        if (inputCg) updateInputBoard();
         return;
     }
-    pgnInput.value = inputChess.pgn();
-    boardInputModal.classList.add('hidden');
+    const tempChess = new window.Chess();
+    const result = parseAndLoadPgn(tempChess, text);
+    if (result.success) {
+        inputChess = tempChess;
+        if (inputCg) {
+            const turnColor = inputChess.turn() === 'w' ? 'white' : 'black';
+            inputCg.set({
+                fen: inputChess.fen(),
+                turnColor: turnColor,
+                movable: { color: turnColor, dests: getDests(inputChess) }
+            });
+        }
+    }
+});
+
+inputViewAnalyzeBtn.addEventListener('click', () => {
+    const pgn = inputBoardPgn.value.trim() || inputChess.pgn();
+    if (!pgn) {
+        alert('Please play at least one move or paste a PGN to analyze.');
+        return;
+    }
+    pgnInput.value = pgn;
+    inputView.classList.add('hidden');
     pendingAnalysisCallback = (isWhite) => handlePgnReviewStart(null, isWhite);
     colorChoiceModal.classList.remove('hidden');
 });
@@ -796,7 +825,7 @@ window.addEventListener('resize', () => {
         if (practiceCg && !practiceView.classList.contains('hidden')) {
             practiceCg.redrawAll();
         }
-        if (inputCg && !boardInputModal.classList.contains('hidden')) {
+        if (inputCg && !inputView.classList.contains('hidden')) {
             inputCg.redrawAll();
         }
     }, 100); // 100ms 디바운스 적용

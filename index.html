@@ -47,9 +47,9 @@
                     <button id="openBoardInputBtn" class="home-link-btn" data-i18n="boardInput">직접 입력</button>
                 </div>
 
-                <div id="manualInputWrapper" class="manual-input-wrapper hidden">
-                    <textarea id="pgnInput" placeholder="PGN을 붙여넣으세요... e.g. 1. e4 e5"></textarea>
-                    <button id="analyzeBtn" class="primary-btn" data-i18n="startReview">분석 시작</button>
+                <div id="manualInputWrapper" style="display:none">
+                    <textarea id="pgnInput"></textarea>
+                    <button id="analyzeBtn"></button>
                 </div>
 
                 <div id="gamesList" class="games-list"></div>
@@ -63,6 +63,33 @@
                         <button id="openSavedGamesBtn" class="lib-archive-btn" data-i18n="archive">Archive</button>
                     </div>
                 </section>
+            </div>
+        </div>
+
+        <!-- Input View -->
+        <div id="inputView" class="view-container hidden">
+            <div class="analysis-top-bar">
+                <button id="inputViewBackBtn" class="back-btn">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                    <span data-i18n="back">Back</span>
+                </button>
+                <span class="app-title">수 입력</span>
+                <button id="inputViewUndoBtn" class="topbar-icon-btn" title="Undo">↺</button>
+            </div>
+
+            <div class="board-wrapper">
+                <div id="inputBoardContainer" class="board-container"></div>
+            </div>
+
+            <div class="input-pgn-area">
+                <textarea id="inputBoardPgn" class="input-pgn-textarea" placeholder="PGN을 붙여넣거나 보드에서 수를 입력하세요" spellcheck="false"></textarea>
+            </div>
+
+            <div class="unified-controls">
+                <div class="unified-controls-inner">
+                    <button id="inputViewUndoBtnBottom" class="control-btn">Undo</button>
+                    <button id="inputViewAnalyzeBtn" class="input-analyze-btn">분석 시작 →</button>
+                </div>
             </div>
         </div>
 
@@ -265,24 +292,6 @@
                 </div>
             </div>
         </div>
-
-        <!-- Board Input Modal -->
-        <div id="boardInputModal" class="modal-overlay hidden">
-        <div class="modal-content modal-content--wide">
-            <h2 class="modal-title-center" data-i18n="enterMoves">Enter Moves</h2>
-            <div id="inputBoardContainer" class="board-container board-container--input"></div>
-            <div class="form-group">
-                <textarea id="inputBoardPgn" readonly placeholder="Moves will appear here..." class="pgn-readonly"></textarea>
-            </div>
-            <div class="modal-actions modal-actions--spread">
-                <button id="undoInputMoveBtn" class="control-btn btn-undo" data-i18n="undo">Undo</button>
-                <div class="modal-actions-right">
-                    <button id="cancelInputBtn" class="text-btn" data-i18n="cancel">Cancel</button>
-                    <button id="analyzeInputBtn" class="primary-btn" data-i18n="analyze">Analyze</button>
-                </div>
-            </div>
-        </div>
-    </div>
 
         <!-- Save Choice Modal -->
         <div id="saveChoiceModal" class="modal-overlay hidden">

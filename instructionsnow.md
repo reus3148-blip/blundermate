@@ -1,33 +1,58 @@
-Simplify the home screen — remove all state-based branching.
+Replace the "직접 입력" popup and "PGN 붙여넣기" popup with a single
+full-screen input screen. Both buttons on the home screen navigate
+to this same screen.
 
-The home screen must look identical regardless of whether Vault has items or not.
+## Layout — must be identical to the analysis screen
 
-Remove entirely:
-- "복습할 항목이 있어요" title
-- "저장된 블런더 N개" subtitle  
-- Vault preview card showing recent items
-- All conditional logic that changes the layout based on Vault contents
+Use the exact same layout structure as the analysis screen:
+- Same top bar (height, padding, font)
+- Same board size and position (100% width, aspect-ratio: 1)
+- Same background colors and spacing
 
-Final home screen structure (always the same):
+Top bar:
+- Left: ← Back button
+- Center: "수 입력"
+- Right: ↺ Undo button (icon only, same style as other icon-btns)
 
-1. Header
-   - Left: logo (existing)
-   - Right: settings icon (existing)
+Board:
+- Identical size and styling to analysis screen board
+- Click/tap to input moves (existing logic)
+- Highlight last moved piece (existing logic)
 
-2. Hero section (padding 24px 16px 20px)
-   - Title: "어떤 게임을 분석할까요?" 
-   - Subtitle: "Chess.com 유저네임을 입력하세요"
-   - Username input row (full width, button always visible)
-   - Secondary links: "PGN 붙여넣기 · 직접 입력"
-     These must ALWAYS be visible, never hidden
+Below board — PGN input area:
+- background: var(--bg-surface)
+- border-top: 1px solid var(--brd)
+- padding: 12px 14px
+- Textarea:
+    width: 100%
+    min-height: 80px
+    background: var(--bg-elevated)
+    border: 1px solid var(--brd2)
+    border-radius: 8px
+    padding: 10px 12px
+    font-family: 'IBM Plex Mono', monospace
+    font-size: 12px
+    color: var(--tx)
+    placeholder: "PGN을 붙여넣거나 보드에서 수를 입력하세요"
+    resize: none
 
-3. Divider
+Two-way sync:
+- Moving on board → PGN textarea updates automatically
+- Pasting PGN into textarea → board updates to show final position
 
-4. My library section
-   - Label: "My library"
-   - Two buttons side by side: [Vault] [Archive]
-   - If Vault has items: show a small count badge on the Vault button only
-     e.g. "Vault 3" — font-size 11px, color --ac
-   - No other changes based on Vault contents
+Bottom bar:
+- Same height and style as analysis screen bottom bar
+- Left: Undo button (text, same style as existing)
+- Right: "분석 시작 →" button
+    height: 44px, border-radius: 8px
+    background: var(--ac), color: #100E0B
+    font-size: 14px, font-weight: 700
+    flex: 1, margin-left: 12px
 
-Do not change any styling. Only remove the conditional branching.
+## Remove
+- Existing popup/modal for 직접 입력
+- Existing popup/modal for PGN 붙여넣기
+- Both now navigate to this full-screen instead
+
+Do not change any existing move input or PGN parsing logic.
+Only change the presentation layer.
