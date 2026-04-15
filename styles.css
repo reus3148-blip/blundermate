@@ -1556,6 +1556,32 @@ th {
     border-color: #C49A3C;
 }
 
+.vault-banner {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+    padding: 0.4rem 0.75rem;
+    background: rgba(245, 158, 11, 0.08);
+    border-bottom: 1px solid rgba(245, 158, 11, 0.25);
+    font-size: 0.78rem;
+    line-height: 1.3;
+}
+.vault-banner.hidden { display: none; }
+.vault-banner-cat {
+    text-transform: uppercase;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: var(--accent-warning, #f59e0b);
+    flex-shrink: 0;
+}
+.vault-banner-notes {
+    color: var(--text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 /* 메인 라인 복귀 버튼 래퍼: 버튼이 hidden이면 래퍼도 공간 미차지 */
 .return-line-wrapper {
     display: flex;

@@ -43,6 +43,9 @@ const movesOverlayBtn = document.getElementById('movesOverlayBtn');
 const movesOverlayCloseBtn = document.getElementById('movesOverlayCloseBtn');
 const downloadPgnBtn = document.getElementById('downloadPgnBtn');
 const inputViewMovesBtn = document.getElementById('inputViewMovesBtn');
+const vaultBanner = document.getElementById('vaultBanner');
+const vaultBannerCategory = document.getElementById('vaultBannerCategory');
+const vaultBannerNotes = document.getElementById('vaultBannerNotes');
 
 // View Navigation Elements
 const homeView = document.getElementById('homeView');
@@ -81,14 +84,10 @@ const confirmSaveGameBtn = document.getElementById('confirmSaveGameBtn');
 // Home State Elements
 const vaultCountBadge = document.getElementById('vaultCountBadge');
 
-// Vault & Practice Elements
+// Vault Elements
 const vaultView = document.getElementById('vaultView');
 const vaultList = document.getElementById('vaultList');
 const vaultBackBtn = document.getElementById('vaultBackBtn');
-const practiceView = document.getElementById('practiceView');
-const practiceBoardContainer = document.getElementById('practiceBoardContainer');
-const practiceFeedback = document.getElementById('practiceFeedback');
-const practiceBackBtn = document.getElementById('practiceBackBtn');
 
 // Saved Games Elements
 const savedGamesView = document.getElementById('savedGamesView');
@@ -130,10 +129,11 @@ let currentlyViewedIndex = -1;
 let cg;
 let isWaitingForStop = false;
 let pendingQueue = null;
+let pendingTargetIndex = null;
+let vaultContext = null; // { moveIndex, category, notes } — set when opening a vault item
 let persistentShapes = []; // 블런더/실수 시 보드에 고정될 화살표를 저장하는 배열
 let isUserWhite = true; // 분석 기준이 되는 사용자 색상 (기본: 백)
 let currentBestMoveForVault = ''; // 저장 시 함께 보관할 최선의 수
-let practiceCg; // 연습 모드용 체스 보드
 let appMode = 'main'; // 'main', 'explore', 'simulate'
 let explorationChess = new Chess();
 let explorationEngineLines = [];
@@ -217,7 +217,6 @@ coordsToggle.addEventListener('change', (e) => {
     localStorage.setItem('coordsEnabled', isCoordsEnabled);
     if (cg) cg.set({ coordinates: isCoordsEnabled });
     if (inputCg) inputCg.set({ coordinates: isCoordsEnabled });
-    if (practiceCg) practiceCg.set({ coordinates: isCoordsEnabled });
 });
 
 chooseWhiteBtn.addEventListener('click', () => {
@@ -402,17 +401,14 @@ backBtn.addEventListener('click', () => {
     isWaitingForStop = false;
     pendingQueue = null;
     analysisQueue = []; // 큐도 초기화하여 백그라운드 엔진 메시지로 인한 충돌 방지
+    vaultContext = null;
+    updateVaultBanner();
 });
 
 vaultBackBtn.addEventListener('click', () => {
     vaultView.classList.add('hidden');
     homeView.classList.remove('hidden');
     initHomeState();
-});
-
-practiceBackBtn.addEventListener('click', () => {
-    practiceView.classList.add('hidden');
-    vaultView.classList.remove('hidden');
 });
 
 savedGamesBackBtn.addEventListener('click', () => {
@@ -504,10 +500,6 @@ document.addEventListener('keydown', (e) => {
             const currentOrientation = cg.state.orientation;
             cg.set({ orientation: currentOrientation === 'white' ? 'black' : 'white' });
         }
-        if (practiceCg) {
-            const currentOrientation = practiceCg.state.orientation;
-            practiceCg.set({ orientation: currentOrientation === 'white' ? 'black' : 'white' });
-        }
     }
 });
 
@@ -558,14 +550,36 @@ document.getElementById('winChanceDisplay').addEventListener('click', () => {
 
 let _overlayGetPgn = null;
 
-function showMovesOverlay(getPgnFn) {
-    _overlayGetPgn = getPgnFn || null;
+function showMovesOverlay({ getPgn, renderBody } = {}) {
+    _overlayGetPgn = getPgn || null;
+    if (renderBody) renderBody();
     movesOverlay.classList.add('open');
 }
-function closeMovesOverlay() { movesOverlay.classList.remove('open'); }
+function closeMovesOverlay() {
+    movesOverlay.classList.remove('open');
+    _overlayGetPgn = null;
+}
 
-movesOverlayBtn.addEventListener('click', () => showMovesOverlay(() => chess.pgn()));
-inputViewMovesBtn.addEventListener('click', () => showMovesOverlay(() => inputBoardPgn.value.trim() || inputChess.pgn()));
+function buildInputMovesQueue() {
+    const history = inputChess.history({ verbose: true });
+    return history.map((m, i) => ({
+        san: m.san,
+        moveNumber: Math.floor(i / 2) + 1,
+        isWhite: i % 2 === 0,
+    }));
+}
+
+movesOverlayBtn.addEventListener('click', () => showMovesOverlay({
+    getPgn: () => chess.pgn(),
+    renderBody: () => renderMovesTable(movesBody, analysisQueue, (index) => {
+        updateBoardPosition(index, analysisQueue[index].fen);
+        closeMovesOverlay();
+    }),
+}));
+inputViewMovesBtn.addEventListener('click', () => showMovesOverlay({
+    getPgn: () => inputBoardPgn.value.trim() || inputChess.pgn(),
+    renderBody: () => renderMovesTable(movesBody, buildInputMovesQueue(), () => closeMovesOverlay()),
+}));
 movesOverlayCloseBtn.addEventListener('click', closeMovesOverlay);
 movesOverlay.addEventListener('click', (e) => {
     if (e.target === movesOverlay) closeMovesOverlay();
@@ -678,9 +692,19 @@ confirmSaveBtn.addEventListener('click', () => {
     const move = analysisQueue[currentlyViewedIndex];
     const initialMoveFen = chess?.header?.()?.FEN || START_FEN;
 
+    let gameTitle = '';
+    const h = chess?.header?.();
+    if (h && h.White && h.Black && h.White !== '?' && h.Black !== '?') {
+        gameTitle = `${h.White} vs ${h.Black}`;
+    }
+
     const vaultItem = {
         id: Date.now(),
         date: new Date().toISOString(),
+        pgn: chess.pgn(),
+        moveIndex: currentlyViewedIndex,
+        gameTitle,
+        isUserWhite,
         fen: move.fen,
         prevFen: currentlyViewedIndex > 0 ? analysisQueue[currentlyViewedIndex - 1].fen : initialMoveFen,
         san: move.san,
@@ -754,7 +778,33 @@ function updateVaultView() {
             removeVaultItem(id);
             updateVaultView();
         }
-    }, startPractice);
+    }, openVaultItem);
+}
+
+function openVaultItem(item) {
+    if (!item.pgn) {
+        alert('This saved move is from an older version and cannot be opened. Please delete it.');
+        return;
+    }
+    vaultView.classList.add('hidden');
+    pgnInput.value = item.pgn;
+    const ctx = {
+        moveIndex: item.moveIndex,
+        category: item.category || '',
+        notes: item.notes || '',
+    };
+    handlePgnReviewStart(null, item.isUserWhite !== undefined ? item.isUserWhite : item.isWhite, item.moveIndex, ctx);
+}
+
+function updateVaultBanner() {
+    if (!vaultBanner) return;
+    if (vaultContext && currentlyViewedIndex === vaultContext.moveIndex) {
+        vaultBannerCategory.textContent = vaultContext.category;
+        vaultBannerNotes.textContent = vaultContext.notes;
+        vaultBanner.classList.remove('hidden');
+    } else {
+        vaultBanner.classList.add('hidden');
+    }
 }
 
 // --- Saved Games View Logic ---
@@ -780,60 +830,6 @@ function updateSavedGamesView() {
     });
 }
 
-function startPractice(item) {
-    vaultView.classList.add('hidden');
-    practiceView.classList.remove('hidden');
-    practiceFeedback.className = 'practice-feedback';
-    practiceFeedback.textContent = t('findBestMove');
-
-    const practiceChess = new Chess(item.prevFen);
-    const turnColor = practiceChess.turn() === 'w' ? 'white' : 'black';
-
-    if (!practiceCg) {
-        practiceCg = Chessground(practiceBoardContainer, { animation: { enabled: true, duration: 250 }, coordinates: isCoordsEnabled });
-    }
-
-    practiceCg.set({
-        fen: item.prevFen,
-        orientation: item.isWhite ? 'white' : 'black',
-        turnColor: turnColor,
-        movable: {
-            color: turnColor,
-            free: false,
-            dests: getDests(practiceChess)
-        },
-        drawable: { autoShapes: [] }
-    });
-
-    practiceCg.set({
-        events: {
-            move: (orig, dest) => {
-                const moveRes = practiceChess.move({ from: orig, to: dest, promotion: 'q' });
-                if (!moveRes) return;
-                
-                let isCorrect = (item.bestMove === moveRes.san || item.bestMove === (moveRes.from + moveRes.to));
-                
-                if (isCorrect) {
-                    practiceFeedback.textContent = 'Correct! ' + moveRes.san;
-                    practiceFeedback.className = 'practice-feedback positive';
-                    practiceCg.set({ fen: practiceChess.fen(), movable: { color: undefined } }); // Lock board
-                } else {
-                    const isBlunder = (moveRes.san === item.san);
-                    practiceFeedback.textContent = (isBlunder ? 'Blunder played! ' : 'Incorrect: ') + moveRes.san;
-                    practiceFeedback.className = 'practice-feedback negative';
-                    setTimeout(() => {
-                        practiceChess.undo();
-                        practiceCg.set({ fen: practiceChess.fen(), turnColor: turnColor });
-                        practiceFeedback.textContent = 'Try again';
-                        practiceFeedback.className = 'practice-feedback';
-                    }, 800);
-                }
-            }
-        }
-    });
-    forceRedraw(practiceCg);
-}
-
 // Redraw board on window resize or device rotation for better responsive behavior
 let resizeTimeout;
 window.addEventListener('resize', () => {
@@ -841,9 +837,6 @@ window.addEventListener('resize', () => {
     resizeTimeout = setTimeout(() => {
         if (cg && !analysisView.classList.contains('hidden')) {
             cg.redrawAll();
-        }
-        if (practiceCg && !practiceView.classList.contains('hidden')) {
-            practiceCg.redrawAll();
         }
         if (inputCg && !inputView.classList.contains('hidden')) {
             inputCg.redrawAll();
@@ -1010,8 +1003,11 @@ const engineCallbacks = {
         if (isWaitingForStop) {
             isWaitingForStop = false;
             if (pendingQueue) {
-                startNewAnalysis(pendingQueue);
+                const q = pendingQueue;
+                const idx = pendingTargetIndex;
                 pendingQueue = null;
+                pendingTargetIndex = null;
+                startNewAnalysis(q, idx);
             }
             return;
         }
@@ -1048,8 +1044,9 @@ stockfish = new StockfishEngine('./engine/stockfish-18-lite-single.js', engineCa
 // ==========================================
 // 7. Analysis Workflow
 // ==========================================
-function handlePgnReviewStart(e = null, isWhiteGame = null) {
+function handlePgnReviewStart(e = null, isWhiteGame = null, targetIndex = null, vaultCtx = null) {
     isUserWhite = isWhiteGame !== null ? isWhiteGame : true;
+    vaultContext = vaultCtx;
 
     const pgnText = pgnInput.value.trim();
     if (!pgnText) return;
@@ -1121,20 +1118,21 @@ function handlePgnReviewStart(e = null, isWhiteGame = null) {
         analysisStatus.className = 'tag engine-loading';
         analysisStatus.textContent = 'Stopping previous analysis...';
         pendingQueue = newQueue;
+        pendingTargetIndex = targetIndex;
         isWaitingForStop = true;
         isAnalyzing = false;
         stockfish.stop();
         return;
     }
 
-    startNewAnalysis(newQueue);
+    startNewAnalysis(newQueue, targetIndex);
 }
 
-function startNewAnalysis(newQueue) {
+function startNewAnalysis(newQueue, targetIndex = null) {
     // Switch to Analysis View
     homeView.classList.add('hidden');
     analysisView.classList.remove('hidden');
-    
+
     // 이전 탐색(Exploration) 및 시뮬레이션 모드 상태 완전 초기화
     appMode = 'main';
     returnMainLineBtn.classList.add('hidden');
@@ -1150,20 +1148,24 @@ function startNewAnalysis(newQueue) {
         updateBoardPosition(index, analysisQueue[index].fen);
         closeMovesOverlay();
     });
-    
+
     currentAnalysisIndex = 0;
     analysisStatus.textContent = `Analyzing 0 / ${analysisQueue.length} moves...`;
-    
+
     if (analysisQueue.length > 0) {
         persistentShapes = [];
         const initialFen = chess.header().FEN || 'start';
-        cg.set({ 
-            fen: initialFen, 
+        cg.set({
+            fen: initialFen,
             orientation: isUserWhite ? 'white' : 'black',
-            drawable: { autoShapes: [] } 
+            drawable: { autoShapes: [] }
         });
         currentlyViewedIndex = -1;
         updateTopEvalDisplay('-');
+
+        if (targetIndex != null && targetIndex >= 0 && targetIndex < analysisQueue.length) {
+            updateBoardPosition(targetIndex, analysisQueue[targetIndex].fen);
+        }
     }
 
     if (isEngineReady) {
@@ -1226,7 +1228,8 @@ function updateBoardPosition(index, fen) {
     
     currentlyViewedIndex = index;
     highlightActiveMove(index);
-    
+    updateVaultBanner();
+
     // 수 이동 시 엔진 탭으로 복귀하고 AI 패널은 현재 포지션에 맞게 갱신
     renderAiTabContent();
     switchTab('engine');

@@ -321,26 +321,31 @@ export function updateTopEvalDisplay(scoreStr, classification = '') {
 /**
  * 오답노트(Vault) 리스트를 화면에 렌더링합니다.
  */
-export function renderVaultList(container, vaultItems, onDelete, onPractice) {
+export function renderVaultList(container, vaultItems, onDelete, onOpen) {
     container.innerHTML = '';
     if (vaultItems.length === 0) {
         container.innerHTML = `<div class="empty-state">${t('vault_empty')}</div>`;
         return;
     }
-    
+
     vaultItems.sort((a, b) => new Date(b.date) - new Date(a.date)).forEach(item => {
         let borderCol = 'var(--border-color)';
         if(item.category === 'blunder') borderCol = 'var(--accent-danger)';
         else if(item.category === 'mistake' || item.category === 'missed') borderCol = 'var(--accent-warning)';
 
+        const isLegacy = !item.pgn;
+        const moveLabel = item.moveNumber ? `${item.moveNumber}${item.isWhite ? '.' : '...'} ` : '';
+
         const el = document.createElement('div');
         el.className = 'game-item';
         el.style.borderLeft = `4px solid ${borderCol}`;
-        
+        if (isLegacy) el.style.opacity = '0.6';
+
         el.innerHTML = `
             <div class="game-item-content">
-                <div class="game-category" style="color: ${borderCol};">${item.category}</div>
-                <div class="game-san">Played: <strong>${escapeHtml(item.san)}</strong></div>
+                <div class="game-category" style="color: ${borderCol};">${escapeHtml(item.category)}${isLegacy ? ' · legacy' : ''}</div>
+                ${item.gameTitle ? `<div class="game-title">${escapeHtml(item.gameTitle)}</div>` : ''}
+                <div class="game-san">Played: <strong>${escapeHtml(moveLabel + item.san)}</strong></div>
                 <div class="game-best">Best: ${escapeHtml(item.bestMove) || 'Unknown'}</div>
                 ${item.notes ? `<div class="game-notes">${escapeHtml(item.notes)}</div>` : ''}
             </div>
@@ -348,13 +353,13 @@ export function renderVaultList(container, vaultItems, onDelete, onPractice) {
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
             </button>
         `;
-        
+
         el.querySelector('.delete-btn').addEventListener('click', (e) => {
             e.stopPropagation();
             onDelete(item.id);
         });
-        
-        el.addEventListener('click', () => onPractice(item));
+
+        el.addEventListener('click', () => onOpen(item));
         container.appendChild(el);
     });
 }
