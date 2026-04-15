@@ -76,16 +76,7 @@ const cancelSaveGameBtn = document.getElementById('cancelSaveGameBtn');
 const confirmSaveGameBtn = document.getElementById('confirmSaveGameBtn');
 
 // Home State Elements
-const homeStateA = document.getElementById('homeStateA');
-const homeStateB = document.getElementById('homeStateB');
-const greetingSubtitle = document.getElementById('greetingSubtitle');
-const vaultPreviewCount = document.getElementById('vaultPreviewCount');
-const vaultPreviewRows = document.getElementById('vaultPreviewRows');
-const vaultPreviewAllBtn = document.getElementById('vaultPreviewAllBtn');
-const usernameInputB = document.getElementById('usernameInputB');
-const fetchBtnB = document.getElementById('fetchBtnB');
-const openVaultBtnB = document.getElementById('openVaultBtnB');
-const openSavedGamesBtnB = document.getElementById('openSavedGamesBtnB');
+const vaultCountBadge = document.getElementById('vaultCountBadge');
 
 // Vault & Practice Elements
 const vaultView = document.getElementById('vaultView');
@@ -176,59 +167,13 @@ cg = Chessground(boardContainer, {
 // ==========================================
 function initHomeState() {
     const vaultItems = getVaultItems();
-    if (vaultItems.length > 0) {
-        homeStateA.classList.add('hidden');
-        homeStateB.classList.remove('hidden');
-        renderHomeVaultPreview(vaultItems);
+    const count = vaultItems.length;
+    if (count > 0) {
+        vaultCountBadge.textContent = count;
+        vaultCountBadge.classList.remove('hidden');
     } else {
-        homeStateA.classList.remove('hidden');
-        homeStateB.classList.add('hidden');
+        vaultCountBadge.classList.add('hidden');
     }
-}
-
-function renderHomeVaultPreview(items) {
-    const sorted = [...items].sort((a, b) => new Date(b.date) - new Date(a.date));
-    const blunderCount = items.filter(i => i.category === 'blunder').length;
-    const total = items.length;
-
-    greetingSubtitle.textContent = `저장된 블런더 ${blunderCount}개`;
-    vaultPreviewCount.textContent = `${total}개 항목`;
-
-    vaultPreviewRows.innerHTML = '';
-    const preview = sorted.slice(0, 2);
-    preview.forEach(item => {
-        const row = document.createElement('div');
-        row.className = 'vault-preview-row';
-
-        const badgeClass = `vault-preview-badge vault-preview-badge--${item.category || 'blunder'}`;
-        const categoryLabel = {
-            blunder: '블런더', mistake: '실수', missed: '놓친 수',
-            tactic: '전술', positional: '전략'
-        }[item.category] || item.category;
-
-        const dateStr = item.date ? new Date(item.date).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' }) : '';
-        const metaText = [item.notes, dateStr].filter(Boolean).join(' · ');
-
-        row.innerHTML = `
-            <span class="${badgeClass}">${escapeHtmlLocal(categoryLabel)}</span>
-            <span class="vault-preview-move">${escapeHtmlLocal(item.san || '')}</span>
-            <span class="vault-preview-meta">${escapeHtmlLocal(metaText)}</span>
-        `;
-        row.addEventListener('click', () => {
-            homeView.classList.add('hidden');
-            vaultView.classList.remove('hidden');
-            updateVaultView();
-        });
-        vaultPreviewRows.appendChild(row);
-    });
-}
-
-function escapeHtmlLocal(str) {
-    return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
 }
 
 // ==========================================
@@ -752,24 +697,6 @@ function openVaultFromHome() {
 }
 
 openVaultBtn.addEventListener('click', openVaultFromHome);
-openVaultBtnB.addEventListener('click', openVaultFromHome);
-vaultPreviewAllBtn.addEventListener('click', openVaultFromHome);
-
-// State B: fetch button syncs to State A input and triggers search
-fetchBtnB.addEventListener('click', () => {
-    usernameInput.value = usernameInputB.value;
-    homeStateB.classList.add('hidden');
-    homeStateA.classList.remove('hidden');
-    handleApiFetch();
-});
-usernameInputB.addEventListener('keyup', (e) => {
-    if (e.key === 'Enter') {
-        usernameInput.value = usernameInputB.value;
-        homeStateB.classList.add('hidden');
-        homeStateA.classList.remove('hidden');
-        handleApiFetch();
-    }
-});
 
 function updateVaultView() {
     const items = getVaultItems();
@@ -789,7 +716,6 @@ function openSavedGamesFromHome() {
 }
 
 openSavedGamesBtn.addEventListener('click', openSavedGamesFromHome);
-openSavedGamesBtnB.addEventListener('click', openSavedGamesFromHome);
 
 function updateSavedGamesView() {
     const games = getSavedGames();

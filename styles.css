@@ -352,6 +352,15 @@ body {
 
 .lib-vault-btn:hover { opacity: 0.8; }
 
+.vault-count-badge {
+    display: inline-block;
+    margin-left: 5px;
+    font-size: 11px;
+    color: var(--ac);
+    font-weight: 600;
+}
+.vault-count-badge.hidden { display: none; }
+
 .lib-archive-btn {
     flex: 1;
     height: 44px;

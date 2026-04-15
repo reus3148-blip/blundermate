@@ -27,8 +27,8 @@
                 </div>
             </header>
 
-            <!-- State A: No vault items -->
-            <div id="homeStateA" class="home-state home-scroll">
+            <!-- Home Content -->
+            <div class="home-state home-scroll">
                 <section class="home-hero">
                     <div class="hero-title" data-i18n="heroTitle">어떤 게임을 분석할까요?</div>
                     <div class="hero-subtitle" data-i18n="heroSubtitle">Chess.com 유저네임을 입력하세요</div>
@@ -59,39 +59,10 @@
                 <section id="myLibrarySection" class="my-library-section">
                     <div class="library-label" data-i18n="myLibrary">My library</div>
                     <div class="library-btn-row">
-                        <button id="openVaultBtn" class="lib-vault-btn" data-i18n="vault">Vault</button>
+                        <button id="openVaultBtn" class="lib-vault-btn" data-i18n="vault">Vault<span id="vaultCountBadge" class="vault-count-badge hidden"></span></button>
                         <button id="openSavedGamesBtn" class="lib-archive-btn" data-i18n="archive">Archive</button>
                     </div>
                 </section>
-            </div>
-
-            <!-- State B: Vault has items -->
-            <div id="homeStateB" class="home-state home-scroll hidden">
-                <section class="home-greeting">
-                    <div class="greeting-title" data-i18n="greetingTitle">복습할 항목이 있어요</div>
-                    <div id="greetingSubtitle" class="greeting-subtitle">저장된 블런더 0개</div>
-                </section>
-
-                <div id="vaultPreviewCard" class="vault-preview-card">
-                    <div class="vault-preview-header">
-                        <span class="vault-preview-label">VAULT</span>
-                        <span id="vaultPreviewCount" class="vault-preview-count"></span>
-                    </div>
-                    <div id="vaultPreviewRows"></div>
-                    <div class="vault-preview-footer" id="vaultPreviewAllBtn" data-i18n="viewAll">전체보기 →</div>
-                </div>
-
-                <div class="username-input-row username-input-row--compact">
-                    <input type="text" id="usernameInputB" class="home-text-input home-text-input--compact" placeholder="Chess.com 유저네임" data-i18n-placeholder="usernamePlaceholder" value="" />
-                    <button id="fetchBtnB" class="home-submit-btn home-submit-btn--compact" title="게임 불러오기">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
-                    </button>
-                </div>
-
-                <div class="home-bottom-row">
-                    <button id="openVaultBtnB" class="lib-vault-btn lib-btn--full" data-i18n="vaultViewAll">Vault 전체보기</button>
-                    <button id="openSavedGamesBtnB" class="lib-archive-btn lib-btn--full" data-i18n="archive">Archive</button>
-                </div>
             </div>
         </div>
 

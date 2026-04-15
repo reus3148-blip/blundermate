@@ -1,19 +1,33 @@
-Add a toggle between win percentage and eval score in the bottom bar.
+Simplify the home screen — remove all state-based branching.
 
-The win% element becomes tappable. Tapping switches between two display modes.
-Store the preference in localStorage key "evalDisplayMode" ('percent' or 'score').
+The home screen must look identical regardless of whether Vault has items or not.
 
-Mode 1 — percent (default): "43%"
-Mode 2 — score: "−3.2" (use − not -, format to 1 decimal place, show + for positive)
+Remove entirely:
+- "복습할 항목이 있어요" title
+- "저장된 블런더 N개" subtitle  
+- Vault preview card showing recent items
+- All conditional logic that changes the layout based on Vault contents
 
-On tap:
-- Toggle the mode
-- Animate the switch: opacity 0 → value change → opacity 1, duration 150ms
+Final home screen structure (always the same):
 
-Style stays identical in both modes:
-- font-family: IBM Plex Mono
-- font-size: 14px, font-weight: 700
-- width: 44px, text-align: center, flex-shrink: 0
-- Color logic same as before (--best if favorable, --blunder if unfavorable, --tx2 if neutral)
+1. Header
+   - Left: logo (existing)
+   - Right: settings icon (existing)
 
-No other changes to the bar layout or behavior.
+2. Hero section (padding 24px 16px 20px)
+   - Title: "어떤 게임을 분석할까요?" 
+   - Subtitle: "Chess.com 유저네임을 입력하세요"
+   - Username input row (full width, button always visible)
+   - Secondary links: "PGN 붙여넣기 · 직접 입력"
+     These must ALWAYS be visible, never hidden
+
+3. Divider
+
+4. My library section
+   - Label: "My library"
+   - Two buttons side by side: [Vault] [Archive]
+   - If Vault has items: show a small count badge on the Vault button only
+     e.g. "Vault 3" — font-size 11px, color --ac
+   - No other changes based on Vault contents
+
+Do not change any styling. Only remove the conditional branching.
