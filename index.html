@@ -109,12 +109,6 @@
                 <button id="movesOverlayBtn" class="topbar-icon-btn" title="기보" data-i18n-title="moves">☰</button>
             </div>
 
-            <!-- Vault context banner (shown when viewing a move opened from Vault) -->
-            <div id="vaultBanner" class="vault-banner hidden">
-                <span id="vaultBannerCategory" class="vault-banner-cat"></span>
-                <span id="vaultBannerNotes" class="vault-banner-notes"></span>
-            </div>
-
             <!-- Board -->
             <div class="board-wrapper">
                 <div id="boardContainer" class="board-container"></div>
@@ -172,6 +166,46 @@
 
 
         </div>
+
+    <!-- Vault Detail View (mirrors analysis layout) -->
+    <div id="vaultDetailView" class="view-container hidden">
+        <div class="analysis-top-bar">
+            <button id="vaultDetailBackBtn" class="back-btn">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                <span data-i18n="back">Back</span>
+            </button>
+            <span id="vaultDetailTitle" class="app-title">복기</span>
+            <button id="vaultDetailMovesBtn" class="topbar-icon-btn" title="기보" data-i18n-title="moves">☰</button>
+        </div>
+        <div class="board-wrapper">
+            <div id="vaultDetailBoard" class="board-container"></div>
+        </div>
+        <div class="unified-controls">
+            <div class="unified-controls-inner">
+                <button id="vaultDetailPrevBtn" class="ctrl-btn ctrl-nav" title="Previous move">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                </button>
+                <span id="vaultDetailMoveLabel" class="move-class-label"></span>
+                <div class="bar-separator"></div>
+                <span id="vaultDetailCounter" class="win-chance-display">—</span>
+                <button id="vaultDetailNextBtn" class="ctrl-btn ctrl-nav" title="Next move">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                </button>
+            </div>
+        </div>
+        <div class="vault-info-panel">
+            <div id="vaultInfoCategory" class="vault-info-category"></div>
+            <div class="vault-info-row">
+                <span class="vault-info-label">Played:</span>
+                <strong id="vaultInfoPlayed"></strong>
+            </div>
+            <div class="vault-info-row">
+                <span class="vault-info-label">Best:</span>
+                <span id="vaultInfoBest"></span>
+            </div>
+            <div id="vaultInfoNotes" class="vault-info-notes"></div>
+        </div>
+    </div>
 
     <!-- Vault View -->
     <div id="vaultView" class="view-container hidden">

@@ -1556,31 +1556,44 @@ th {
     border-color: #C49A3C;
 }
 
-.vault-banner {
+/* Vault Detail View 하단 정보 패널 */
+.vault-info-panel {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.75rem 1rem 1rem;
+    background: var(--bg-panel);
     display: flex;
-    align-items: center;
+    flex-direction: column;
     gap: 0.5rem;
-    flex-shrink: 0;
-    padding: 0.4rem 0.75rem;
-    background: rgba(245, 158, 11, 0.08);
-    border-bottom: 1px solid rgba(245, 158, 11, 0.25);
-    font-size: 0.78rem;
-    line-height: 1.3;
+    font-size: 0.85rem;
+    line-height: 1.4;
 }
-.vault-banner.hidden { display: none; }
-.vault-banner-cat {
+.vault-info-category {
     text-transform: uppercase;
     font-weight: 700;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.05em;
+    font-size: 0.75rem;
     color: var(--accent-warning, #f59e0b);
-    flex-shrink: 0;
 }
-.vault-banner-notes {
+.vault-info-row {
+    display: flex;
+    align-items: baseline;
+    gap: 0.4rem;
+}
+.vault-info-label {
     color: var(--text-secondary);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    font-size: 0.78rem;
 }
+.vault-info-notes {
+    margin-top: 0.25rem;
+    padding: 0.5rem 0.6rem;
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 6px;
+    color: var(--text-secondary);
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+.vault-info-notes:empty { display: none; }
 
 /* 메인 라인 복귀 버튼 래퍼: 버튼이 hidden이면 래퍼도 공간 미차지 */
 .return-line-wrapper {
