@@ -1,4 +1,5 @@
 import { escapeHtml } from './utils.js';
+import { t } from './strings.js';
 
 /**
  * Renders the list of fetched games into the provided container.
@@ -323,7 +324,7 @@ export function updateTopEvalDisplay(scoreStr, classification = '') {
 export function renderVaultList(container, vaultItems, onDelete, onPractice) {
     container.innerHTML = '';
     if (vaultItems.length === 0) {
-        container.innerHTML = '<div class="empty-state">Your Vault is empty. Analyze some games and save your mistakes!</div>';
+        container.innerHTML = `<div class="empty-state">${t('vault_empty')}</div>`;
         return;
     }
     
