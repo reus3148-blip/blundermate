@@ -231,6 +231,13 @@
             <span class="top-bar-title" data-i18n="savedGames">Saved Games</span>
             <div class="top-bar-spacer"></div>
         </div>
+        <div id="savedGamesFilterBar" class="pill-filter-bar">
+            <button type="button" class="pill-btn selected" data-filter="all" data-i18n="saved_games_filter_all">전체</button>
+            <button type="button" class="pill-btn" data-filter="my_game" data-i18n="saved_games_cat_my_game">내 실전 게임</button>
+            <button type="button" class="pill-btn" data-filter="otb" data-i18n="saved_games_cat_otb">오프라인 게임</button>
+            <button type="button" class="pill-btn" data-filter="opening" data-i18n="saved_games_cat_opening">오프닝 연구</button>
+            <button type="button" class="pill-btn" data-filter="pro" data-i18n="saved_games_cat_pro">프로 기보</button>
+        </div>
         <div id="savedGamesList" class="games-list view-list"></div>
     </div>
 
@@ -330,6 +337,15 @@
                 <div class="form-group">
                     <label data-i18n="titlePlayers">Title / Players</label>
                     <input type="text" id="saveGameTitle" class="text-input" placeholder="e.g. Me vs Magnus" data-i18n-placeholder="titlePlayersPlaceholder">
+                </div>
+                <div class="form-group">
+                    <label data-i18n="saved_games_category_label">카테고리</label>
+                    <div id="saveGameCategoryPicker" class="pill-picker">
+                        <button type="button" class="pill-btn selected" data-value="my_game" data-i18n="saved_games_cat_my_game">내 실전 게임</button>
+                        <button type="button" class="pill-btn" data-value="otb" data-i18n="saved_games_cat_otb">오프라인 게임</button>
+                        <button type="button" class="pill-btn" data-value="opening" data-i18n="saved_games_cat_opening">오프닝 연구</button>
+                        <button type="button" class="pill-btn" data-value="pro" data-i18n="saved_games_cat_pro">프로 기보</button>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label data-i18n="notesOptional">Notes (Optional)</label>

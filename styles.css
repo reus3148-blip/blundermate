@@ -1029,7 +1029,7 @@ textarea:focus {
 
 .board-container {
     width: 100%;
-    max-width: calc(100dvh - 255px);
+    max-width: calc(100dvh - 259px);
     aspect-ratio: 1 / 1;
     flex-shrink: 0;
 }
@@ -1231,6 +1231,36 @@ textarea:focus {
 
 .engine-lines-container {
     padding: 0.25rem 0 0;
+}
+
+/* Analysis Preview Card */
+.preview-card {
+    padding: 16px;
+}
+.preview-card-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--tx);
+}
+.preview-card-meta {
+    font-size: 12px;
+    color: var(--tx2);
+    margin-top: 4px;
+}
+.preview-start-btn {
+    width: 100%;
+    height: 48px;
+    border-radius: 8px;
+    background: var(--ac);
+    color: #100E0B;
+    font-size: 15px;
+    font-weight: 700;
+    margin-top: 16px;
+    border: none;
+    cursor: pointer;
+}
+.preview-start-btn:active {
+    opacity: 0.85;
 }
 
 .moves-container {
@@ -1658,6 +1688,126 @@ th {
 }
 .return-main-btn:hover { opacity: 0.75; }
 .return-main-btn.hidden { display: none; }
+
+/* ==========================================
+   Pill Buttons (shared: category picker + filter bar)
+   ========================================== */
+.pill-picker,
+.pill-filter-bar {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+}
+.pill-picker::-webkit-scrollbar,
+.pill-filter-bar::-webkit-scrollbar { display: none; }
+
+.pill-filter-bar {
+    padding: 8px 16px;
+    flex-shrink: 0;
+}
+
+.pill-btn {
+    flex-shrink: 0;
+    height: 32px;
+    padding: 0 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s ease;
+    background: transparent;
+    border: 1px solid var(--brd2);
+    color: var(--tx2);
+}
+
+.pill-btn.selected {
+    background: var(--ac-lo, rgba(99,102,241,0.1));
+    border-color: var(--ac-br, var(--ac));
+    color: var(--ac);
+    font-weight: 600;
+}
+
+/* ==========================================
+   Saved Games: Card Style
+   ========================================== */
+.saved-game-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--brd2);
+    border-radius: 8px;
+    padding: 14px 16px;
+    cursor: pointer;
+    transition: border-color 0.15s ease;
+}
+
+.saved-game-card:active {
+    border-color: var(--ac-br, var(--ac));
+}
+
+.saved-game-card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.saved-game-card-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--tx);
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.saved-game-card-pill {
+    flex-shrink: 0;
+    font-size: 10px;
+    font-weight: 500;
+    padding: 2px 8px;
+    border-radius: 20px;
+    background: var(--ac-lo, rgba(99,102,241,0.1));
+    border: 1px solid var(--ac-br, var(--ac));
+    color: var(--ac);
+    white-space: nowrap;
+}
+
+.saved-game-card-bottom {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 8px;
+}
+
+.saved-game-card-date {
+    font-size: 11px;
+    color: var(--tx3);
+}
+
+.saved-game-card .delete-btn {
+    color: var(--tx3);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    transition: color 0.15s ease;
+}
+
+.saved-game-card .delete-btn:hover {
+    color: var(--accent-danger, #ef4444);
+}
+
+.saved-games-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px 16px 16px;
+}
 
 @keyframes fadeInDown {
     from { opacity: 0; transform: translateY(-20px); }

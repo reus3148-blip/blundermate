@@ -1,27 +1,44 @@
-Refactor the moves overlay into a shared reusable component.
+Change game loading behavior for both Chess.com game list
+and Saved Games list.
 
-1. Extract the moves overlay into a single shared component/function
-   called something like "showMovesOverlay(moves)" that can be called
-   from any screen.
+## Current behavior (remove this)
+Tapping a game immediately starts engine analysis.
 
-2. Add the ☰ moves button to the manual input screen top bar
-   (right side, same style as analysis screen).
-   Tapping it calls the same shared overlay with current moves.
+## New behavior
 
-3. Add a PGN download button inside the moves overlay header:
-   - Place it between the title and the ✕ close button
-   - Label: "PGN" or download icon
-   - font-size: 12px, color: var(--ac)
-   - On tap: generate PGN string from current moves,
-     download as "blundermate.pgn" text file
+Step 1 — Tapping a game opens the analysis screen
+but does NOT start the engine.
 
-   Download logic:
-   const blob = new Blob([pgnString], { type: 'text/plain' })
-   const url = URL.createObjectURL(blob)
-   const a = document.createElement('a')
-   a.href = url
-   a.download = 'blundermate.pgn'
-   a.click()
+Step 2 — Analysis screen shows a preview state:
+- Board shows the opening position (move 1 or start)
+- Bottom content area (where engine lines appear) shows game info:
 
-Do not rebuild the overlay UI — reuse whatever currently exists
-in the analysis screen. Only share it and add the download button.
+  Game preview card (padding 16px, no border):
+    - Title or "White vs Black" (font-size 16px, font-weight 700, color var(--tx))
+    - Date · Move count · Opening name if available
+      (font-size 12px, color var(--tx2), margin-top 4px)
+    - "분석 시작" / "Start Analysis" button below:
+        width 100%, height 48px, border-radius 8px
+        background var(--ac), color #100E0B
+        font-size 15px, font-weight 700
+        margin-top 16px
+
+Step 3 — Tapping "분석 시작" starts the engine
+and transitions to normal analysis mode.
+The preview card disappears and engine lines appear.
+
+## Bottom bar in preview state
+- ‹ › navigation disabled (grayed out, var(--tx3))
+- Engine⇄ toggle disabled
+- Save and AI buttons hidden
+- Win% hidden, show "—" instead
+
+## Apply to both
+- Chess.com game list → analysis screen
+- Saved Games list → analysis screen
+
+## i18n
+ko.js: analysis_start_btn: "분석 시작"
+en.js: analysis_start_btn: "Start Analysis"
+
+Do not change engine logic. Only change when it gets triggered.

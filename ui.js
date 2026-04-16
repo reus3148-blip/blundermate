@@ -307,38 +307,3 @@ export function updateTopEvalDisplay(scoreStr, classification = '') {
     }
 }
 
-/**
- * 저장된 전체 게임 리스트를 렌더링합니다.
- */
-export function renderSavedGamesList(container, savedGames, onDelete, onLoad) {
-    container.innerHTML = '';
-    if (savedGames.length === 0) {
-        container.innerHTML = '<div class="empty-state">No saved games yet. Analyze a game and save it!</div>';
-        return;
-    }
-    
-    savedGames.sort((a, b) => new Date(b.date) - new Date(a.date)).forEach(item => {
-        const el = document.createElement('div');
-        el.className = 'game-item';
-        el.style.borderLeft = `4px solid var(--accent-success)`;
-        
-        el.innerHTML = `
-            <div class="game-item-content">
-                <div class="game-title">${escapeHtml(item.title)}</div>
-                <div class="game-date">Saved: ${new Date(item.date).toLocaleDateString()}</div>
-                ${item.notes ? `<div class="game-notes">${escapeHtml(item.notes)}</div>` : ''}
-            </div>
-            <button class="delete-btn" title="Delete">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
-            </button>
-        `;
-        
-        el.querySelector('.delete-btn').addEventListener('click', (e) => {
-            e.stopPropagation();
-            onDelete(item.id);
-        });
-        
-        el.addEventListener('click', () => onLoad(item.pgn));
-        container.appendChild(el);
-    });
-}
