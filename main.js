@@ -3,7 +3,7 @@ import { fetchRecentGames } from './chessApi.js';
 import { StockfishEngine } from './engine.js';
 import { parseEvalData, getDests, convertPvToSan, classifyMove, parseAndLoadPgn, escapeHtml } from './utils.js';
 import { renderGamesList, renderMovesTable, updateUIWithEval, highlightActiveMove, renderEngineLines, updateTopEvalDisplay } from './ui.js';
-import { addVaultItem, getSavedGames, setUserId } from './storage.js';
+import { addVaultItem, getSavedGames, setUserId, getUserId } from './storage.js';
 import { initVault, initHomeVaultBadge, isVaultDetailActive, getVaultDetailIndex, setVaultDetailIndex, flipVaultBoard, setVaultCoords, redrawVaultBoard } from './vault.js';
 import { initSavedGames } from './savedGames.js';
 import { createGeminiHandler } from './gemini.js';
@@ -180,9 +180,136 @@ async function updateSavedGamesCount() {
 async function refreshHomeCounts() {
     await initHomeVaultBadge();
     await updateSavedGamesCount();
+    updateHomeHeader();
+    loadHomeRecentGames();
 }
 
-refreshHomeCounts();
+function loadHomeRecentGames() {
+    const userId = getUserId();
+    const section = document.getElementById('homeRecentSection');
+    const list = document.getElementById('homeRecentList');
+    if (!userId || !section || !list) return;
+
+    section.classList.remove('hidden');
+
+    // Show skeleton
+    list.innerHTML = `<div class="home-recent-skeleton">${'<div class="home-recent-skeleton-card"></div>'.repeat(3)}</div>`;
+
+    fetchRecentGames(userId).then(games => {
+        list.innerHTML = '';
+        if (!games || games.length === 0) {
+            section.classList.add('hidden');
+            return;
+        }
+        const userLower = userId.toLowerCase();
+        const container = document.createElement('div');
+        container.className = 'home-recent-list';
+
+        games.slice(0, 10).forEach(game => {
+            const isWhite = game.white.username.toLowerCase() === userLower;
+            const opponent = escapeHtml(isWhite ? game.black.username : game.white.username);
+            const resultCode = isWhite ? game.white.result : game.black.result;
+
+            let resultKey, resultClass;
+            if (resultCode === 'win') {
+                resultKey = 'game_result_win'; resultClass = 'win';
+            } else if (['checkmated', 'timeout', 'resigned', 'abandoned'].includes(resultCode)) {
+                resultKey = 'game_result_loss'; resultClass = 'loss';
+            } else {
+                resultKey = 'game_result_draw'; resultClass = 'draw';
+            }
+
+            const date = game.end_time
+                ? new Date(game.end_time * 1000).toLocaleDateString()
+                : '';
+            const moveCount = game.pgn
+                ? (game.pgn.match(/\d+\./g) || []).length
+                : 0;
+            const timeControl = game.time_control || '';
+            const meta = [date, moveCount ? `${moveCount}수` : '', timeControl].filter(Boolean).join(' · ');
+
+            const card = document.createElement('div');
+            card.className = 'home-recent-card';
+            card.innerHTML = `
+                <div class="home-recent-indicator home-recent-indicator--${resultClass}"></div>
+                <div class="home-recent-info">
+                    <div class="home-recent-opponent">vs ${opponent}</div>
+                    <div class="home-recent-meta">${escapeHtml(meta)}</div>
+                </div>
+                <div class="home-recent-result home-recent-result--${resultClass}">${t(resultKey)}</div>
+            `;
+
+            card.addEventListener('click', () => {
+                if (!game.pgn) return;
+                pgnInput.value = game.pgn;
+                handlePgnReviewStart(null, isWhite, null, true);
+            });
+
+            container.appendChild(card);
+        });
+
+        list.appendChild(container);
+    }).catch(() => {
+        section.classList.add('hidden');
+    });
+}
+
+function updateHomeHeader() {
+    const userId = getUserId();
+    const heroSection = document.querySelector('.home-hero');
+    const inputWrap = document.querySelector('.username-input-wrap');
+    const heroTitle = document.querySelector('.hero-title');
+    const heroSubtitle = document.querySelector('.hero-subtitle');
+
+    if (userId) {
+        heroSection.classList.add('home-hero--user');
+        heroTitle.textContent = t('home_greeting').replace('{username}', userId);
+        heroSubtitle.textContent = t('home_greeting_sub');
+        inputWrap.classList.add('username-input-wrap--small');
+        usernameInput.placeholder = t('home_search_other');
+    } else {
+        heroSection.classList.remove('home-hero--user');
+        heroTitle.setAttribute('data-i18n', 'heroTitle');
+        heroTitle.textContent = t('heroTitle');
+        heroSubtitle.setAttribute('data-i18n', 'heroSubtitle');
+        heroSubtitle.textContent = t('heroSubtitle');
+        inputWrap.classList.remove('username-input-wrap--small');
+        usernameInput.placeholder = t('usernamePlaceholder');
+    }
+}
+
+// ── Onboarding ─────────────────────────────────────────────────────
+const onboardingView = document.getElementById('onboardingView');
+const onboardingUsernameInput = document.getElementById('onboardingUsernameInput');
+const onboardingSubmitBtn = document.getElementById('onboardingSubmitBtn');
+const onboardingSkipBtn = document.getElementById('onboardingSkipBtn');
+
+function finishOnboarding() {
+    localStorage.setItem('blundermate_onboarding_done', 'true');
+    onboardingView.classList.add('hidden');
+    homeView.classList.remove('hidden');
+    refreshHomeCounts();
+}
+
+onboardingSubmitBtn.addEventListener('click', () => {
+    const username = onboardingUsernameInput.value.trim();
+    if (username) setUserId(username);
+    finishOnboarding();
+});
+
+onboardingUsernameInput.addEventListener('keyup', (e) => {
+    if (e.key === 'Enter') onboardingSubmitBtn.click();
+});
+
+onboardingSkipBtn.addEventListener('click', finishOnboarding);
+
+if (!localStorage.getItem('blundermate_onboarding_done')) {
+    homeView.classList.add('hidden');
+    onboardingView.classList.remove('hidden');
+} else {
+    refreshHomeCounts();
+}
+
 applyLocale();
 
 // ==========================================

@@ -11,7 +11,8 @@ export function setUserId(id) {
     if (id) localStorage.setItem('blundermate_user_id', id);
 }
 
-// ── Supabase helper ────────────────────────────────────────────────
+// ── Supabase proxy helper ──────────────────────────────────────────
+// Supabase 자격증명은 Vercel 환경변수에 있으므로 /api/db Edge Function을 통해 호출
 
 async function callDB(action, table, params = {}) {
     const res = await fetch('/api/db', {
@@ -34,7 +35,6 @@ function _getVaultItemsSync() {
     }
 }
 
-// Map Supabase row fields back to the shape the app expects locally
 function normalizeVaultItem(row) {
     return {
         id: row.id,
@@ -44,13 +44,6 @@ function normalizeVaultItem(row) {
         notes: row.notes || '',
         fen: row.position_fen,
         pgn: row.pgn || null,
-        // Fields not stored in Supabase — will be undefined (handled gracefully by vault.js)
-        moveIndex: undefined,
-        gameTitle: undefined,
-        isUserWhite: undefined,
-        isWhite: undefined,
-        moveNumber: undefined,
-        bestMove: undefined,
     };
 }
 

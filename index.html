@@ -13,6 +13,25 @@
 </head>
 <body>
     <div class="app-container">
+        <!-- Onboarding View -->
+        <div id="onboardingView" class="view-container hidden">
+            <div class="onboarding-top">
+                <img src="logo.png" alt="Blundermate Logo" class="onboarding-logo">
+                <h1 class="onboarding-brand"><span class="brand-blunder">blunder</span><span class="brand-mate">mate</span></h1>
+                <p class="onboarding-tagline" data-i18n="onboarding_tagline">당신의 체스 실수를 기억합니다</p>
+            </div>
+            <div class="onboarding-middle">
+                <label class="onboarding-label" data-i18n="onboarding_label">Chess.com 아이디를 입력하세요</label>
+                <div class="username-input-wrap">
+                    <input type="text" id="onboardingUsernameInput" class="home-text-input" data-i18n-placeholder="usernamePlaceholder" placeholder="Chess.com 유저네임" />
+                    <button id="onboardingSubmitBtn" class="home-submit-btn" title="시작하기">→</button>
+                </div>
+            </div>
+            <div class="onboarding-skip-wrap">
+                <button id="onboardingSkipBtn" class="onboarding-skip" data-i18n="onboarding_skip">건너뛰기</button>
+            </div>
+        </div>
+
         <!-- Home View -->
         <div id="homeView" class="view-container">
             <!-- Shared Header -->
@@ -52,6 +71,11 @@
                 </div>
 
                 <div id="gamesList" class="games-list"></div>
+
+                <div id="homeRecentSection" class="hidden">
+                    <div class="home-section-label" data-i18n="home_recent_games">최근 게임</div>
+                    <div id="homeRecentList"></div>
+                </div>
 
                 <div class="home-spacer"></div>
                 <div class="library-label" data-i18n="archive_label">보관함</div>
