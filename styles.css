@@ -2428,3 +2428,182 @@ input:checked + .slider:before { transform: translateX(20px); background: #C49A3
     background: rgba(196, 154, 60, 0.12);
     color: #C49A3C;
 }
+
+/* ── Onboarding ────────────────────────────────────────────────── */
+#onboardingView {
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-base);
+}
+
+.onboarding-top {
+    padding-top: 60px;
+    text-align: center;
+}
+
+.onboarding-logo {
+    height: 48px;
+    width: auto;
+}
+
+.onboarding-brand {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    color: var(--tx);
+    margin: 12px 0 0;
+}
+
+.onboarding-tagline {
+    font-size: 15px;
+    color: var(--tx2);
+    margin-top: 8px;
+}
+
+.onboarding-middle {
+    margin-top: 48px;
+    padding: 0 24px;
+}
+
+.onboarding-label {
+    display: block;
+    font-size: 13px;
+    color: var(--tx3);
+    margin-bottom: 8px;
+}
+
+.onboarding-skip-wrap {
+    margin-top: 16px;
+    text-align: center;
+}
+
+.onboarding-skip {
+    font-size: 13px;
+    color: var(--tx3);
+    background: none;
+    border: none;
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    padding: 0;
+}
+
+/* ── Home: Logged-in state ─────────────────────────────────────── */
+.home-hero--user .hero-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--tx);
+    letter-spacing: -0.02em;
+}
+
+.home-hero--user .hero-subtitle {
+    font-size: 13px;
+    color: var(--tx2);
+    margin-top: 4px;
+}
+
+.username-input-wrap--small {
+    height: 40px;
+}
+
+.username-input-wrap--small .home-text-input {
+    font-size: 13px;
+}
+
+.username-input-wrap--small .home-submit-btn {
+    width: 36px;
+}
+
+/* ── Home: Recent Games ────────────────────────────────────────── */
+#homeRecentSection {
+    padding: 0 16px;
+}
+
+.home-section-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: var(--tx3);
+    margin-bottom: 8px;
+    text-transform: uppercase;
+}
+
+.home-recent-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.home-recent-card {
+    height: 64px;
+    padding: 0 14px;
+    background: var(--bg-surface);
+    border: 1px solid var(--brd);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.home-recent-card:active {
+    opacity: 0.7;
+}
+
+.home-recent-indicator {
+    width: 4px;
+    height: 32px;
+    border-radius: 2px;
+    flex-shrink: 0;
+}
+
+.home-recent-indicator--win  { background: var(--best); }
+.home-recent-indicator--loss { background: var(--blunder); }
+.home-recent-indicator--draw { background: var(--tx3); }
+
+.home-recent-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.home-recent-opponent {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--tx);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.home-recent-meta {
+    font-size: 11px;
+    color: var(--tx2);
+}
+
+.home-recent-result {
+    font-size: 12px;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.home-recent-result--win  { color: var(--best); }
+.home-recent-result--loss { color: var(--blunder); }
+.home-recent-result--draw { color: var(--tx3); }
+
+/* Skeleton */
+.home-recent-skeleton {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.home-recent-skeleton-card {
+    height: 64px;
+    border-radius: 8px;
+    background: var(--bg-surface);
+    opacity: 0.5;
+}
