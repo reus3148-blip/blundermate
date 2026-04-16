@@ -1934,6 +1934,40 @@ th {
     background: rgba(255, 255, 255, 0.02);
 }
 
+/* ==========================================
+   Move Classification Piece Badge
+   ========================================== */
+@keyframes badgePop {
+    0%   { opacity: 0; transform: scale(0.3); }
+    70%  { transform: scale(1.2); }
+    100% { opacity: 1; transform: scale(1); }
+}
+
+.piece-badge-square {
+    position: absolute;
+    width: 12.5%;
+    height: 12.5%;
+    pointer-events: none;
+    overflow: visible;
+    z-index: 10;
+}
+
+.piece-badge {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    animation: badgePop 0.2s ease-out forwards;
+    white-space: nowrap;
+    line-height: 1;
+}
+
 /* --- 체스그라운드 좌표(Coordinates) 완벽 정렬 보정 --- */
 .cg-wrap coords {
     position: absolute;
@@ -2025,18 +2059,17 @@ input:checked + .slider:before { transform: translateX(20px); background: #C49A3
 .modal-close-btn {
     background: none;
     border: none;
-    color: var(--text-secondary);
-    font-size: 2rem;
+    color: var(--tx2);
+    font-size: 1.2rem;
     cursor: pointer;
     line-height: 1;
     padding: 0 0.25rem;
     transition: color 0.15s ease;
 }
-.modal-close-btn:hover { color: var(--text-primary); }
+.modal-close-btn:hover { color: var(--tx); }
 
 .settings-row {
-    padding-bottom: 1rem;
-    border-bottom: 1px solid var(--border-color);
+    border-bottom: 1px solid var(--brd);
     margin-top: 1rem;
 }
 
@@ -2044,19 +2077,22 @@ input:checked + .slider:before { transform: translateX(20px); background: #C49A3
     display: flex;
     justify-content: space-between;
     align-items: center;
+    height: 52px;
 }
 
 .settings-label {
+    font-size: 14px;
     font-weight: 500;
-    color: var(--text-primary);
+    color: var(--tx);
 }
 
 .settings-hint {
-    font-size: 0.8rem;
-    color: var(--text-secondary);
-    margin-top: 0.5rem;
+    font-size: 12px;
+    color: var(--tx2);
+    margin-top: 2px;
     display: block;
     line-height: 1.4;
+    padding-bottom: 8px;
 }
 
 .lang-toggle {
@@ -2079,6 +2115,37 @@ input:checked + .slider:before { transform: translateX(20px); background: #C49A3
     border-color: var(--primary-color);
     color: #fff;
 }
+
+/* ==========================================
+   Feedback Modal Buttons
+   ========================================== */
+.feedback-cancel-btn {
+    background: none;
+    border: none;
+    color: var(--tx2);
+    font-size: 14px;
+    cursor: pointer;
+    font-family: inherit;
+    padding: 0 0.5rem;
+    transition: color 0.15s ease;
+}
+.feedback-cancel-btn:hover { color: var(--tx); }
+
+.feedback-send-btn {
+    flex: 1;
+    height: 44px;
+    border-radius: 8px;
+    background: var(--ac);
+    color: #100E0B;
+    font-size: 14px;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    transition: opacity 0.15s ease;
+}
+.feedback-send-btn:hover { opacity: 0.85; }
+.feedback-send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* ==========================================
    Utility & Modal Helpers
@@ -2204,10 +2271,10 @@ input:checked + .slider:before { transform: translateX(20px); background: #C49A3
 }
 
 .modal-content {
-    background: #191c23;
-    border: 1px solid var(--border-color);
-    border-radius: 16px;
-    padding: 1.5rem;
+    background: var(--bg-surface);
+    border: 1px solid var(--brd2);
+    border-radius: 12px;
+    padding: 20px;
     width: 90%;
     max-width: 400px;
     display: flex;
@@ -2217,7 +2284,7 @@ input:checked + .slider:before { transform: translateX(20px); background: #C49A3
     animation: fadeInUp 0.3s ease-out;
 }
 
-.modal-content h2 { margin: 0; font-size: 1.4rem; color: #fff; }
+.modal-content h2 { margin: 0; font-size: 17px; font-weight: 700; color: var(--tx); }
 .save-move-text { 
     font-family: monospace; 
     font-size: 1.2rem; 

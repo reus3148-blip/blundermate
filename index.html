@@ -265,7 +265,10 @@
         <!-- Feedback Modal -->
         <div id="feedbackModal" class="modal-overlay hidden">
             <div class="modal-content modal-content--narrow">
-                <h2 class="modal-title-center" data-i18n="leaveFeedback">피드백 남기기</h2>
+                <div class="modal-header">
+                    <h2 data-i18n="feedback_title">피드백</h2>
+                    <button id="closeFeedbackBtn" class="modal-close-btn">✕</button>
+                </div>
                 <div class="form-group">
                     <textarea id="feedbackInput" class="text-input" placeholder="웹사이트에 대한 의견이나 버그를 자유롭게 남겨주세요..." style="min-height: 120px; font-family: inherit; font-size: 0.9rem; padding: 12px; resize: vertical;"></textarea>
                 </div>
@@ -273,8 +276,8 @@
                     <div id="feedbackStatusText" style="font-size: 0.85rem; color: var(--tx2); width: 100%;"></div>
                 </div>
                 <div class="modal-actions" style="margin-top: 10px;">
-                    <button id="cancelFeedbackBtn" class="text-btn" data-i18n="cancel">취소</button>
-                    <button id="submitFeedbackBtn" class="primary-btn" data-i18n="send">전송</button>
+                    <button id="cancelFeedbackBtn" class="feedback-cancel-btn" data-i18n="cancel">취소</button>
+                    <button id="submitFeedbackBtn" class="feedback-send-btn" data-i18n="send">전송</button>
                 </div>
             </div>
         </div>

@@ -69,6 +69,7 @@ const STRINGS = {
     saved_games_count: '{count}개 저장됨',
     analysis_start_btn: '분석 시작',
     preview_moves: '{n}수',
+    feedback_title: '피드백',
   },
   en: {
     heroTitle: 'What game would you like to review?',
@@ -140,6 +141,7 @@ const STRINGS = {
     saved_games_count: '{count} saved',
     analysis_start_btn: 'Start Analysis',
     preview_moves: '{n} moves',
+    feedback_title: 'Feedback',
   },
 };
 

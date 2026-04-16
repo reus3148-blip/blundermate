@@ -3,7 +3,7 @@ import { fetchRecentGames } from './chessApi.js';
 import { StockfishEngine } from './engine.js';
 import { parseEvalData, getDests, convertPvToSan, classifyMove, parseAndLoadPgn, escapeHtml } from './utils.js';
 import { renderGamesList, renderMovesTable, updateUIWithEval, highlightActiveMove, renderEngineLines, updateTopEvalDisplay } from './ui.js';
-import { addVaultItem, getSavedGames } from './storage.js';
+import { addVaultItem, getSavedGames, setUserId } from './storage.js';
 import { initVault, initHomeVaultBadge, isVaultDetailActive, getVaultDetailIndex, setVaultDetailIndex, flipVaultBoard, setVaultCoords, redrawVaultBoard } from './vault.js';
 import { initSavedGames } from './savedGames.js';
 import { createGeminiHandler } from './gemini.js';
@@ -88,6 +88,7 @@ const feedbackBtn = document.getElementById('feedbackBtn');
 const feedbackModal = document.getElementById('feedbackModal');
 const feedbackInput = document.getElementById('feedbackInput');
 const cancelFeedbackBtn = document.getElementById('cancelFeedbackBtn');
+const closeFeedbackBtn = document.getElementById('closeFeedbackBtn');
 const submitFeedbackBtn = document.getElementById('submitFeedbackBtn');
 const feedbackStatusText = document.getElementById('feedbackStatusText');
 
@@ -164,10 +165,10 @@ function applyLocale() {
     document.getElementById('langEnBtn')?.classList.toggle('active', locale === 'en');
 }
 
-function updateSavedGamesCount() {
+async function updateSavedGamesCount() {
     const el = document.getElementById('savedGamesCountText');
     if (!el) return;
-    const count = getSavedGames().length;
+    const count = (await getSavedGames()).length;
     if (count > 0) {
         el.textContent = t('saved_games_count').replace('{count}', count);
         el.classList.remove('hidden');
@@ -176,9 +177,9 @@ function updateSavedGamesCount() {
     }
 }
 
-function refreshHomeCounts() {
-    initHomeVaultBadge();
-    updateSavedGamesCount();
+async function refreshHomeCounts() {
+    await initHomeVaultBadge();
+    await updateSavedGamesCount();
 }
 
 refreshHomeCounts();
@@ -249,6 +250,7 @@ function closeModal(modal) {
 const modalConfigs = [
     { modal: settingsModal, closeBtn: document.getElementById('closeSettingsBtn') },
     { modal: feedbackModal, closeBtn: cancelFeedbackBtn },
+    { modal: feedbackModal, closeBtn: closeFeedbackBtn },
     { modal: saveChoiceModal, closeBtn: cancelChoiceBtn, noBg: true },
     { modal: saveModal, closeBtn: cancelSaveBtn, noBg: true },
 ];
@@ -752,7 +754,7 @@ confirmSaveBtn.addEventListener('click', () => {
     }
 
     const vaultItem = {
-        id: Date.now(),
+        id: crypto.randomUUID(),
         date: new Date().toISOString(),
         pgn: chess.pgn(),
         moveIndex: currentlyViewedIndex,
@@ -864,6 +866,7 @@ async function handleApiFetch() {
     try {
         gamesList.innerHTML = '<div class="container-message">Fetching latest games...</div>';
         const recentGames = await fetchRecentGames(username);
+        setUserId(username);
         renderGamesList(gamesList, recentGames, username, (pgn, isWhiteGame) => {
             pgnInput.value = pgn;
             handlePgnReviewStart(null, isWhiteGame, null, true);
@@ -981,6 +984,7 @@ const engineCallbacks = {
             // 스로틀링으로 인해 생략되었을 수 있는 최종 평가 라인을 확실하게 다시 렌더링
             renderEngineLines(engineLinesContainer, analysisQueue[currentAnalysisIndex].engineLines.filter(Boolean), drawEngineArrow, clearEngineArrow, handleEngineLineClick);
             updateTopEvalDisplay(currentEval, classification);
+            showPieceBadge(currentlyViewedIndex);
         }
         currentAnalysisIndex++;
         isAnalyzing = false;
@@ -1025,6 +1029,8 @@ function handlePgnReviewStart(e = null, isWhiteGame = null, targetIndex = null, 
         newQueue.push({
             fen: tempChess.fen(),
             san: move.san,
+            from: move.from,
+            to: move.to,
             turn: tempChess.turn() === 'w' ? 'b' : 'w',
             moveNumber: Math.floor(index / 2) + 1,
             isWhite: index % 2 === 0,
@@ -1266,11 +1272,67 @@ function updateBoardPosition(index, fen) {
         engineLinesContainer.innerHTML = '';
         updateTopEvalDisplay('-');
     }
+
+    showPieceBadge(index);
 }
 
 // ==========================================
 // 9. Helpers
 // ==========================================
+
+const BADGE_MAP = {
+    'Best':       { symbol: '✦', fontSize: '10px', fontWeight: '700', color: '#100E0B', bg: '#EDE8DF', borderColor: '#C8B898' },
+    'Excellent':  { symbol: '!',  fontSize: '13px', fontWeight: '900', color: '#fff',    bg: '#5A9E60', borderColor: '#3A7E40' },
+    'Inaccuracy': { symbol: '?!', fontSize: '8px',  fontWeight: '700', color: '#fff',    bg: '#C49A3C', borderColor: '#A07A1C' },
+    'Mistake':    { symbol: '?',  fontSize: '13px', fontWeight: '900', color: '#fff',    bg: '#C87840', borderColor: '#A05820' },
+    'Blunder':    { symbol: '??', fontSize: '9px',  fontWeight: '700', color: '#fff',    bg: '#C84040', borderColor: '#A02020' },
+};
+
+function showPieceBadge(index) {
+    const existing = boardContainer.querySelector('.piece-badge-square');
+    if (existing) existing.remove();
+
+    if (index < 0 || !analysisQueue[index]) return;
+
+    const move = analysisQueue[index];
+    if (!move.to || !move.classification) return;
+
+    const config = BADGE_MAP[move.classification];
+    if (!config) return; // 'Good' → no badge
+
+    const fileIndex = move.to.charCodeAt(0) - 97; // 'a'=0 … 'h'=7
+    const rank = parseInt(move.to[1]);             // 1-8
+
+    const orientation = cg.state.orientation;
+    let col, row;
+    if (orientation === 'white') {
+        col = fileIndex;
+        row = 8 - rank;
+    } else {
+        col = 7 - fileIndex;
+        row = rank - 1;
+    }
+
+    // 정사각형 래퍼: overflow: visible이어야 배지가 클리핑되지 않음
+    const square = document.createElement('div');
+    square.className = 'piece-badge-square';
+    square.style.left = `${col / 8 * 100}%`;
+    square.style.top = `${row / 8 * 100}%`;
+
+    // 원형 배지
+    const badge = document.createElement('div');
+    badge.className = 'piece-badge';
+    badge.textContent = config.symbol;
+    badge.style.fontSize = config.fontSize;
+    badge.style.fontWeight = config.fontWeight;
+    badge.style.color = config.color;
+    badge.style.background = config.bg;
+    badge.style.border = `1.5px solid ${config.borderColor}`;
+
+    square.appendChild(badge);
+    boardContainer.appendChild(square);
+}
+
 function forceRedraw(instance) {
     if (!instance) return;
     setTimeout(() => instance.redrawAll(), 50);
