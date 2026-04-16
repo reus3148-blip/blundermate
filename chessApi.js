@@ -1,6 +1,8 @@
+const RECENT_GAMES_LIMIT = 10;
+
 /**
  * Fetches recent games for a given Chess.com username.
- * @param {string} username 
+ * @param {string} username
  * @returns {Promise<Array>} Array of recent games
  */
 export async function fetchRecentGames(username) {
@@ -26,20 +28,28 @@ export async function fetchRecentGames(username) {
         }
         
         const archivesData = await archivesRes.json();
-        if (!archivesData?.archives?.length) {
-            throw new Error('No game archives found.');
+
+        const archives = archivesData.archives;
+        if (!archives || archives.length === 0) {
+            throw new Error('No archives found for this user.');
         }
 
-        const latestArchiveUrl = archivesData.archives[archivesData.archives.length - 1];
-        const gamesRes = await fetch(latestArchiveUrl, options);
-        if (!gamesRes.ok) throw new Error(`Failed to fetch games: ${gamesRes.status}`);
-        
-        const gamesData = await gamesRes.json();
-        if (!gamesData?.games?.length) {
-            throw new Error('No recent games found in the latest archive.');
+        let games = [];
+        let archiveIndex = archives.length - 1;
+
+        while (games.length === 0 && archiveIndex >= 0) {
+            const archiveUrl = archives[archiveIndex];
+            const gamesRes = await fetch(archiveUrl, options);
+            const gamesData = await gamesRes.json();
+            games = gamesData.games || [];
+            archiveIndex--;
         }
 
-        return gamesData.games.slice(-10).reverse();
+        if (games.length === 0) {
+            throw new Error('No games found for this user.');
+        }
+
+        return games.slice(-RECENT_GAMES_LIMIT).reverse();
     } catch (error) {
         console.error("Chess.com API Fetch Error:", error);
         // 네트워크 에러(Load failed)인지 API 에러인지 명확히 구분하여 사용자 친화적으로 반환

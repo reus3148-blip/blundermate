@@ -1,4 +1,5 @@
 import { formatMarkdownToHtml } from './utils.js';
+import { t } from './strings.js';
 
 /**
  * Gemini AI 해설 핸들러를 생성합니다.
@@ -24,14 +25,14 @@ export function createGeminiHandler({ getState, setState, geminiEl, onOpen }) {
 
         // 예외 1: 시작 위치
         if (state.currentlyViewedIndex < 0 || !state.analysisQueue[state.currentlyViewedIndex]) {
-            geminiEl.innerHTML = '<p class="ai-notice">시작 위치에서는 AI 해설을 사용할 수 없습니다. 체스 수를 하나 선택해 주세요.</p>';
+            geminiEl.innerHTML = `<p class="ai-notice">${t('gemini_no_start')}</p>`;
             onOpen();
             return;
         }
 
         // 예외 2: 탐색/시뮬레이션 모드
         if (state.appMode !== 'main') {
-            geminiEl.innerHTML = '<p class="ai-notice">자유 탐색 모드에서는 지원하지 않습니다. 메인 기보로 돌아가 주세요.</p>';
+            geminiEl.innerHTML = `<p class="ai-notice">${t('gemini_no_free')}</p>`;
             onOpen();
             return;
         }
@@ -55,7 +56,7 @@ export function createGeminiHandler({ getState, setState, geminiEl, onOpen }) {
 
         // 로딩 UI 표시
         setState({ isGeminiLoading: true });
-        geminiEl.innerHTML = renderExplanationPanel('<p class="ai-loading">AI가 국면을 분석하고 있습니다...<br><span class="ai-loading-sub">(약 2~5초 소요)</span></p>');
+        geminiEl.innerHTML = renderExplanationPanel(`<p class="ai-loading">${t('gemini_analyzing')}<br><span class="ai-loading-sub">${t('gemini_analyzing_sub')}</span></p>`);
         onOpen();
 
         const abortController = new AbortController();
@@ -79,7 +80,9 @@ export function createGeminiHandler({ getState, setState, geminiEl, onOpen }) {
                 best_move = prevMove.engineLines[0].pv?.split(' ')[0] || 'Unknown';
                 best_pv = prevMove.engineLines[0].pv || '';
                 if (move.engineLines?.[0]) {
-                    evalDrop = (move.engineLines[0].scoreNum - prevMove.engineLines[0].scoreNum).toFixed(2);
+                    const safeA = (typeof move.engineLines[0].scoreNum === 'number' && !isNaN(move.engineLines[0].scoreNum)) ? move.engineLines[0].scoreNum : 0;
+                    const safeB = (typeof prevMove.engineLines[0].scoreNum === 'number' && !isNaN(prevMove.engineLines[0].scoreNum)) ? prevMove.engineLines[0].scoreNum : 0;
+                    evalDrop = (safeA - safeB).toFixed(2);
                 }
             }
         }
@@ -154,7 +157,7 @@ export function createGeminiHandler({ getState, setState, geminiEl, onOpen }) {
             if (error.name === 'AbortError') return;
             console.error("Gemini AI Error:", error);
             const geminiTextEl = document.getElementById('geminiText');
-            const errHtml = `<p class="ai-error">AI 해설을 불러오는 데 실패했습니다.<br><span class="ai-error-detail">${error.message}</span></p>`;
+            const errHtml = `<p class="ai-error">${t('gemini_error')}<br><span class="ai-error-detail">${error.message}</span></p>`;
             if (geminiTextEl) geminiTextEl.innerHTML = errHtml;
             else geminiEl.innerHTML = errHtml;
         } finally {
@@ -174,11 +177,8 @@ function renderGoodMovePanel() {
     return `
         <div class="ai-good-move-panel">
             <svg class="ai-good-move-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
-            <strong class="ai-good-move-title">이미 훌륭한 수입니다</strong>
-            <p class="ai-good-move-desc">
-                AI 코치는 <span class="text-danger">Blunder</span>·<span class="text-warning">Mistake</span> 등<br>
-                설명이 꼭 필요한 상황에서만 분석합니다.
-            </p>
+            <strong class="ai-good-move-title">${t('gemini_already_best')}</strong>
+            <p class="ai-good-move-desc">${t('gemini_best_only')}</p>
         </div>
     `;
 }

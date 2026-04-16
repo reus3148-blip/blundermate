@@ -1,14 +1,19 @@
 export const VAULT_KEY = 'blundermate_vault';
 export const SAVED_GAMES_KEY = 'blundermate_saved_games';
+const USER_ID_KEY = 'blundermate_user_id';
+export const ONBOARDING_KEY = 'blundermate_onboarding_done';
+export const COORDS_KEY = 'coordsEnabled';
+export const GEMINI_KEY = 'geminiEnabled';
+export const EVAL_MODE_KEY = 'evalDisplayMode';
 
 // ── User ID ────────────────────────────────────────────────────────
 
 export function getUserId() {
-    return localStorage.getItem('blundermate_user_id') || null;
+    return localStorage.getItem(USER_ID_KEY) || null;
 }
 
 export function setUserId(id) {
-    if (id) localStorage.setItem('blundermate_user_id', id);
+    if (id) localStorage.setItem(USER_ID_KEY, id);
 }
 
 // ── Supabase proxy helper ──────────────────────────────────────────
@@ -68,7 +73,6 @@ export function addVaultItem(item) {
         localStorage.setItem(VAULT_KEY, JSON.stringify(vault));
     } catch (e) {
         console.error('Failed to save to Vault:', e);
-        alert('Could not save data. Storage might be full or blocked.');
     }
 
     // Then try Supabase in background
@@ -146,7 +150,6 @@ export function addSavedGame(item) {
         localStorage.setItem(SAVED_GAMES_KEY, JSON.stringify(games));
     } catch (e) {
         console.error('Failed to save game:', e);
-        alert('Could not save game. Storage might be full or blocked.');
     }
 
     // Then try Supabase in background

@@ -1,6 +1,6 @@
 import { Chessground } from 'https://cdnjs.cloudflare.com/ajax/libs/chessground/9.0.0/chessground.min.js';
 import { parseAndLoadPgn, escapeHtml } from './utils.js';
-import { getVaultItems, removeVaultItem } from './storage.js';
+import { getVaultItems, removeVaultItem, COORDS_KEY } from './storage.js';
 import { renderMovesTable } from './ui.js';
 import { t } from './strings.js';
 
@@ -69,13 +69,13 @@ function renderVaultList(container, vaultItems, onDelete, onOpen) {
 
         el.innerHTML = `
             <div class="game-item-content">
-                <div class="game-category" style="color: ${borderCol};">${escapeHtml(item.category)}${isLegacy ? ' · legacy' : ''}</div>
+                <div class="game-category" style="color: ${borderCol};">${escapeHtml(item.category)}${isLegacy ? ' · ' + t('vault_legacy') : ''}</div>
                 ${item.gameTitle ? `<div class="game-title">${escapeHtml(item.gameTitle)}</div>` : ''}
-                <div class="game-san">Played: <strong>${escapeHtml(moveLabel + item.san)}</strong></div>
-                <div class="game-best">Best: ${escapeHtml(item.bestMove) || 'Unknown'}</div>
+                <div class="game-san">${t('vault_played')}<strong>${escapeHtml(moveLabel + item.san)}</strong></div>
+                <div class="game-best">${t('vault_best')}${escapeHtml(item.bestMove) || t('vault_unknown')}</div>
                 ${item.notes ? `<div class="game-notes">${escapeHtml(item.notes)}</div>` : ''}
             </div>
-            <button class="delete-btn" title="Delete">
+            <button class="delete-btn" title="${t('vault_delete_title')}">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
             </button>
         `;
@@ -121,7 +121,7 @@ async function openVaultFromHome() {
 async function updateVaultView() {
     const items = await getVaultItems();
     renderVaultList(vaultList, items, async (id) => {
-        if (confirm('Delete this saved move from your Vault?')) {
+        if (confirm(t('vault_delete_confirm'))) {
             removeVaultItem(id);
             await updateVaultView();
         }
@@ -130,14 +130,14 @@ async function updateVaultView() {
 
 function openVaultItem(item) {
     if (!item.pgn) {
-        alert('This saved move is from an older version and cannot be opened. Please delete it.');
+        alert(t('vault_legacy_error'));
         return;
     }
 
     const tempChess = new Chess();
     const result = parseAndLoadPgn(tempChess, item.pgn);
     if (!result.success) {
-        alert('Saved PGN could not be parsed.');
+        alert(t('vault_pgn_error'));
         return;
     }
 
@@ -155,7 +155,7 @@ function openVaultItem(item) {
     });
 
     vaultDetailChess = new Chess();
-    const isCoordsEnabled = localStorage.getItem('coordsEnabled') === 'true';
+    const isCoordsEnabled = localStorage.getItem(COORDS_KEY) === 'true';
     if (!vaultDetailCg) {
         vaultDetailCg = Chessground(vaultDetailBoard, {
             fen: vaultDetailStartFen,
@@ -166,10 +166,10 @@ function openVaultItem(item) {
         });
     }
 
-    vaultDetailTitle.textContent = item.gameTitle || '복기';
+    vaultDetailTitle.textContent = item.gameTitle || t('vault_title');
     vaultInfoCategory.textContent = item.category || '';
     vaultInfoPlayed.textContent = (item.moveNumber ? `${item.moveNumber}${item.isWhite ? '. ' : '... '}` : '') + (item.san || '');
-    vaultInfoBest.textContent = item.bestMove || 'Unknown';
+    vaultInfoBest.textContent = item.bestMove || t('vault_unknown');
     vaultInfoNotes.textContent = item.notes || '';
 
     vaultView.classList.add('hidden');
@@ -197,7 +197,7 @@ export function setVaultDetailIndex(index) {
     });
 
     if (vaultDetailIndex < 0) {
-        vaultDetailMoveLabel.textContent = 'Start';
+        vaultDetailMoveLabel.textContent = t('vault_start');
         vaultDetailCounter.textContent = `0 / ${vaultDetailFens.length}`;
     } else {
         const moveNumber = Math.floor(vaultDetailIndex / 2) + 1;
