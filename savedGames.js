@@ -1,4 +1,4 @@
-import { getSavedGames, addSavedGame, removeSavedGame } from './storage.js';
+import { getSavedGames, addSavedGame, removeSavedGame, updateSavedGame } from './storage.js';
 import { escapeHtml } from './utils.js';
 import { t } from './strings.js';
 
@@ -38,11 +38,12 @@ function getSelectedCategory() {
 }
 
 let _activeFilter = 'all';
+let _editingGameId = null;
 
 // ==========================================
 // Rendering
 // ==========================================
-function renderSavedGamesList(container, savedGames, onDelete, onLoad) {
+function renderSavedGamesList(container, savedGames, onDelete, onLoad, onEdit) {
     container.innerHTML = '';
     container.className = 'saved-games-list';
 
@@ -69,11 +70,21 @@ function renderSavedGamesList(container, savedGames, onDelete, onLoad) {
             </div>
             <div class="saved-game-card-bottom">
                 <span class="saved-game-card-date">${new Date(item.date).toLocaleDateString()}</span>
-                <button class="delete-btn" title="Delete">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
-                </button>
+                <div class="saved-game-card-actions">
+                    <button class="edit-btn" title="Edit">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+                    </button>
+                    <button class="delete-btn" title="Delete">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                    </button>
+                </div>
             </div>
         `;
+
+        el.querySelector('.edit-btn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            onEdit(item);
+        });
 
         el.querySelector('.delete-btn').addEventListener('click', (e) => {
             e.stopPropagation();
@@ -112,6 +123,8 @@ function updateSavedGamesView() {
     }, (pgn) => {
         savedGamesView.classList.add('hidden');
         if (_onLoadGame) _onLoadGame(pgn);
+    }, (item) => {
+        openEditModal(item);
     });
 }
 
@@ -133,7 +146,10 @@ export function initSavedGames({ onLoadGame, getChess, showButtonSuccess, saveMo
     openSavedGamesBtn.addEventListener('click', openSavedGamesFromHome);
 
     if (cancelSaveGameBtn) {
-        cancelSaveGameBtn.addEventListener('click', () => saveGameModal.classList.add('hidden'));
+        cancelSaveGameBtn.addEventListener('click', () => {
+            _editingGameId = null;
+            saveGameModal.classList.add('hidden');
+        });
     }
 
     savedGamesBackBtn.addEventListener('click', () => {
@@ -161,6 +177,7 @@ export function initSavedGames({ onLoadGame, getChess, showButtonSuccess, saveMo
 
     choiceSaveGameBtn.addEventListener('click', () => {
         saveChoiceModal.classList.add('hidden');
+        _editingGameId = null;
 
         let defaultTitle = "Saved Game";
         const chess = _getChess();
@@ -181,6 +198,15 @@ export function initSavedGames({ onLoadGame, getChess, showButtonSuccess, saveMo
         const title = saveGameTitle.value.trim() || 'Untitled Game';
         const notes = saveGameNotes.value.trim();
         const category = getSelectedCategory();
+
+        if (_editingGameId) {
+            updateSavedGame(_editingGameId, { title, notes, category });
+            _editingGameId = null;
+            saveGameModal.classList.add('hidden');
+            updateSavedGamesView();
+            return;
+        }
+
         const chess = _getChess();
         const pgn = chess.pgn();
 
@@ -197,4 +223,17 @@ export function initSavedGames({ onLoadGame, getChess, showButtonSuccess, saveMo
         saveGameModal.classList.add('hidden');
         _showButtonSuccess(_saveMoveBtn, 'Saved!');
     });
+}
+
+function openEditModal(item) {
+    _editingGameId = item.id;
+    saveGameTitle.value = item.title || '';
+    saveGameNotes.value = item.notes || '';
+
+    // Set category picker
+    saveGameCategoryPicker.querySelectorAll('.pill-btn').forEach(b => b.classList.remove('selected'));
+    const target = saveGameCategoryPicker.querySelector(`[data-value="${item.category || 'my_game'}"]`);
+    if (target) target.classList.add('selected');
+
+    saveGameModal.classList.remove('hidden');
 }

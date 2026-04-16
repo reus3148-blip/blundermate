@@ -3,7 +3,7 @@ import { fetchRecentGames } from './chessApi.js';
 import { StockfishEngine } from './engine.js';
 import { parseEvalData, getDests, convertPvToSan, classifyMove, parseAndLoadPgn, escapeHtml } from './utils.js';
 import { renderGamesList, renderMovesTable, updateUIWithEval, highlightActiveMove, renderEngineLines, updateTopEvalDisplay } from './ui.js';
-import { addVaultItem } from './storage.js';
+import { addVaultItem, getSavedGames } from './storage.js';
 import { initVault, initHomeVaultBadge, isVaultDetailActive, getVaultDetailIndex, setVaultDetailIndex, flipVaultBoard, setVaultCoords, redrawVaultBoard } from './vault.js';
 import { initSavedGames } from './savedGames.js';
 import { createGeminiHandler } from './gemini.js';
@@ -15,7 +15,6 @@ import { t, setLocale, getLocale } from './strings.js';
 // Manual inputs
 const pgnInput = document.getElementById('pgnInput');
 const analyzeBtn = document.getElementById('analyzeBtn');
-const toggleManualBtn = document.getElementById('toggleManualBtn');
 const openBoardInputBtn = document.getElementById('openBoardInputBtn');
 const manualInputWrapper = document.getElementById('manualInputWrapper');
 const manualInputContainer = document.getElementById('manualInputContainer');
@@ -165,7 +164,24 @@ function applyLocale() {
     document.getElementById('langEnBtn')?.classList.toggle('active', locale === 'en');
 }
 
-initHomeVaultBadge();
+function updateSavedGamesCount() {
+    const el = document.getElementById('savedGamesCountText');
+    if (!el) return;
+    const count = getSavedGames().length;
+    if (count > 0) {
+        el.textContent = t('saved_games_count').replace('{count}', count);
+        el.classList.remove('hidden');
+    } else {
+        el.classList.add('hidden');
+    }
+}
+
+function refreshHomeCounts() {
+    initHomeVaultBadge();
+    updateSavedGamesCount();
+}
+
+refreshHomeCounts();
 applyLocale();
 
 // ==========================================
@@ -333,13 +349,12 @@ function openInputView() {
     forceRedraw(inputCg);
 }
 
-toggleManualBtn.addEventListener('click', openInputView);
 openBoardInputBtn.addEventListener('click', openInputView);
 
 inputViewBackBtn.addEventListener('click', () => {
     inputView.classList.add('hidden');
     homeView.classList.remove('hidden');
-    initHomeVaultBadge();
+    refreshHomeCounts();
 });
 
 function doUndoInput() {
@@ -386,7 +401,7 @@ inputViewAnalyzeBtn.addEventListener('click', () => {
 backBtn.addEventListener('click', () => {
     analysisView.classList.add('hidden');
     homeView.classList.remove('hidden');
-    initHomeVaultBadge();
+    refreshHomeCounts();
 
     // Reset preview state
     if (isPreviewMode) {
@@ -449,7 +464,6 @@ analyzeBtn.addEventListener('click', () => {
 
 // --- Move Navigation Helpers ---
 function handlePrevMove() {
-    if (isPreviewMode) return;
     if (appMode === 'simulate') {
         simulationIndex = Math.max(0, simulationIndex - 1);
         updateBoardForSimulation(simulationIndex);
@@ -463,7 +477,6 @@ function handlePrevMove() {
 }
 
 function handleNextMove() {
-    if (isPreviewMode) return;
     if (appMode === 'simulate') {
         simulationIndex = Math.min(simulationQueue.length - 1, simulationIndex + 1);
         updateBoardForSimulation(simulationIndex);
@@ -571,7 +584,7 @@ initSavedGames({
     getChess: () => chess,
     showButtonSuccess,
     saveMoveBtn,
-    initHomeVaultBadge,
+    initHomeVaultBadge: refreshHomeCounts,
 });
 
 function buildInputMovesQueue() {
@@ -1159,11 +1172,6 @@ function renderPreviewCard() {
 }
 
 function applyPreviewControls() {
-    prevMoveBtn.disabled = true;
-    nextMoveBtn.disabled = true;
-    prevMoveBtn.style.color = 'var(--tx3)';
-    nextMoveBtn.style.color = 'var(--tx3)';
-
     tabToggleBtn.disabled = true;
     tabToggleBtn.style.opacity = '0.4';
 
@@ -1175,11 +1183,6 @@ function applyPreviewControls() {
 }
 
 function removePreviewControls() {
-    prevMoveBtn.disabled = false;
-    nextMoveBtn.disabled = false;
-    prevMoveBtn.style.color = '';
-    nextMoveBtn.style.color = '';
-
     tabToggleBtn.disabled = false;
     tabToggleBtn.style.opacity = '';
 
@@ -1237,7 +1240,6 @@ function processNextInQueue() {
 // 8. UI Rendering
 // ==========================================
 function updateBoardPosition(index, fen) {
-    if (isPreviewMode) return;
     if (appMode === 'explore') {
         exitExplorationMode();
     }
@@ -1250,19 +1252,22 @@ function updateBoardPosition(index, fen) {
     const validFen = fen === 'start' ? START_FEN : fen;
     const tempChess = new Chess(validFen);
     const turnColor = tempChess.turn() === 'w' ? 'white' : 'black';
-    cg.set({ 
+    cg.set({
         fen: fen,
         turnColor: turnColor,
         movable: { color: turnColor, free: false, dests: getDests(tempChess) }
     });
-    
+
     currentlyViewedIndex = index;
     highlightActiveMove(index);
+
+    // 미리보기 모드에서는 보드 위치와 하이라이트만 업데이트하고, 엔진/AI 패널은 건드리지 않음
+    if (isPreviewMode) return;
 
     // 수 이동 시 엔진 탭으로 복귀하고 AI 패널은 현재 포지션에 맞게 갱신
     renderAiTabContent();
     switchTab('engine');
-    
+
     // 블런더나 실수인 경우, 이전 턴(index - 1)에서 엔진이 추천했던 최선의 수를 파란색 화살표로 표시
     persistentShapes = [];
     if (index > 0 && analysisQueue[index]) {
@@ -1282,7 +1287,7 @@ function updateBoardPosition(index, fen) {
         }
     }
     cg.set({ drawable: { autoShapes: persistentShapes } });
-    
+
     // 화면이 바뀔 때, 해당 수에 저장된 엔진 추천 라인이 있다면 화면에 다시 렌더링
     if (analysisQueue[index] && analysisQueue[index].engineLines && analysisQueue[index].engineLines.length > 0) {
         renderEngineLines(engineLinesContainer, analysisQueue[index].engineLines.filter(Boolean), drawEngineArrow, clearEngineArrow, handleEngineLineClick);
