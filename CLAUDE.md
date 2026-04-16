@@ -40,7 +40,7 @@ Mobile-first chess game review web app. Users load games via Chess.com API or PG
 User Input (PGN / Chess.com API / board)
   → Chess.js parse → analysisQueue[] built
   → Each position FEN → Stockfish Web Worker (MultiPV=3, depth=12)
-  → Parse UCI output → classifyMove() (EPL algorithm in utils.js)
+  → Parse UCI output → classifyMove() (Lichess CPL in utils.js)
   → Render moves table + board via ui.js
   → On mistake: Gemini explanation fetched via /api/analyze (SSE)
   → Explanation cached in analysisQueue[i].geminiExplanation
@@ -68,9 +68,9 @@ Two main screens toggled via CSS class on `.app-container`:
 - **상단 바** (`.analysis-top-bar`) — 뒤로가기 버튼, 앱 타이틀(`blundermate`), 기보 오버레이 버튼(`☰`). 모든 뷰(분석, 보드입력, 복기 상세, 저장 게임)에서 동일 패턴으로 사용.
 - **중간 바** (`.unified-controls` / `#panelTabs`) — 이전/다음 수 네비게이션, Engine⇄AI 탭 토글, 수 분류 라벨(`#moveClassLabel`), 승률/평가치 표시(`#winChanceDisplay`), 저장 버튼. 보드 바로 아래에 위치하며 분석 조작의 중심.
 
-### Move Classification (EPL Algorithm)
+### Move Classification (Lichess CPL)
 
-`classifyMove()` in `utils.js` maps centipawn loss to: Blunder / Mistake / Inaccuracy / Good / Excellent / Best. Eval is always from the current player's perspective — `parseEvalData()` handles sign flipping.
+`classifyMove()` in `utils.js` uses Lichess-style Centipawn Loss (CPL) to classify moves: Best (engine top move) / Excellent (CPL ≤ 10) / Good (CPL ≤ 50) / Inaccuracy (CPL ≤ 100) / Mistake (CPL ≤ 200) / Blunder (CPL > 200). Eval is always from the current player's perspective — `parseEvalData()` handles sign flipping.
 
 ### Stockfish Integration
 

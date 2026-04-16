@@ -64,18 +64,17 @@ export function convertPvToSan(pv, fen) {
 }
 
 /**
- * Chess.com의 EPL(Expected Points Loss) 방식에 준하여 수를 평가합니다.
+ * Lichess CPL(Centipawn Loss) 방식으로 수를 평가합니다.
  *
- * 승률 공식 (Lichess 공개): 50 + 50 * (2 / (1 + e^(-0.00368208 * cp)) - 1)  [0~100%]
- * EPL ≈ WPL(Win% Loss). Chess.com은 EPL 0~1 스케일, 여기서는 0~100% 스케일 사용.
+ * CPL = 이전 포지션 평가 − 현재 포지션 평가 (수를 둔 플레이어 시점, centipawn 단위)
  *
- * 분류 기준 (Chess.com EPL 기준):
- *   Blunder    WPL ≥ 20%  (EPL ≥ 0.20)
- *   Mistake    WPL ≥ 10%  (EPL ≥ 0.10)
- *   Inaccuracy WPL ≥  5%  (EPL ≥ 0.05)
- *   Good       WPL ≥  2%  (EPL ≥ 0.02)
- *   Excellent  WPL <  2%  — 엔진 1순위 수가 아닌 경우
- *   Best       WPL <  2%  — 엔진 1순위 수와 일치
+ * 분류 기준:
+ *   Best       엔진 1순위 수와 일치
+ *   Excellent  CPL ≤ 10  (1순위 아님)
+ *   Good       CPL ≤ 50
+ *   Inaccuracy CPL ≤ 100
+ *   Mistake    CPL ≤ 200
+ *   Blunder    CPL > 200
  */
 export function classifyMove(index, analysisQueue, isUserWhite) {
     if (index < 0) return '';
@@ -85,7 +84,6 @@ export function classifyMove(index, analysisQueue, isUserWhite) {
     const isWhite = move.isWhite;
     const currEval = move.engineLines[0];
 
-    // 첫 번째 수는 초기 국면 평가(백 미세 우세)를 기준점으로 사용
     let prevEval = { scoreNum: isUserWhite ? 0.2 : -0.2, scoreStr: isUserWhite ? '+0.20' : '-0.20' };
     let prevLines = [];
     if (index > 0) {
@@ -95,7 +93,6 @@ export function classifyMove(index, analysisQueue, isUserWhite) {
         prevLines = prevMove.engineLines;
     }
 
-    // scoreNum은 사용자 시점 기준이므로, 수를 둔 쪽이 사용자가 아니면 부호 반전
     const perspectiveMultiplier = (isUserWhite === isWhite) ? 1 : -1;
 
     // --- 메이트 표기 파싱 ---
@@ -106,7 +103,6 @@ export function classifyMove(index, analysisQueue, isUserWhite) {
         return null;
     };
 
-    // 양수 = 현재 수를 둔 플레이어가 메이트 선언 중
     const prevMate = getMate(prevEval.scoreStr) !== null ? getMate(prevEval.scoreStr) * perspectiveMultiplier : null;
     const currMate = getMate(currEval.scoreStr) !== null ? getMate(currEval.scoreStr) * perspectiveMultiplier : null;
 
@@ -114,7 +110,6 @@ export function classifyMove(index, analysisQueue, isUserWhite) {
     if (prevMate !== null) {
         if (prevMate > 0) {
             if (currMate !== null && currMate > 0) return currMate <= prevMate ? 'Best' : 'Good';
-            if (currMate === null) return 'Missed Win';
             return 'Blunder';
         } else {
             if (currMate !== null && currMate < 0) return currMate > prevMate ? 'Blunder' : 'Best';
@@ -125,45 +120,21 @@ export function classifyMove(index, analysisQueue, isUserWhite) {
         if (currMate !== null && currMate > 0) return 'Best';
     }
 
-    // --- 승률 계산 ---
-    // ±1000 CP 클램핑으로 포화 구간(압도적 우세/열세)에서의 왜곡 방지
-    const clamp = (v) => Math.max(-1000, Math.min(1000, v));
-    const prevCp = clamp(prevEval.scoreNum * perspectiveMultiplier * 100);
-    const currCp = clamp(currEval.scoreNum * perspectiveMultiplier * 100);
-    const winPct = (cp) => 50 + 50 * (2 / (1 + Math.exp(-0.00368208 * cp)) - 1);
-    const prevWp = winPct(prevCp);
-    const currWp = winPct(currCp);
-    const wpl = prevWp - currWp; // Win% 손실 (양수 = 악수)
+    // --- CPL 계산 ---
+    const prevCp = prevEval.scoreNum * perspectiveMultiplier * 100;
+    const currCp = currEval.scoreNum * perspectiveMultiplier * 100;
+    const cpl = Math.max(0, prevCp - currCp);
 
-    // --- Missed Win 감지 ---
-    // 엔진 1순위 수가 유일한 승리 수(1·2순위 WP 차이 ≥ 15%)였고, 그걸 놓쳐서 WPL ≥ 15%
-    if (prevLines.length > 1 && prevLines[1]) {
-        const bestWp   = winPct(clamp(prevLines[0].scoreNum * perspectiveMultiplier * 100));
-        const secondWp = winPct(clamp(prevLines[1].scoreNum * perspectiveMultiplier * 100));
-        if (bestWp > 65 && (bestWp - secondWp) >= 15 && wpl >= 15) return 'Missed Win';
-    }
-
-    // --- Chess.com EPL 기준 분류 ---
-    if (wpl >= 20) return 'Blunder';
-    if (wpl >= 10) return 'Mistake';
-    if (wpl >=  5) return 'Inaccuracy';
-    if (wpl >=  2) return 'Good';
-
-    // WPL < 2%: Best / Excellent / Brilliant 구분
+    // 엔진 1순위 수 일치 여부
     const engineTopSan = prevLines[0]?.pv?.split(' ')[0];
-    const isTopMove = engineTopSan && engineTopSan === move.san;
+    if (engineTopSan && engineTopSan === move.san) return 'Best';
 
-    if (isTopMove) {
-        // ── Brilliant 감지 (Chess.com 기준) ─────────────────────────────────
-        // 조건: 엔진 1순위 수 + 기물/교환 희생 + 압도적 우세 국면이 아님
-        // - 폰 희생은 제외 (move.movedPiece === 'p')
-        // - 직전 WP 75% 초과 = 이미 완전 우세 → Brilliant 해당 없음
-        if (move.isSacrifice && move.movedPiece !== 'p' && prevWp <= 75) {
-            return 'Brilliant';
-        }
-        return 'Best';
-    }
-    return 'Excellent';
+    // --- Lichess CPL 기준 분류 ---
+    if (cpl > 200) return 'Blunder';
+    if (cpl > 100) return 'Mistake';
+    if (cpl >  50) return 'Inaccuracy';
+    if (cpl <= 10) return 'Excellent';
+    return 'Good';
 }
 
 /**
