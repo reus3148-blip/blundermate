@@ -6,6 +6,7 @@ import { t } from './strings.js';
  */
 export function renderGamesList(container, games, searchedUsername, onGameClick) {
     container.innerHTML = '';
+    if (!searchedUsername) return [];
     const searchLower = searchedUsername.toLowerCase();
 
     games.forEach(game => {
@@ -15,13 +16,13 @@ export function renderGamesList(container, games, searchedUsername, onGameClick)
         // Determine Visual Status
         const resultCode = isWhite ? game.white.result : game.black.result;
         let resultClass = 'draw';
-        let resultText = 'Draw';
+        let resultText = t('game_result_draw');
         if (resultCode === 'win') {
             resultClass = 'win';
-            resultText = 'Win';
+            resultText = t('game_result_win');
         } else if (['checkmated', 'timeout', 'resigned', 'abandoned'].includes(resultCode)) {
             resultClass = 'loss';
-            resultText = 'Loss';
+            resultText = t('game_result_loss');
         }
 
         const item = document.createElement('div');
@@ -29,16 +30,16 @@ export function renderGamesList(container, games, searchedUsername, onGameClick)
         item.innerHTML = `
             <div style="font-weight: 600; font-size: 1rem;">
                 ${resultText} 
-                <span style="font-size: 0.85rem; color: var(--text-secondary); font-weight: normal; margin-left: 0.5rem;">
+                <span style="font-size: 0.85rem; color: var(--tx2); font-weight: normal; margin-left: 0.5rem;">
                     vs ${opponent}
                 </span>
             </div>
-            <div class="eval-badge" style="background:var(--bg-dark);">Review</div>
+            <div class="eval-badge" style="background:var(--bg-elevated);">${t('ui_review')}</div>
         `;
 
         item.addEventListener('click', () => {
             if (!game.pgn) {
-                alert('This game has no PGN available.');
+                alert(t('game_no_pgn'));
                 return;
             }
             onGameClick(game.pgn, isWhite);
@@ -68,7 +69,7 @@ export function renderMovesTable(container, queue, onMoveClick) {
             
             const numTd = document.createElement('td');
             numTd.textContent = `${move.moveNumber}.`;
-            numTd.style.color = 'var(--text-secondary)';
+            numTd.style.color = 'var(--tx2)';
             
             const wTd = document.createElement('td');
             wTd.id = `move-${i}`;
@@ -189,7 +190,7 @@ export function renderEngineLines(container, lines, onHover, onLeave, onClick) {
         `;
     }).join('');
 
-    container.innerHTML = linesHtml + `<p class="engine-hint">hover to preview &nbsp;·&nbsp; click to simulate</p>`;
+    container.innerHTML = linesHtml + `<p class="engine-hint">${t('ui_engine_hint')}</p>`;
 }
 
 function setupEngineLinesDelegation(container) {

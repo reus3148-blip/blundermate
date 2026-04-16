@@ -3,7 +3,7 @@ import { fetchRecentGames } from './chessApi.js';
 import { StockfishEngine } from './engine.js';
 import { parseEvalData, getDests, convertPvToSan, classifyMove, parseAndLoadPgn, escapeHtml } from './utils.js';
 import { renderGamesList, renderMovesTable, updateUIWithEval, highlightActiveMove, renderEngineLines, updateTopEvalDisplay } from './ui.js';
-import { addVaultItem, getSavedGames, setUserId, getUserId } from './storage.js';
+import { addVaultItem, getSavedGames, setUserId, getUserId, ONBOARDING_KEY, COORDS_KEY, GEMINI_KEY, EVAL_MODE_KEY } from './storage.js';
 import { initVault, initHomeVaultBadge, isVaultDetailActive, getVaultDetailIndex, setVaultDetailIndex, flipVaultBoard, setVaultCoords, redrawVaultBoard } from './vault.js';
 import { initSavedGames } from './savedGames.js';
 import { createGeminiHandler } from './gemini.js';
@@ -96,6 +96,7 @@ const feedbackStatusText = document.getElementById('feedbackStatusText');
 // 2. Application State
 // ==========================================
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+const ANALYSIS_DEPTH = 12;
 let stockfish;
 let isEngineReady = false;
 let chess = new Chess();
@@ -123,8 +124,8 @@ const EVAL_RENDER_THROTTLE = 100; // UI 업데이트 제한 시간(ms)
 let isPreviewMode = false; // 분석 미리보기 상태 (엔진 미시작)
 let isGeminiLoading = false; // Gemini API 중복 호출 방지용 플래그
 let geminiAbortController = null; // Gemini API 요청 취소용 컨트롤러
-let isCoordsEnabled = localStorage.getItem('coordsEnabled') === 'true'; // 보드 좌표 표시 여부
-let isGeminiEnabled = localStorage.getItem('geminiEnabled') === 'true'; // Gemini AI 토글 상태
+let isCoordsEnabled = localStorage.getItem(COORDS_KEY) === 'true'; // 보드 좌표 표시 여부
+let isGeminiEnabled = localStorage.getItem(GEMINI_KEY) === 'true'; // Gemini AI 토글 상태
 
 // ==========================================
 // 3. Initialization
@@ -285,7 +286,7 @@ const onboardingSubmitBtn = document.getElementById('onboardingSubmitBtn');
 const onboardingSkipBtn = document.getElementById('onboardingSkipBtn');
 
 function finishOnboarding() {
-    localStorage.setItem('blundermate_onboarding_done', 'true');
+    localStorage.setItem(ONBOARDING_KEY, 'true');
     onboardingView.classList.add('hidden');
     homeView.classList.remove('hidden');
     refreshHomeCounts();
@@ -303,7 +304,7 @@ onboardingUsernameInput.addEventListener('keyup', (e) => {
 
 onboardingSkipBtn.addEventListener('click', finishOnboarding);
 
-if (!localStorage.getItem('blundermate_onboarding_done')) {
+if (!localStorage.getItem(ONBOARDING_KEY)) {
     homeView.classList.add('hidden');
     onboardingView.classList.remove('hidden');
 } else {
@@ -324,13 +325,13 @@ geminiToggle.checked = isGeminiEnabled;
 
 geminiToggle.addEventListener('change', (e) => {
     isGeminiEnabled = e.target.checked;
-    localStorage.setItem('geminiEnabled', isGeminiEnabled);
+    localStorage.setItem(GEMINI_KEY, isGeminiEnabled);
 });
 
 coordsToggle.checked = isCoordsEnabled;
 coordsToggle.addEventListener('change', (e) => {
     isCoordsEnabled = e.target.checked;
-    localStorage.setItem('coordsEnabled', isCoordsEnabled);
+    localStorage.setItem(COORDS_KEY, isCoordsEnabled);
     if (cg) cg.set({ coordinates: isCoordsEnabled });
     if (inputCg) inputCg.set({ coordinates: isCoordsEnabled });
     setVaultCoords(isCoordsEnabled);
@@ -400,13 +401,13 @@ if (submitFeedbackBtn) {
     submitFeedbackBtn.addEventListener('click', async () => {
         const content = feedbackInput.value.trim();
         if (!content) {
-            feedbackStatusText.textContent = '내용을 입력해주세요.';
-            feedbackStatusText.style.color = 'var(--accent-danger, red)';
+            feedbackStatusText.textContent = t('feedback_validation');
+            feedbackStatusText.style.color = 'var(--blunder)';
             return;
         }
 
         submitFeedbackBtn.disabled = true;
-        submitFeedbackBtn.textContent = '전송 중...';
+        submitFeedbackBtn.textContent = t('feedback_sending');
         feedbackStatusText.textContent = '';
 
         try {
@@ -417,26 +418,26 @@ if (submitFeedbackBtn) {
             });
 
             if (res.ok) {
-                feedbackStatusText.textContent = '소중한 피드백 감사합니다!';
-                feedbackStatusText.style.color = 'var(--accent-success, green)';
+                feedbackStatusText.textContent = t('feedback_success');
+                feedbackStatusText.style.color = 'var(--best)';
                 setTimeout(() => {
                     feedbackModal.classList.add('hidden');
                 }, 1500);
             } else {
-                let errText = '전송 실패';
+                let errText = t('feedback_error_label');
                 try {
                     const errJson = await res.json();
                     if (errJson.error) errText = errJson.error;
                 } catch(e) {}
                 feedbackStatusText.textContent = errText;
-                feedbackStatusText.style.color = 'var(--accent-danger, red)';
+                feedbackStatusText.style.color = 'var(--blunder)';
             }
         } catch (error) {
-            feedbackStatusText.textContent = '네트워크 오류가 발생했습니다.';
-            feedbackStatusText.style.color = 'var(--accent-danger, red)';
+            feedbackStatusText.textContent = t('feedback_error_network');
+            feedbackStatusText.style.color = 'var(--blunder)';
         } finally {
             submitFeedbackBtn.disabled = false;
-            submitFeedbackBtn.textContent = '전송';
+            submitFeedbackBtn.textContent = t('feedback_send');
         }
     });
 }
@@ -518,7 +519,7 @@ inputBoardPgn.addEventListener('input', () => {
 inputViewAnalyzeBtn.addEventListener('click', () => {
     const pgn = inputBoardPgn.value.trim() || inputChess.pgn();
     if (!pgn) {
-        alert('Please play at least one move or paste a PGN to analyze.');
+        alert(t('analysis_no_moves'));
         return;
     }
     pgnInput.value = pgn;
@@ -667,7 +668,7 @@ let currentTab = 'engine';
 
 function switchTab(tabName) {
     currentTab = tabName;
-    if (tabToggleBtn) tabToggleBtn.textContent = tabName === 'engine' ? 'Engine' : 'AI';
+    if (tabToggleBtn) tabToggleBtn.textContent = tabName === 'engine' ? t('tab_engine') : t('tab_ai');
     document.querySelectorAll('.tab-panel').forEach(panel => {
         panel.classList.toggle('active', panel.id === `tab-${tabName}`);
     });
@@ -682,9 +683,9 @@ tabToggleBtn.addEventListener('click', () => {
 // Win% / eval score toggle
 document.getElementById('winChanceDisplay').addEventListener('click', () => {
     const el = document.getElementById('winChanceDisplay');
-    const current = localStorage.getItem('evalDisplayMode') || 'percent';
+    const current = localStorage.getItem(EVAL_MODE_KEY) || 'percent';
     const next = current === 'percent' ? 'score' : 'percent';
-    localStorage.setItem('evalDisplayMode', next);
+    localStorage.setItem(EVAL_MODE_KEY, next);
     el.style.opacity = '0';
     setTimeout(() => {
         updateTopEvalDisplay(el.dataset.scoreStr || '', el.dataset.classification || '');
@@ -817,7 +818,7 @@ function hideReturnBtn() {
 function showButtonSuccess(button, text) {
     const originalHTML = button.innerHTML;
     button.innerHTML = text;
-    button.style.color = 'var(--accent-success)';
+    button.style.color = 'var(--best)';
     setTimeout(() => {
         button.innerHTML = originalHTML;
         button.style.color = '';
@@ -829,13 +830,11 @@ saveMoveBtn.addEventListener('click', () => {
     saveChoiceModal.classList.remove('hidden');
 });
 
-// removed cancelChoiceBtn event listener
-
 choiceSaveMoveBtn.addEventListener('click', () => {
     saveChoiceModal.classList.add('hidden');
     
     if (currentlyViewedIndex < 0 || !analysisQueue[currentlyViewedIndex]) {
-        alert('Cannot save the starting position.');
+        alert(t('analysis_no_save_start'));
         return;
     }
     
@@ -851,7 +850,7 @@ choiceSaveMoveBtn.addEventListener('click', () => {
             currentBestMoveForVault = prevMove.engineLines[0].pv.split(' ')[0];
         }
     }
-    if (currentBestMoveForVault) saveBestMoveText.textContent = `Engine suggested: ${currentBestMoveForVault}`;
+    if (currentBestMoveForVault) saveBestMoveText.textContent = t('vault_engine_suggested').replace('{move}', currentBestMoveForVault);
     else saveBestMoveText.textContent = '';
 
     // Auto-select category based on engine classification
@@ -867,8 +866,6 @@ choiceSaveMoveBtn.addEventListener('click', () => {
     saveNotes.value = '';
     saveModal.classList.remove('hidden');
 });
-
-// removed cancelSaveBtn event listener
 
 confirmSaveBtn.addEventListener('click', () => {
     const move = analysisQueue[currentlyViewedIndex];
@@ -903,7 +900,7 @@ confirmSaveBtn.addEventListener('click', () => {
     saveModal.classList.add('hidden');
     
     // UX Feedback
-    showButtonSuccess(saveMoveBtn, 'Saved!');
+    showButtonSuccess(saveMoveBtn, t('saved_games_saved'));
 });
 
 // Redraw board on window resize or device rotation for better responsive behavior
@@ -962,7 +959,7 @@ function handleExplorationMove(orig, dest) {
     
     analysisStatus.className = 'tag engine-loading';
     analysisStatus.textContent = 'Exploring position...';
-    stockfish.analyzeFen(explorationChess.fen(), 12);
+    stockfish.analyzeFen(explorationChess.fen(), ANALYSIS_DEPTH);
 }
 
 function exitExplorationMode() {
@@ -988,10 +985,10 @@ async function handleApiFetch() {
     if (!username) return;
 
     fetchBtn.disabled = true;
-    gamesList.innerHTML = '<div class="container-message">Loading archives...</div>';
+    gamesList.innerHTML = `<div class="container-message">${t('games_loading')}</div>`;
 
     try {
-        gamesList.innerHTML = '<div class="container-message">Fetching latest games...</div>';
+        gamesList.innerHTML = `<div class="container-message">${t('games_fetching')}</div>`;
         const recentGames = await fetchRecentGames(username);
         setUserId(username);
         renderGamesList(gamesList, recentGames, username, (pgn, isWhiteGame) => {
@@ -1008,7 +1005,7 @@ async function handleApiFetch() {
         console.error(e);
         const errEl = document.createElement('div');
         errEl.className = 'container-message container-message--error';
-        errEl.textContent = `Failed to fetch games: ${e.message}`;
+        errEl.textContent = t('games_fetch_error');
         gamesList.innerHTML = '';
         gamesList.appendChild(errEl);
     } finally {
@@ -1134,7 +1131,7 @@ function handlePgnReviewStart(e = null, isWhiteGame = null, targetIndex = null, 
     const result = parseAndLoadPgn(chess, pgnText);
 
     if (!result.success) {
-        alert('Invalid PGN or move format. Please check your text.');
+        alert(t('analysis_invalid_pgn'));
         return;
     }
 
@@ -1336,7 +1333,7 @@ function processNextInQueue() {
     }
 
     // 일관된 분석을 위해 엔진 깊이(Depth)를 12로 고정
-    stockfish.analyzeFen(pos.fen, 12);
+    stockfish.analyzeFen(pos.fen, ANALYSIS_DEPTH);
 }
 
 // ==========================================
