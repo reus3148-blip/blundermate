@@ -2,8 +2,9 @@ import { Chessground } from 'https://cdnjs.cloudflare.com/ajax/libs/chessground/
 import { fetchRecentGames } from './chessApi.js';
 import { StockfishEngine } from './engine.js';
 import { parseEvalData, getDests, convertPvToSan, classifyMove, parseAndLoadPgn } from './utils.js';
-import { renderGamesList, renderMovesTable, updateUIWithEval, highlightActiveMove, renderEngineLines, updateTopEvalDisplay, renderVaultList, renderSavedGamesList } from './ui.js';
-import { getVaultItems, addVaultItem, removeVaultItem, getSavedGames, addSavedGame, removeSavedGame } from './storage.js';
+import { renderGamesList, renderMovesTable, updateUIWithEval, highlightActiveMove, renderEngineLines, updateTopEvalDisplay, renderSavedGamesList } from './ui.js';
+import { addVaultItem, getSavedGames, addSavedGame, removeSavedGame } from './storage.js';
+import { initVault, initHomeVaultBadge, isVaultDetailActive, getVaultDetailIndex, setVaultDetailIndex, flipVaultBoard, setVaultCoords, redrawVaultBoard } from './vault.js';
 import { createGeminiHandler } from './gemini.js';
 import { t, setLocale, getLocale } from './strings.js';
 
@@ -18,11 +19,11 @@ const openBoardInputBtn = document.getElementById('openBoardInputBtn');
 const manualInputWrapper = document.getElementById('manualInputWrapper');
 const manualInputContainer = document.getElementById('manualInputContainer');
 const myLibrarySection = document.getElementById('myLibrarySection');
-const openVaultBtn = document.getElementById('openVaultBtn');
 const openSavedGamesBtn = document.getElementById('openSavedGamesBtn');
 
 // API inputs
 const usernameInput = document.getElementById('usernameInput');
+const clearUsernameBtn = document.getElementById('clearUsernameBtn');
 const fetchBtn = document.getElementById('fetchBtn');
 const gamesList = document.getElementById('gamesList');
 
@@ -77,27 +78,6 @@ const saveGameTitle = document.getElementById('saveGameTitle');
 const saveGameNotes = document.getElementById('saveGameNotes');
 const cancelSaveGameBtn = document.getElementById('cancelSaveGameBtn');
 const confirmSaveGameBtn = document.getElementById('confirmSaveGameBtn');
-
-// Home State Elements
-const vaultCountBadge = document.getElementById('vaultCountBadge');
-
-// Vault Elements
-const vaultView = document.getElementById('vaultView');
-const vaultList = document.getElementById('vaultList');
-const vaultBackBtn = document.getElementById('vaultBackBtn');
-const vaultDetailView = document.getElementById('vaultDetailView');
-const vaultDetailBackBtn = document.getElementById('vaultDetailBackBtn');
-const vaultDetailTitle = document.getElementById('vaultDetailTitle');
-const vaultDetailMovesBtn = document.getElementById('vaultDetailMovesBtn');
-const vaultDetailBoard = document.getElementById('vaultDetailBoard');
-const vaultDetailPrevBtn = document.getElementById('vaultDetailPrevBtn');
-const vaultDetailNextBtn = document.getElementById('vaultDetailNextBtn');
-const vaultDetailMoveLabel = document.getElementById('vaultDetailMoveLabel');
-const vaultDetailCounter = document.getElementById('vaultDetailCounter');
-const vaultInfoCategory = document.getElementById('vaultInfoCategory');
-const vaultInfoPlayed = document.getElementById('vaultInfoPlayed');
-const vaultInfoBest = document.getElementById('vaultInfoBest');
-const vaultInfoNotes = document.getElementById('vaultInfoNotes');
 
 // Saved Games Elements
 const savedGamesView = document.getElementById('savedGamesView');
@@ -177,17 +157,6 @@ cg = Chessground(boardContainer, {
 // ==========================================
 // 3-2. Home State Initialization
 // ==========================================
-function initHomeState() {
-    const vaultItems = getVaultItems();
-    const count = vaultItems.length;
-    if (count > 0) {
-        vaultCountBadge.textContent = count;
-        vaultCountBadge.classList.remove('hidden');
-    } else {
-        vaultCountBadge.classList.add('hidden');
-    }
-}
-
 // ==========================================
 // 3-2b. i18n
 // ==========================================
@@ -207,8 +176,13 @@ function applyLocale() {
     document.getElementById('langEnBtn')?.classList.toggle('active', locale === 'en');
 }
 
-initHomeState();
+initHomeVaultBadge();
 applyLocale();
+
+// ==========================================
+// 3-2c. Vault Module Init (deferred — depends on overlay helpers defined later)
+// ==========================================
+// initVault() is called after showMovesOverlay/closeMovesOverlay are defined (see below)
 
 // ==========================================
 // 3-3. Settings UI
@@ -226,7 +200,7 @@ coordsToggle.addEventListener('change', (e) => {
     localStorage.setItem('coordsEnabled', isCoordsEnabled);
     if (cg) cg.set({ coordinates: isCoordsEnabled });
     if (inputCg) inputCg.set({ coordinates: isCoordsEnabled });
-    if (vaultDetailCg) vaultDetailCg.set({ coordinates: isCoordsEnabled });
+    setVaultCoords(isCoordsEnabled);
 });
 
 chooseWhiteBtn.addEventListener('click', () => {
@@ -377,7 +351,7 @@ openBoardInputBtn.addEventListener('click', openInputView);
 inputViewBackBtn.addEventListener('click', () => {
     inputView.classList.add('hidden');
     homeView.classList.remove('hidden');
-    initHomeState();
+    initHomeVaultBadge();
 });
 
 function doUndoInput() {
@@ -424,7 +398,7 @@ inputViewAnalyzeBtn.addEventListener('click', () => {
 backBtn.addEventListener('click', () => {
     analysisView.classList.add('hidden');
     homeView.classList.remove('hidden');
-    initHomeState();
+    initHomeVaultBadge();
 
     // Stop engine to save resources when returning to home view
     stockfish.stop();
@@ -434,16 +408,10 @@ backBtn.addEventListener('click', () => {
     analysisQueue = []; // 큐도 초기화하여 백그라운드 엔진 메시지로 인한 충돌 방지
 });
 
-vaultBackBtn.addEventListener('click', () => {
-    vaultView.classList.add('hidden');
-    homeView.classList.remove('hidden');
-    initHomeState();
-});
-
 savedGamesBackBtn.addEventListener('click', () => {
     savedGamesView.classList.add('hidden');
     homeView.classList.remove('hidden');
-    initHomeState();
+    initHomeVaultBadge();
 });
 
 function updateInputBoard() {
@@ -469,12 +437,21 @@ usernameInput.addEventListener('keyup', (e) => {
 
 // 검색창이 비워지면 원래 메뉴들을 다시 보여줍니다.
 usernameInput.addEventListener('input', (e) => {
+    const hasValue = e.target.value.length > 0;
+    clearUsernameBtn.classList.toggle('visible', hasValue);
     if (e.target.value.trim() === '') {
         gamesList.innerHTML = '';
         myLibrarySection.classList.remove('hidden');
         manualInputContainer.classList.remove('hidden');
         manualInputWrapper.classList.add('hidden');
     }
+});
+
+clearUsernameBtn.addEventListener('click', () => {
+    usernameInput.value = '';
+    clearUsernameBtn.classList.remove('visible');
+    usernameInput.focus();
+    usernameInput.dispatchEvent(new Event('input'));
 });
 analyzeBtn.addEventListener('click', () => {
     if (!pgnInput.value.trim()) return;
@@ -514,24 +491,23 @@ document.addEventListener('keydown', (e) => {
     // Ignore keyboard shortcuts if user is typing
     if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
 
-    const inVaultDetail = vaultDetailView && !vaultDetailView.classList.contains('hidden');
+    const inVaultDetail = isVaultDetailActive();
 
     if (!inVaultDetail && analysisQueue.length === 0) return;
 
     if (e.key === 'ArrowLeft') {
         e.preventDefault();
-        if (inVaultDetail) setVaultDetailIndex(vaultDetailIndex - 1);
+        if (inVaultDetail) setVaultDetailIndex(getVaultDetailIndex() - 1);
         else handlePrevMove();
     } else if (e.key === 'ArrowRight') {
         e.preventDefault();
-        if (inVaultDetail) setVaultDetailIndex(vaultDetailIndex + 1);
+        if (inVaultDetail) setVaultDetailIndex(getVaultDetailIndex() + 1);
         else handleNextMove();
     } else if (e.key.toLowerCase() === 'f') {
         // 'F' 키를 누르면 보드 시점(White/Black)을 수동으로 뒤집습니다.
         e.preventDefault();
-        if (inVaultDetail && vaultDetailCg) {
-            const o = vaultDetailCg.state.orientation;
-            vaultDetailCg.set({ orientation: o === 'white' ? 'black' : 'white' });
+        if (inVaultDetail) {
+            flipVaultBoard();
         } else if (cg) {
             const currentOrientation = cg.state.orientation;
             cg.set({ orientation: currentOrientation === 'white' ? 'black' : 'white' });
@@ -559,7 +535,7 @@ let currentTab = 'engine';
 
 function switchTab(tabName) {
     currentTab = tabName;
-    if (tabToggleBtn) tabToggleBtn.textContent = tabName === 'engine' ? 'Engine ⇄' : 'AI ⇄';
+    if (tabToggleBtn) tabToggleBtn.textContent = tabName === 'engine' ? 'Engine' : 'AI';
     document.querySelectorAll('.tab-panel').forEach(panel => {
         panel.classList.toggle('active', panel.id === `tab-${tabName}`);
     });
@@ -596,6 +572,8 @@ function closeMovesOverlay() {
     _overlayGetPgn = null;
 }
 
+initVault({ showMovesOverlay, closeMovesOverlay });
+
 function buildInputMovesQueue() {
     const history = inputChess.history({ verbose: true });
     return history.map((m, i) => ({
@@ -607,10 +585,19 @@ function buildInputMovesQueue() {
 
 movesOverlayBtn.addEventListener('click', () => showMovesOverlay({
     getPgn: () => chess.pgn(),
-    renderBody: () => renderMovesTable(movesBody, analysisQueue, (index) => {
-        updateBoardPosition(index, analysisQueue[index].fen);
-        closeMovesOverlay();
-    }),
+    renderBody: () => {
+        renderMovesTable(movesBody, analysisQueue, (index) => {
+            updateBoardPosition(index, analysisQueue[index].fen);
+            closeMovesOverlay();
+        });
+        // 이미 분석 완료된 수들의 평가치와 분류를 복원
+        for (let i = 0; i < analysisQueue.length; i++) {
+            const move = analysisQueue[i];
+            if (move.engineLines && move.engineLines[0] && move.engineLines[0].scoreStr) {
+                updateUIWithEval(i, move.engineLines[0].scoreStr, move.classification || '');
+            }
+        }
+    },
 }));
 inputViewMovesBtn.addEventListener('click', () => showMovesOverlay({
     getPgn: () => inputBoardPgn.value.trim() || inputChess.pgn(),
@@ -667,6 +654,24 @@ geminiExplanation.addEventListener('click', (e) => {
 
 
 // --- UI Helpers ---
+const moveClassLabel = document.getElementById('moveClassLabel');
+const winChanceDisplay = document.getElementById('winChanceDisplay');
+const ctrlCenterSeparator = document.querySelector('.ctrl-center .bar-separator');
+
+function showReturnBtn() {
+    returnMainLineBtn.classList.remove('hidden');
+    moveClassLabel.classList.add('hidden');
+    winChanceDisplay.classList.add('hidden');
+    if (ctrlCenterSeparator) ctrlCenterSeparator.classList.add('hidden');
+}
+
+function hideReturnBtn() {
+    returnMainLineBtn.classList.add('hidden');
+    moveClassLabel.classList.remove('hidden');
+    winChanceDisplay.classList.remove('hidden');
+    if (ctrlCenterSeparator) ctrlCenterSeparator.classList.remove('hidden');
+}
+
 function showButtonSuccess(button, text) {
     const originalHTML = button.innerHTML;
     button.innerHTML = text;
@@ -798,133 +803,6 @@ confirmSaveGameBtn.addEventListener('click', () => {
     showButtonSuccess(saveMoveBtn, 'Saved!');
 });
 
-// --- My Vault & Practice Logic ---
-function openVaultFromHome() {
-    homeView.classList.add('hidden');
-    vaultView.classList.remove('hidden');
-    updateVaultView();
-}
-
-openVaultBtn.addEventListener('click', openVaultFromHome);
-
-function updateVaultView() {
-    const items = getVaultItems();
-    renderVaultList(vaultList, items, (id) => {
-        if (confirm('Delete this saved move from your Vault?')) {
-            removeVaultItem(id);
-            updateVaultView();
-        }
-    }, openVaultItem);
-}
-
-// --- Vault Detail View ---
-let vaultDetailCg = null;
-let vaultDetailChess = null;
-let vaultDetailFens = []; // fens[i] = position AFTER move i; fens[-1] handled via startFen
-let vaultDetailSans = []; // san strings per move
-let vaultDetailStartFen = START_FEN;
-let vaultDetailIndex = -1;
-let vaultDetailItem = null;
-
-function openVaultItem(item) {
-    if (!item.pgn) {
-        alert('This saved move is from an older version and cannot be opened. Please delete it.');
-        return;
-    }
-
-    const tempChess = new Chess();
-    const result = parseAndLoadPgn(tempChess, item.pgn);
-    if (!result.success) {
-        alert('Saved PGN could not be parsed.');
-        return;
-    }
-
-    vaultDetailItem = item;
-    vaultDetailStartFen = tempChess.header().FEN || START_FEN;
-
-    const replay = new Chess();
-    if (tempChess.header().FEN) replay.load(tempChess.header().FEN);
-    vaultDetailFens = [];
-    vaultDetailSans = [];
-    tempChess.history({ verbose: true }).forEach(m => {
-        const r = replay.move(m);
-        vaultDetailFens.push(replay.fen());
-        vaultDetailSans.push(r.san);
-    });
-
-    vaultDetailChess = new Chess();
-    if (!vaultDetailCg) {
-        vaultDetailCg = Chessground(vaultDetailBoard, {
-            fen: vaultDetailStartFen,
-            animation: { enabled: true, duration: 250 },
-            coordinates: isCoordsEnabled,
-            movable: { free: false, color: undefined },
-            draggable: { enabled: false },
-        });
-    }
-
-    vaultDetailTitle.textContent = item.gameTitle || '복기';
-    vaultInfoCategory.textContent = item.category || '';
-    vaultInfoPlayed.textContent = (item.moveNumber ? `${item.moveNumber}${item.isWhite ? '. ' : '... '}` : '') + (item.san || '');
-    vaultInfoBest.textContent = item.bestMove || 'Unknown';
-    vaultInfoNotes.textContent = item.notes || '';
-
-    vaultView.classList.add('hidden');
-    vaultDetailView.classList.remove('hidden');
-
-    const targetIdx = (typeof item.moveIndex === 'number' && item.moveIndex >= 0 && item.moveIndex < vaultDetailFens.length)
-        ? item.moveIndex
-        : vaultDetailFens.length - 1;
-    setVaultDetailIndex(targetIdx);
-    forceRedraw(vaultDetailCg);
-}
-
-function setVaultDetailIndex(index) {
-    if (vaultDetailFens.length === 0) return;
-    vaultDetailIndex = Math.max(-1, Math.min(vaultDetailFens.length - 1, index));
-    const fen = vaultDetailIndex < 0 ? vaultDetailStartFen : vaultDetailFens[vaultDetailIndex];
-
-    vaultDetailChess.load(fen);
-    const orientation = vaultDetailItem && (vaultDetailItem.isUserWhite !== undefined ? vaultDetailItem.isUserWhite : vaultDetailItem.isWhite) ? 'white' : 'black';
-    vaultDetailCg.set({
-        fen,
-        orientation,
-        turnColor: vaultDetailChess.turn() === 'w' ? 'white' : 'black',
-        movable: { free: false, color: undefined },
-    });
-
-    if (vaultDetailIndex < 0) {
-        vaultDetailMoveLabel.textContent = 'Start';
-        vaultDetailCounter.textContent = `0 / ${vaultDetailFens.length}`;
-    } else {
-        const moveNumber = Math.floor(vaultDetailIndex / 2) + 1;
-        const isWhite = vaultDetailIndex % 2 === 0;
-        vaultDetailMoveLabel.textContent = `${moveNumber}${isWhite ? '.' : '...'} ${vaultDetailSans[vaultDetailIndex]}`;
-        vaultDetailCounter.textContent = `${vaultDetailIndex + 1} / ${vaultDetailFens.length}`;
-    }
-}
-
-vaultDetailBackBtn.addEventListener('click', () => {
-    vaultDetailView.classList.add('hidden');
-    vaultView.classList.remove('hidden');
-});
-vaultDetailPrevBtn.addEventListener('click', () => setVaultDetailIndex(vaultDetailIndex - 1));
-vaultDetailNextBtn.addEventListener('click', () => setVaultDetailIndex(vaultDetailIndex + 1));
-vaultDetailMovesBtn.addEventListener('click', () => showMovesOverlay({
-    getPgn: () => vaultDetailItem ? vaultDetailItem.pgn : '',
-    renderBody: () => {
-        const queue = vaultDetailSans.map((san, i) => ({
-            san,
-            moveNumber: Math.floor(i / 2) + 1,
-            isWhite: i % 2 === 0,
-        }));
-        renderMovesTable(movesBody, queue, (i) => {
-            setVaultDetailIndex(i);
-            closeMovesOverlay();
-        });
-    },
-}));
-
 // --- Saved Games View Logic ---
 function openSavedGamesFromHome() {
     homeView.classList.add('hidden');
@@ -959,9 +837,7 @@ window.addEventListener('resize', () => {
         if (inputCg && !inputView.classList.contains('hidden')) {
             inputCg.redrawAll();
         }
-        if (vaultDetailCg && !vaultDetailView.classList.contains('hidden')) {
-            vaultDetailCg.redrawAll();
-        }
+        redrawVaultBoard();
     }, 100); // 100ms 디바운스 적용
 });
 
@@ -973,7 +849,7 @@ function handleExplorationMove(orig, dest) {
         stockfish.stop();
     } else if (appMode !== 'explore') {
         appMode = 'explore';
-        returnMainLineBtn.classList.remove('hidden');
+        showReturnBtn();
         
         let baseFen = START_FEN;
         if (currentlyViewedIndex >= 0 && analysisQueue[currentlyViewedIndex]) baseFen = analysisQueue[currentlyViewedIndex].fen;
@@ -1010,7 +886,7 @@ function handleExplorationMove(orig, dest) {
 
 function exitExplorationMode() {
     appMode = 'main';
-    returnMainLineBtn.classList.add('hidden');
+    hideReturnBtn();
     explorationEngineLines = [];
     simulationQueue = [];
     
@@ -1255,7 +1131,7 @@ function startNewAnalysis(newQueue, targetIndex = null) {
 
     // 이전 탐색(Exploration) 및 시뮬레이션 모드 상태 완전 초기화
     appMode = 'main';
-    returnMainLineBtn.classList.add('hidden');
+    hideReturnBtn();
 
     // Force Chessground to recalculate board size for mobile
     forceRedraw(cg);
@@ -1441,7 +1317,7 @@ function handleEngineLineClick(lineIndex) {
     simulationIndex = 1;
     
     stockfish.stop();
-    returnMainLineBtn.classList.remove('hidden');
+    showReturnBtn();
     updateBoardForSimulation(simulationIndex);
 }
 

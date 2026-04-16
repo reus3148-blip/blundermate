@@ -23,6 +23,7 @@ Mobile-first chess game review web app. Users load games via Chess.com API or PG
 | File | Role |
 |------|------|
 | `main.js` | App controller — all global state, event wiring, view navigation, analysis queue |
+| `vault.js` | Vault(복기) module — vault list/detail views, state, rendering, navigation |
 | `ui.js` | Pure DOM rendering functions — no state mutations |
 | `utils.js` | Pure logic — eval parsing, move classification, FEN/PGN helpers |
 | `engine.js` | `StockfishEngine` class — wraps Web Worker, parses UCI protocol |
@@ -57,6 +58,13 @@ User Input (PGN / Chess.com API / board)
 Two main screens toggled via CSS class on `.app-container`:
 - **Home** — game input (Chess.com / PGN / board), My Vault, Saved Games, Practice Mode
 - **Analysis** — Chessground board, eval bar, moves table, engine lines, Gemini panel
+
+### Analysis View Key UI Bars
+
+분석 화면에는 두 개의 핵심 바가 있으며, 이 구조를 유지해야 한다:
+
+- **상단 바** (`.analysis-top-bar`) — 뒤로가기 버튼, 앱 타이틀(`blundermate`), 기보 오버레이 버튼(`☰`). 모든 뷰(분석, 보드입력, 복기 상세, 저장 게임)에서 동일 패턴으로 사용.
+- **중간 바** (`.unified-controls` / `#panelTabs`) — 이전/다음 수 네비게이션, Engine⇄AI 탭 토글, 수 분류 라벨(`#moveClassLabel`), 승률/평가치 표시(`#winChanceDisplay`), 저장 버튼. 보드 바로 아래에 위치하며 분석 조작의 중심.
 
 ### Move Classification (EPL Algorithm)
 
