@@ -39,7 +39,7 @@ export function createGeminiHandler({ getState, setState, geminiEl, onOpen }) {
         const move = state.analysisQueue[state.currentlyViewedIndex];
 
         // 예외 3: 오답 상황이 아닌 경우 (API 비용 절약)
-        const needsExplanation = ['Blunder', 'Mistake', 'Missed Win', 'Inaccuracy'].includes(move.classification);
+        const needsExplanation = ['Blunder', 'Mistake', 'Inaccuracy'].includes(move.classification);
         if (!needsExplanation) {
             geminiEl.innerHTML = renderGoodMovePanel();
             onOpen();

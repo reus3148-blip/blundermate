@@ -262,12 +262,10 @@ function formatScoreMode(scoreStr) {
 }
 
 const CLASS_COLOR = {
-    'Brilliant':  'var(--best)',
     'Best':       'var(--best)',
     'Excellent':  'var(--best)',
     'Good':       'var(--tx2)',
     'Inaccuracy': 'var(--inaccuracy)',
-    'Missed Win': 'var(--mistake)',
     'Mistake':    'var(--mistake)',
     'Blunder':    'var(--blunder)',
 };

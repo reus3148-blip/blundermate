@@ -730,7 +730,6 @@ choiceSaveMoveBtn.addEventListener('click', () => {
         const cls = move.classification.toLowerCase();
         if (cls === 'blunder') saveCategory.value = 'blunder';
         else if (cls === 'mistake') saveCategory.value = 'mistake';
-        else if (cls === 'missed win') saveCategory.value = 'missed';
         else saveCategory.value = 'positional';
     } else {
         saveCategory.value = 'positional'; // Default fallback
@@ -1020,35 +1019,8 @@ function handlePgnReviewStart(e = null, isWhiteGame = null, targetIndex = null, 
         tempChess.load(startFen);
     }
 
-    // 기물 가치 (Brilliant 희생 감지용)
-    const PIECE_VALUES = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
-
     chess.history({ verbose: true }).forEach((move, index) => {
         tempChess.move(move);
-
-        // ── Brilliant 감지용 희생 여부 사전 계산 ──────────────────────────────
-        // Chess.com: 폰 희생은 Brilliant 대상 제외, 기물/교환 희생만 인정
-        let isSacrifice = false;
-        if (move.piece !== 'p') {
-            const movedVal = PIECE_VALUES[move.piece] || 0;
-
-            // Case 1: 더 가치 있는 기물로 덜 가치 있는 기물을 포획 (교환 손실)
-            if (move.captured && movedVal > (PIECE_VALUES[move.captured] || 0)) {
-                isSacrifice = true;
-            }
-
-            // Case 2: 이동한 기물이 상대의 더 싼 기물에게 잡힐 수 있는 칸으로 이동 (기물 희생)
-            if (!isSacrifice) {
-                try {
-                    const opponentMoves = tempChess.moves({ verbose: true });
-                    const minAttackerVal = opponentMoves
-                        .filter(m => m.to === move.to)
-                        .reduce((min, m) => Math.min(min, PIECE_VALUES[m.piece] || 0), Infinity);
-                    if (movedVal > minAttackerVal) isSacrifice = true;
-                } catch(e) {}
-            }
-        }
-        // ─────────────────────────────────────────────────────────────────────
 
         newQueue.push({
             fen: tempChess.fen(),
@@ -1057,8 +1029,6 @@ function handlePgnReviewStart(e = null, isWhiteGame = null, targetIndex = null, 
             moveNumber: Math.floor(index / 2) + 1,
             isWhite: index % 2 === 0,
             engineLines: [],
-            isSacrifice,          // Brilliant 감지용
-            movedPiece: move.piece, // 폰 희생 제외 판별용
         });
     });
 
@@ -1272,7 +1242,7 @@ function updateBoardPosition(index, fen) {
     persistentShapes = [];
     if (index > 0 && analysisQueue[index]) {
         const cls = analysisQueue[index].classification;
-        if (cls === 'Blunder' || cls === 'Mistake' || cls === 'Missed Win') {
+        if (cls === 'Blunder' || cls === 'Mistake') {
             const prevMove = analysisQueue[index - 1];
             if (prevMove && prevMove.engineLines && prevMove.engineLines[0] && prevMove.engineLines[0].uci) {
                 const bestUci = prevMove.engineLines[0].uci;
