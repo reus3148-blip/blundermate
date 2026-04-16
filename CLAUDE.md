@@ -24,13 +24,15 @@ Mobile-first chess game review web app. Users load games via Chess.com API or PG
 |------|------|
 | `main.js` | App controller — all global state, event wiring, view navigation, analysis queue |
 | `vault.js` | Vault(복기) module — vault list/detail views, state, rendering, navigation |
+| `savedGames.js` | Saved Games module — game save/load/delete, list view, rendering |
 | `ui.js` | Pure DOM rendering functions — no state mutations |
 | `utils.js` | Pure logic — eval parsing, move classification, FEN/PGN helpers |
 | `engine.js` | `StockfishEngine` class — wraps Web Worker, parses UCI protocol |
 | `gemini.js` | `createGeminiHandler()` — SSE streaming from `/api/analyze`, caches results |
 | `chessApi.js` | Chess.com REST API — fetches recent games by username |
-| `storage.js` | localStorage CRUD — vault items, saved games, settings |
+| `storage.js` | localStorage CRUD — vault items, saved games, settings. 데이터 계층으로 유지 — 장기적으로 Supabase 백엔드 전환 시 이 파일의 내부 구현만 교체하면 vault.js, savedGames.js 등은 수정 불필요 |
 | `api/analyze.js` | Vercel Edge Function — Gemini proxy with system prompt, streams plain text |
+| `api/feedback.js` | Vercel Edge Function — Supabase PostgREST로 피드백 저장 (현재 유일한 Supabase 연동 지점) |
 
 ### Data Flow
 
@@ -80,6 +82,12 @@ Runs in a Web Worker (`engine/stockfish-18-lite-single.js` + `.wasm`). The lite 
 - Backend builds a Korean-language teacher persona prompt, streams Gemini 2.5 Flash response
 - Client renders streamed markdown into the Gemini panel
 - Results cached per `analysisQueue` entry — no repeat API calls for the same position
+
+### Supabase Integration
+
+- **현재:** `api/feedback.js`에서 피드백 저장용으로만 사용 (PostgREST REST API 직접 호출, SDK 미사용)
+- **장기 계획:** vault(복기), saved games 데이터를 Supabase 백엔드로 전환 예정
+- **전환 전략:** `storage.js`를 데이터 계층으로 유지 — 내부 구현을 localStorage → Supabase로 교체하면 vault.js, savedGames.js 등 소비자 코드는 수정 불필요
 
 ## Critical Constraints
 

@@ -1,10 +1,11 @@
 import { Chessground } from 'https://cdnjs.cloudflare.com/ajax/libs/chessground/9.0.0/chessground.min.js';
 import { fetchRecentGames } from './chessApi.js';
 import { StockfishEngine } from './engine.js';
-import { parseEvalData, getDests, convertPvToSan, classifyMove, parseAndLoadPgn } from './utils.js';
-import { renderGamesList, renderMovesTable, updateUIWithEval, highlightActiveMove, renderEngineLines, updateTopEvalDisplay, renderSavedGamesList } from './ui.js';
-import { addVaultItem, getSavedGames, addSavedGame, removeSavedGame } from './storage.js';
+import { parseEvalData, getDests, convertPvToSan, classifyMove, parseAndLoadPgn, escapeHtml } from './utils.js';
+import { renderGamesList, renderMovesTable, updateUIWithEval, highlightActiveMove, renderEngineLines, updateTopEvalDisplay } from './ui.js';
+import { addVaultItem } from './storage.js';
 import { initVault, initHomeVaultBadge, isVaultDetailActive, getVaultDetailIndex, setVaultDetailIndex, flipVaultBoard, setVaultCoords, redrawVaultBoard } from './vault.js';
+import { initSavedGames } from './savedGames.js';
 import { createGeminiHandler } from './gemini.js';
 import { t, setLocale, getLocale } from './strings.js';
 
@@ -19,7 +20,6 @@ const openBoardInputBtn = document.getElementById('openBoardInputBtn');
 const manualInputWrapper = document.getElementById('manualInputWrapper');
 const manualInputContainer = document.getElementById('manualInputContainer');
 const myLibrarySection = document.getElementById('myLibrarySection');
-const openSavedGamesBtn = document.getElementById('openSavedGamesBtn');
 
 // API inputs
 const usernameInput = document.getElementById('usernameInput');
@@ -70,19 +70,7 @@ const confirmSaveBtn = document.getElementById('confirmSaveBtn');
 
 const saveChoiceModal = document.getElementById('saveChoiceModal');
 const choiceSaveMoveBtn = document.getElementById('choiceSaveMoveBtn');
-const choiceSaveGameBtn = document.getElementById('choiceSaveGameBtn');
 const cancelChoiceBtn = document.getElementById('cancelChoiceBtn');
-
-const saveGameModal = document.getElementById('saveGameModal');
-const saveGameTitle = document.getElementById('saveGameTitle');
-const saveGameNotes = document.getElementById('saveGameNotes');
-const cancelSaveGameBtn = document.getElementById('cancelSaveGameBtn');
-const confirmSaveGameBtn = document.getElementById('confirmSaveGameBtn');
-
-// Saved Games Elements
-const savedGamesView = document.getElementById('savedGamesView');
-const savedGamesList = document.getElementById('savedGamesList');
-const savedGamesBackBtn = document.getElementById('savedGamesBackBtn');
 
 // Color Choice Modal Elements
 const colorChoiceModal = document.getElementById('colorChoiceModal');
@@ -132,6 +120,7 @@ let inputChess = new window.Chess(); // 수동 보드 입력용 체스 인스턴
 let inputCg; // 수동 보드 입력용 체스그라운드 인스턴스
 let lastEvalRenderTime = 0; // 엔진 UI 렌더링 스로틀링용 타임스탬프
 const EVAL_RENDER_THROTTLE = 100; // UI 업데이트 제한 시간(ms)
+let isPreviewMode = false; // 분석 미리보기 상태 (엔진 미시작)
 let isGeminiLoading = false; // Gemini API 중복 호출 방지용 플래그
 let geminiAbortController = null; // Gemini API 요청 취소용 컨트롤러
 let isCoordsEnabled = localStorage.getItem('coordsEnabled') === 'true'; // 보드 좌표 표시 여부
@@ -246,7 +235,6 @@ const modalConfigs = [
     { modal: feedbackModal, closeBtn: cancelFeedbackBtn },
     { modal: saveChoiceModal, closeBtn: cancelChoiceBtn, noBg: true },
     { modal: saveModal, closeBtn: cancelSaveBtn, noBg: true },
-    { modal: saveGameModal, closeBtn: cancelSaveGameBtn, noBg: true }
 ];
 
 modalConfigs.forEach(({ modal, closeBtn, noBg }) => {
@@ -400,18 +388,18 @@ backBtn.addEventListener('click', () => {
     homeView.classList.remove('hidden');
     initHomeVaultBadge();
 
+    // Reset preview state
+    if (isPreviewMode) {
+        isPreviewMode = false;
+        removePreviewControls();
+    }
+
     // Stop engine to save resources when returning to home view
     stockfish.stop();
     isAnalyzing = false;
     isWaitingForStop = false;
     pendingQueue = null;
     analysisQueue = []; // 큐도 초기화하여 백그라운드 엔진 메시지로 인한 충돌 방지
-});
-
-savedGamesBackBtn.addEventListener('click', () => {
-    savedGamesView.classList.add('hidden');
-    homeView.classList.remove('hidden');
-    initHomeVaultBadge();
 });
 
 function updateInputBoard() {
@@ -461,6 +449,7 @@ analyzeBtn.addEventListener('click', () => {
 
 // --- Move Navigation Helpers ---
 function handlePrevMove() {
+    if (isPreviewMode) return;
     if (appMode === 'simulate') {
         simulationIndex = Math.max(0, simulationIndex - 1);
         updateBoardForSimulation(simulationIndex);
@@ -474,6 +463,7 @@ function handlePrevMove() {
 }
 
 function handleNextMove() {
+    if (isPreviewMode) return;
     if (appMode === 'simulate') {
         simulationIndex = Math.min(simulationQueue.length - 1, simulationIndex + 1);
         updateBoardForSimulation(simulationIndex);
@@ -573,6 +563,16 @@ function closeMovesOverlay() {
 }
 
 initVault({ showMovesOverlay, closeMovesOverlay });
+initSavedGames({
+    onLoadGame: (pgn) => {
+        pgnInput.value = pgn;
+        handlePgnReviewStart(null, null, null, true);
+    },
+    getChess: () => chess,
+    showButtonSuccess,
+    saveMoveBtn,
+    initHomeVaultBadge,
+});
 
 function buildInputMovesQueue() {
     const history = inputChess.history({ verbose: true });
@@ -765,67 +765,6 @@ confirmSaveBtn.addEventListener('click', () => {
     showButtonSuccess(saveMoveBtn, 'Saved!');
 });
 
-// --- Save Entire Game Logic ---
-choiceSaveGameBtn.addEventListener('click', () => {
-    saveChoiceModal.classList.add('hidden');
-    
-    // PGN 헤더에서 플레이어 이름 추출 시도
-    let defaultTitle = "Saved Game";
-    const h = chess?.header?.();
-    if (h && h.White && h.Black && h.White !== '?' && h.Black !== '?') {
-        defaultTitle = `${h.White} vs ${h.Black}`;
-    }
-
-    saveGameTitle.value = defaultTitle;
-    saveGameNotes.value = '';
-    saveGameModal.classList.remove('hidden');
-});
-
-// removed cancelSaveGameBtn event listener
-
-confirmSaveGameBtn.addEventListener('click', () => {
-    const title = saveGameTitle.value.trim() || 'Untitled Game';
-    const notes = saveGameNotes.value.trim();
-    const pgn = chess.pgn();
-    
-    const savedGameItem = {
-        id: Date.now(),
-        date: new Date().toISOString(),
-        title: title,
-        notes: notes,
-        pgn: pgn
-    };
-    
-    addSavedGame(savedGameItem);
-    
-    saveGameModal.classList.add('hidden');
-    
-    showButtonSuccess(saveMoveBtn, 'Saved!');
-});
-
-// --- Saved Games View Logic ---
-function openSavedGamesFromHome() {
-    homeView.classList.add('hidden');
-    savedGamesView.classList.remove('hidden');
-    updateSavedGamesView();
-}
-
-openSavedGamesBtn.addEventListener('click', openSavedGamesFromHome);
-
-function updateSavedGamesView() {
-    const games = getSavedGames();
-    renderSavedGamesList(savedGamesList, games, (id) => {
-        if (confirm('Delete this saved game?')) {
-            removeSavedGame(id);
-            updateSavedGamesView();
-        }
-    }, (pgn) => {
-        savedGamesView.classList.add('hidden');
-        pgnInput.value = pgn;
-        handlePgnReviewStart();
-    });
-}
-
 // Redraw board on window resize or device rotation for better responsive behavior
 let resizeTimeout;
 window.addEventListener('resize', () => {
@@ -842,6 +781,7 @@ window.addEventListener('resize', () => {
 });
 
 function handleExplorationMove(orig, dest) {
+    if (isPreviewMode) return;
     if (appMode === 'simulate') {
         appMode = 'explore';
         explorationChess.load(simulationQueue[simulationIndex].fen);
@@ -914,7 +854,7 @@ async function handleApiFetch() {
         const recentGames = await fetchRecentGames(username);
         renderGamesList(gamesList, recentGames, username, (pgn, isWhiteGame) => {
             pgnInput.value = pgn;
-            handlePgnReviewStart(null, isWhiteGame);
+            handlePgnReviewStart(null, isWhiteGame, null, true);
         });
 
         // 검색 성공 시 화면을 넓게 쓰기 위해 다른 메뉴 숨김
@@ -1041,7 +981,7 @@ stockfish = new StockfishEngine('./engine/stockfish-18-lite-single.js', engineCa
 // ==========================================
 // 7. Analysis Workflow
 // ==========================================
-function handlePgnReviewStart(e = null, isWhiteGame = null, targetIndex = null) {
+function handlePgnReviewStart(e = null, isWhiteGame = null, targetIndex = null, previewOnly = false) {
     isUserWhite = isWhiteGame !== null ? isWhiteGame : true;
 
     const pgnText = pgnInput.value.trim();
@@ -1054,7 +994,7 @@ function handlePgnReviewStart(e = null, isWhiteGame = null, targetIndex = null) 
         alert('Invalid PGN or move format. Please check your text.');
         return;
     }
-    
+
     if (result.pgn) {
         pgnInput.value = result.pgn;
     }
@@ -1066,7 +1006,7 @@ function handlePgnReviewStart(e = null, isWhiteGame = null, targetIndex = null) 
     if (startFen) {
         tempChess.load(startFen);
     }
-    
+
     // 기물 가치 (Brilliant 희생 감지용)
     const PIECE_VALUES = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
 
@@ -1109,6 +1049,19 @@ function handlePgnReviewStart(e = null, isWhiteGame = null, targetIndex = null) 
         });
     });
 
+    // Preview mode: show analysis view without starting engine
+    if (previewOnly) {
+        if (isAnalyzing || isWaitingForStop) {
+            stockfish.stop();
+            isAnalyzing = false;
+            isWaitingForStop = false;
+            pendingQueue = null;
+            pendingTargetIndex = null;
+        }
+        startNewAnalysis(newQueue, targetIndex, true);
+        return;
+    }
+
     // Safe Engine Restart Logic
     if (isAnalyzing || isWaitingForStop) {
         analysisStatus.className = 'tag engine-loading';
@@ -1124,7 +1077,7 @@ function handlePgnReviewStart(e = null, isWhiteGame = null, targetIndex = null) 
     startNewAnalysis(newQueue, targetIndex);
 }
 
-function startNewAnalysis(newQueue, targetIndex = null) {
+function startNewAnalysis(newQueue, targetIndex = null, previewOnly = false) {
     // Switch to Analysis View
     homeView.classList.add('hidden');
     analysisView.classList.remove('hidden');
@@ -1138,7 +1091,6 @@ function startNewAnalysis(newQueue, targetIndex = null) {
 
     analysisQueue = newQueue;
     analyzeBtn.disabled = true;
-    analysisStatus.className = 'tag engine-loading';
 
     renderMovesTable(movesBody, analysisQueue, (index) => {
         updateBoardPosition(index, analysisQueue[index].fen);
@@ -1146,7 +1098,6 @@ function startNewAnalysis(newQueue, targetIndex = null) {
     });
 
     currentAnalysisIndex = 0;
-    analysisStatus.textContent = `Analyzing 0 / ${analysisQueue.length} moves...`;
 
     if (analysisQueue.length > 0) {
         persistentShapes = [];
@@ -1158,11 +1109,93 @@ function startNewAnalysis(newQueue, targetIndex = null) {
         });
         currentlyViewedIndex = -1;
         updateTopEvalDisplay('-');
-
-        if (targetIndex != null && targetIndex >= 0 && targetIndex < analysisQueue.length) {
-            updateBoardPosition(targetIndex, analysisQueue[targetIndex].fen);
-        }
     }
+
+    if (previewOnly) {
+        isPreviewMode = true;
+        renderPreviewCard();
+        applyPreviewControls();
+        return;
+    }
+
+    analysisStatus.className = 'tag engine-loading';
+    analysisStatus.textContent = `Analyzing 0 / ${analysisQueue.length} moves...`;
+
+    if (analysisQueue.length > 0 && targetIndex != null && targetIndex >= 0 && targetIndex < analysisQueue.length) {
+        updateBoardPosition(targetIndex, analysisQueue[targetIndex].fen);
+    }
+
+    if (isEngineReady) {
+        processNextInQueue();
+    }
+}
+
+// ==========================================
+// 7-2. Analysis Preview Mode
+// ==========================================
+function renderPreviewCard() {
+    const h = chess.header() || {};
+    const white = h.White || '?';
+    const black = h.Black || '?';
+    const title = (white !== '?' && black !== '?') ? `${white} vs ${black}` : '';
+
+    const metaParts = [];
+    const datePart = h.Date;
+    if (datePart && datePart !== '????.??.??') metaParts.push(datePart.replace(/\./g, '.'));
+    metaParts.push(t('preview_moves').replace('{n}', analysisQueue.length));
+    const opening = h.Opening || '';
+    if (opening) metaParts.push(opening);
+    const metaLine = metaParts.join(' \u00b7 ');
+
+    engineLinesContainer.innerHTML = `
+        <div class="preview-card">
+            ${title ? `<div class="preview-card-title">${escapeHtml(title)}</div>` : ''}
+            <div class="preview-card-meta">${escapeHtml(metaLine)}</div>
+            <button id="startAnalysisBtn" class="preview-start-btn">${t('analysis_start_btn')}</button>
+        </div>
+    `;
+
+    document.getElementById('startAnalysisBtn').addEventListener('click', startAnalysisFromPreview);
+}
+
+function applyPreviewControls() {
+    prevMoveBtn.disabled = true;
+    nextMoveBtn.disabled = true;
+    prevMoveBtn.style.color = 'var(--tx3)';
+    nextMoveBtn.style.color = 'var(--tx3)';
+
+    tabToggleBtn.disabled = true;
+    tabToggleBtn.style.opacity = '0.4';
+
+    saveMoveBtn.classList.add('hidden');
+
+    winChanceDisplay.classList.add('hidden');
+    moveClassLabel.classList.add('hidden');
+    if (ctrlCenterSeparator) ctrlCenterSeparator.classList.add('hidden');
+}
+
+function removePreviewControls() {
+    prevMoveBtn.disabled = false;
+    nextMoveBtn.disabled = false;
+    prevMoveBtn.style.color = '';
+    nextMoveBtn.style.color = '';
+
+    tabToggleBtn.disabled = false;
+    tabToggleBtn.style.opacity = '';
+
+    saveMoveBtn.classList.remove('hidden');
+
+    winChanceDisplay.classList.remove('hidden');
+    moveClassLabel.classList.remove('hidden');
+    if (ctrlCenterSeparator) ctrlCenterSeparator.classList.remove('hidden');
+}
+
+function startAnalysisFromPreview() {
+    isPreviewMode = false;
+    removePreviewControls();
+
+    analysisStatus.className = 'tag engine-loading';
+    analysisStatus.textContent = `Analyzing 0 / ${analysisQueue.length} moves...`;
 
     if (isEngineReady) {
         processNextInQueue();
@@ -1204,6 +1237,7 @@ function processNextInQueue() {
 // 8. UI Rendering
 // ==========================================
 function updateBoardPosition(index, fen) {
+    if (isPreviewMode) return;
     if (appMode === 'explore') {
         exitExplorationMode();
     }
