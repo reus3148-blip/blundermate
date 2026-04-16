@@ -99,12 +99,12 @@ function renderSavedGamesList(container, savedGames, onDelete, onLoad, onEdit) {
 // ==========================================
 // Core Functions
 // ==========================================
-function openSavedGamesFromHome() {
+async function openSavedGamesFromHome() {
     _activeFilter = 'all';
     syncFilterBar();
     homeView.classList.add('hidden');
     savedGamesView.classList.remove('hidden');
-    updateSavedGamesView();
+    await updateSavedGamesView();
 }
 
 // Dependencies injected via initSavedGames()
@@ -113,12 +113,12 @@ let _getChess = null;
 let _showButtonSuccess = null;
 let _saveMoveBtn = null;
 
-function updateSavedGamesView() {
-    const games = getSavedGames();
-    renderSavedGamesList(savedGamesList, games, (id) => {
+async function updateSavedGamesView() {
+    const games = await getSavedGames();
+    renderSavedGamesList(savedGamesList, games, async (id) => {
         if (confirm('Delete this saved game?')) {
             removeSavedGame(id);
-            updateSavedGamesView();
+            await updateSavedGamesView();
         }
     }, (pgn) => {
         savedGamesView.classList.add('hidden');
@@ -167,12 +167,12 @@ export function initSavedGames({ onLoadGame, getChess, showButtonSuccess, saveMo
     });
 
     // Filter bar (Saved Games list)
-    savedGamesFilterBar.addEventListener('click', (e) => {
+    savedGamesFilterBar.addEventListener('click', async (e) => {
         const btn = e.target.closest('.pill-btn');
         if (!btn) return;
         _activeFilter = btn.dataset.filter;
         syncFilterBar();
-        updateSavedGamesView();
+        await updateSavedGamesView();
     });
 
     choiceSaveGameBtn.addEventListener('click', () => {
@@ -194,7 +194,7 @@ export function initSavedGames({ onLoadGame, getChess, showButtonSuccess, saveMo
         saveGameModal.classList.remove('hidden');
     });
 
-    confirmSaveGameBtn.addEventListener('click', () => {
+    confirmSaveGameBtn.addEventListener('click', async () => {
         const title = saveGameTitle.value.trim() || 'Untitled Game';
         const notes = saveGameNotes.value.trim();
         const category = getSelectedCategory();
@@ -203,7 +203,7 @@ export function initSavedGames({ onLoadGame, getChess, showButtonSuccess, saveMo
             updateSavedGame(_editingGameId, { title, notes, category });
             _editingGameId = null;
             saveGameModal.classList.add('hidden');
-            updateSavedGamesView();
+            await updateSavedGamesView();
             return;
         }
 
@@ -211,7 +211,7 @@ export function initSavedGames({ onLoadGame, getChess, showButtonSuccess, saveMo
         const pgn = chess.pgn();
 
         const savedGameItem = {
-            id: Date.now(),
+            id: crypto.randomUUID(),
             date: new Date().toISOString(),
             title: title,
             notes: notes,

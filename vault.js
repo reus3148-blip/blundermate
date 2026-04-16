@@ -101,8 +101,8 @@ function forceRedraw(instance) {
 // ==========================================
 // Core Functions
 // ==========================================
-export function initHomeVaultBadge() {
-    const vaultItems = getVaultItems();
+export async function initHomeVaultBadge() {
+    const vaultItems = await getVaultItems();
     const count = vaultItems.length;
     if (count > 0) {
         vaultCountText.textContent = t('vault_count').replace('{count}', count);
@@ -112,18 +112,18 @@ export function initHomeVaultBadge() {
     }
 }
 
-function openVaultFromHome() {
+async function openVaultFromHome() {
     homeView.classList.add('hidden');
     vaultView.classList.remove('hidden');
-    updateVaultView();
+    await updateVaultView();
 }
 
-function updateVaultView() {
-    const items = getVaultItems();
-    renderVaultList(vaultList, items, (id) => {
+async function updateVaultView() {
+    const items = await getVaultItems();
+    renderVaultList(vaultList, items, async (id) => {
         if (confirm('Delete this saved move from your Vault?')) {
             removeVaultItem(id);
-            updateVaultView();
+            await updateVaultView();
         }
     }, openVaultItem);
 }
