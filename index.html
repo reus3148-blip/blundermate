@@ -43,9 +43,7 @@
                 </div>
 
                 <div id="manualInputContainer" class="home-secondary-links">
-                    <button id="toggleManualBtn" class="home-link-btn" data-i18n="pgnPaste">PGN 붙여넣기</button>
-                    <span class="home-link-sep">·</span>
-                    <button id="openBoardInputBtn" class="home-link-btn" data-i18n="boardInput">직접 입력</button>
+                    <button id="openBoardInputBtn" class="home-link-btn" data-i18n="manualInput">PGN 붙여넣기 또는 직접 입력</button>
                 </div>
 
                 <div id="manualInputWrapper" style="display:none">
@@ -55,15 +53,27 @@
 
                 <div id="gamesList" class="games-list"></div>
 
-                <div class="home-divider"></div>
+                <div class="home-spacer"></div>
+                <div class="library-label" data-i18n="archive_label">보관함</div>
 
-                <section id="myLibrarySection" class="my-library-section">
-                    <div class="library-label" data-i18n="archive_label">보관함</div>
-                    <div class="library-btn-row">
-                        <button id="openVaultBtn" class="lib-vault-btn"><span data-i18n="archive_vault_btn">복기</span><span id="vaultCountBadge" class="vault-count-badge hidden"></span></button>
-                        <button id="openSavedGamesBtn" class="lib-archive-btn" data-i18n="archive_saved_games_btn">저장된 게임</button>
-                    </div>
-                </section>
+                <div id="myLibrarySection" class="library-rows">
+                    <button id="openVaultBtn" class="library-row library-row--first">
+                        <span class="library-row-name" data-i18n="archive_vault_btn">복기</span>
+                        <span class="library-row-right">
+                            <span id="vaultCountText" class="library-row-count hidden"></span>
+                            <span class="library-row-chevron">›</span>
+                        </span>
+                    </button>
+                    <button id="openSavedGamesBtn" class="library-row">
+                        <span class="library-row-name" data-i18n="archive_saved_games_btn">저장된 게임</span>
+                        <span class="library-row-right">
+                            <span id="savedGamesCountText" class="library-row-count hidden"></span>
+                            <span class="library-row-chevron">›</span>
+                        </span>
+                    </button>
+                </div>
+
+                <div class="home-ad-space"></div>
             </div>
         </div>
 

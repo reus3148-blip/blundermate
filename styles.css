@@ -323,50 +323,76 @@ body {
     flex-shrink: 0;
 }
 
-/* ==========================================
-   Home View: My Library (State A)
-   ========================================== */
-.my-library-section {
-    padding: 0 16px 24px;
+.home-spacer {
+    min-height: 32px;
+    max-height: 80px;
+    flex: 1;
 }
 
 .library-label {
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 700;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.06em;
     color: var(--tx3);
-    margin-bottom: 12px;
+    padding: 0 16px;
+    margin-bottom: 4px;
 }
 
-.library-btn-row {
+/* ==========================================
+   Home View: Library Rows
+   ========================================== */
+.library-rows {
+    padding: 0 16px;
+}
+
+.library-row {
     display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    height: 52px;
+    background: none;
+    border: none;
+    border-bottom: 1px solid var(--brd);
+    cursor: pointer;
+    font-family: inherit;
+    padding: 0;
+}
+
+.library-row--first {
+    border-top: 1px solid var(--brd);
+}
+
+.library-row-name {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--tx);
+}
+
+.library-row-right {
+    display: flex;
+    align-items: center;
     gap: 8px;
 }
 
-.lib-vault-btn {
-    flex: 1;
-    height: 44px;
-    border-radius: 8px;
-    background: var(--ac-lo);
-    border: 1px solid var(--ac-br);
-    color: var(--ac);
-    font-weight: 700;
-    font-size: 13px;
-    cursor: pointer;
-    transition: opacity 0.15s ease;
-    font-family: inherit;
-}
-
-.lib-vault-btn:hover { opacity: 0.8; }
-
-.vault-count-badge {
-    display: inline-block;
-    margin-left: 5px;
+.library-row-count {
     font-size: 11px;
-    color: var(--ac);
-    font-weight: 600;
+    color: var(--tx2);
 }
-.vault-count-badge.hidden { display: none; }
+
+.library-row-count.hidden {
+    display: none;
+}
+
+.library-row-chevron {
+    font-size: 16px;
+    color: var(--tx3);
+}
+
+.home-ad-space {
+    height: 60px;
+    flex-shrink: 0;
+}
 
 /* ==========================================
    Input View
@@ -415,20 +441,6 @@ body {
 
 .input-analyze-btn:hover { opacity: 0.85; }
 
-.lib-archive-btn {
-    flex: 1;
-    height: 44px;
-    border-radius: 8px;
-    background: transparent;
-    border: 1px solid var(--brd2);
-    color: var(--tx2);
-    font-size: 13px;
-    cursor: pointer;
-    transition: color 0.15s ease;
-    font-family: inherit;
-}
-
-.lib-archive-btn:hover { color: var(--tx); }
 
 /* ==========================================
    Home View: State B — Greeting
@@ -557,14 +569,6 @@ body {
     padding: 0 16px 20px;
 }
 
-.lib-btn--full {
-    height: 40px;
-    font-size: 12px;
-}
-
-.lib-vault-btn.lib-btn--full {
-    font-weight: 700;
-}
 
 /* ==========================================
    Home View: Games list (shared)
@@ -636,8 +640,6 @@ body {
     flex-direction: column;
     gap: 0.5rem;
     overflow-y: auto;
-    flex: 1;
-    min-height: 0;
     padding: 0 16px;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior-y: contain;
@@ -1787,6 +1789,12 @@ th {
     color: var(--tx3);
 }
 
+.saved-game-card-actions {
+    display: flex;
+    gap: 4px;
+}
+
+.saved-game-card .edit-btn,
 .saved-game-card .delete-btn {
     color: var(--tx3);
     background: none;
@@ -1796,6 +1804,10 @@ th {
     display: flex;
     align-items: center;
     transition: color 0.15s ease;
+}
+
+.saved-game-card .edit-btn:hover {
+    color: var(--ac);
 }
 
 .saved-game-card .delete-btn:hover {

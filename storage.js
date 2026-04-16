@@ -58,3 +58,12 @@ export function removeSavedGame(id) {
         console.error("Failed to remove saved game:", e);
     }
 }
+
+export function updateSavedGame(id, updates) {
+    try {
+        const games = getSavedGames().map(g => g.id === id ? { ...g, ...updates } : g);
+        localStorage.setItem(SAVED_GAMES_KEY, JSON.stringify(games));
+    } catch (e) {
+        console.error("Failed to update saved game:", e);
+    }
+}

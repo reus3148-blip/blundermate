@@ -9,7 +9,7 @@ import { t } from './strings.js';
 // ==========================================
 const homeView = document.getElementById('homeView');
 const openVaultBtn = document.getElementById('openVaultBtn');
-const vaultCountBadge = document.getElementById('vaultCountBadge');
+const vaultCountText = document.getElementById('vaultCountText');
 const vaultView = document.getElementById('vaultView');
 const vaultList = document.getElementById('vaultList');
 const vaultBackBtn = document.getElementById('vaultBackBtn');
@@ -105,10 +105,10 @@ export function initHomeVaultBadge() {
     const vaultItems = getVaultItems();
     const count = vaultItems.length;
     if (count > 0) {
-        vaultCountBadge.textContent = count;
-        vaultCountBadge.classList.remove('hidden');
+        vaultCountText.textContent = t('vault_count').replace('{count}', count);
+        vaultCountText.classList.remove('hidden');
     } else {
-        vaultCountBadge.classList.add('hidden');
+        vaultCountText.classList.add('hidden');
     }
 }
 
