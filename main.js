@@ -1653,27 +1653,26 @@ function updateBoardForSimulation(index) {
     });
 }
 
+// PWA Service Worker — 일시 비활성화 (베타 기간)
+// 재활성화 시점은 Phase 3 이후 검토
 if ('serviceWorker' in navigator) {
-    const swHost = window.location.hostname;
-    const swIsLocalhost = swHost === 'localhost' || swHost === '127.0.0.1' || swHost.endsWith('.local');
-
-    window.addEventListener('load', async () => {
-        if (swIsLocalhost) {
-            console.log('[SW] Disabled on localhost');
-            try {
-                const regs = await navigator.serviceWorker.getRegistrations();
-                await Promise.all(regs.map(r => r.unregister()));
-                if (typeof caches !== 'undefined') {
-                    const keys = await caches.keys();
-                    await Promise.all(keys.map(k => caches.delete(k)));
-                }
-            } catch (err) {
-                console.warn('[SW] localhost cleanup failed:', err);
-            }
-            return;
-        }
-        navigator.serviceWorker.register('/sw.js').catch(err => {
-            console.warn('SW registration failed:', err);
+    // 기존 유저의 브라우저에 설치된 SW 전부 제거
+    navigator.serviceWorker.getRegistrations().then(registrations => {
+        registrations.forEach(reg => {
+            reg.unregister().then(success => {
+                if (success) console.log('[SW] Unregistered existing service worker');
+            });
         });
     });
+
+    // 기존 캐시 전부 삭제
+    if ('caches' in window) {
+        caches.keys().then(keys => {
+            keys.forEach(key => {
+                caches.delete(key).then(success => {
+                    if (success) console.log('[SW] Deleted cache:', key);
+                });
+            });
+        });
+    }
 }
