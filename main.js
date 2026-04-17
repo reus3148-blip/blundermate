@@ -1428,8 +1428,9 @@ const summaryGraphEl = document.getElementById('summaryGraph');
 const summaryReportEl = document.getElementById('summaryReport');
 
 function shouldShowSummary(index) {
+    // preview 모드(저장 게임/복기 초기 진입)에서도 0수 진입을 허용한다.
+    // 엔진 데이터가 비어있으면 renderSummaryGraph가 "분석 데이터 없음" 빈 상태를 그린다.
     return appMode === 'main'
-        && !isPreviewMode
         && analysisQueue.length > 0
         && index === -1;
 }
