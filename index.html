@@ -145,9 +145,10 @@
                 <button id="movesOverlayBtn" class="topbar-icon-btn" title="기보" data-i18n-title="moves">☰</button>
             </div>
 
-            <!-- Board -->
+            <!-- Board (또는 0수 상태의 승률 그래프) -->
             <div class="board-wrapper">
                 <div id="boardContainer" class="board-container"></div>
+                <div id="summaryGraph" class="summary-graph" aria-hidden="true"></div>
             </div>
 
             <!-- Unified Controls Bar -->
@@ -195,6 +196,9 @@
                 </div>
 
             </div><!-- /.panel-content -->
+
+            <!-- 0수(시작 포지션) 상태의 리포트 영역 — panel-content와 자리를 교체함 -->
+            <div id="summaryReport" class="summary-report" aria-hidden="true"></div>
 
             <!-- Status (analysis progress) -->
             <div class="status-bar">
