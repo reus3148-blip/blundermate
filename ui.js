@@ -291,11 +291,11 @@ export function renderSummaryGraph(container, analysisQueue, isUserWhite) {
     }
 
     const W = 320;
-    const H = 320;
+    const H = 160;
     const padL = 10;
     const padR = 10;
-    const padT = 14;
-    const padB = 20;
+    const padT = 10;
+    const padB = 18;
     const plotW = W - padL - padR;
     const plotH = H - padT - padB;
 
@@ -370,9 +370,10 @@ const CLASS_DOT_COLOR = {
 };
 
 /**
- * 하단 리포트 표 (정확도 + 수 분류 카운트) 렌더링.
+ * 하단 리포트: 정확도 + 수 분류를 하나의 표로 통합, 하단에 "첫 수부터 복기 →" 버튼.
+ * onStartReview 콜백은 버튼 클릭 시 호출된다 (1수로 이동).
  */
-export function renderSummaryReport(container, analysisQueue, isUserWhite) {
+export function renderSummaryReport(container, analysisQueue, isUserWhite, onStartReview) {
     if (!container) return;
 
     const counts = { white: {}, black: {} };
@@ -388,45 +389,44 @@ export function renderSummaryReport(container, analysisQueue, isUserWhite) {
     const accB = computePlayerAccuracy(analysisQueue, isUserWhite, false);
     const fmtAcc = (a) => a === null ? '—' : a.toFixed(1) + '%';
 
-    const rows = CLASS_ORDER.map(c => `
-        <tr>
-            <td class="summary-class-cell">
-                <span class="summary-class-dot" style="background:${CLASS_DOT_COLOR[c]};"></span>
+    const classRows = CLASS_ORDER.map((c, idx) => `
+        <tr${idx === 0 ? ' class="review-stats-class-first"' : ''}>
+            <td class="review-stats-label">
+                <span class="review-stats-dot" style="background:${CLASS_DOT_COLOR[c]};"></span>
                 <span>${escapeHtml(t(CLASS_I18N[c]))}</span>
             </td>
-            <td class="summary-count">${counts.white[c]}</td>
-            <td class="summary-count">${counts.black[c]}</td>
+            <td class="review-stats-num">${counts.white[c]}</td>
+            <td class="review-stats-num">${counts.black[c]}</td>
         </tr>
     `).join('');
 
     container.innerHTML = `
-        <div class="summary-card">
-            <div class="summary-card-label">${escapeHtml(t('report_accuracy'))}</div>
-            <div class="summary-accuracy-row">
-                <div class="summary-accuracy-cell">
-                    <div class="summary-accuracy-side">${escapeHtml(t('report_white'))}</div>
-                    <div class="summary-accuracy-value">${fmtAcc(accW)}</div>
-                </div>
-                <div class="summary-accuracy-cell">
-                    <div class="summary-accuracy-side">${escapeHtml(t('report_black'))}</div>
-                    <div class="summary-accuracy-value">${fmtAcc(accB)}</div>
-                </div>
-            </div>
-        </div>
-        <div class="summary-card">
-            <div class="summary-card-label">${escapeHtml(t('report_move_classification'))}</div>
-            <table class="summary-class-table">
+        <div class="review-stats-card">
+            <table class="review-stats-table">
                 <thead>
                     <tr>
                         <th></th>
-                        <th class="summary-count">${escapeHtml(t('report_white'))}</th>
-                        <th class="summary-count">${escapeHtml(t('report_black'))}</th>
+                        <th>${escapeHtml(t('report_white'))}</th>
+                        <th>${escapeHtml(t('report_black'))}</th>
                     </tr>
                 </thead>
-                <tbody>${rows}</tbody>
+                <tbody>
+                    <tr class="review-stats-accuracy">
+                        <td class="review-stats-label">${escapeHtml(t('report_accuracy'))}</td>
+                        <td class="review-stats-num-strong">${fmtAcc(accW)}</td>
+                        <td class="review-stats-num-strong">${fmtAcc(accB)}</td>
+                    </tr>
+                    ${classRows}
+                </tbody>
             </table>
         </div>
+        <button type="button" class="review-start-btn" id="startReviewBtn">${escapeHtml(t('start_review_from_first'))}</button>
     `;
+
+    const btn = container.querySelector('#startReviewBtn');
+    if (btn && typeof onStartReview === 'function') {
+        btn.addEventListener('click', onStartReview);
+    }
 }
 
 /**

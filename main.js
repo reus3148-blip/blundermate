@@ -1440,7 +1440,7 @@ function applySummaryView(index) {
     analysisView.classList.toggle('view-summary', on);
     if (on) {
         renderSummaryGraph(summaryGraphEl, analysisQueue, isUserWhite);
-        renderSummaryReport(summaryReportEl, analysisQueue, isUserWhite);
+        renderSummaryReport(summaryReportEl, analysisQueue, isUserWhite, handleNextMove);
     }
 }
 
