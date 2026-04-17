@@ -2,8 +2,8 @@ import { Chessground } from 'https://cdnjs.cloudflare.com/ajax/libs/chessground/
 import { fetchRecentGames } from './chessApi.js';
 import { StockfishEngine } from './engine.js';
 import { parseEvalData, getDests, convertPvToSan, classifyMove, parseAndLoadPgn, escapeHtml, parseOpeningFromPgn } from './utils.js';
-import { renderGamesList, renderMovesTable, updateUIWithEval, highlightActiveMove, renderEngineLines, updateTopEvalDisplay } from './ui.js';
-import { addVaultItem, getSavedGames, setUserId, getUserId, ONBOARDING_KEY, COORDS_KEY, GEMINI_KEY, EVAL_MODE_KEY } from './storage.js';
+import { renderMovesTable, updateUIWithEval, highlightActiveMove, renderEngineLines, updateTopEvalDisplay } from './ui.js';
+import { addVaultItem, getSavedGames, setMyUserId, getMyUserId, ONBOARDING_KEY, COORDS_KEY, GEMINI_KEY, EVAL_MODE_KEY } from './storage.js';
 import { initVault, initHomeVaultBadge, isVaultDetailActive, getVaultDetailIndex, setVaultDetailIndex, flipVaultBoard, setVaultCoords, redrawVaultBoard } from './vault.js';
 import { initSavedGames, openSaveGameModalForPgn } from './savedGames.js';
 import { createGeminiHandler } from './gemini.js';
@@ -17,14 +17,25 @@ const pgnInput = document.getElementById('pgnInput');
 const analyzeBtn = document.getElementById('analyzeBtn');
 const openBoardInputBtn = document.getElementById('openBoardInputBtn');
 const manualInputWrapper = document.getElementById('manualInputWrapper');
-const manualInputContainer = document.getElementById('manualInputContainer');
-const myLibrarySection = document.getElementById('myLibrarySection');
-
 // API inputs
 const usernameInput = document.getElementById('usernameInput');
 const clearUsernameBtn = document.getElementById('clearUsernameBtn');
 const fetchBtn = document.getElementById('fetchBtn');
-const gamesList = document.getElementById('gamesList');
+const homeRecentLabel = document.getElementById('homeRecentLabel');
+const backToMyGamesBtn = document.getElementById('backToMyGamesBtn');
+
+// ── Viewing User State ─────────────────────────────────────────────
+// viewingUserId: 메모리 전용 상태. null이면 내 계정(myUserId)을 보고 있는 것.
+// 문자열이면 다른 유저 검색 상태. **localStorage에 절대 쓰지 말 것.**
+// vault/saved_games 저장·조회는 반드시 getMyUserId()만 사용한다(storage.js).
+let viewingUserId = null;
+function getViewingUserId() {
+    return viewingUserId || getMyUserId();
+}
+function isViewingOtherUser() {
+    const my = getMyUserId();
+    return !!viewingUserId && viewingUserId !== my;
+}
 
 // Analysis Board UI
 const analysisStatus = document.getElementById('analysisStatus');
@@ -93,6 +104,11 @@ const cancelFeedbackBtn = document.getElementById('cancelFeedbackBtn');
 const closeFeedbackBtn = document.getElementById('closeFeedbackBtn');
 const submitFeedbackBtn = document.getElementById('submitFeedbackBtn');
 const feedbackStatusText = document.getElementById('feedbackStatusText');
+
+// User Search Modal
+const openUserSearchBtn = document.getElementById('openUserSearchBtn');
+const userSearchModal = document.getElementById('userSearchModal');
+const closeUserSearchBtn = document.getElementById('closeUserSearchBtn');
 
 // ==========================================
 // 2. Application State
@@ -187,24 +203,43 @@ async function refreshHomeCounts() {
     loadHomeRecentGames();
 }
 
-function loadHomeRecentGames() {
-    const userId = getUserId();
+function updateHomeRecentHeader(overrideUsername) {
+    if (!homeRecentLabel || !backToMyGamesBtn) return;
+    if (overrideUsername) {
+        homeRecentLabel.textContent = t('home_other_user_games').replace('{username}', overrideUsername);
+        homeRecentLabel.removeAttribute('data-i18n');
+        backToMyGamesBtn.classList.remove('hidden');
+    } else {
+        homeRecentLabel.textContent = t('home_recent_games');
+        homeRecentLabel.setAttribute('data-i18n', 'home_recent_games');
+        backToMyGamesBtn.classList.add('hidden');
+    }
+}
+
+function loadHomeRecentGames(overrideUsername = null) {
+    const displayUser = overrideUsername || getMyUserId();
     const section = document.getElementById('homeRecentSection');
     const list = document.getElementById('homeRecentList');
-    if (!userId || !section || !list) return;
+    if (!displayUser || !section || !list) return;
 
+    viewingUserId = overrideUsername || null;
+    updateHomeRecentHeader(isViewingOtherUser() ? viewingUserId : null);
     section.classList.remove('hidden');
 
     // Show skeleton
     list.innerHTML = `<div class="home-recent-skeleton">${'<div class="home-recent-skeleton-card"></div>'.repeat(3)}</div>`;
 
-    fetchRecentGames(userId).then(games => {
+    fetchRecentGames(displayUser).then(games => {
         list.innerHTML = '';
         if (!games || games.length === 0) {
-            section.classList.add('hidden');
+            if (overrideUsername) {
+                list.innerHTML = `<div class="container-message">${t('games_fetch_error')}</div>`;
+            } else {
+                section.classList.add('hidden');
+            }
             return;
         }
-        const userLower = userId.toLowerCase();
+        const userLower = displayUser.toLowerCase();
         const container = document.createElement('div');
         container.className = 'home-recent-list';
 
@@ -253,12 +288,16 @@ function loadHomeRecentGames() {
 
         list.appendChild(container);
     }).catch(() => {
-        section.classList.add('hidden');
+        if (overrideUsername) {
+            list.innerHTML = `<div class="container-message container-message--error">${t('games_fetch_error')}</div>`;
+        } else {
+            section.classList.add('hidden');
+        }
     });
 }
 
 function updateHomeHeader() {
-    const userId = getUserId();
+    const userId = getMyUserId();
     const heroSection = document.querySelector('.home-hero');
     const inputWrap = document.querySelector('.username-input-wrap');
     const heroTitle = document.querySelector('.hero-title');
@@ -296,7 +335,7 @@ function finishOnboarding() {
 
 onboardingSubmitBtn.addEventListener('click', () => {
     const username = onboardingUsernameInput.value.trim();
-    if (username) setUserId(username);
+    if (username) setMyUserId(username);
     finishOnboarding();
 });
 
@@ -373,6 +412,26 @@ settingsBtn.addEventListener('click', () => {
     fetchLastPushTime();
 });
 
+const logoutBtn = document.getElementById('logoutBtn');
+if (logoutBtn) {
+    logoutBtn.addEventListener('click', () => {
+        if (!confirm(t('settings_logout_confirm'))) return;
+        // 내 계정 식별자 + 온보딩 완료 플래그만 초기화.
+        // VAULT_KEY / SAVED_GAMES_KEY는 유지 — 같은 ID로 재로그인 시 복구 가능해야 함.
+        try {
+            localStorage.removeItem('blundermate_user_id');
+            localStorage.removeItem(ONBOARDING_KEY);
+        } catch (e) {
+            console.error('Logout cleanup failed:', e);
+        }
+        viewingUserId = null;
+        settingsModal.classList.add('hidden');
+        homeView.classList.add('hidden');
+        if (onboardingUsernameInput) onboardingUsernameInput.value = '';
+        onboardingView.classList.remove('hidden');
+    });
+}
+
 function closeModal(modal) {
     if (modal) modal.classList.add('hidden');
 }
@@ -381,6 +440,7 @@ const modalConfigs = [
     { modal: settingsModal, closeBtn: document.getElementById('closeSettingsBtn') },
     { modal: feedbackModal, closeBtn: cancelFeedbackBtn },
     { modal: feedbackModal, closeBtn: closeFeedbackBtn },
+    { modal: userSearchModal, closeBtn: closeUserSearchBtn },
     { modal: saveChoiceModal, closeBtn: cancelChoiceBtn, noBg: true },
     { modal: saveModal, closeBtn: cancelSaveBtn, noBg: true },
 ];
@@ -389,6 +449,28 @@ modalConfigs.forEach(({ modal, closeBtn, noBg }) => {
     if (!modal) return;
     if (closeBtn) closeBtn.addEventListener('click', () => closeModal(modal));
     if (!noBg) modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(modal); });
+});
+
+// User Search Modal: open + ESC close
+if (openUserSearchBtn) {
+    openUserSearchBtn.addEventListener('click', () => {
+        userSearchModal.classList.remove('hidden');
+        setTimeout(() => usernameInput.focus(), 0);
+    });
+}
+
+// 검색 모드 → 본인 모드 복귀
+if (backToMyGamesBtn) {
+    backToMyGamesBtn.addEventListener('click', () => {
+        usernameInput.value = '';
+        clearUsernameBtn.classList.remove('visible');
+        loadHomeRecentGames();
+    });
+}
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && userSearchModal && !userSearchModal.classList.contains('hidden')) {
+        closeModal(userSearchModal);
+    }
 });
 
 // Feedback Logic
@@ -570,16 +652,9 @@ usernameInput.addEventListener('keyup', (e) => {
     }
 });
 
-// 검색창이 비워지면 원래 메뉴들을 다시 보여줍니다.
 usernameInput.addEventListener('input', (e) => {
     const hasValue = e.target.value.length > 0;
     clearUsernameBtn.classList.toggle('visible', hasValue);
-    if (e.target.value.trim() === '') {
-        gamesList.innerHTML = '';
-        myLibrarySection.classList.remove('hidden');
-        manualInputContainer.classList.remove('hidden');
-        manualInputWrapper.classList.add('hidden');
-    }
 });
 
 clearUsernameBtn.addEventListener('click', () => {
@@ -990,32 +1065,12 @@ async function handleApiFetch() {
     const username = usernameInput.value.trim();
     if (!username) return;
 
+    if (userSearchModal) closeModal(userSearchModal);
+
     fetchBtn.disabled = true;
-    gamesList.innerHTML = `<div class="container-message">${t('games_loading')}</div>`;
-
     try {
-        gamesList.innerHTML = `<div class="container-message">${t('games_fetching')}</div>`;
-        const recentGames = await fetchRecentGames(username);
-        setUserId(username);
-        renderGamesList(gamesList, recentGames, username, (pgn, isWhiteGame) => {
-            pgnInput.value = pgn;
-            handlePgnReviewStart(null, isWhiteGame, null, true);
-        }, (pgn, defaultTitle) => {
-            openSaveGameModalForPgn(pgn, defaultTitle);
-        });
-
-        // 검색 성공 시 화면을 넓게 쓰기 위해 다른 메뉴 숨김
-        myLibrarySection.classList.add('hidden');
-        manualInputContainer.classList.add('hidden');
-        manualInputWrapper.classList.add('hidden');
-
-    } catch (e) {
-        console.error(e);
-        const errEl = document.createElement('div');
-        errEl.className = 'container-message container-message--error';
-        errEl.textContent = t('games_fetch_error');
-        gamesList.innerHTML = '';
-        gamesList.appendChild(errEl);
+        // 검색된 유저의 게임만 최근 게임 박스에 제자리 교체. 본인 identity(myUserId)는 localStorage에 그대로 유지.
+        loadHomeRecentGames(username);
     } finally {
         fetchBtn.disabled = false;
     }
@@ -1570,7 +1625,24 @@ function updateBoardForSimulation(index) {
 }
 
 if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
+    const swHost = window.location.hostname;
+    const swIsLocalhost = swHost === 'localhost' || swHost === '127.0.0.1' || swHost.endsWith('.local');
+
+    window.addEventListener('load', async () => {
+        if (swIsLocalhost) {
+            console.log('[SW] Disabled on localhost');
+            try {
+                const regs = await navigator.serviceWorker.getRegistrations();
+                await Promise.all(regs.map(r => r.unregister()));
+                if (typeof caches !== 'undefined') {
+                    const keys = await caches.keys();
+                    await Promise.all(keys.map(k => caches.delete(k)));
+                }
+            } catch (err) {
+                console.warn('[SW] localhost cleanup failed:', err);
+            }
+            return;
+        }
         navigator.serviceWorker.register('/sw.js').catch(err => {
             console.warn('SW registration failed:', err);
         });

@@ -105,6 +105,10 @@ const STRINGS = {
     home_greeting_sub: '오늘은 어떤 게임을 분석할까요?',
     home_search_other: '다른 유저 검색',
     home_recent_games: '최근 게임',
+    home_other_user_games: '@{username} 게임',
+    home_back_to_my_games: '내 게임으로 돌아가기',
+    settings_logout: '로그아웃',
+    settings_logout_confirm: '로그아웃하시겠습니까? 내 계정 정보가 초기화되고 온보딩 화면으로 돌아갑니다. (저장된 복기/게임은 유지됩니다)',
   },
   en: {
     heroTitle: 'What game would you like to review?',
@@ -212,6 +216,10 @@ const STRINGS = {
     home_greeting_sub: 'Which game would you like to review?',
     home_search_other: 'Search another user',
     home_recent_games: 'Recent games',
+    home_other_user_games: "@{username}'s games",
+    home_back_to_my_games: 'Back to my games',
+    settings_logout: 'Log out',
+    settings_logout_confirm: 'Log out? Your account info will be reset and you will return to onboarding. (Saved Vault / Games will be kept)',
   },
 };
 

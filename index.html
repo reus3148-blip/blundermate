@@ -60,28 +60,22 @@
                     <div class="hero-subtitle" data-i18n="heroSubtitle">Chess.com 유저네임을 입력하세요</div>
                 </section>
 
-                <div class="username-input-row">
-                    <div class="username-input-wrap">
-                        <input type="text" id="usernameInput" class="home-text-input" placeholder="Chess.com 유저네임" data-i18n-placeholder="usernamePlaceholder" value="" />
-                        <button id="clearUsernameBtn" class="username-clear-btn" type="button" aria-label="지우기">×</button>
-                        <button id="fetchBtn" class="home-submit-btn" title="게임 불러오기">→</button>
-                    </div>
-                </div>
-
-                <div id="manualInputContainer" class="home-secondary-links">
-                    <button id="openBoardInputBtn" class="home-link-btn" data-i18n="manualInput">PGN 붙여넣기 또는 직접 입력</button>
-                </div>
-
                 <div id="manualInputWrapper" style="display:none">
                     <textarea id="pgnInput"></textarea>
                     <button id="analyzeBtn"></button>
                 </div>
 
-                <div id="gamesList" class="games-list"></div>
-
                 <div id="homeRecentSection" class="hidden">
-                    <div class="home-section-label" data-i18n="home_recent_games">최근 게임</div>
-                    <div id="homeRecentList"></div>
+                    <div class="home-recent-header">
+                        <span id="homeRecentLabel" class="home-section-label" data-i18n="home_recent_games">최근 게임</span>
+                        <button id="backToMyGamesBtn" class="home-recent-back hidden" data-i18n="home_back_to_my_games">내 게임으로 돌아가기</button>
+                    </div>
+                    <div id="homeRecentList" class="recent-games-scroll"></div>
+                </div>
+
+                <div id="manualInputContainer" class="home-secondary-links">
+                    <button id="openUserSearchBtn" class="home-link-btn" data-i18n="home_search_other">다른 유저 검색</button>
+                    <button id="openBoardInputBtn" class="home-link-btn" data-i18n="manualInput">PGN 붙여넣기 또는 직접 입력</button>
                 </div>
 
                 <div class="home-spacer"></div>
@@ -294,6 +288,23 @@
             </div>
         </div>
 
+        <!-- User Search Modal -->
+        <div id="userSearchModal" class="modal-overlay hidden">
+            <div class="modal-content modal-content--narrow">
+                <div class="modal-header">
+                    <h2 data-i18n="home_search_other">다른 유저 검색</h2>
+                    <button id="closeUserSearchBtn" class="modal-close-btn">&times;</button>
+                </div>
+                <div class="form-group">
+                    <div class="username-input-wrap">
+                        <input type="text" id="usernameInput" class="home-text-input" placeholder="Chess.com 유저네임" data-i18n-placeholder="usernamePlaceholder" value="" />
+                        <button id="clearUsernameBtn" class="username-clear-btn" type="button" aria-label="지우기">×</button>
+                        <button id="fetchBtn" class="home-submit-btn" title="게임 불러오기">→</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Feedback Modal -->
         <div id="feedbackModal" class="modal-overlay hidden">
             <div class="modal-content modal-content--narrow">
@@ -359,6 +370,10 @@
                         <span class="settings-label">Last GitHub push</span>
                         <span id="lastPushTime" class="settings-hint" style="margin:0;">—</span>
                     </div>
+                </div>
+
+                <div class="form-group settings-row settings-row--action">
+                    <button id="logoutBtn" class="settings-logout-btn" data-i18n="settings_logout">로그아웃</button>
                 </div>
             </div>
         </div>

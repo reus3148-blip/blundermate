@@ -58,6 +58,10 @@
     --z-sticky:       999;   /* Text inputs, primary buttons over background */
     --z-sticky-top:   1000;  /* Search button over text inputs */
     --z-modal:        9999;  /* Highest layer for modal overlays */
+
+    /* 8. Game Card Dimensions (홈 최근 게임 박스 높이 계산에 사용) */
+    --game-card-height: 64px;
+    --game-card-gap:    8px;
 }
 
 html {
@@ -89,7 +93,7 @@ body {
 
 .app-container {
     width: 100%;
-    max-width: 450px; /* PC 화면에서 모바일 비율 너비로 제한 */
+    max-width: 420px; /* PC 화면에서 모바일 비율 너비로 제한 */
     display: flex;
     flex-direction: column;
     height: 100vh;
@@ -101,17 +105,14 @@ body {
     padding-bottom: env(safe-area-inset-bottom); /* 모바일 Safe Area (하단 홈 바) 대응 */
 }
 
-/* 넓은 화면(PC/태블릿)에서 수직 중앙 정렬 및 스마트폰 화면 느낌 주기 */
-@media (min-width: 600px) {
+/* PC/태블릿(≥480px): 수직 중앙 정렬 + 프레임 효과. 모바일(<480px)은 기존 그대로. */
+@media (min-width: 480px) {
     body {
         align-items: center;
     }
     .app-container {
-        height: 95vh;
-        max-height: 900px;
-        border-radius: 16px;
-        border: 1px solid var(--border-color);
-        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6); /* 앱 영역 입체감 강화 */
+        min-height: 100dvh;
+        border: 1px solid var(--brd);
     }
 }
 
@@ -280,9 +281,9 @@ body {
    ========================================== */
 .home-secondary-links {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    justify-content: center;
-    gap: 16px;
+    gap: 4px;
     margin-top: 14px;
     padding: 0 16px;
 }
@@ -295,7 +296,7 @@ body {
     text-decoration: underline;
     text-underline-offset: 3px;
     cursor: pointer;
-    padding: 0;
+    padding: 8px 12px;
     font-family: inherit;
     transition: color 0.15s ease;
 }
@@ -2113,6 +2114,27 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     padding-bottom: 8px;
 }
 
+.settings-row--action {
+    border-bottom: none;
+    margin-top: 1.5rem;
+}
+
+.settings-logout-btn {
+    width: 100%;
+    background: transparent;
+    border: 1px solid var(--brd);
+    color: var(--blunder);
+    padding: 12px;
+    font-size: 14px;
+    font-weight: 500;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+.settings-logout-btn:hover {
+    background: rgba(200, 64, 64, 0.08);
+}
+
 .lang-toggle {
     display: flex;
     gap: 0.25rem;
@@ -2539,14 +2561,60 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     text-transform: uppercase;
 }
 
-.home-recent-list {
+.home-recent-header {
     display: flex;
-    flex-direction: column;
+    align-items: baseline;
+    justify-content: space-between;
     gap: 8px;
 }
 
+.home-recent-back {
+    background: none;
+    border: none;
+    font-family: inherit;
+    font-size: 11px;
+    color: var(--tx3);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    cursor: pointer;
+    padding: 4px 0;
+    margin-bottom: 8px;
+}
+
+.home-recent-back:hover { color: var(--tx2); }
+.home-recent-back.hidden { display: none; }
+
+.home-recent-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--game-card-gap);
+}
+
+/* 최근 게임 스크롤 박스: 4개 완전 + 5번째 ~1/3 노출로 스크롤 힌트 제공 */
+.recent-games-scroll {
+    max-height: calc(var(--game-card-height) * 4.33 + var(--game-card-gap) * 4);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: var(--brd2) transparent;
+    mask-image: linear-gradient(to bottom, black 0%, black 85%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to bottom, black 0%, black 85%, transparent 100%);
+}
+
+.recent-games-scroll::-webkit-scrollbar {
+    width: 4px;
+}
+.recent-games-scroll::-webkit-scrollbar-track {
+    background: transparent;
+}
+.recent-games-scroll::-webkit-scrollbar-thumb {
+    background: var(--brd2);
+    border-radius: 2px;
+}
+
 .home-recent-card {
-    height: 64px;
+    height: var(--game-card-height);
     padding: 0 14px;
     background: var(--bg-surface);
     border: 1px solid var(--brd);
@@ -2609,11 +2677,11 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
 .home-recent-skeleton {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: var(--game-card-gap);
 }
 
 .home-recent-skeleton-card {
-    height: 64px;
+    height: var(--game-card-height);
     border-radius: 8px;
     background: var(--bg-surface);
     opacity: 0.5;

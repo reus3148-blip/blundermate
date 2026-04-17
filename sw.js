@@ -1,3 +1,8 @@
+const IS_LOCALHOST = (() => {
+    const h = self.location.hostname;
+    return h === 'localhost' || h === '127.0.0.1' || h.endsWith('.local');
+})();
+
 const CACHE_VERSION = 'v1';
 const APP_SHELL_CACHE = `blundermate-shell-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `blundermate-runtime-${CACHE_VERSION}`;
@@ -31,6 +36,10 @@ const RUNTIME_CDN_HOSTS = [
 ];
 
 self.addEventListener('install', (event) => {
+    if (IS_LOCALHOST) {
+        self.skipWaiting();
+        return;
+    }
     event.waitUntil(
         caches.open(APP_SHELL_CACHE)
             .then(cache => cache.addAll(APP_SHELL))
@@ -39,6 +48,17 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('activate', (event) => {
+    if (IS_LOCALHOST) {
+        event.waitUntil((async () => {
+            console.log('[SW] Disabled on localhost');
+            const keys = await caches.keys();
+            await Promise.all(keys.map(k => caches.delete(k)));
+            await self.registration.unregister();
+            const clients = await self.clients.matchAll({ type: 'window' });
+            clients.forEach(c => c.navigate(c.url));
+        })());
+        return;
+    }
     event.waitUntil(
         caches.keys().then(keys => Promise.all(
             keys
@@ -49,6 +69,7 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+    if (IS_LOCALHOST) return;
     const req = event.request;
     if (req.method !== 'GET') return;
 
