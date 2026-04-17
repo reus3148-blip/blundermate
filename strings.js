@@ -121,6 +121,7 @@ const STRINGS = {
     class_inaccuracy: 'Inaccuracy',
     class_mistake: 'Mistake',
     class_blunder: 'Blunder',
+    start_review_from_first: '첫 수부터 복기 →',
   },
   en: {
     heroTitle: 'What game would you like to review?',
@@ -244,6 +245,7 @@ const STRINGS = {
     class_inaccuracy: 'Inaccuracy',
     class_mistake: 'Mistake',
     class_blunder: 'Blunder',
+    start_review_from_first: 'Start review →',
   },
 };
 

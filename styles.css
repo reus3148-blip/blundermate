@@ -2737,9 +2737,10 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
 #analysisView.view-summary #summaryGraph { display: block; }
 #analysisView.view-summary #summaryReport { display: flex; }
 
-/* 0수 상태에서 "현재 수" 관련 UI 숨김 (‹, 수 분류, 승률, 저장, Engine⇄AI 토글).
+/* 0수 상태에서 "현재 수" 관련 UI 숨김 (‹, ›, 수 분류, 승률, 저장, Engine⇄AI 토글).
    visibility를 쓰는 이유: 레이아웃(바 높이/간격)이 튀지 않게 하기 위해. */
 #analysisView.view-summary #prevMoveBtn,
+#analysisView.view-summary #nextMoveBtn,
 #analysisView.view-summary #saveMoveBtn,
 #analysisView.view-summary #tabToggleBtn,
 #analysisView.view-summary #moveClassLabel,
@@ -2749,12 +2750,12 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     pointer-events: none;
 }
 
+/* 그래프: 16:8(2:1) 납작 비율로 컴팩트화. 보드 footprint에 얽매이지 않음. */
 .summary-graph {
     width: 100%;
-    max-width: calc(100dvh - 259px);
-    aspect-ratio: 1 / 1;
+    aspect-ratio: 16 / 8;
     flex-shrink: 0;
-    padding: 4px;
+    padding: 4px 4px 2px;
     box-sizing: border-box;
 }
 .summary-graph-svg {
@@ -2783,10 +2784,11 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     font-size: 12px;
 }
 
+/* 하단 리포트 영역. 정확도+수분류 통합 카드 1개 + 복기 시작 버튼 1개. */
 .summary-report {
     flex-direction: column;
     gap: 10px;
-    padding: 10px 14px 14px;
+    padding: 8px 14px 14px;
     flex: 1;
     min-height: 0;
     overflow-y: auto;
@@ -2795,86 +2797,97 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     overscroll-behavior-y: contain;
 }
 
-.summary-card {
+/* 통합 카드: 정확도 + 수 분류가 하나의 표로. 백/흑 축 공유. */
+.review-stats-card {
     background: var(--bg-surface);
     border: 1px solid var(--brd);
     border-radius: 8px;
-    padding: 12px 14px;
+    padding: 8px 12px;
     max-width: 100%;
     box-sizing: border-box;
 }
-.summary-card-label {
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    color: var(--tx3);
-    text-transform: uppercase;
-    margin-bottom: 10px;
-}
-
-.summary-accuracy-row {
-    display: flex;
-    gap: 12px;
-}
-.summary-accuracy-cell {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 4px;
-}
-.summary-accuracy-side {
-    font-size: 11px;
-    color: var(--tx2);
-    letter-spacing: 0.02em;
-}
-.summary-accuracy-value {
-    font-family: 'IBM Plex Mono', 'SF Mono', monospace;
-    font-size: 26px;
-    font-weight: 700;
-    color: var(--tx);
-    line-height: 1;
-}
-
-.summary-class-table {
+.review-stats-table {
     width: 100%;
     border-collapse: collapse;
     table-layout: fixed;
 }
-.summary-class-table th,
-.summary-class-table td {
-    padding: 7px 0;
-    border-bottom: 1px solid var(--brd);
+.review-stats-table th,
+.review-stats-table td {
+    padding: 5px 0;
     font-size: 12px;
     color: var(--tx);
+    vertical-align: middle;
 }
-.summary-class-table tr:last-child td { border-bottom: none; }
-.summary-class-table th {
+.review-stats-table thead th {
     font-weight: 700;
     font-size: 10px;
     color: var(--tx3);
     text-transform: uppercase;
     letter-spacing: 0.06em;
+    text-align: right;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--brd);
 }
-.summary-class-cell {
+.review-stats-table thead th:first-child {
+    text-align: left;
+}
+
+/* 정확도 행: 숫자를 약간 키워서 강조. */
+.review-stats-accuracy td {
+    padding: 8px 0;
+    font-weight: 700;
+}
+.review-stats-num-strong {
+    font-family: 'IBM Plex Mono', 'SF Mono', monospace;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--tx);
+    text-align: right;
+    width: 68px;
+}
+
+/* 정확도와 수 분류 첫 행 사이 구분선. */
+.review-stats-class-first td {
+    border-top: 1px solid var(--brd);
+    padding-top: 8px;
+}
+
+.review-stats-label {
     display: flex;
     align-items: center;
     gap: 8px;
     min-width: 0;
+    white-space: nowrap;
 }
-.summary-class-dot {
+.review-stats-dot {
     width: 8px;
     height: 8px;
     border-radius: 50%;
     display: inline-block;
     flex-shrink: 0;
 }
-.summary-count {
+.review-stats-num {
     font-family: 'IBM Plex Mono', 'SF Mono', monospace;
     font-size: 13px;
     font-weight: 500;
     color: var(--tx);
     text-align: right;
-    width: 56px;
+    width: 68px;
 }
+
+/* "첫 수부터 복기 →" 보조 버튼 — 분석 시작(강조)보다 덜 튀게 테두리+투명 배경. */
+.review-start-btn {
+    align-self: stretch;
+    height: 36px;
+    padding: 0 14px;
+    border: 1px solid var(--ac);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--ac);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    font-family: inherit;
+}
+.review-start-btn:active { opacity: 0.75; }
