@@ -1103,6 +1103,20 @@ textarea:focus {
     justify-content: center;
 }
 
+.preview-start-btn {
+    flex: 1;
+    height: 32px;
+    margin: 0 8px;
+    border: none;
+    border-radius: 6px;
+    background: var(--ac);
+    color: #100E0B;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+}
+.preview-start-btn:active { opacity: 0.85; }
+
 /* Base style for action buttons in library/modals (kept for other views) */
 .control-btn {
     background: rgba(255, 255, 255, 0.05);
