@@ -2,6 +2,8 @@ import { getSavedGames, addSavedGame, removeSavedGame, updateSavedGame } from '.
 import { escapeHtml } from './utils.js';
 import { t } from './strings.js';
 
+const BOOKMARK_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>';
+
 // ==========================================
 // DOM Elements
 // ==========================================
@@ -39,6 +41,7 @@ function getSelectedCategory() {
 
 let _activeFilter = 'all';
 let _editingGameId = null;
+let _pendingSavePgn = null; // 카드의 저장 버튼에서 모달을 열 때 사용할 PGN (분석 화면의 chess 인스턴스 대신)
 
 // ==========================================
 // Rendering
@@ -71,6 +74,7 @@ function renderSavedGamesList(container, savedGames, onDelete, onLoad, onEdit) {
             <div class="saved-game-card-bottom">
                 <span class="saved-game-card-date">${new Date(item.date).toLocaleDateString()}</span>
                 <div class="saved-game-card-actions">
+                    <button class="card-save-btn" title="Save" aria-label="Save">${BOOKMARK_SVG}</button>
                     <button class="edit-btn" title="${t('saved_games_edit')}">
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
                     </button>
@@ -80,6 +84,11 @@ function renderSavedGamesList(container, savedGames, onDelete, onLoad, onEdit) {
                 </div>
             </div>
         `;
+
+        el.querySelector('.card-save-btn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            openSaveGameModalForPgn(item.pgn, item.title);
+        });
 
         el.querySelector('.edit-btn').addEventListener('click', (e) => {
             e.stopPropagation();
@@ -148,6 +157,7 @@ export function initSavedGames({ onLoadGame, getChess, showButtonSuccess, saveMo
     if (cancelSaveGameBtn) {
         cancelSaveGameBtn.addEventListener('click', () => {
             _editingGameId = null;
+            _pendingSavePgn = null;
             saveGameModal.classList.add('hidden');
         });
     }
@@ -207,8 +217,11 @@ export function initSavedGames({ onLoadGame, getChess, showButtonSuccess, saveMo
             return;
         }
 
-        const chess = _getChess();
-        const pgn = chess.pgn();
+        let pgn = _pendingSavePgn;
+        if (!pgn) {
+            const chess = _getChess();
+            pgn = chess.pgn();
+        }
 
         const savedGameItem = {
             id: crypto.randomUUID(),
@@ -220,9 +233,26 @@ export function initSavedGames({ onLoadGame, getChess, showButtonSuccess, saveMo
         };
 
         addSavedGame(savedGameItem);
+        _pendingSavePgn = null;
         saveGameModal.classList.add('hidden');
+        if (savedGamesView && !savedGamesView.classList.contains('hidden')) {
+            await updateSavedGamesView();
+        }
         _showButtonSuccess(_saveMoveBtn, t('saved_games_saved'));
     });
+}
+
+export function openSaveGameModalForPgn(pgn, defaultTitle) {
+    _editingGameId = null;
+    _pendingSavePgn = pgn;
+
+    saveGameTitle.value = defaultTitle || t('saved_games_default_title');
+    saveGameNotes.value = '';
+
+    saveGameCategoryPicker.querySelectorAll('.pill-btn').forEach(b => b.classList.remove('selected'));
+    saveGameCategoryPicker.querySelector('[data-value="my_game"]').classList.add('selected');
+
+    saveGameModal.classList.remove('hidden');
 }
 
 function openEditModal(item) {

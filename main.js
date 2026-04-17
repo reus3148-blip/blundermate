@@ -1,11 +1,11 @@
 import { Chessground } from 'https://cdnjs.cloudflare.com/ajax/libs/chessground/9.0.0/chessground.min.js';
 import { fetchRecentGames } from './chessApi.js';
 import { StockfishEngine } from './engine.js';
-import { parseEvalData, getDests, convertPvToSan, classifyMove, parseAndLoadPgn, escapeHtml } from './utils.js';
+import { parseEvalData, getDests, convertPvToSan, classifyMove, parseAndLoadPgn, escapeHtml, parseOpeningFromPgn } from './utils.js';
 import { renderGamesList, renderMovesTable, updateUIWithEval, highlightActiveMove, renderEngineLines, updateTopEvalDisplay } from './ui.js';
 import { addVaultItem, getSavedGames, setUserId, getUserId, ONBOARDING_KEY, COORDS_KEY, GEMINI_KEY, EVAL_MODE_KEY } from './storage.js';
 import { initVault, initHomeVaultBadge, isVaultDetailActive, getVaultDetailIndex, setVaultDetailIndex, flipVaultBoard, setVaultCoords, redrawVaultBoard } from './vault.js';
-import { initSavedGames } from './savedGames.js';
+import { initSavedGames, openSaveGameModalForPgn } from './savedGames.js';
 import { createGeminiHandler } from './gemini.js';
 import { t, setLocale, getLocale } from './strings.js';
 
@@ -675,6 +675,10 @@ function switchTab(tabName) {
 }
 
 tabToggleBtn.addEventListener('click', () => {
+    if (isPreviewMode) {
+        startAnalysisFromPreview();
+        return;
+    }
     const next = currentTab === 'engine' ? 'ai' : 'engine';
     switchTab(next);
     if (next === 'ai') renderAiTabContent();
@@ -994,6 +998,8 @@ async function handleApiFetch() {
         renderGamesList(gamesList, recentGames, username, (pgn, isWhiteGame) => {
             pgnInput.value = pgn;
             handlePgnReviewStart(null, isWhiteGame, null, true);
+        }, (pgn, defaultTitle) => {
+            openSaveGameModalForPgn(pgn, defaultTitle);
         });
 
         // 검색 성공 시 화면을 넓게 쓰기 위해 다른 메뉴 숨김
@@ -1127,6 +1133,10 @@ function handlePgnReviewStart(e = null, isWhiteGame = null, targetIndex = null, 
     const pgnText = pgnInput.value.trim();
     if (!pgnText) return;
 
+    console.log('PGN headers:', pgnText.split('\n')
+        .filter(line => line.startsWith('['))
+        .join('\n'));
+
     chess = new Chess();
     const result = parseAndLoadPgn(chess, pgnText);
 
@@ -1254,27 +1264,37 @@ function renderPreviewCard() {
 
     const metaParts = [];
     const datePart = h.Date;
-    if (datePart && datePart !== '????.??.??') metaParts.push(datePart.replace(/\./g, '.'));
+    if (datePart && datePart !== '????.??.??') metaParts.push(datePart);
     metaParts.push(t('preview_moves').replace('{n}', analysisQueue.length));
-    const opening = h.Opening || '';
-    if (opening) metaParts.push(opening);
     const metaLine = metaParts.join(' \u00b7 ');
+
+    const { name: openingName, eco } = parseOpeningFromPgn(chess.pgn());
+    let openingBlock = '';
+    if (openingName) {
+        openingBlock = `
+            <div class="preview-card-opening">
+                <div class="preview-card-opening-name">${escapeHtml(openingName)}</div>
+                ${eco ? `<div class="preview-card-eco">ECO ${escapeHtml(eco)}</div>` : ''}
+            </div>
+        `;
+    } else if (eco) {
+        openingBlock = `
+            <div class="preview-card-opening">
+                <div class="preview-card-eco">ECO ${escapeHtml(eco)}</div>
+            </div>
+        `;
+    }
 
     engineLinesContainer.innerHTML = `
         <div class="preview-card">
             ${title ? `<div class="preview-card-title">${escapeHtml(title)}</div>` : ''}
             <div class="preview-card-meta">${escapeHtml(metaLine)}</div>
-            <button id="startAnalysisBtn" class="preview-start-btn">${t('analysis_start_btn')}</button>
+            ${openingBlock}
         </div>
     `;
-
-    document.getElementById('startAnalysisBtn').addEventListener('click', startAnalysisFromPreview);
 }
 
 function applyPreviewControls() {
-    tabToggleBtn.disabled = true;
-    tabToggleBtn.style.opacity = '0.4';
-
     saveMoveBtn.classList.add('hidden');
 
     winChanceDisplay.classList.add('hidden');
@@ -1283,9 +1303,6 @@ function applyPreviewControls() {
 }
 
 function removePreviewControls() {
-    tabToggleBtn.disabled = false;
-    tabToggleBtn.style.opacity = '';
-
     saveMoveBtn.classList.remove('hidden');
 
     winChanceDisplay.classList.remove('hidden');

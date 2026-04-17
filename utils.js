@@ -166,6 +166,17 @@ export function formatMarkdownToHtml(text) {
 }
 
 /**
+ * PGN 헤더에서 오프닝 정보(이름, ECO 코드)를 추출합니다.
+ */
+export function parseOpeningFromPgn(pgn) {
+    const opening = pgn.match(/\[Opening "([^"]+)"\]/)?.[1] || '';
+    const variation = pgn.match(/\[Variation "([^"]+)"\]/)?.[1] || '';
+    const eco = pgn.match(/\[ECO "([^"]+)"\]/)?.[1] || '';
+    const name = variation ? `${opening} \u2014 ${variation}` : opening;
+    return { name, eco };
+}
+
+/**
  * PGN 스트링 또는 단순 텍스트 기보를 Chess 인스턴스에 로드하고 결과와 PGN 텍스트를 반환합니다.
  */
 export function parseAndLoadPgn(chessInstance, pgnText) {
