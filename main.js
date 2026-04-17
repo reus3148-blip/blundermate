@@ -2,7 +2,7 @@ import { Chessground } from 'https://cdnjs.cloudflare.com/ajax/libs/chessground/
 import { fetchRecentGames } from './chessApi.js';
 import { StockfishEngine } from './engine.js';
 import { parseEvalData, getDests, convertPvToSan, classifyMove, parseAndLoadPgn, escapeHtml, parseOpeningFromPgn } from './utils.js';
-import { renderMovesTable, updateUIWithEval, highlightActiveMove, renderEngineLines, updateTopEvalDisplay } from './ui.js';
+import { renderMovesTable, updateUIWithEval, highlightActiveMove, renderEngineLines, updateTopEvalDisplay, renderSummaryGraph, renderSummaryReport } from './ui.js';
 import { addVaultItem, getSavedGames, setMyUserId, getMyUserId, ONBOARDING_KEY, COORDS_KEY, GEMINI_KEY, EVAL_MODE_KEY } from './storage.js';
 import { initVault, initHomeVaultBadge, isVaultDetailActive, getVaultDetailIndex, setVaultDetailIndex, flipVaultBoard, setVaultCoords, redrawVaultBoard } from './vault.js';
 import { initSavedGames, openSaveGameModalForPgn } from './savedGames.js';
@@ -614,6 +614,7 @@ inputViewAnalyzeBtn.addEventListener('click', () => {
 
 backBtn.addEventListener('click', () => {
     analysisView.classList.add('hidden');
+    analysisView.classList.remove('view-summary');
     homeView.classList.remove('hidden');
     refreshHomeCounts();
 
@@ -677,9 +678,13 @@ function handlePrevMove() {
         return;
     }
     if (analysisQueue.length === 0) return;
-    const newIndex = Math.max(0, currentlyViewedIndex - 1);
+    // -1 = 시작 포지션(0수). 여기서는 승률 그래프 + 리포트로 교체됨.
+    const newIndex = Math.max(-1, currentlyViewedIndex - 1);
     if (newIndex !== currentlyViewedIndex) {
-        updateBoardPosition(newIndex, analysisQueue[newIndex].fen);
+        const fen = newIndex === -1
+            ? (chess.header().FEN || START_FEN)
+            : analysisQueue[newIndex].fen;
+        updateBoardPosition(newIndex, fen);
     }
 }
 
@@ -1265,6 +1270,7 @@ function startNewAnalysis(newQueue, targetIndex = null, previewOnly = false) {
     // 이전 탐색(Exploration) 및 시뮬레이션 모드 상태 완전 초기화
     appMode = 'main';
     hideReturnBtn();
+    analysisView.classList.remove('view-summary');
 
     // Force Chessground to recalculate board size for mobile
     forceRedraw(cg);
@@ -1416,6 +1422,27 @@ function processNextInQueue() {
 // ==========================================
 // 8. UI Rendering
 // ==========================================
+// 0수(시작 포지션) 상태에서 체스보드 자리를 승률 그래프로, 하단 패널을 리포트로 교체한다.
+// 분석 큐가 비어있거나 preview/explore/simulate 모드에서는 진입하지 않는다.
+const summaryGraphEl = document.getElementById('summaryGraph');
+const summaryReportEl = document.getElementById('summaryReport');
+
+function shouldShowSummary(index) {
+    return appMode === 'main'
+        && !isPreviewMode
+        && analysisQueue.length > 0
+        && index === -1;
+}
+
+function applySummaryView(index) {
+    const on = shouldShowSummary(index);
+    analysisView.classList.toggle('view-summary', on);
+    if (on) {
+        renderSummaryGraph(summaryGraphEl, analysisQueue, isUserWhite);
+        renderSummaryReport(summaryReportEl, analysisQueue, isUserWhite);
+    }
+}
+
 function updateBoardPosition(index, fen) {
     if (appMode === 'explore') {
         exitExplorationMode();
@@ -1436,6 +1463,7 @@ function updateBoardPosition(index, fen) {
     });
 
     currentlyViewedIndex = index;
+    applySummaryView(index);
     highlightActiveMove(index);
 
     // 미리보기 모드에서는 보드 위치와 하이라이트만 업데이트하고, 엔진/AI 패널은 건드리지 않음

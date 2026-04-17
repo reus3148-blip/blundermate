@@ -224,6 +224,212 @@ const CLASS_COLOR = {
 };
 
 /**
+ * user-POV pawn eval → 백 기준 승률(%). 0~100 범위.
+ * 메이트 표기는 scoreNum이 ±999로 들어오므로 sigmoid로 자연스럽게 포화됨.
+ */
+function scoreToWhiteWinPct(scoreNum, isUserWhite) {
+    if (scoreNum === undefined || scoreNum === null || Number.isNaN(scoreNum)) return null;
+    const whitePawn = isUserWhite ? scoreNum : -scoreNum;
+    const cp = Math.max(-99900, Math.min(99900, whitePawn * 100));
+    return 50 + 50 * (2 / (1 + Math.exp(-0.00368208 * cp)) - 1);
+}
+
+/**
+ * Lichess Accuracy per move: 103.1668 * exp(-0.04354 * winPctLoss) - 3.1669
+ * forWhitePlayer가 true면 백의 평균 정확도, false면 흑의 평균 정확도.
+ */
+function computePlayerAccuracy(analysisQueue, isUserWhite, forWhitePlayer) {
+    const accuracies = [];
+    for (let i = 0; i < analysisQueue.length; i++) {
+        const move = analysisQueue[i];
+        if (move.isWhite !== forWhitePlayer) continue;
+        if (!move.engineLines || !move.engineLines[0]) continue;
+
+        const currWhiteWinPct = scoreToWhiteWinPct(move.engineLines[0].scoreNum, isUserWhite);
+        if (currWhiteWinPct === null) continue;
+
+        let prevWhiteWinPct;
+        if (i === 0) {
+            prevWhiteWinPct = 50;
+        } else {
+            const prev = analysisQueue[i - 1];
+            if (!prev.engineLines || !prev.engineLines[0]) continue;
+            prevWhiteWinPct = scoreToWhiteWinPct(prev.engineLines[0].scoreNum, isUserWhite);
+            if (prevWhiteWinPct === null) continue;
+        }
+
+        // 움직인 쪽 기준의 승률 손실
+        const prevOwnPct = forWhitePlayer ? prevWhiteWinPct : 100 - prevWhiteWinPct;
+        const currOwnPct = forWhitePlayer ? currWhiteWinPct : 100 - currWhiteWinPct;
+        const loss = Math.max(0, prevOwnPct - currOwnPct);
+
+        const a = 103.1668 * Math.exp(-0.04354 * loss) - 3.1669;
+        accuracies.push(Math.max(0, Math.min(100, a)));
+    }
+
+    if (accuracies.length === 0) return null;
+    const sum = accuracies.reduce((s, v) => s + v, 0);
+    return sum / accuracies.length;
+}
+
+const MARKER_COLOR = {
+    'Blunder':    'var(--blunder)',
+    'Mistake':    'var(--mistake)',
+    'Inaccuracy': 'var(--inaccuracy)',
+};
+
+/**
+ * 승률 그래프를 SVG로 렌더링한다. 체스보드와 동일한 정사각 비율.
+ * 외부 차트 라이브러리를 쓰지 않고 viewBox 기반으로 순수 구현.
+ */
+export function renderSummaryGraph(container, analysisQueue, isUserWhite) {
+    if (!container) return;
+    const total = analysisQueue.length;
+    if (total === 0) {
+        container.innerHTML = `<div class="summary-empty">${escapeHtml(t('report_empty'))}</div>`;
+        return;
+    }
+
+    const W = 320;
+    const H = 320;
+    const padL = 10;
+    const padR = 10;
+    const padT = 14;
+    const padB = 20;
+    const plotW = W - padL - padR;
+    const plotH = H - padT - padB;
+
+    const points = [];
+    for (let i = 0; i < total; i++) {
+        const move = analysisQueue[i];
+        if (!move.engineLines || !move.engineLines[0]) continue;
+        const pct = scoreToWhiteWinPct(move.engineLines[0].scoreNum, isUserWhite);
+        if (pct === null) continue;
+        points.push({ moveNum: i + 1, pct, classification: move.classification });
+    }
+
+    if (points.length === 0) {
+        container.innerHTML = `<div class="summary-empty">${escapeHtml(t('report_empty'))}</div>`;
+        return;
+    }
+
+    const xFor = (n) => padL + ((n - 1) / Math.max(1, total - 1)) * plotW;
+    const yFor = (pct) => padT + (1 - pct / 100) * plotH;
+    const midY = yFor(50);
+    const baseY = padT + plotH;
+
+    const linePts = points.map(p => `${xFor(p.moveNum).toFixed(1)},${yFor(p.pct).toFixed(1)}`).join(' ');
+    const areaD = `M ${xFor(points[0].moveNum).toFixed(1)} ${baseY.toFixed(1)} `
+        + points.map(p => `L ${xFor(p.moveNum).toFixed(1)} ${yFor(p.pct).toFixed(1)}`).join(' ')
+        + ` L ${xFor(points[points.length - 1].moveNum).toFixed(1)} ${baseY.toFixed(1)} Z`;
+
+    const markers = points
+        .filter(p => MARKER_COLOR[p.classification])
+        .map(p => {
+            const x = xFor(p.moveNum).toFixed(1);
+            const y = yFor(p.pct).toFixed(1);
+            return `<circle cx="${x}" cy="${y}" r="3.5" fill="${MARKER_COLOR[p.classification]}" stroke="var(--bg-surface)" stroke-width="1.5"/>`;
+        }).join('');
+
+    const ticks = [];
+    for (let k = 10; k < total; k += 10) ticks.push(k);
+    const tickLabels = ticks.map(k => {
+        const x = xFor(k).toFixed(1);
+        return `<text x="${x}" y="${(H - 6).toFixed(1)}" class="summary-graph-tick" text-anchor="middle">${k}</text>`;
+    }).join('');
+
+    container.innerHTML = `
+        <svg viewBox="0 0 ${W} ${H}" class="summary-graph-svg" role="img" aria-label="${escapeHtml(t('report_win_chance'))}">
+            <line x1="${padL}" y1="${midY.toFixed(1)}" x2="${W - padR}" y2="${midY.toFixed(1)}"
+                  stroke="var(--brd2)" stroke-width="1" stroke-dasharray="3 3"/>
+            <path d="${areaD}" fill="var(--ac-lo)"/>
+            <polyline points="${linePts}" fill="none" stroke="var(--ac)" stroke-width="2"
+                      stroke-linecap="round" stroke-linejoin="round"/>
+            ${markers}
+            ${tickLabels}
+        </svg>
+    `;
+}
+
+const CLASS_ORDER = ['Best', 'Excellent', 'Good', 'Inaccuracy', 'Mistake', 'Blunder'];
+const CLASS_I18N = {
+    'Best':       'class_best',
+    'Excellent':  'class_excellent',
+    'Good':       'class_good',
+    'Inaccuracy': 'class_inaccuracy',
+    'Mistake':    'class_mistake',
+    'Blunder':    'class_blunder',
+};
+const CLASS_DOT_COLOR = {
+    'Best':       'var(--best)',
+    'Excellent':  'var(--best)',
+    'Good':       'var(--tx)',
+    'Inaccuracy': 'var(--inaccuracy)',
+    'Mistake':    'var(--mistake)',
+    'Blunder':    'var(--blunder)',
+};
+
+/**
+ * 하단 리포트 표 (정확도 + 수 분류 카운트) 렌더링.
+ */
+export function renderSummaryReport(container, analysisQueue, isUserWhite) {
+    if (!container) return;
+
+    const counts = { white: {}, black: {} };
+    for (const c of CLASS_ORDER) { counts.white[c] = 0; counts.black[c] = 0; }
+
+    for (const m of analysisQueue) {
+        if (!m.classification) continue;
+        const side = m.isWhite ? 'white' : 'black';
+        if (counts[side][m.classification] !== undefined) counts[side][m.classification]++;
+    }
+
+    const accW = computePlayerAccuracy(analysisQueue, isUserWhite, true);
+    const accB = computePlayerAccuracy(analysisQueue, isUserWhite, false);
+    const fmtAcc = (a) => a === null ? '—' : a.toFixed(1) + '%';
+
+    const rows = CLASS_ORDER.map(c => `
+        <tr>
+            <td class="summary-class-cell">
+                <span class="summary-class-dot" style="background:${CLASS_DOT_COLOR[c]};"></span>
+                <span>${escapeHtml(t(CLASS_I18N[c]))}</span>
+            </td>
+            <td class="summary-count">${counts.white[c]}</td>
+            <td class="summary-count">${counts.black[c]}</td>
+        </tr>
+    `).join('');
+
+    container.innerHTML = `
+        <div class="summary-card">
+            <div class="summary-card-label">${escapeHtml(t('report_accuracy'))}</div>
+            <div class="summary-accuracy-row">
+                <div class="summary-accuracy-cell">
+                    <div class="summary-accuracy-side">${escapeHtml(t('report_white'))}</div>
+                    <div class="summary-accuracy-value">${fmtAcc(accW)}</div>
+                </div>
+                <div class="summary-accuracy-cell">
+                    <div class="summary-accuracy-side">${escapeHtml(t('report_black'))}</div>
+                    <div class="summary-accuracy-value">${fmtAcc(accB)}</div>
+                </div>
+            </div>
+        </div>
+        <div class="summary-card">
+            <div class="summary-card-label">${escapeHtml(t('report_move_classification'))}</div>
+            <table class="summary-class-table">
+                <thead>
+                    <tr>
+                        <th></th>
+                        <th class="summary-count">${escapeHtml(t('report_white'))}</th>
+                        <th class="summary-count">${escapeHtml(t('report_black'))}</th>
+                    </tr>
+                </thead>
+                <tbody>${rows}</tbody>
+            </table>
+        </div>
+    `;
+}
+
+/**
  * Updates win chance and move classification label in the bottom bar.
  */
 export function updateTopEvalDisplay(scoreStr, classification = '') {

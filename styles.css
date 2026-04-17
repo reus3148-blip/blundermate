@@ -66,13 +66,20 @@
 
 html {
     /* 브라우저 레벨의 바운스 효과 및 전체 페이지 스크롤 원천 차단 */
-    overflow: hidden; 
+    overflow: hidden;
+    max-width: 100%;
 }
 
-* {
+*, *::before, *::after {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
+}
+
+/* 의도치 않은 가로 스크롤을 유발할 수 있는 미디어 요소의 폭 제한 */
+img, video {
+    max-width: 100%;
+    height: auto;
 }
 
 body {
@@ -82,6 +89,7 @@ body {
     height: 100vh; /* 하위 브라우저용 Fallback */
     height: 100dvh; /* 모바일 브라우저 주소창(동적 뷰포트) 높이 완벽 대응 */
     overflow: hidden; /* 페이지 밖으로 삐져나가는 전체 스크롤 및 하단 빈 공간 노출 차단 */
+    max-width: 100vw;
     background-image: radial-gradient(circle at 15% 50%, rgba(196, 154, 60, 0.06), transparent 25%),
                       radial-gradient(circle at 85% 30%, rgba(196, 154, 60, 0.04), transparent 25%);
     display: flex;
@@ -1281,15 +1289,21 @@ textarea:focus {
     font-size: 16px;
     font-weight: 700;
     color: var(--tx);
+    overflow-wrap: break-word;
+    word-break: break-word;
 }
 .preview-card-meta {
     font-size: 12px;
     color: var(--tx2);
+    overflow-wrap: break-word;
+    word-break: break-word;
 }
 .preview-card-opening-name {
     font-size: 14px;
     font-weight: 600;
     color: var(--tx);
+    overflow-wrap: break-word;
+    word-break: break-word;
 }
 .preview-card-eco {
     font-size: 11px;
@@ -1533,9 +1547,26 @@ th {
     line-height: 1.8;
     font-size: 0.95rem;
     overflow-y: auto;
+    overflow-x: hidden;
     flex: 1;
+    min-width: 0;
     overscroll-behavior-y: contain;
     -webkit-overflow-scrolling: touch;
+    overflow-wrap: break-word;
+    word-break: break-word;
+}
+
+/* AI 응답의 긴 URL/코드 토큰이 패널 밖으로 튀어나오지 않도록 방지 */
+.gemini-text-panel pre {
+    max-width: 100%;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+.gemini-text-panel code,
+.gemini-text-panel a {
+    overflow-wrap: break-word;
+    word-break: break-word;
 }
 
 .gemini-text-panel h3 {
@@ -2663,6 +2694,9 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
 .home-recent-meta {
     font-size: 11px;
     color: var(--tx2);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .home-recent-result {
@@ -2687,4 +2721,160 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     border-radius: 8px;
     background: var(--bg-surface);
     opacity: 0.5;
+}
+
+/* ==========================================
+   Analysis Summary View (0수 = 시작 포지션)
+   체스보드 자리를 승률 그래프로, 하단 패널을 리포트로 교체
+   ========================================== */
+#summaryGraph,
+#summaryReport {
+    display: none;
+}
+
+#analysisView.view-summary #boardContainer { display: none; }
+#analysisView.view-summary .panel-content { display: none; }
+#analysisView.view-summary #summaryGraph { display: block; }
+#analysisView.view-summary #summaryReport { display: flex; }
+
+/* 0수 상태에서 "현재 수" 관련 UI 숨김 (‹, 수 분류, 승률, 저장, Engine⇄AI 토글).
+   visibility를 쓰는 이유: 레이아웃(바 높이/간격)이 튀지 않게 하기 위해. */
+#analysisView.view-summary #prevMoveBtn,
+#analysisView.view-summary #saveMoveBtn,
+#analysisView.view-summary #tabToggleBtn,
+#analysisView.view-summary #moveClassLabel,
+#analysisView.view-summary #winChanceDisplay,
+#analysisView.view-summary .ctrl-center .bar-separator {
+    visibility: hidden;
+    pointer-events: none;
+}
+
+.summary-graph {
+    width: 100%;
+    max-width: calc(100dvh - 259px);
+    aspect-ratio: 1 / 1;
+    flex-shrink: 0;
+    padding: 4px;
+    box-sizing: border-box;
+}
+.summary-graph-svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+    background: var(--bg-surface);
+    border: 1px solid var(--brd);
+    border-radius: 8px;
+}
+.summary-graph-tick {
+    font-family: 'IBM Plex Mono', 'SF Mono', monospace;
+    font-size: 9px;
+    fill: var(--tx3);
+}
+.summary-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    background: var(--bg-surface);
+    border: 1px solid var(--brd);
+    border-radius: 8px;
+    color: var(--tx3);
+    font-size: 12px;
+}
+
+.summary-report {
+    flex-direction: column;
+    gap: 10px;
+    padding: 10px 14px 14px;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+}
+
+.summary-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--brd);
+    border-radius: 8px;
+    padding: 12px 14px;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+.summary-card-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--tx3);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+}
+
+.summary-accuracy-row {
+    display: flex;
+    gap: 12px;
+}
+.summary-accuracy-cell {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+.summary-accuracy-side {
+    font-size: 11px;
+    color: var(--tx2);
+    letter-spacing: 0.02em;
+}
+.summary-accuracy-value {
+    font-family: 'IBM Plex Mono', 'SF Mono', monospace;
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--tx);
+    line-height: 1;
+}
+
+.summary-class-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+.summary-class-table th,
+.summary-class-table td {
+    padding: 7px 0;
+    border-bottom: 1px solid var(--brd);
+    font-size: 12px;
+    color: var(--tx);
+}
+.summary-class-table tr:last-child td { border-bottom: none; }
+.summary-class-table th {
+    font-weight: 700;
+    font-size: 10px;
+    color: var(--tx3);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+.summary-class-cell {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+.summary-class-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    flex-shrink: 0;
+}
+.summary-count {
+    font-family: 'IBM Plex Mono', 'SF Mono', monospace;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--tx);
+    text-align: right;
+    width: 56px;
 }
