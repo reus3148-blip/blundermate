@@ -1,3 +1,7 @@
+// NOTE: 이 파일은 현재 비활성화 상태입니다 (베타 기간).
+// index.html에서 등록 호출이 제거되어 있습니다.
+// 재활성화 시 network-first/cache-first 전략 분리 구현 필요.
+
 const IS_LOCALHOST = (() => {
     const h = self.location.hostname;
     return h === 'localhost' || h === '127.0.0.1' || h.endsWith('.local');
