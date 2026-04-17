@@ -7,12 +7,15 @@ export const GEMINI_KEY = 'geminiEnabled';
 export const EVAL_MODE_KEY = 'evalDisplayMode';
 
 // ── User ID ────────────────────────────────────────────────────────
+// 주의: 여기서 관리하는 값은 "내 계정"(myUserId)이다.
+// 다른 유저 검색(viewing) 상태는 이 파일과 무관하며 localStorage에 저장되면 안 된다.
+// 모든 vault/saved_games 저장·조회는 getMyUserId()만 사용한다.
 
-export function getUserId() {
+export function getMyUserId() {
     return localStorage.getItem(USER_ID_KEY) || null;
 }
 
-export function setUserId(id) {
+export function setMyUserId(id) {
     if (id) localStorage.setItem(USER_ID_KEY, id);
 }
 
@@ -53,7 +56,7 @@ function normalizeVaultItem(row) {
 }
 
 export async function getVaultItems() {
-    const userId = getUserId();
+    const userId = getMyUserId();
     if (!userId) return _getVaultItemsSync();
     try {
         const data = await callDB('select', 'vault_items', { user_id: userId });
@@ -76,7 +79,7 @@ export function addVaultItem(item) {
     }
 
     // Then try Supabase in background
-    const userId = getUserId();
+    const userId = getMyUserId();
     if (!userId) return;
     callDB('insert', 'vault_items', {
         data: {
@@ -101,7 +104,7 @@ export function removeVaultItem(id) {
     }
 
     // Then try Supabase in background
-    const userId = getUserId();
+    const userId = getMyUserId();
     if (!userId) return;
     callDB('delete', 'vault_items', { id })
         .catch(e => console.log('Supabase vault delete failed', e));
@@ -130,7 +133,7 @@ function normalizeSavedGame(row) {
 }
 
 export async function getSavedGames() {
-    const userId = getUserId();
+    const userId = getMyUserId();
     if (!userId) return _getSavedGamesSync();
     try {
         const data = await callDB('select', 'saved_games', { user_id: userId });
@@ -153,7 +156,7 @@ export function addSavedGame(item) {
     }
 
     // Then try Supabase in background
-    const userId = getUserId();
+    const userId = getMyUserId();
     if (!userId) return;
     callDB('insert', 'saved_games', {
         data: {
@@ -177,7 +180,7 @@ export function removeSavedGame(id) {
     }
 
     // Then try Supabase in background
-    const userId = getUserId();
+    const userId = getMyUserId();
     if (!userId) return;
     callDB('delete', 'saved_games', { id })
         .catch(e => console.log('Supabase delete failed', e));

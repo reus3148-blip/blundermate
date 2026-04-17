@@ -2,69 +2,6 @@ import { escapeHtml } from './utils.js';
 import { t } from './strings.js';
 
 /**
- * Renders the list of fetched games into the provided container.
- */
-export function renderGamesList(container, games, searchedUsername, onGameClick, onGameSave) {
-    container.innerHTML = '';
-    if (!searchedUsername) return [];
-    const searchLower = searchedUsername.toLowerCase();
-
-    games.forEach(game => {
-        const isWhite = game.white.username.toLowerCase() === searchLower;
-        const opponent = escapeHtml(isWhite ? game.black.username : game.white.username);
-
-        // Determine Visual Status
-        const resultCode = isWhite ? game.white.result : game.black.result;
-        let resultClass = 'draw';
-        let resultText = t('game_result_draw');
-        if (resultCode === 'win') {
-            resultClass = 'win';
-            resultText = t('game_result_win');
-        } else if (['checkmated', 'timeout', 'resigned', 'abandoned'].includes(resultCode)) {
-            resultClass = 'loss';
-            resultText = t('game_result_loss');
-        }
-
-        const item = document.createElement('div');
-        item.className = `game-item ${resultClass}`;
-        item.innerHTML = `
-            <div style="font-weight: 600; font-size: 1rem; flex:1; min-width:0;">
-                ${resultText}
-                <span style="font-size: 0.85rem; color: var(--tx2); font-weight: normal; margin-left: 0.5rem;">
-                    vs ${opponent}
-                </span>
-            </div>
-            <button class="card-save-btn" title="Save" aria-label="Save">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
-            </button>
-            <div class="eval-badge" style="background:var(--bg-elevated);">${t('ui_review')}</div>
-        `;
-
-        const saveBtn = item.querySelector('.card-save-btn');
-        saveBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            if (!game.pgn) {
-                alert(t('game_no_pgn'));
-                return;
-            }
-            if (typeof onGameSave === 'function') {
-                onGameSave(game.pgn, `${game.white.username} vs ${game.black.username}`);
-            }
-        });
-
-        item.addEventListener('click', () => {
-            if (!game.pgn) {
-                alert(t('game_no_pgn'));
-                return;
-            }
-            onGameClick(game.pgn, isWhite);
-        });
-
-        container.appendChild(item);
-    });
-}
-
-/**
  * Renders the empty moves table for analysis.
  */
 export function renderMovesTable(container, queue, onMoveClick) {
