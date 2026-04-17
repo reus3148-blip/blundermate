@@ -167,12 +167,21 @@ export function formatMarkdownToHtml(text) {
 
 /**
  * PGN 헤더에서 오프닝 정보(이름, ECO 코드)를 추출합니다.
+ * Chess.com PGN은 [Opening] 태그가 없고 [ECOUrl] 태그의 슬러그를 변환합니다.
  */
 export function parseOpeningFromPgn(pgn) {
-    const opening = pgn.match(/\[Opening "([^"]+)"\]/)?.[1] || '';
-    const variation = pgn.match(/\[Variation "([^"]+)"\]/)?.[1] || '';
     const eco = pgn.match(/\[ECO "([^"]+)"\]/)?.[1] || '';
-    const name = variation ? `${opening} \u2014 ${variation}` : opening;
+    const ecoUrl = pgn.match(/\[ECOUrl "([^"]+)"\]/)?.[1] || '';
+
+    let name = '';
+    if (ecoUrl) {
+        const slug = ecoUrl.split('/openings/')[1] || '';
+        name = slug
+            .replace(/-/g, ' ')
+            .replace(/\b\w/g, c => c.toUpperCase())
+            .replace(':', ': ');
+    }
+
     return { name, eco };
 }
 

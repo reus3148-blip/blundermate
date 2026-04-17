@@ -57,6 +57,8 @@ const inputViewUndoBtnBottom = document.getElementById('inputViewUndoBtnBottom')
 const inputViewAnalyzeBtn = document.getElementById('inputViewAnalyzeBtn');
 const inputBoardContainer = document.getElementById('inputBoardContainer');
 const inputBoardPgn = document.getElementById('inputBoardPgn');
+const previewStartBtn = document.getElementById('previewStartBtn');
+const ctrlCenter = document.querySelector('.ctrl-center');
 
 // Modal Elements
 const saveModal = document.getElementById('saveModal');
@@ -675,13 +677,13 @@ function switchTab(tabName) {
 }
 
 tabToggleBtn.addEventListener('click', () => {
-    if (isPreviewMode) {
-        startAnalysisFromPreview();
-        return;
-    }
     const next = currentTab === 'engine' ? 'ai' : 'engine';
     switchTab(next);
     if (next === 'ai') renderAiTabContent();
+});
+
+previewStartBtn.addEventListener('click', () => {
+    if (isPreviewMode) startAnalysisFromPreview();
 });
 
 // Win% / eval score toggle
@@ -1295,19 +1297,22 @@ function renderPreviewCard() {
 }
 
 function applyPreviewControls() {
-    saveMoveBtn.classList.add('hidden');
-
     winChanceDisplay.classList.add('hidden');
     moveClassLabel.classList.add('hidden');
     if (ctrlCenterSeparator) ctrlCenterSeparator.classList.add('hidden');
+    if (ctrlCenter) ctrlCenter.classList.add('hidden');
+    tabToggleBtn.classList.add('hidden');
+    previewStartBtn.classList.remove('hidden');
+    previewStartBtn.textContent = t('analysis_start_btn');
 }
 
 function removePreviewControls() {
-    saveMoveBtn.classList.remove('hidden');
-
     winChanceDisplay.classList.remove('hidden');
     moveClassLabel.classList.remove('hidden');
     if (ctrlCenterSeparator) ctrlCenterSeparator.classList.remove('hidden');
+    if (ctrlCenter) ctrlCenter.classList.remove('hidden');
+    tabToggleBtn.classList.remove('hidden');
+    previewStartBtn.classList.add('hidden');
 }
 
 function startAnalysisFromPreview() {
@@ -1560,6 +1565,14 @@ function updateBoardForSimulation(index) {
         el.addEventListener('click', () => {
             simulationIndex = parseInt(el.dataset.simIndex, 10);
             updateBoardForSimulation(simulationIndex);
+        });
+    });
+}
+
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').catch(err => {
+            console.warn('SW registration failed:', err);
         });
     });
 }

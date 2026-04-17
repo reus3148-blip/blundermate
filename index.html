@@ -4,6 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1">
     <title>Blundermate</title>
+    <link rel="manifest" href="/manifest.webmanifest">
+    <meta name="theme-color" content="#C49A3C">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="블런더메이트">
+    <link rel="apple-touch-icon" href="/logo.png">
+    <link rel="icon" href="/logo.png" type="image/png">
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/chessground@9.0.0/assets/chessground.base.css">
@@ -166,6 +173,7 @@
                             ← Main Line
                         </button>
                     </div>
+                    <button id="previewStartBtn" class="preview-start-btn hidden" data-i18n="analysis_start_btn">분석 시작</button>
                     <div class="ctrl-group-right">
                         <button id="saveMoveBtn" class="ctrl-btn ctrl-save" title="Save position">
                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>

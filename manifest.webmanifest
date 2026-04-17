@@ -1,0 +1,19 @@
+{
+  "name": "Blundermate — 체스 복기 분석",
+  "short_name": "블런더메이트",
+  "lang": "ko",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#100E0B",
+  "theme_color": "#C49A3C",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
