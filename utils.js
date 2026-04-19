@@ -222,3 +222,31 @@ export function parseAndLoadPgn(chessInstance, pgnText) {
     }
     return { success: false };
 }
+
+export function formatTimeControl(tc) {
+    const str = String(tc);
+    if (str.includes('+')) {
+        const [base, inc] = str.split('+');
+        const mins = Number(base) / 60;
+        return `${Number.isInteger(mins) ? mins : mins.toFixed(1)}+${inc}`;
+    }
+    const seconds = Number(str);
+    if (!isFinite(seconds) || seconds <= 0) return str;
+    const mins = seconds / 60;
+    if (Number.isInteger(mins)) return `${mins}분`;
+    if (seconds < 60) return `${seconds}초`;
+    return `${mins.toFixed(1)}분`;
+}
+
+export function formatRelativeDate(dateStr, strings) {
+    const d = typeof dateStr === 'number' ? new Date(dateStr * 1000) : new Date(dateStr);
+    if (isNaN(d.getTime())) return '';
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const dStart = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const diffDays = Math.round((todayStart - dStart) / (1000 * 60 * 60 * 24));
+    if (diffDays === 0) return strings.dateToday;
+    if (diffDays === 1) return strings.dateYesterday;
+    if (diffDays < 8) return strings.dateDaysAgo.replace('{n}', diffDays);
+    return d.toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' });
+}

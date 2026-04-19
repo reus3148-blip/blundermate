@@ -122,6 +122,10 @@ const STRINGS = {
     class_mistake: 'Mistake',
     class_blunder: 'Blunder',
     start_review_from_first: '첫 수부터 복기 →',
+    dateToday: '오늘',
+    dateYesterday: '어제',
+    dateDaysAgo: '{n}일 전',
+    moves_suffix: '수',
   },
   en: {
     heroTitle: 'What game would you like to review?',
@@ -246,6 +250,10 @@ const STRINGS = {
     class_mistake: 'Mistake',
     class_blunder: 'Blunder',
     start_review_from_first: 'Start review →',
+    dateToday: 'Today',
+    dateYesterday: 'Yesterday',
+    dateDaysAgo: '{n}d ago',
+    moves_suffix: ' moves',
   },
 };
 

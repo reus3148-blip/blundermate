@@ -1,4 +1,30 @@
 const RECENT_GAMES_LIMIT = 10;
+let cachedStats = null;
+let cachedStatsUser = null;
+
+export async function fetchPlayerStats(username) {
+    if (!username) return null;
+    const lower = username.toLowerCase();
+    if (cachedStatsUser === lower && cachedStats) return cachedStats;
+
+    const safeUsername = encodeURIComponent(username.trim());
+    try {
+        const res = await fetch(`https://api.chess.com/pub/player/${safeUsername}/stats`, {
+            method: 'GET', mode: 'cors', headers: { 'Accept': 'application/json' }
+        });
+        if (!res.ok) return null;
+        const data = await res.json();
+        const stats = {};
+        for (const [key, label] of [['chess_rapid','Rapid'],['chess_blitz','Blitz'],['chess_bullet','Bullet']]) {
+            if (data[key]?.last?.rating) stats[label] = data[key].last.rating;
+        }
+        cachedStats = Object.keys(stats).length ? stats : null;
+        cachedStatsUser = lower;
+        return cachedStats;
+    } catch {
+        return null;
+    }
+}
 
 /**
  * Fetches recent games for a given Chess.com username.

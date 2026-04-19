@@ -1,7 +1,7 @@
 import { Chessground } from 'https://cdnjs.cloudflare.com/ajax/libs/chessground/9.0.0/chessground.min.js';
-import { fetchRecentGames } from './chessApi.js';
+import { fetchRecentGames, fetchPlayerStats } from './chessApi.js';
 import { StockfishEngine } from './engine.js';
-import { parseEvalData, getDests, convertPvToSan, classifyMove, parseAndLoadPgn, escapeHtml, parseOpeningFromPgn } from './utils.js';
+import { parseEvalData, getDests, convertPvToSan, classifyMove, parseAndLoadPgn, escapeHtml, parseOpeningFromPgn, formatTimeControl, formatRelativeDate } from './utils.js';
 import { renderMovesTable, updateUIWithEval, highlightActiveMove, renderEngineLines, updateTopEvalDisplay, renderSummaryGraph, renderSummaryReport } from './ui.js';
 import { addVaultItem, getSavedGames, setMyUserId, getMyUserId, ONBOARDING_KEY, COORDS_KEY, GEMINI_KEY, EVAL_MODE_KEY } from './storage.js';
 import { initVault, initHomeVaultBadge, isVaultDetailActive, getVaultDetailIndex, setVaultDetailIndex, flipVaultBoard, setVaultCoords, redrawVaultBoard } from './vault.js';
@@ -244,10 +244,30 @@ function loadHomeRecentGames(overrideUsername = null) {
         const container = document.createElement('div');
         container.className = 'home-recent-list';
 
+        const dateStrings = { dateToday: t('dateToday'), dateYesterday: t('dateYesterday'), dateDaysAgo: t('dateDaysAgo') };
+
+        // 레이팅 변화 계산을 위해 같은 time_class 기준으로 이전 레이팅 추적
+        const prevRatingByClass = {};
+        const sortedForDiff = [...games].reverse();
+        const ratingDiffs = new Map();
+        for (const g of sortedForDiff) {
+            const isW = g.white.username.toLowerCase() === userLower;
+            const myRating = isW ? g.white.rating : g.black.rating;
+            const tc = g.time_class || '';
+            if (myRating && tc) {
+                if (prevRatingByClass[tc] !== undefined) {
+                    ratingDiffs.set(g, myRating - prevRatingByClass[tc]);
+                }
+                prevRatingByClass[tc] = myRating;
+            }
+        }
+
         games.slice(0, 10).forEach(game => {
             const isWhite = game.white.username.toLowerCase() === userLower;
-            const opponent = escapeHtml(isWhite ? game.black.username : game.white.username);
-            const resultCode = isWhite ? game.white.result : game.black.result;
+            const mySide = isWhite ? game.white : game.black;
+            const oppSide = isWhite ? game.black : game.white;
+            const opponent = escapeHtml(oppSide.username);
+            const resultCode = mySide.result;
 
             let resultKey, resultClass;
             if (resultCode === 'win') {
@@ -258,24 +278,34 @@ function loadHomeRecentGames(overrideUsername = null) {
                 resultKey = 'game_result_draw'; resultClass = 'draw';
             }
 
-            const date = game.end_time
-                ? new Date(game.end_time * 1000).toLocaleDateString()
-                : '';
-            const moveCount = game.pgn
-                ? (game.pgn.match(/\d+\./g) || []).length
-                : 0;
-            const timeControl = game.time_control || '';
-            const meta = [date, moveCount ? `${moveCount}수` : '', timeControl].filter(Boolean).join(' · ');
+            const sideIcon = isWhite ? '♙' : '♟';
+            const oppRating = oppSide.rating ? ` (${oppSide.rating})` : '';
+
+            const diff = ratingDiffs.get(game);
+            let diffHtml = '';
+            if (typeof diff === 'number') {
+                const cls = diff > 0 ? 'positive' : diff < 0 ? 'negative' : 'neutral';
+                const label = diff > 0 ? `+${diff}` : String(diff);
+                diffHtml = `<span class="home-recent-diff home-recent-diff--${cls}">${label}</span>`;
+            }
+
+            const date = game.end_time ? formatRelativeDate(game.end_time, dateStrings) : '';
+            const moveCount = game.pgn ? (game.pgn.match(/\d+\./g) || []).length : 0;
+            const tc = game.time_control ? formatTimeControl(game.time_control) : '';
+            const meta = [date, moveCount ? `${moveCount}${t('moves_suffix')}` : '', tc].filter(Boolean).join(' · ');
 
             const card = document.createElement('div');
             card.className = 'home-recent-card';
             card.innerHTML = `
                 <div class="home-recent-indicator home-recent-indicator--${resultClass}"></div>
                 <div class="home-recent-info">
-                    <div class="home-recent-opponent">vs ${opponent}</div>
+                    <div class="home-recent-opponent"><span class="home-recent-side">${sideIcon}</span> vs ${opponent}<span class="home-recent-rating">${escapeHtml(oppRating)}</span></div>
                     <div class="home-recent-meta">${escapeHtml(meta)}</div>
                 </div>
-                <div class="home-recent-result home-recent-result--${resultClass}">${t(resultKey)}</div>
+                <div class="home-recent-right">
+                    ${diffHtml}
+                    <div class="home-recent-result home-recent-result--${resultClass}">${t(resultKey)}</div>
+                </div>
             `;
 
             card.addEventListener('click', () => {
@@ -303,6 +333,7 @@ function updateHomeHeader() {
     const inputWrap = document.querySelector('.username-input-wrap');
     const heroTitle = document.querySelector('.hero-title');
     const heroSubtitle = document.querySelector('.hero-subtitle');
+    const heroRating = document.getElementById('heroRating');
 
     if (userId) {
         heroSection.classList.add('home-hero--user');
@@ -310,12 +341,20 @@ function updateHomeHeader() {
         heroSubtitle.textContent = t('home_greeting_sub');
         inputWrap.classList.add('username-input-wrap--small');
         usernameInput.placeholder = t('home_search_other');
+        fetchPlayerStats(userId).then(stats => {
+            if (!stats) { heroRating.classList.add('hidden'); return; }
+            heroRating.innerHTML = Object.entries(stats)
+                .map(([label, rating]) => `${label} <span class="rating-value">${rating}</span>`)
+                .join(' · ');
+            heroRating.classList.remove('hidden');
+        });
     } else {
         heroSection.classList.remove('home-hero--user');
         heroTitle.setAttribute('data-i18n', 'heroTitle');
         heroTitle.textContent = t('heroTitle');
         heroSubtitle.setAttribute('data-i18n', 'heroSubtitle');
         heroSubtitle.textContent = t('heroSubtitle');
+        heroRating.classList.add('hidden');
         inputWrap.classList.remove('username-input-wrap--small');
         usernameInput.placeholder = t('usernamePlaceholder');
     }
