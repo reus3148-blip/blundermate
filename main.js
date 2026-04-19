@@ -1,7 +1,7 @@
 import { Chessground } from 'https://cdnjs.cloudflare.com/ajax/libs/chessground/9.0.0/chessground.min.js';
 import { fetchRecentGames, fetchPlayerStats } from './chessApi.js';
 import { StockfishEngine } from './engine.js';
-import { parseEvalData, getDests, convertPvToSan, classifyMove, parseAndLoadPgn, escapeHtml, parseOpeningFromPgn, formatTimeControl, formatRelativeDate } from './utils.js';
+import { parseEvalData, getDests, convertPvToSan, classifyMove, parseAndLoadPgn, isValidFen, escapeHtml, parseOpeningFromPgn, formatTimeControl, formatRelativeDate } from './utils.js';
 import { renderMovesTable, updateUIWithEval, highlightActiveMove, renderEngineLines, updateTopEvalDisplay, renderSummaryGraph, renderSummaryReport } from './ui.js';
 import { addVaultItem, getSavedGames, setMyUserId, getMyUserId, ONBOARDING_KEY, COORDS_KEY, GEMINI_KEY, EVAL_MODE_KEY } from './storage.js';
 import { initVault, initHomeVaultBadge, isVaultDetailActive, getVaultDetailIndex, setVaultDetailIndex, flipVaultBoard, setVaultCoords, redrawVaultBoard } from './vault.js';
@@ -623,11 +623,34 @@ inputBoardPgn.addEventListener('input', () => {
                 movable: { color: turnColor, dests: getDests(inputChess) }
             });
         }
+        return;
+    }
+    // PGN 파싱 실패 시 FEN으로 시도 — 보드만 갱신, 수는 비어있음
+    if (isValidFen(text)) {
+        const fenChess = new window.Chess();
+        fenChess.load(text);
+        inputChess = fenChess;
+        if (inputCg) {
+            const turnColor = inputChess.turn() === 'w' ? 'white' : 'black';
+            inputCg.set({
+                fen: inputChess.fen(),
+                turnColor: turnColor,
+                movable: { color: turnColor, dests: getDests(inputChess) }
+            });
+        }
     }
 });
 
 inputViewAnalyzeBtn.addEventListener('click', () => {
-    const pgn = inputBoardPgn.value.trim() || inputChess.pgn();
+    const text = inputBoardPgn.value.trim();
+    // FEN이면 단일 포지션 분석 플로우로 분기
+    if (text && isValidFen(text)) {
+        inputView.classList.add('hidden');
+        pendingAnalysisCallback = (isWhite) => handleFenReviewStart(text, isWhite);
+        colorChoiceModal.classList.remove('hidden');
+        return;
+    }
+    const pgn = text || inputChess.pgn();
     if (!pgn) {
         alert(t('analysis_no_moves'));
         return;
@@ -1308,6 +1331,47 @@ function handlePgnReviewStart(e = null, isWhiteGame = null, targetIndex = null, 
     startNewAnalysis(newQueue, targetIndex);
 }
 
+// FEN 단일 포지션 분석: 기보 없이 해당 포지션만 엔진으로 평가한다.
+// 한 개의 isFenOnly 엔트리 큐를 구성해 기존 분석 파이프라인을 그대로 재사용한다.
+function handleFenReviewStart(fenText, isWhiteGame) {
+    isUserWhite = isWhiteGame !== null ? isWhiteGame : true;
+
+    chess = new Chess();
+    if (!chess.load(fenText)) {
+        alert(t('analysis_invalid_pgn'));
+        return;
+    }
+    pgnInput.value = chess.pgn();
+
+    const parts = fenText.trim().split(/\s+/);
+    const sideToMove = parts[1] || 'w';
+    const fullMoveNumber = parseInt(parts[5]) || 1;
+
+    const newQueue = [{
+        fen: fenText,
+        san: '',
+        from: null,
+        to: null,
+        turn: sideToMove === 'w' ? 'b' : 'w',
+        moveNumber: fullMoveNumber,
+        isWhite: sideToMove === 'w',
+        engineLines: [],
+        isFenOnly: true,
+    }];
+
+    if (isAnalyzing || isWaitingForStop) {
+        analysisStatus.className = 'tag engine-loading';
+        analysisStatus.textContent = 'Stopping previous analysis...';
+        pendingQueue = newQueue;
+        pendingTargetIndex = 0;
+        isWaitingForStop = true;
+        isAnalyzing = false;
+        stockfish.stop();
+        return;
+    }
+    startNewAnalysis(newQueue, 0);
+}
+
 function startNewAnalysis(newQueue, targetIndex = null, previewOnly = false) {
     // Switch to Analysis View
     homeView.classList.add('hidden');
@@ -1439,9 +1503,13 @@ function processNextInQueue() {
         analysisStatus.textContent = '';
         analysisStatus.className = 'tag hidden';
         analyzeBtn.disabled = false;
-        
-        // 분석 완료 시 체스판을 제일 첫 화면(시작 위치)으로 되돌리기
-        updateBoardPosition(-1, chess.header().FEN || 'start');
+
+        // FEN 단일 포지션 분석은 요약 화면이 없으므로 그 자리에 머문다
+        const isFenOnly = analysisQueue.length === 1 && analysisQueue[0]?.isFenOnly;
+        if (!isFenOnly) {
+            // 분석 완료 시 체스판을 제일 첫 화면(시작 위치)으로 되돌리기
+            updateBoardPosition(-1, chess.header().FEN || 'start');
+        }
         return;
     }
 
@@ -1476,8 +1544,11 @@ const summaryReportEl = document.getElementById('summaryReport');
 function shouldShowSummary(index) {
     // preview 모드(저장 게임/복기 초기 진입)에서도 0수 진입을 허용한다.
     // 엔진 데이터가 비어있으면 renderSummaryGraph가 "분석 데이터 없음" 빈 상태를 그린다.
+    // FEN 단일 포지션 분석은 요약 화면 대상이 아니다.
+    const isFenOnly = analysisQueue.length === 1 && analysisQueue[0]?.isFenOnly;
     return appMode === 'main'
         && analysisQueue.length > 0
+        && !isFenOnly
         && index === -1;
 }
 

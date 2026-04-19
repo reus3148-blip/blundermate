@@ -80,6 +80,9 @@ export function convertPvToSan(pv, fen) {
 export function classifyMove(index, analysisQueue, isUserWhite) {
     if (index < 0) return '';
     const move = analysisQueue[index];
+    if (!move) return '';
+    // FEN 단일 포지션 분석은 이전 수 비교 대상이 없으므로 분류 생략
+    if (move.isFenOnly) return '';
     if (!move.engineLines || !move.engineLines[0]) return '';
 
     const isWhite = move.isWhite;
@@ -188,6 +191,18 @@ export function parseOpeningFromPgn(pgn) {
 /**
  * PGN 스트링 또는 단순 텍스트 기보를 Chess 인스턴스에 로드하고 결과와 PGN 텍스트를 반환합니다.
  */
+// chess.js의 validate_fen으로 FEN 문자열의 유효성을 판별한다.
+// PGN 파싱 실패 시 fallback으로 FEN 입력을 수용하기 위한 것.
+export function isValidFen(text) {
+    const trimmed = (text || '').trim();
+    if (!trimmed) return false;
+    try {
+        const c = new window.Chess();
+        const res = c.validate_fen(trimmed);
+        return !!(res && res.valid);
+    } catch { return false; }
+}
+
 export function parseAndLoadPgn(chessInstance, pgnText) {
     try {
         const loaded = chessInstance.load_pgn(pgnText);
