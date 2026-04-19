@@ -246,21 +246,22 @@ function loadHomeRecentGames(overrideUsername = null) {
 
         const dateStrings = { dateToday: t('dateToday'), dateYesterday: t('dateYesterday'), dateDaysAgo: t('dateDaysAgo') };
 
-        // 레이팅 변화 계산을 위해 같은 time_class 기준으로 이전 레이팅 추적
-        const prevRatingByClass = {};
-        const sortedForDiff = [...games].reverse();
-        const ratingDiffs = new Map();
-        for (const g of sortedForDiff) {
-            const isW = g.white.username.toLowerCase() === userLower;
-            const myRating = isW ? g.white.rating : g.black.rating;
-            const tc = g.time_class || '';
-            if (myRating && tc) {
-                if (prevRatingByClass[tc] !== undefined) {
-                    ratingDiffs.set(g, myRating - prevRatingByClass[tc]);
-                }
-                prevRatingByClass[tc] = myRating;
-            }
-        }
+        // 레이팅 변화(+8/-12) 계산 로직 — 카드에서 노출하지 않기로 함(2026-04-19).
+        // 다른 화면에서 재사용 가능성이 있어 삭제 대신 주석으로 보존.
+        // const prevRatingByClass = {};
+        // const sortedForDiff = [...games].reverse();
+        // const ratingDiffs = new Map();
+        // for (const g of sortedForDiff) {
+        //     const isW = g.white.username.toLowerCase() === userLower;
+        //     const myRating = isW ? g.white.rating : g.black.rating;
+        //     const tc = g.time_class || '';
+        //     if (myRating && tc) {
+        //         if (prevRatingByClass[tc] !== undefined) {
+        //             ratingDiffs.set(g, myRating - prevRatingByClass[tc]);
+        //         }
+        //         prevRatingByClass[tc] = myRating;
+        //     }
+        // }
 
         games.slice(0, 10).forEach(game => {
             const isWhite = game.white.username.toLowerCase() === userLower;
@@ -281,14 +282,6 @@ function loadHomeRecentGames(overrideUsername = null) {
             const sideClass = isWhite ? 'white' : 'black';
             const oppRating = oppSide.rating ? ` (${oppSide.rating})` : '';
 
-            const diff = ratingDiffs.get(game);
-            let diffHtml = '';
-            if (typeof diff === 'number') {
-                const cls = diff > 0 ? 'positive' : diff < 0 ? 'negative' : 'neutral';
-                const label = diff > 0 ? `+${diff}` : String(diff);
-                diffHtml = `<span class="home-recent-diff home-recent-diff--${cls}">${label}</span>`;
-            }
-
             const date = game.end_time ? formatRelativeDate(game.end_time, dateStrings) : '';
             const moveCount = game.pgn ? (game.pgn.match(/\d+\./g) || []).length : 0;
             const tc = game.time_control ? formatTimeControl(game.time_control) : '';
@@ -301,10 +294,7 @@ function loadHomeRecentGames(overrideUsername = null) {
                     <div class="home-recent-opponent">vs ${opponent}<span class="home-recent-rating">${escapeHtml(oppRating)}</span></div>
                     <div class="home-recent-meta">${escapeHtml(meta)}</div>
                 </div>
-                <div class="home-recent-right">
-                    ${diffHtml}
-                    <div class="home-recent-result home-recent-result--${resultClass}">${t(resultKey)}</div>
-                </div>
+                <div class="home-recent-result home-recent-result--${resultClass}">${t(resultKey)}</div>
             `;
 
             card.addEventListener('click', () => {
@@ -341,10 +331,7 @@ function updateHomeHeader() {
         usernameInput.placeholder = t('home_search_other');
         fetchPlayerStats(userId).then(stats => {
             if (!stats) return;
-            const ratingHtml = Object.entries(stats)
-                .map(([label, rating]) => `<span class="hero-rating-label">${label}</span> <span class="hero-rating-value">${rating}</span>`)
-                .join('<span class="hero-sep"> · </span>');
-            heroTitle.innerHTML = `<span class="hero-username">${escapeHtml(userId)}</span><span class="hero-sep"> · </span>${ratingHtml}`;
+            heroTitle.innerHTML = `<span class="hero-username">${escapeHtml(userId)}</span><span class="hero-sep"> · </span><span class="hero-rating-label">${stats.label}</span> <span class="hero-rating-value">${stats.rating}</span>`;
         });
     } else {
         heroSection.classList.remove('home-hero--user');
