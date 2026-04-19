@@ -12,7 +12,9 @@ export function renderMovesTable(container, queue, onMoveClick) {
     let tr = null;
     for (let i = 0; i < queue.length; i++) {
         const move = queue[i];
-        
+        // FEN 단일 포지션 엔트리는 기보 테이블에 표시하지 않는다
+        if (move.isFenOnly) continue;
+
         // 블런더(??) 및 실수(?) 마크는 상단 점수판에만 띄우기 위해 이곳에는 순수 기보 텍스트만 삽입합니다.
         
         if (move.isWhite) {
