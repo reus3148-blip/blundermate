@@ -98,6 +98,18 @@ function forceRedraw(instance) {
     setTimeout(() => instance.redrawAll(), 50);
 }
 
+function findMoveIndexByFen(fens, targetFen) {
+    if (!targetFen) return -1;
+    const exact = fens.indexOf(targetFen);
+    if (exact !== -1) return exact;
+    // 완전 일치 없으면 기물 배치(FEN 첫 필드)만 비교
+    const targetBoard = targetFen.split(' ')[0];
+    for (let i = 0; i < fens.length; i++) {
+        if (fens[i].split(' ')[0] === targetBoard) return i;
+    }
+    return -1;
+}
+
 // ==========================================
 // Core Functions
 // ==========================================
@@ -175,9 +187,24 @@ function openVaultItem(item) {
     vaultView.classList.add('hidden');
     vaultDetailView.classList.remove('hidden');
 
-    const targetIdx = (typeof item.moveIndex === 'number' && item.moveIndex >= 0 && item.moveIndex < vaultDetailFens.length)
-        ? item.moveIndex
-        : vaultDetailFens.length - 1;
+    let targetIdx = -1;
+    // 1) moveIndex가 있으면 우선 사용 (localStorage 경로)
+    if (typeof item.moveIndex === 'number' && item.moveIndex >= 0 && item.moveIndex < vaultDetailFens.length) {
+        targetIdx = item.moveIndex;
+    }
+    // 2) position_fen 기반 매칭 (Supabase 경로 — moveIndex 없음)
+    if (targetIdx < 0 && item.fen) {
+        targetIdx = findMoveIndexByFen(vaultDetailFens, item.fen);
+    }
+    // 3) 최종 폴백
+    if (targetIdx < 0) targetIdx = vaultDetailFens.length - 1;
+
+    console.log('[Vault Load]', {
+        itemFen: item.fen, itemMoveIndex: item.moveIndex,
+        matchedIndex: targetIdx, totalMoves: vaultDetailFens.length,
+        boardFen: vaultDetailFens[targetIdx]
+    });
+
     setVaultDetailIndex(targetIdx);
     forceRedraw(vaultDetailCg);
 }

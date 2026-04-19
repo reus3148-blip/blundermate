@@ -44,7 +44,7 @@ function _getVaultItemsSync() {
 }
 
 function normalizeVaultItem(row) {
-    return {
+    const item = {
         id: row.id,
         date: row.created_at,
         san: row.move,
@@ -52,7 +52,16 @@ function normalizeVaultItem(row) {
         notes: row.notes || '',
         fen: row.position_fen,
         pgn: row.pgn || null,
+        gameTitle: row.game_title || '',
+        bestMove: row.best_move || '',
+        isUserWhite: row.is_user_white ?? true,
     };
+    if (typeof row.move_index === 'number') item.moveIndex = row.move_index;
+    if (typeof row.move_number === 'number') {
+        item.moveNumber = row.move_number;
+        item.isWhite = !!row.is_white_move;
+    }
+    return item;
 }
 
 export async function getVaultItems() {
@@ -89,7 +98,13 @@ export function addVaultItem(item) {
             classification: item.category,
             notes: item.notes || null,
             position_fen: item.fen,
-            pgn: item.pgn || null
+            pgn: item.pgn || null,
+            move_index: item.moveIndex ?? null,
+            move_number: item.moveNumber ?? null,
+            is_white_move: item.isWhite ?? null,
+            best_move: item.bestMove || null,
+            game_title: item.gameTitle || null,
+            is_user_white: item.isUserWhite ?? null,
         }
     }).catch(e => console.log('Supabase vault save failed, using localStorage', e));
 }
