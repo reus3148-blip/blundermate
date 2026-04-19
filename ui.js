@@ -29,7 +29,7 @@ export function renderMovesTable(container, queue, onMoveClick) {
             wTd.id = `move-${i}`;
             wTd.className = 'interactive-move';
             wTd.style.cursor = 'pointer';
-            wTd.innerHTML = `<div class="move-cell"><span class="san">${move.san}</span><span class="eval-badge">...</span></div>`;
+            wTd.innerHTML = `<div class="move-cell"><span class="san">${move.san}</span><span class="eval-badge"></span></div>`;
             wTd.onclick = () => onMoveClick(i);
             
             const bTd = document.createElement('td');
@@ -45,7 +45,7 @@ export function renderMovesTable(container, queue, onMoveClick) {
                 const bTd = tr.querySelector(`#move-${i}`);
                 if (bTd) {
                     bTd.style.cursor = 'pointer';
-                    bTd.innerHTML = `<div class="move-cell"><span class="san">${move.san}</span><span class="eval-badge">...</span></div>`;
+                    bTd.innerHTML = `<div class="move-cell"><span class="san">${move.san}</span><span class="eval-badge"></span></div>`;
                     bTd.onclick = () => onMoveClick(i);
                 }
             }

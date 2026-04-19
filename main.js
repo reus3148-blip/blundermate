@@ -799,7 +799,8 @@ let currentTab = 'engine';
 
 function switchTab(tabName) {
     currentTab = tabName;
-    if (tabToggleBtn) tabToggleBtn.textContent = tabName === 'engine' ? t('tab_engine') : t('tab_ai');
+    // 버튼은 현재 상태가 아닌 "누르면 이동할 곳"을 표시한다
+    if (tabToggleBtn) tabToggleBtn.textContent = tabName === 'engine' ? t('tab_ai') : t('tab_engine');
     document.querySelectorAll('.tab-panel').forEach(panel => {
         panel.classList.toggle('active', panel.id === `tab-${tabName}`);
     });
