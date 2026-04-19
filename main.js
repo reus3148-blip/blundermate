@@ -130,6 +130,7 @@ let pendingTargetIndex = null;
 let persistentShapes = []; // 블런더/실수 시 보드에 고정될 화살표를 저장하는 배열
 let isUserWhite = true; // 분석 기준이 되는 사용자 색상 (기본: 백)
 let currentBestMoveForVault = ''; // 저장 시 함께 보관할 최선의 수
+let vaultSnapshot = null; // 🔖 탭 시점의 수 데이터 스냅샷 (모달 열린 동안 고정)
 let appMode = 'main'; // 'main', 'explore', 'simulate'
 let explorationChess = new Chess();
 let explorationEngineLines = [];
@@ -434,6 +435,7 @@ if (logoutBtn) {
 
 function closeModal(modal) {
     if (modal) modal.classList.add('hidden');
+    if (modal === saveModal) vaultSnapshot = null;
 }
 
 const modalConfigs = [
@@ -918,26 +920,43 @@ saveMoveBtn.addEventListener('click', () => {
 
 choiceSaveMoveBtn.addEventListener('click', () => {
     saveChoiceModal.classList.add('hidden');
-    
+
     if (currentlyViewedIndex < 0 || !analysisQueue[currentlyViewedIndex]) {
         alert(t('analysis_no_save_start'));
         return;
     }
-    
-    const move = analysisQueue[currentlyViewedIndex];
+
+    const snapIndex = currentlyViewedIndex;
+    const move = analysisQueue[snapIndex];
     const moveNumberStr = move.moveNumber + (move.isWhite ? '. ' : '... ');
     saveMoveText.textContent = moveNumberStr + move.san;
-    
+
     // Calculate Best Move from the previous position's engine lines
-    currentBestMoveForVault = '';
-    if (currentlyViewedIndex > 0) {
-        const prevMove = analysisQueue[currentlyViewedIndex - 1];
+    let bestMove = '';
+    if (snapIndex > 0) {
+        const prevMove = analysisQueue[snapIndex - 1];
         if (prevMove && prevMove.engineLines && prevMove.engineLines[0] && prevMove.engineLines[0].pv) {
-            currentBestMoveForVault = prevMove.engineLines[0].pv.split(' ')[0];
+            bestMove = prevMove.engineLines[0].pv.split(' ')[0];
         }
     }
-    if (currentBestMoveForVault) saveBestMoveText.textContent = t('vault_engine_suggested').replace('{move}', currentBestMoveForVault);
+    currentBestMoveForVault = bestMove;
+    if (bestMove) saveBestMoveText.textContent = t('vault_engine_suggested').replace('{move}', bestMove);
     else saveBestMoveText.textContent = '';
+
+    const initialMoveFen = chess?.header?.()?.FEN || START_FEN;
+    vaultSnapshot = {
+        moveIndex: snapIndex,
+        move,
+        fen: move.fen,
+        prevFen: snapIndex > 0 ? analysisQueue[snapIndex - 1].fen : initialMoveFen,
+        san: move.san,
+        bestMove,
+        moveNumber: move.moveNumber,
+        isWhite: move.isWhite,
+        classification: move.classification,
+        engineLines: move.engineLines
+    };
+    console.log('[Vault snapshot]', { snapIndex, fen: vaultSnapshot.fen, san: vaultSnapshot.san });
 
     // Auto-select category based on engine classification
     if (move.classification) {
@@ -948,14 +967,16 @@ choiceSaveMoveBtn.addEventListener('click', () => {
     } else {
         saveCategory.value = 'positional'; // Default fallback
     }
-    
+
     saveNotes.value = '';
     saveModal.classList.remove('hidden');
 });
 
 confirmSaveBtn.addEventListener('click', () => {
-    const move = analysisQueue[currentlyViewedIndex];
-    const initialMoveFen = chess?.header?.()?.FEN || START_FEN;
+    if (!vaultSnapshot) return;
+
+    const snap = vaultSnapshot;
+    console.log('[Vault save]', { moveIndex: snap.moveIndex, fen: snap.fen, san: snap.san });
 
     let gameTitle = '';
     const h = chess?.header?.();
@@ -967,24 +988,25 @@ confirmSaveBtn.addEventListener('click', () => {
         id: crypto.randomUUID(),
         date: new Date().toISOString(),
         pgn: chess.pgn(),
-        moveIndex: currentlyViewedIndex,
+        moveIndex: snap.moveIndex,
         gameTitle,
         isUserWhite,
-        fen: move.fen,
-        prevFen: currentlyViewedIndex > 0 ? analysisQueue[currentlyViewedIndex - 1].fen : initialMoveFen,
-        san: move.san,
-        bestMove: currentBestMoveForVault,
-        moveNumber: move.moveNumber,
-        isWhite: move.isWhite,
+        fen: snap.fen,
+        prevFen: snap.prevFen,
+        san: snap.san,
+        bestMove: snap.bestMove,
+        moveNumber: snap.moveNumber,
+        isWhite: snap.isWhite,
         category: saveCategory.value,
         notes: saveNotes.value.trim(),
-        engineLines: move.engineLines
+        engineLines: snap.engineLines
     };
-    
+
     addVaultItem(vaultItem);
-    
+
     saveModal.classList.add('hidden');
-    
+    vaultSnapshot = null;
+
     // UX Feedback
     showButtonSuccess(saveMoveBtn, t('saved_games_saved'));
 });
