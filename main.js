@@ -278,7 +278,7 @@ function loadHomeRecentGames(overrideUsername = null) {
                 resultKey = 'game_result_draw'; resultClass = 'draw';
             }
 
-            const sideIcon = isWhite ? '♙' : '♟';
+            const sideClass = isWhite ? 'white' : 'black';
             const oppRating = oppSide.rating ? ` (${oppSide.rating})` : '';
 
             const diff = ratingDiffs.get(game);
@@ -295,11 +295,10 @@ function loadHomeRecentGames(overrideUsername = null) {
             const meta = [date, moveCount ? `${moveCount}${t('moves_suffix')}` : '', tc].filter(Boolean).join(' · ');
 
             const card = document.createElement('div');
-            card.className = 'home-recent-card';
+            card.className = `home-recent-card ${sideClass}`;
             card.innerHTML = `
-                <div class="home-recent-indicator home-recent-indicator--${resultClass}"></div>
                 <div class="home-recent-info">
-                    <div class="home-recent-opponent"><span class="home-recent-side">${sideIcon}</span> vs ${opponent}<span class="home-recent-rating">${escapeHtml(oppRating)}</span></div>
+                    <div class="home-recent-opponent">vs ${opponent}<span class="home-recent-rating">${escapeHtml(oppRating)}</span></div>
                     <div class="home-recent-meta">${escapeHtml(meta)}</div>
                 </div>
                 <div class="home-recent-right">
@@ -333,28 +332,27 @@ function updateHomeHeader() {
     const inputWrap = document.querySelector('.username-input-wrap');
     const heroTitle = document.querySelector('.hero-title');
     const heroSubtitle = document.querySelector('.hero-subtitle');
-    const heroRating = document.getElementById('heroRating');
 
     if (userId) {
         heroSection.classList.add('home-hero--user');
-        heroTitle.textContent = t('home_greeting').replace('{username}', userId);
-        heroSubtitle.textContent = t('home_greeting_sub');
+        heroTitle.innerHTML = `<span class="hero-username">${escapeHtml(userId)}</span>`;
+        heroSubtitle.classList.add('hidden');
         inputWrap.classList.add('username-input-wrap--small');
         usernameInput.placeholder = t('home_search_other');
         fetchPlayerStats(userId).then(stats => {
-            if (!stats) { heroRating.classList.add('hidden'); return; }
-            heroRating.innerHTML = Object.entries(stats)
-                .map(([label, rating]) => `${label} <span class="rating-value">${rating}</span>`)
-                .join(' · ');
-            heroRating.classList.remove('hidden');
+            if (!stats) return;
+            const ratingHtml = Object.entries(stats)
+                .map(([label, rating]) => `<span class="hero-rating-label">${label}</span> <span class="hero-rating-value">${rating}</span>`)
+                .join('<span class="hero-sep"> · </span>');
+            heroTitle.innerHTML = `<span class="hero-username">${escapeHtml(userId)}</span><span class="hero-sep"> · </span>${ratingHtml}`;
         });
     } else {
         heroSection.classList.remove('home-hero--user');
         heroTitle.setAttribute('data-i18n', 'heroTitle');
         heroTitle.textContent = t('heroTitle');
+        heroSubtitle.classList.remove('hidden');
         heroSubtitle.setAttribute('data-i18n', 'heroSubtitle');
         heroSubtitle.textContent = t('heroSubtitle');
-        heroRating.classList.add('hidden');
         inputWrap.classList.remove('username-input-wrap--small');
         usernameInput.placeholder = t('usernamePlaceholder');
     }
