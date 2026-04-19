@@ -5,7 +5,7 @@ let cachedStatsUser = null;
 export async function fetchPlayerStats(username) {
     if (!username) return null;
     const lower = username.toLowerCase();
-    if (cachedStatsUser === lower && cachedStats) return cachedStats;
+    if (cachedStatsUser === lower && cachedStats !== undefined) return cachedStats;
 
     const safeUsername = encodeURIComponent(username.trim());
     try {
@@ -14,11 +14,19 @@ export async function fetchPlayerStats(username) {
         });
         if (!res.ok) return null;
         const data = await res.json();
-        const stats = {};
-        for (const [key, label] of [['chess_rapid','Rapid'],['chess_blitz','Blitz'],['chess_bullet','Bullet']]) {
-            if (data[key]?.last?.rating) stats[label] = data[key].last.rating;
+        // 가장 많이 둔 카테고리 1개만 노출. 동률이면 Rapid > Blitz > Bullet 순 우선(리스트 순서).
+        const categories = [['chess_rapid','Rapid'],['chess_blitz','Blitz'],['chess_bullet','Bullet']];
+        let best = null;
+        for (const [key, label] of categories) {
+            const node = data[key];
+            if (!node?.last?.rating) continue;
+            const r = node.record || {};
+            const games = (r.win || 0) + (r.loss || 0) + (r.draw || 0);
+            if (!best || games > best.games) {
+                best = { label, rating: node.last.rating, games };
+            }
         }
-        cachedStats = Object.keys(stats).length ? stats : null;
+        cachedStats = best ? { label: best.label, rating: best.rating } : null;
         cachedStatsUser = lower;
         return cachedStats;
     } catch {

@@ -660,27 +660,6 @@ body {
     overscroll-behavior-y: contain;
 }
 
-.game-item {
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid var(--border-color);
-    padding: 1rem 1.25rem;
-    border-radius: 8px;
-    cursor: pointer;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    transition: background-color 0.2s ease, border-color 0.2s ease;
-}
-
-.game-item:hover {
-    background: rgba(255, 255, 255, 0.08);
-    border-color: var(--primary-color);
-}
-
-.game-item.win { border-left: 4px solid var(--best); }
-.game-item.loss { border-left: 4px solid var(--blunder); }
-.game-item.draw { border-left: 4px solid var(--tx2); }
-
 .card-save-btn {
     width: 32px;
     height: 32px;
@@ -700,40 +679,6 @@ body {
 }
 .card-save-btn:active {
     opacity: 0.7;
-}
-
-.game-item-content {
-    flex: 1;
-    min-width: 0;
-    overflow-wrap: break-word;
-    word-break: break-word;
-}
-
-.game-category {
-    font-weight: 600;
-    text-transform: uppercase;
-    font-size: 0.85rem;
-}
-
-.game-san, .game-title {
-    font-weight: 600;
-    font-size: 1rem;
-    color: var(--text-primary);
-}
-
-.game-san { margin-top: 4px; font-weight: normal; }
-.game-san strong { font-weight: bold; }
-
-.game-best {
-    font-size: 0.85rem;
-    color: var(--best);
-    margin-top: 2px;
-}
-
-.game-notes {
-    font-size: 0.85rem;
-    color: var(--text-secondary);
-    margin-top: 6px;
 }
 
 .delete-btn {
@@ -2664,8 +2609,9 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     border-radius: 2px;
 }
 
-.home-recent-card {
-    height: var(--game-card-height);
+/* 홈 카드와 Vault 카드가 동일한 컨테이너/좌측 바 시각을 공유 (app-card 공통 스타일). */
+.home-recent-card,
+.vault-card {
     padding: 0 14px 0 18px;
     background: var(--bg-surface);
     border: 1px solid var(--brd);
@@ -2679,7 +2625,8 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     overflow: hidden;
 }
 
-.home-recent-card::before {
+.home-recent-card::before,
+.vault-card::before {
     content: '';
     position: absolute;
     top: 0;
@@ -2688,12 +2635,14 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     width: 4px;
 }
 
-.home-recent-card.white::before { background: var(--tx); }
-.home-recent-card.black::before { background: var(--tx2); }
-
-.home-recent-card:active {
+.home-recent-card:active,
+.vault-card:active {
     opacity: 0.7;
 }
+
+.home-recent-card { height: var(--game-card-height); }
+.home-recent-card.white::before { background: var(--tx); }
+.home-recent-card.black::before { background: var(--tx2); }
 
 .home-recent-info {
     flex: 1;
@@ -2726,23 +2675,6 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     text-overflow: ellipsis;
 }
 
-.home-recent-right {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 2px;
-    flex-shrink: 0;
-}
-
-.home-recent-diff {
-    font-size: 11px;
-    font-weight: 600;
-}
-
-.home-recent-diff--positive { color: var(--best); }
-.home-recent-diff--negative { color: var(--blunder); }
-.home-recent-diff--neutral  { color: var(--tx3); }
-
 .home-recent-result {
     font-size: 11px;
     font-weight: 600;
@@ -2766,6 +2698,96 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     background: var(--bg-surface);
     opacity: 0.5;
 }
+
+/* ── Vault Card (홈 카드와 시각 통일, 2~3줄) ─────────────────────── */
+.vault-card {
+    min-height: var(--game-card-height);
+    padding-top: 10px;
+    padding-bottom: 10px;
+}
+
+.vault-card::before { background: var(--vault-card-accent, var(--tx2)); }
+
+.vault-card--legacy { opacity: 0.55; }
+
+.vault-card-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.vault-card-top {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    min-width: 0;
+}
+
+.vault-card-moves {
+    font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--tx);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+    flex: 1;
+}
+
+.vault-card-arrow {
+    color: var(--tx3);
+    font-weight: 400;
+    margin: 0 2px;
+}
+
+.vault-card-cat {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    flex-shrink: 0;
+}
+
+.vault-card-meta {
+    font-size: 11px;
+    color: var(--tx2);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.vault-card-notes {
+    font-size: 11px;
+    color: var(--tx2);
+    font-style: italic;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ── Vault Detail: 삭제 버튼 ────────────────────────────────────── */
+.vault-detail-delete-btn {
+    margin-top: auto;
+    align-self: stretch;
+    padding: 10px 12px;
+    background: transparent;
+    border: 1px solid var(--brd);
+    border-radius: 8px;
+    color: var(--blunder);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+.vault-detail-delete-btn:hover {
+    background: rgba(200, 64, 64, 0.08);
+    border-color: var(--blunder);
+}
+.vault-detail-delete-btn:active { opacity: 0.7; }
 
 /* ==========================================
    Analysis Summary View (0수 = 시작 포지션)

@@ -26,6 +26,7 @@ const vaultInfoCategory = document.getElementById('vaultInfoCategory');
 const vaultInfoPlayed = document.getElementById('vaultInfoPlayed');
 const vaultInfoBest = document.getElementById('vaultInfoBest');
 const vaultInfoNotes = document.getElementById('vaultInfoNotes');
+const vaultDetailDeleteBtn = document.getElementById('vaultDetailDeleteBtn');
 const movesBody = document.getElementById('movesBody');
 
 // ==========================================
@@ -47,7 +48,19 @@ let _closeMovesOverlay = null;
 // ==========================================
 // Rendering (moved from ui.js)
 // ==========================================
-function renderVaultList(container, vaultItems, onDelete, onOpen) {
+// 분류 라벨과 좌측 세로바 색상을 결정. 색상은 CSS 변수만 사용.
+function categoryVisual(rawCategory) {
+    const c = (rawCategory || '').toLowerCase();
+    const upper = (rawCategory || '').toUpperCase();
+    if (c === 'blunder')                    return { label: upper, color: 'var(--blunder)' };
+    if (c === 'mistake' || c === 'missed')  return { label: upper, color: 'var(--mistake)' };
+    if (c === 'inaccuracy')                 return { label: upper, color: 'var(--inaccuracy)' };
+    if (c === 'best' || c === 'excellent')  return { label: upper, color: 'var(--best)' };
+    // positional(사용자 지정) 및 그 외는 중립 톤
+    return { label: upper, color: 'var(--tx2)' };
+}
+
+function renderVaultList(container, vaultItems, onOpen) {
     container.innerHTML = '';
     if (vaultItems.length === 0) {
         container.innerHTML = `<div class="empty-state">${t('vault_empty')}</div>`;
@@ -55,35 +68,34 @@ function renderVaultList(container, vaultItems, onDelete, onOpen) {
     }
 
     vaultItems.sort((a, b) => new Date(b.date) - new Date(a.date)).forEach(item => {
-        let borderCol = 'var(--border-color)';
-        if(item.category === 'blunder') borderCol = 'var(--accent-danger)';
-        else if(item.category === 'mistake' || item.category === 'missed') borderCol = 'var(--accent-warning)';
-
+        const { label: catLabel, color: catColor } = categoryVisual(item.category);
         const isLegacy = !item.pgn;
-        const moveLabel = item.moveNumber ? `${item.moveNumber}${item.isWhite ? '.' : '...'} ` : '';
+
+        // 상단 줄: "내수 → 최선수" (bestMove 없으면 내수만)
+        const sanHtml = escapeHtml(item.san || '');
+        const movesHtml = item.bestMove
+            ? `${sanHtml} <span class="vault-card-arrow">→</span> ${escapeHtml(item.bestMove)}`
+            : sanHtml;
+
+        // 하단 메타: "{gameTitle} · {moveNumber}수". game_title 없으면 수 번호만.
+        const movesPart = typeof item.moveNumber === 'number' ? `${item.moveNumber}${t('moves_suffix')}` : '';
+        const metaText = [item.gameTitle || '', movesPart].filter(Boolean).join(' · ');
 
         const el = document.createElement('div');
-        el.className = 'game-item';
-        el.style.borderLeft = `4px solid ${borderCol}`;
-        if (isLegacy) el.style.opacity = '0.6';
+        el.className = 'vault-card';
+        if (isLegacy) el.classList.add('vault-card--legacy');
+        el.style.setProperty('--vault-card-accent', catColor);
 
         el.innerHTML = `
-            <div class="game-item-content">
-                <div class="game-category" style="color: ${borderCol};">${escapeHtml(item.category)}${isLegacy ? ' · ' + t('vault_legacy') : ''}</div>
-                ${item.gameTitle ? `<div class="game-title">${escapeHtml(item.gameTitle)}</div>` : ''}
-                <div class="game-san">${t('vault_played')}<strong>${escapeHtml(moveLabel + item.san)}</strong></div>
-                <div class="game-best">${t('vault_best')}${escapeHtml(item.bestMove) || t('vault_unknown')}</div>
-                ${item.notes ? `<div class="game-notes">${escapeHtml(item.notes)}</div>` : ''}
+            <div class="vault-card-info">
+                <div class="vault-card-top">
+                    <div class="vault-card-moves">${movesHtml}</div>
+                    <div class="vault-card-cat" style="color: ${catColor};">${escapeHtml(catLabel)}</div>
+                </div>
+                ${metaText ? `<div class="vault-card-meta">${escapeHtml(metaText)}</div>` : ''}
+                ${item.notes ? `<div class="vault-card-notes">${escapeHtml(item.notes)}</div>` : ''}
             </div>
-            <button class="delete-btn" title="${t('vault_delete_title')}">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
-            </button>
         `;
-
-        el.querySelector('.delete-btn').addEventListener('click', (e) => {
-            e.stopPropagation();
-            onDelete(item.id);
-        });
 
         el.addEventListener('click', () => onOpen(item));
         container.appendChild(el);
@@ -132,12 +144,18 @@ async function openVaultFromHome() {
 
 async function updateVaultView() {
     const items = await getVaultItems();
-    renderVaultList(vaultList, items, async (id) => {
-        if (confirm(t('vault_delete_confirm'))) {
-            removeVaultItem(id);
-            await updateVaultView();
-        }
-    }, openVaultItem);
+    renderVaultList(vaultList, items, openVaultItem);
+}
+
+async function deleteCurrentVaultItem() {
+    if (!vaultDetailItem) return;
+    if (!confirm(t('vault_delete_confirm'))) return;
+    removeVaultItem(vaultDetailItem.id);
+    vaultDetailItem = null;
+    vaultDetailView.classList.add('hidden');
+    vaultView.classList.remove('hidden');
+    await updateVaultView();
+    await initHomeVaultBadge();
 }
 
 function openVaultItem(item) {
@@ -283,6 +301,10 @@ export function initVault({ showMovesOverlay, closeMovesOverlay }) {
 
     vaultDetailPrevBtn.addEventListener('click', () => setVaultDetailIndex(vaultDetailIndex - 1));
     vaultDetailNextBtn.addEventListener('click', () => setVaultDetailIndex(vaultDetailIndex + 1));
+
+    if (vaultDetailDeleteBtn) {
+        vaultDetailDeleteBtn.addEventListener('click', deleteCurrentVaultItem);
+    }
 
     vaultDetailMovesBtn.addEventListener('click', () => _showMovesOverlay({
         getPgn: () => vaultDetailItem ? vaultDetailItem.pgn : '',
