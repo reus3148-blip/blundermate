@@ -61,6 +61,13 @@ export default async function handler(req) {
         }
 
         if (action === 'insert') {
+            // 요청자의 user_id와 데이터의 user_id가 일치해야 함.
+            // 피해자 이름으로 데이터 생성(user_id spoofing)을 서버에서 차단.
+            if (!user_id || !data || data.user_id !== user_id) {
+                return new Response(JSON.stringify({ error: 'user_id mismatch or missing' }), {
+                    status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+                });
+            }
             const url = `${supabaseUrl}/rest/v1/${table}`;
             const res = await fetch(url, {
                 method: 'POST',
@@ -73,12 +80,13 @@ export default async function handler(req) {
         }
 
         if (action === 'delete') {
-            if (!id) {
-                return new Response(JSON.stringify({ error: 'id required' }), {
+            // user_id를 쿼리에 강제 포함 — UUID만 알아도 타 유저 행 삭제 불가.
+            if (!id || !user_id) {
+                return new Response(JSON.stringify({ error: 'id and user_id required' }), {
                     status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
                 });
             }
-            const url = `${supabaseUrl}/rest/v1/${table}?id=eq.${encodeURIComponent(id)}`;
+            const url = `${supabaseUrl}/rest/v1/${table}?id=eq.${encodeURIComponent(id)}&user_id=eq.${encodeURIComponent(user_id)}`;
             const res = await fetch(url, { method: 'DELETE', headers: sbHeaders });
             return new Response(JSON.stringify({ ok: res.ok }), {
                 status: res.ok ? 200 : res.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' }

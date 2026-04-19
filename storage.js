@@ -91,6 +91,7 @@ export function addVaultItem(item) {
     const userId = getMyUserId();
     if (!userId) return;
     callDB('insert', 'vault_items', {
+        user_id: userId,
         data: {
             id: item.id,
             user_id: userId,
@@ -121,7 +122,7 @@ export function removeVaultItem(id) {
     // Then try Supabase in background
     const userId = getMyUserId();
     if (!userId) return;
-    callDB('delete', 'vault_items', { id })
+    callDB('delete', 'vault_items', { id, user_id: userId })
         .catch(e => console.log('Supabase vault delete failed', e));
 }
 
@@ -174,6 +175,7 @@ export function addSavedGame(item) {
     const userId = getMyUserId();
     if (!userId) return;
     callDB('insert', 'saved_games', {
+        user_id: userId,
         data: {
             id: item.id,
             user_id: userId,
@@ -197,7 +199,7 @@ export function removeSavedGame(id) {
     // Then try Supabase in background
     const userId = getMyUserId();
     if (!userId) return;
-    callDB('delete', 'saved_games', { id })
+    callDB('delete', 'saved_games', { id, user_id: userId })
         .catch(e => console.log('Supabase delete failed', e));
 }
 
