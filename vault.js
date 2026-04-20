@@ -44,6 +44,7 @@ let vaultDetailItem = null;
 // Dependencies injected via initVault()
 let _showMovesOverlay = null;
 let _closeMovesOverlay = null;
+let _navigateTo = null;
 
 // ==========================================
 // Rendering (moved from ui.js)
@@ -137,6 +138,7 @@ export async function initHomeVaultBadge() {
 }
 
 async function openVaultFromHome() {
+    if (_navigateTo) _navigateTo('vault_list');
     homeView.classList.add('hidden');
     vaultView.classList.remove('hidden');
     await updateVaultView();
@@ -152,8 +154,7 @@ async function deleteCurrentVaultItem() {
     if (!confirm(t('vault_delete_confirm'))) return;
     removeVaultItem(vaultDetailItem.id);
     vaultDetailItem = null;
-    vaultDetailView.classList.add('hidden');
-    vaultView.classList.remove('hidden');
+    history.back();
     await updateVaultView();
     await initHomeVaultBadge();
 }
@@ -202,6 +203,7 @@ function openVaultItem(item) {
     vaultInfoBest.textContent = item.bestMove || t('vault_unknown');
     vaultInfoNotes.textContent = item.notes || '';
 
+    if (_navigateTo) _navigateTo('vault_detail');
     vaultView.classList.add('hidden');
     vaultDetailView.classList.remove('hidden');
 
@@ -282,21 +284,19 @@ export function redrawVaultBoard() {
 // ==========================================
 // Initialization
 // ==========================================
-export function initVault({ showMovesOverlay, closeMovesOverlay }) {
+export function initVault({ showMovesOverlay, closeMovesOverlay, navigateTo }) {
     _showMovesOverlay = showMovesOverlay;
     _closeMovesOverlay = closeMovesOverlay;
+    _navigateTo = navigateTo || null;
 
     openVaultBtn.addEventListener('click', openVaultFromHome);
 
     vaultBackBtn.addEventListener('click', () => {
-        vaultView.classList.add('hidden');
-        homeView.classList.remove('hidden');
-        initHomeVaultBadge();
+        history.back();
     });
 
     vaultDetailBackBtn.addEventListener('click', () => {
-        vaultDetailView.classList.add('hidden');
-        vaultView.classList.remove('hidden');
+        history.back();
     });
 
     vaultDetailPrevBtn.addEventListener('click', () => setVaultDetailIndex(vaultDetailIndex - 1));
