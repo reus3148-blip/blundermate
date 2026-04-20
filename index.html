@@ -68,7 +68,32 @@
                 <section class="home-hero">
                     <div class="hero-title" data-i18n="heroTitle">어떤 게임을 분석할까요?</div>
                     <div class="hero-subtitle" data-i18n="heroSubtitle">Chess.com 유저네임을 입력하세요</div>
+                    <div id="profileCard" class="profile-card hidden">
+                        <div class="profile-card-top">
+                            <div class="profile-card-name" id="profileName"></div>
+                        </div>
+                        <div class="profile-card-divider"></div>
+                        <div class="profile-card-ratings">
+                            <div class="profile-rating-col">
+                                <span class="profile-rating-label" data-i18n="ratingRapid">Rapid</span>
+                                <span class="profile-rating-value" id="profileRapid">—</span>
+                            </div>
+                            <div class="profile-rating-col">
+                                <span class="profile-rating-label" data-i18n="ratingBlitz">Blitz</span>
+                                <span class="profile-rating-value" id="profileBlitz">—</span>
+                            </div>
+                            <div class="profile-rating-col">
+                                <span class="profile-rating-label" data-i18n="ratingBullet">Bullet</span>
+                                <span class="profile-rating-value" id="profileBullet">—</span>
+                            </div>
+                        </div>
+                    </div>
                 </section>
+
+                <div id="manualInputContainer" class="home-secondary-links home-action-links">
+                    <button id="openUserSearchBtn" class="home-link-btn" data-i18n="home_search_other">다른 유저 검색</button>
+                    <button id="openBoardInputBtn" class="home-link-btn" data-i18n="manualInput">수 입력</button>
+                </div>
 
                 <div id="manualInputWrapper" style="display:none">
                     <textarea id="pgnInput"></textarea>
@@ -77,35 +102,15 @@
 
                 <div id="homeRecentSection" class="hidden">
                     <div class="home-recent-header">
-                        <span id="homeRecentLabel" class="home-section-label" data-i18n="home_recent_games">최근 게임</span>
+                        <span id="homeRecentLabel" class="home-section-label hidden"></span>
                         <button id="backToMyGamesBtn" class="home-recent-back hidden" data-i18n="home_back_to_my_games">내 게임으로 돌아가기</button>
                     </div>
                     <div id="homeRecentList" class="recent-games-scroll"></div>
                 </div>
 
-                <div id="manualInputContainer" class="home-secondary-links">
-                    <button id="openUserSearchBtn" class="home-link-btn" data-i18n="home_search_other">다른 유저 검색</button>
-                    <button id="openBoardInputBtn" class="home-link-btn" data-i18n="manualInput">PGN / FEN / 직접 두기</button>
-                </div>
-
-                <div class="home-spacer"></div>
-                <div class="library-label" data-i18n="archive_label">보관함</div>
-
-                <div id="myLibrarySection" class="library-rows">
-                    <button id="openVaultBtn" class="library-row library-row--first">
-                        <span class="library-row-name" data-i18n="archive_vault_btn">복기</span>
-                        <span class="library-row-right">
-                            <span id="vaultCountText" class="library-row-count hidden"></span>
-                            <span class="library-row-chevron">›</span>
-                        </span>
-                    </button>
-                    <button id="openSavedGamesBtn" class="library-row">
-                        <span class="library-row-name" data-i18n="archive_saved_games_btn">저장된 게임</span>
-                        <span class="library-row-right">
-                            <span id="savedGamesCountText" class="library-row-count hidden"></span>
-                            <span class="library-row-chevron">›</span>
-                        </span>
-                    </button>
+                <div class="home-pair-btns">
+                    <button id="openVaultBtn" class="home-pair-btn" data-i18n="archive_vault_btn">복기</button>
+                    <button id="openSavedGamesBtn" class="home-pair-btn" data-i18n="archive_saved_games_btn">저장된 게임</button>
                 </div>
 
                 <div class="home-secondary-links">
@@ -470,7 +475,7 @@
             <div class="moves-overlay-sheet">
                 <div class="moves-overlay-header">
                     <span class="moves-overlay-title" data-i18n="moves">기보</span>
-                    <button id="downloadPgnBtn" class="moves-overlay-download">PGN</button>
+                    <button id="copyPgnBtn" class="moves-overlay-download"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> <span data-i18n="copyPgn">PGN 복사</span></button>
                     <button id="movesOverlayCloseBtn" class="moves-overlay-close">✕</button>
                 </div>
                 <div class="moves-container">

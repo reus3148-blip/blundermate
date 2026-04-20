@@ -1,5 +1,5 @@
 import { Chessground } from 'https://cdnjs.cloudflare.com/ajax/libs/chessground/9.0.0/chessground.min.js';
-import { fetchRecentGames, fetchPlayerStats } from './chessApi.js';
+import { fetchRecentGames, fetchPlayerProfile } from './chessApi.js';
 import { StockfishEngine } from './engine.js';
 import { parseEvalData, getDests, convertPvToSan, classifyMove, parseAndLoadPgn, isValidFen, escapeHtml, parseOpeningFromPgn, formatTimeControl, formatRelativeDate } from './utils.js';
 import { renderMovesTable, updateUIWithEval, highlightActiveMove, renderEngineLines, updateTopEvalDisplay, renderSummaryGraph, renderSummaryReport } from './ui.js';
@@ -52,7 +52,7 @@ const panelTabs = document.getElementById('panelTabs');
 const movesOverlay = document.getElementById('movesOverlay');
 const movesOverlayBtn = document.getElementById('movesOverlayBtn');
 const movesOverlayCloseBtn = document.getElementById('movesOverlayCloseBtn');
-const downloadPgnBtn = document.getElementById('downloadPgnBtn');
+const copyPgnBtn = document.getElementById('copyPgnBtn');
 const inputViewMovesBtn = document.getElementById('inputViewMovesBtn');
 
 // View Navigation Elements
@@ -277,15 +277,6 @@ function applyLocale() {
 }
 
 async function updateSavedGamesCount() {
-    const el = document.getElementById('savedGamesCountText');
-    if (!el) return;
-    const count = (await getSavedGames()).length;
-    if (count > 0) {
-        el.textContent = t('saved_games_count').replace('{count}', count);
-        el.classList.remove('hidden');
-    } else {
-        el.classList.add('hidden');
-    }
 }
 
 async function refreshHomeCounts() {
@@ -300,10 +291,11 @@ function updateHomeRecentHeader(overrideUsername) {
     if (overrideUsername) {
         homeRecentLabel.textContent = t('home_other_user_games').replace('{username}', overrideUsername);
         homeRecentLabel.removeAttribute('data-i18n');
+        homeRecentLabel.classList.remove('hidden');
         backToMyGamesBtn.classList.remove('hidden');
     } else {
-        homeRecentLabel.textContent = t('home_recent_games');
-        homeRecentLabel.setAttribute('data-i18n', 'home_recent_games');
+        homeRecentLabel.textContent = '';
+        homeRecentLabel.classList.add('hidden');
         backToMyGamesBtn.classList.add('hidden');
     }
 }
@@ -408,24 +400,33 @@ function loadHomeRecentGames(overrideUsername = null) {
 }
 
 function updateHomeHeader() {
-    const userId = getMyUserId();
+    const userId = getViewingUserId();
     const heroSection = document.querySelector('.home-hero');
     const inputWrap = document.querySelector('.username-input-wrap');
     const heroTitle = document.querySelector('.hero-title');
     const heroSubtitle = document.querySelector('.hero-subtitle');
+    const profileCard = document.getElementById('profileCard');
 
     if (userId) {
         heroSection.classList.add('home-hero--user');
-        heroTitle.innerHTML = `<span class="hero-username">${escapeHtml(userId)}</span>`;
-        heroSubtitle.classList.add('hidden');
+        profileCard.classList.remove('hidden');
+        document.getElementById('profileName').textContent = userId;
+        document.getElementById('profileRapid').textContent = '—';
+        document.getElementById('profileBlitz').textContent = '—';
+        document.getElementById('profileBullet').textContent = '—';
         inputWrap.classList.add('username-input-wrap--small');
         usernameInput.placeholder = t('home_search_other');
-        fetchPlayerStats(userId).then(stats => {
-            if (!stats) return;
-            heroTitle.innerHTML = `<span class="hero-username">${escapeHtml(userId)}</span><span class="hero-sep"> · </span><span class="hero-rating-label">${stats.label}</span> <span class="hero-rating-value">${stats.rating}</span>`;
+
+        fetchPlayerProfile(userId).then(profile => {
+            if (!profile) return;
+            const { ratings } = profile;
+            document.getElementById('profileRapid').textContent = ratings.rapid || '—';
+            document.getElementById('profileBlitz').textContent = ratings.blitz || '—';
+            document.getElementById('profileBullet').textContent = ratings.bullet || '—';
         });
     } else {
         heroSection.classList.remove('home-hero--user');
+        profileCard.classList.add('hidden');
         heroTitle.setAttribute('data-i18n', 'heroTitle');
         heroTitle.textContent = t('heroTitle');
         heroSubtitle.classList.remove('hidden');
@@ -962,16 +963,17 @@ movesOverlay.addEventListener('click', (e) => {
     if (e.target === movesOverlay) closeMovesOverlay();
 });
 
-downloadPgnBtn.addEventListener('click', () => {
+let _copyPgnBusy = false;
+copyPgnBtn.addEventListener('click', () => {
+    if (_copyPgnBusy) return;
     const pgn = _overlayGetPgn ? _overlayGetPgn() : chess.pgn();
     if (!pgn) return;
-    const blob = new Blob([pgn], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'blundermate.pgn';
-    a.click();
-    URL.revokeObjectURL(url);
+    _copyPgnBusy = true;
+    const label = copyPgnBtn.querySelector('span');
+    const orig = label.textContent;
+    navigator.clipboard.writeText(pgn).catch(() => prompt('PGN', pgn));
+    label.textContent = t('copied');
+    setTimeout(() => { label.textContent = orig; _copyPgnBusy = false; }, 1500);
 });
 
 // --- Gemini AI Coach Logic ---

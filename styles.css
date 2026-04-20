@@ -133,8 +133,7 @@ body {
     align-items: center;
     padding: 12px 16px;
     flex-shrink: 0;
-    background: var(--bg-panel);
-    border-bottom: 3px solid var(--border-color);
+    background: var(--bg-base);
 }
 
 .header-brand {
@@ -347,64 +346,45 @@ body {
     flex: 1;
 }
 
-.library-label {
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    color: var(--tx3);
-    padding: 0 16px;
+/* ==========================================
+   Home View: Pair Buttons (Vault / Saved Games)
+   ========================================== */
+.home-action-links {
+    margin-top: 10px;
     margin-bottom: 4px;
 }
 
-/* ==========================================
-   Home View: Library Rows
-   ========================================== */
-.library-rows {
-    padding: 0 16px;
-}
-
-.library-row {
+.home-pair-btns {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    width: 100%;
-    height: 52px;
-    background: none;
-    border: none;
-    border-bottom: 1px solid var(--brd);
-    cursor: pointer;
-    font-family: inherit;
-    padding: 0;
-}
-
-.library-row--first {
-    border-top: 1px solid var(--brd);
-}
-
-.library-row-name {
-    font-size: 15px;
-    font-weight: 600;
-    color: var(--tx);
-}
-
-.library-row-right {
-    display: flex;
-    align-items: center;
     gap: 8px;
+    padding: 0 16px;
+    margin-top: 24px;
 }
 
-.library-row-count {
-    font-size: 11px;
-    color: var(--tx2);
+.home-pair-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 48px;
+    background: var(--bg-surface);
+    border: 1px solid var(--brd);
+    border-radius: 8px;
+    color: var(--tx);
+    font-family: 'Outfit', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
 }
 
-.library-row-count.hidden {
-    display: none;
+.home-pair-btn:hover {
+    background: var(--bg-elevated);
+    border-color: var(--brd2);
 }
 
-.library-row-chevron {
-    font-size: 16px;
-    color: var(--tx3);
+.home-pair-btn:active {
+    background: var(--bg-elevated);
 }
 
 .home-ad-space {
@@ -2504,40 +2484,54 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
 }
 
 /* ── Home: Logged-in state ─────────────────────────────────────── */
-.home-hero--user .hero-title {
-    font-size: 13px;
-    font-weight: 400;
-    color: var(--tx3);
-    letter-spacing: 0;
-    line-height: 1.3;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 6px;
-    margin-bottom: 22px;
-}
+.home-hero--user .hero-title,
+.home-hero--user .hero-subtitle { display: none; }
 
-.hero-username {
-    color: var(--tx);
+/* Profile Card */
+.profile-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--brd);
+    border-radius: 8px;
+    overflow: hidden;
+}
+.profile-card-top {
+    padding: 14px 16px;
+}
+.profile-card-name {
+    font-size: 26px;
     font-weight: 700;
-    font-size: 20px;
-    letter-spacing: -0.01em;
+    color: var(--tx);
+    letter-spacing: -0.02em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
-
-.hero-sep {
-    color: var(--tx3);
-    font-size: 12px;
+.profile-card-divider {
+    height: 1px;
+    background: var(--brd);
+    margin: 0 16px;
 }
-
-.hero-rating-label {
-    color: var(--tx3);
-    font-size: 12px;
+.profile-card-ratings {
+    display: flex;
+    padding: 12px 16px;
 }
-
-.hero-rating-value {
+.profile-rating-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+}
+.profile-rating-label {
+    font-size: 11px;
     color: var(--tx2);
     font-weight: 500;
-    font-size: 12px;
+}
+.profile-rating-value {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--tx);
+    letter-spacing: -0.01em;
 }
 
 .username-input-wrap--small {

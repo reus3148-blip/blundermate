@@ -9,7 +9,6 @@ import { t } from './strings.js';
 // ==========================================
 const homeView = document.getElementById('homeView');
 const openVaultBtn = document.getElementById('openVaultBtn');
-const vaultCountText = document.getElementById('vaultCountText');
 const vaultView = document.getElementById('vaultView');
 const vaultList = document.getElementById('vaultList');
 const vaultBackBtn = document.getElementById('vaultBackBtn');
@@ -127,14 +126,6 @@ function findMoveIndexByFen(fens, targetFen) {
 // Core Functions
 // ==========================================
 export async function initHomeVaultBadge() {
-    const vaultItems = await getVaultItems();
-    const count = vaultItems.length;
-    if (count > 0) {
-        vaultCountText.textContent = t('vault_count').replace('{count}', count);
-        vaultCountText.classList.remove('hidden');
-    } else {
-        vaultCountText.classList.add('hidden');
-    }
 }
 
 async function openVaultFromHome() {
