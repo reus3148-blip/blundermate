@@ -158,13 +158,6 @@ body {
     color: var(--ac);
 }
 
-.app-logo {
-    height: 26px;
-    width: auto;
-    object-fit: contain;
-    filter: grayscale(1) sepia(0.6) saturate(1.8) hue-rotate(-10deg) brightness(1.05);
-}
-
 /* ==========================================
    Home View: States
    ========================================== */
@@ -207,14 +200,8 @@ body {
 }
 
 /* ==========================================
-   Home View: Username Input Row
+   Home View: Username Input
    ========================================== */
-.username-input-row {
-    width: 100%;
-    padding: 0 16px;
-    box-sizing: border-box;
-}
-
 .username-input-wrap {
     display: flex;
     align-items: center;
@@ -315,37 +302,6 @@ body {
 
 .home-link-btn:hover { color: var(--tx2); }
 
-.home-link-sep {
-    font-size: 12px;
-    color: var(--tx3);
-}
-
-/* ==========================================
-   Home View: Manual Input
-   ========================================== */
-.manual-input-wrapper {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-    padding: 12px 16px 0;
-}
-
-/* ==========================================
-   Home View: Divider
-   ========================================== */
-.home-divider {
-    height: 1px;
-    background: var(--brd);
-    margin: 20px 0;
-    flex-shrink: 0;
-}
-
-.home-spacer {
-    min-height: 32px;
-    max-height: 80px;
-    flex: 1;
-}
-
 /* ==========================================
    Home View: Pair Buttons (Vault / Saved Games)
    ========================================== */
@@ -441,148 +397,8 @@ body {
 
 
 /* ==========================================
-   Home View: State B — Greeting
-   ========================================== */
-.home-greeting {
-    padding: 20px 16px 14px;
-}
-
-.greeting-title {
-    font-size: 18px;
-    font-weight: 700;
-    color: var(--tx);
-    letter-spacing: -0.01em;
-}
-
-.greeting-subtitle {
-    font-size: 12px;
-    color: var(--tx2);
-    margin-top: 4px;
-}
-
-/* ==========================================
-   Home View: State B — Vault Preview Card
-   ========================================== */
-.vault-preview-card {
-    margin: 0 16px 14px;
-    background: var(--bg-surface);
-    border: 1px solid var(--brd2);
-    border-radius: 10px;
-    overflow: hidden;
-}
-
-.vault-preview-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 10px 14px;
-    border-bottom: 1px solid var(--brd);
-}
-
-.vault-preview-label {
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    color: var(--ac);
-}
-
-.vault-preview-count {
-    font-size: 10px;
-    color: var(--tx3);
-}
-
-.vault-preview-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    height: 44px;
-    padding: 0 14px;
-    border-bottom: 1px solid var(--brd);
-    cursor: pointer;
-    transition: background 0.15s ease;
-}
-
-.vault-preview-row:hover { background: rgba(237, 232, 223, 0.04); }
-
-.vault-preview-badge {
-    font-size: 10px;
-    font-weight: 700;
-    padding: 2px 6px;
-    border-radius: 4px;
-    flex-shrink: 0;
-    letter-spacing: 0.02em;
-}
-
-.vault-preview-badge--blunder {
-    background: rgba(200, 64, 64, 0.18);
-    color: var(--blunder);
-}
-
-.vault-preview-badge--mistake {
-    background: rgba(208, 96, 48, 0.18);
-    color: var(--mistake);
-}
-
-.vault-preview-badge--missed,
-.vault-preview-badge--tactic,
-.vault-preview-badge--positional {
-    background: rgba(232, 168, 56, 0.18);
-    color: var(--inaccuracy);
-}
-
-.vault-preview-move {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--tx);
-    flex-shrink: 0;
-}
-
-.vault-preview-meta {
-    font-size: 11px;
-    color: var(--tx2);
-    flex: 1;
-    min-width: 0;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.vault-preview-footer {
-    font-size: 11px;
-    color: var(--ac);
-    padding: 10px 14px;
-    text-align: right;
-    cursor: pointer;
-}
-
-.vault-preview-footer:hover { opacity: 0.8; }
-
-/* ==========================================
-   Home View: State B — Bottom Row
-   ========================================== */
-.home-bottom-row {
-    display: flex;
-    gap: 8px;
-    padding: 0 16px 20px;
-}
-
-
-/* ==========================================
    Home View: Games list (shared)
    ========================================== */
-
-.search-input-container {
-    position: relative;
-    display: flex;
-    align-items: center;
-    width: 100%;
-}
-
-.search-input-container .text-input {
-    width: 100%;
-    padding-right: 3rem; /* 버튼이 들어갈 우측 여백 확보 */
-}
 
 .text-input {
     flex: 1;
@@ -607,30 +423,6 @@ body {
     background: rgba(255, 255, 255, 0.05);
     border-color: var(--primary-color);
     box-shadow: 0 0 0 3px rgba(196, 154, 60, 0.2);
-}
-
-.search-submit-btn {
-    position: absolute;
-    right: 0.4rem;
-    background: var(--primary-color);
-    color: white;
-    border: none;
-    border-radius: 6px;
-    width: 32px;
-    height: 32px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    cursor: pointer;
-    transition: background-color 0.2s ease, transform 0.2s ease;
-    z-index: var(--z-sticky-top);
-}
-.search-submit-btn:hover { background: var(--primary-hover); transform: translateX(2px); }
-.search-submit-btn:disabled {
-    background: var(--tx-disabled);
-    color: var(--tx-disabled);
-    cursor: not-allowed;
-    transform: none;
 }
 
 .games-list {
@@ -678,11 +470,6 @@ body {
     transition: color 0.15s ease, background 0.15s ease;
 }
 .delete-btn:hover { color: var(--blunder); background: rgba(239,68,68,0.08); }
-
-.manual-input-toggle {
-    text-align: center;
-    margin-top: 0.5rem;
-}
 
 .text-btn {
     background: none;
@@ -775,18 +562,6 @@ body {
 }
 .topbar-icon-btn:hover { background: rgba(255, 255, 255, 0.06); color: var(--text-primary); }
 
-.engine-status {
-    font-size: 0.7rem;
-    font-weight: 600;
-    letter-spacing: 0.03em;
-    padding: 0.2rem 0.55rem;
-    border-radius: 20px;
-    border: 1px solid var(--border-color);
-    justify-self: end;
-}
-.engine-status.engine-ready  { background: rgba(16,185,129,0.1); border-color: rgba(16,185,129,0.3); color: var(--best); }
-.engine-status.engine-loading { background: rgba(245,158,11,0.1); border-color: rgba(245,158,11,0.3); color: var(--accent-warning); }
-
 .top-bar-title {
     font-size: 0.95rem;
     font-weight: 600;
@@ -804,95 +579,12 @@ body {
     width: 60px;
 }
 
-.top-bar-eval {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-}
-
-.practice-feedback {
-    font-size: 0.9rem;
-    font-weight: 600;
-    color: var(--text-primary);
-}
-.practice-feedback.positive { color: var(--best); }
-.practice-feedback.negative { color: var(--blunder); }
-
 .view-list {
     padding: 1rem;
     flex: 1;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior-y: contain;
-}
-
-/* ==========================================
-   Analysis View: Eval Bar
-   ========================================== */
-.eval-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 6px 14px;
-    background: var(--bg-surface);
-    border-top: 1px solid var(--border);
-    border-bottom: 1px solid var(--border);
-    flex-shrink: 0;
-}
-
-.eval-info {
-    width: 80px;
-    flex-shrink: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    justify-content: center;
-    gap: 1px;
-}
-
-.eval-bar-wrap {
-    flex: 1;
-    height: 6px;
-    border-radius: 3px;
-    background: var(--bg-board);
-    position: relative;
-    overflow: hidden;
-}
-
-.eval-bar-fill {
-    position: absolute;
-    left: 0;
-    top: 0;
-    height: 100%;
-    width: 50%;
-    background: var(--tx);
-    border-radius: 0;
-    transition: width 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-@keyframes shimmer {
-    0%   { opacity: 0.3; }
-    50%  { opacity: 0.7; }
-    100% { opacity: 0.3; }
-}
-.eval-bar-fill.loading {
-    animation: shimmer 1.2s ease-in-out infinite;
-    width: 50% !important;
-}
-
-.eval-score {
-    font-family: 'IBM Plex Mono', 'SF Mono', 'Fira Code', monospace;
-    font-size: 12px;
-    font-weight: 700;
-    color: var(--best);
-}
-
-.eval-label {
-    font-size: 9px;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    color: var(--best);
 }
 
 textarea {
@@ -1303,34 +995,6 @@ th {
     overflow: hidden;
 }
 
-/* ==========================================
-   Unified Controls Tab Buttons
-   ========================================== */
-.ctrl-tab {
-    flex: 0 0 auto;
-    background: transparent;
-    color: var(--text-secondary);
-    border: none;
-    box-shadow: none;
-    border-radius: 6px;
-    font-size: 0.8rem;
-    font-weight: 500;
-    cursor: pointer;
-    min-height: 44px;
-    padding: 0 0.9rem;
-    white-space: nowrap;
-    transition: color 0.15s ease;
-}
-
-.ctrl-tab:hover { color: var(--text-primary); }
-
-.ctrl-tab.active {
-    background: transparent;
-    color: var(--primary-color);
-    border: none;
-    font-weight: 600;
-}
-
 .bar-separator {
     width: 1px;
     height: 16px;
@@ -1435,38 +1099,6 @@ th {
 .ai-analyze-btn:disabled {
     opacity: 0.6;
     cursor: not-allowed;
-}
-
-.ai-panel-placeholder {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    flex: 1;
-    padding: 2rem 1rem;
-    text-align: center;
-    color: var(--text-secondary);
-}
-
-.ai-placeholder-icon {
-    width: 2.25rem;
-    height: 2.25rem;
-    color: var(--primary-color);
-    opacity: 0.5;
-    margin-bottom: 0.75rem;
-}
-
-.ai-placeholder-title {
-    font-size: 0.95rem;
-    font-weight: 600;
-    color: var(--text-primary);
-    margin-bottom: 0.5rem;
-}
-
-.ai-placeholder-hint {
-    font-size: 0.82rem;
-    color: var(--text-secondary);
-    line-height: 1.6;
 }
 
 /* Gemini panel dynamic content styles */
@@ -1605,17 +1237,6 @@ th {
     color: var(--text-secondary);
     font-size: 0.88rem;
     line-height: 1.7;
-}
-
-/* AI Coach 버튼 (modal/other contexts) */
-.ai-btn {
-    background: rgba(196, 154, 60, 0.12);
-    color: var(--ac);
-    border-color: rgba(196, 154, 60, 0.28);
-}
-.ai-btn:hover {
-    background: rgba(196, 154, 60, 0.25);
-    border-color: var(--ac);
 }
 
 /* Vault Detail View 하단 정보 패널 */
@@ -2170,11 +1791,6 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     justify-content: center;
 }
 
-.btn-primary-outline {
-    border-color: var(--primary-color);
-    color: var(--primary-color);
-}
-
 /* Short textarea (80px) */
 .textarea-short { height: 80px !important; }
 
@@ -2192,13 +1808,6 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     min-height: 1.2em;
 }
 
-/* Text divider (|) in manual input row */
-.text-divider {
-    color: var(--text-secondary);
-    margin: 0 0.5rem;
-    user-select: none;
-}
-
 /* Inline status/loading messages inside containers */
 .container-message {
     text-align: center;
@@ -2210,47 +1819,9 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     color: var(--blunder);
 }
 
-/* Engine error state */
-.engine-status.engine-error {
-    background: rgba(239, 68, 68, 0.1);
-    border-color: rgba(239, 68, 68, 0.3);
-    color: var(--blunder);
-}
-
-.modal-content--wide {
-    max-width: 500px;
-    width: 95%;
-}
-
-.board-container--input {
-    margin: 0 auto;
-    width: 100%;
-    max-width: 40vh;
-}
-
-.pgn-readonly {
-    height: 70px !important;
-    background: rgba(0,0,0,0.3) !important;
-    color: var(--text-secondary) !important;
-    font-size: 0.9rem !important;
-    cursor: default !important;
-}
-
 .modal-actions--spread {
     justify-content: space-between;
     margin-top: 0.5rem;
-}
-
-.modal-actions-right {
-    display: flex;
-    gap: 1rem;
-}
-
-.btn-undo {
-    flex: 0 0 auto;
-    padding: 0.5rem 1rem;
-    max-width: none;
-    width: auto;
 }
 
 /* Modal Styles */
@@ -2434,11 +2005,6 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
 .onboarding-top {
     padding-top: 60px;
     text-align: center;
-}
-
-.onboarding-logo {
-    height: 48px;
-    width: auto;
 }
 
 .onboarding-brand {
