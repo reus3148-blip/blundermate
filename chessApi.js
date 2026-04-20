@@ -1,37 +1,43 @@
 const RECENT_GAMES_LIMIT = 10;
-let cachedStats = null;
-let cachedStatsUser = null;
+let cachedProfile = null;
+let cachedProfileUser = null;
 
-export async function fetchPlayerStats(username) {
+const FETCH_OPTS = { method: 'GET', mode: 'cors', headers: { 'Accept': 'application/json' } };
+
+export async function fetchPlayerProfile(username) {
     if (!username) return null;
     const lower = username.toLowerCase();
-    if (cachedStatsUser === lower && cachedStats !== undefined) return cachedStats;
+    if (cachedProfileUser === lower && cachedProfile) return cachedProfile;
 
-    const safeUsername = encodeURIComponent(username.trim());
+    const safe = encodeURIComponent(username.trim());
     try {
-        const res = await fetch(`https://api.chess.com/pub/player/${safeUsername}/stats`, {
-            method: 'GET', mode: 'cors', headers: { 'Accept': 'application/json' }
-        });
-        if (!res.ok) return null;
-        const data = await res.json();
-        // 가장 많이 둔 카테고리 1개만 노출. 동률이면 Rapid > Blitz > Bullet 순 우선(리스트 순서).
-        const categories = [['chess_rapid','Rapid'],['chess_blitz','Blitz'],['chess_bullet','Bullet']];
-        let best = null;
-        for (const [key, label] of categories) {
-            const node = data[key];
-            if (!node?.last?.rating) continue;
-            const r = node.record || {};
-            const games = (r.win || 0) + (r.loss || 0) + (r.draw || 0);
-            if (!best || games > best.games) {
-                best = { label, rating: node.last.rating, games };
+        const res = await fetch(`https://api.chess.com/pub/player/${safe}/stats`, FETCH_OPTS);
+        const ratings = { rapid: null, blitz: null, bullet: null };
+        if (res.ok) {
+            const data = await res.json();
+            const map = { chess_rapid: 'rapid', chess_blitz: 'blitz', chess_bullet: 'bullet' };
+            for (const [key, field] of Object.entries(map)) {
+                if (data[key]?.last?.rating) ratings[field] = data[key].last.rating;
             }
         }
-        cachedStats = best ? { label: best.label, rating: best.rating } : null;
-        cachedStatsUser = lower;
-        return cachedStats;
+        cachedProfile = { ratings };
+        cachedProfileUser = lower;
+        return cachedProfile;
     } catch {
         return null;
     }
+}
+
+export async function fetchPlayerStats(username) {
+    const profile = await fetchPlayerProfile(username);
+    if (!profile) return null;
+    const r = profile.ratings;
+    const entries = [
+        r.rapid && { label: 'Rapid', rating: r.rapid },
+        r.blitz && { label: 'Blitz', rating: r.blitz },
+        r.bullet && { label: 'Bullet', rating: r.bullet },
+    ].filter(Boolean);
+    return entries[0] || null;
 }
 
 /**
