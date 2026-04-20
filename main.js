@@ -63,8 +63,8 @@ const backBtn = document.getElementById('backBtn');
 // Board Input Elements
 const inputView = document.getElementById('inputView');
 const inputViewBackBtn = document.getElementById('inputViewBackBtn');
-const inputViewUndoBtn = document.getElementById('inputViewUndoBtn');
 const inputViewUndoBtnBottom = document.getElementById('inputViewUndoBtnBottom');
+const inputViewResetBtn = document.getElementById('inputViewResetBtn');
 const inputViewAnalyzeBtn = document.getElementById('inputViewAnalyzeBtn');
 const inputBoardContainer = document.getElementById('inputBoardContainer');
 const inputBoardPgn = document.getElementById('inputBoardPgn');
@@ -143,8 +143,10 @@ const EVAL_RENDER_THROTTLE = 100; // UI 업데이트 제한 시간(ms)
 let isPreviewMode = false; // 분석 미리보기 상태 (엔진 미시작)
 let isGeminiLoading = false; // Gemini API 중복 호출 방지용 플래그
 let geminiAbortController = null; // Gemini API 요청 취소용 컨트롤러
-let isCoordsEnabled = localStorage.getItem(COORDS_KEY) === 'true'; // 보드 좌표 표시 여부
-let isGeminiEnabled = localStorage.getItem(GEMINI_KEY) === 'true'; // Gemini AI 토글 상태
+let isCoordsEnabled = localStorage.getItem(COORDS_KEY) !== 'false';
+let isGeminiEnabled = localStorage.getItem(GEMINI_KEY) !== 'false';
+let cachedHomeGames = [];
+let activeTimeClassFilter = null;
 
 // ==========================================
 // 2-2. History-based Navigation
@@ -300,6 +302,72 @@ function updateHomeRecentHeader(overrideUsername) {
     }
 }
 
+function renderHomeGamesList(games, displayUser) {
+    const list = document.getElementById('homeRecentList');
+    const section = document.getElementById('homeRecentSection');
+    if (!list) return;
+
+    const filtered = activeTimeClassFilter
+        ? games.filter(g => g.time_class === activeTimeClassFilter)
+        : games;
+
+    list.innerHTML = '';
+    if (filtered.length === 0) {
+        list.innerHTML = `<div class="container-message">${t('filter_no_games')}</div>`;
+        return;
+    }
+
+    const userLower = displayUser.toLowerCase();
+    const container = document.createElement('div');
+    container.className = 'home-recent-list';
+    const dateStrings = { dateToday: t('dateToday'), dateYesterday: t('dateYesterday'), dateDaysAgo: t('dateDaysAgo') };
+
+    filtered.slice(0, 10).forEach(game => {
+        const isWhite = game.white.username.toLowerCase() === userLower;
+        const mySide = isWhite ? game.white : game.black;
+        const oppSide = isWhite ? game.black : game.white;
+        const opponent = escapeHtml(oppSide.username);
+        const resultCode = mySide.result;
+
+        let resultKey, resultClass;
+        if (resultCode === 'win') {
+            resultKey = 'game_result_win'; resultClass = 'win';
+        } else if (['checkmated', 'timeout', 'resigned', 'abandoned'].includes(resultCode)) {
+            resultKey = 'game_result_loss'; resultClass = 'loss';
+        } else {
+            resultKey = 'game_result_draw'; resultClass = 'draw';
+        }
+
+        const sideClass = isWhite ? 'white' : 'black';
+        const oppRating = oppSide.rating ? ` (${oppSide.rating})` : '';
+
+        const date = game.end_time ? formatRelativeDate(game.end_time, dateStrings) : '';
+        const moveCount = game.pgn ? (game.pgn.match(/\d+\./g) || []).length : 0;
+        const tc = game.time_control ? formatTimeControl(game.time_control) : '';
+        const meta = [date, moveCount ? `${moveCount}${t('moves_suffix')}` : '', tc].filter(Boolean).join(' · ');
+
+        const card = document.createElement('div');
+        card.className = `home-recent-card ${sideClass}`;
+        card.innerHTML = `
+            <div class="home-recent-info">
+                <div class="home-recent-opponent">vs ${opponent}<span class="home-recent-rating">${escapeHtml(oppRating)}</span></div>
+                <div class="home-recent-meta">${escapeHtml(meta)}</div>
+            </div>
+            <div class="home-recent-result home-recent-result--${resultClass}">${t(resultKey)}</div>
+        `;
+
+        card.addEventListener('click', () => {
+            if (!game.pgn) return;
+            pgnInput.value = game.pgn;
+            handlePgnReviewStart(null, isWhite, null, true);
+        });
+
+        container.appendChild(card);
+    });
+
+    list.appendChild(container);
+}
+
 function loadHomeRecentGames(overrideUsername = null) {
     const displayUser = overrideUsername || getMyUserId();
     const section = document.getElementById('homeRecentSection');
@@ -307,90 +375,27 @@ function loadHomeRecentGames(overrideUsername = null) {
     if (!displayUser || !section || !list) return;
 
     viewingUserId = overrideUsername || null;
+    activeTimeClassFilter = null;
+    document.querySelectorAll('.profile-rating-col[data-time-class]').forEach(c => c.classList.remove('active'));
     updateHomeRecentHeader(isViewingOtherUser() ? viewingUserId : null);
     section.classList.remove('hidden');
 
-    // Show skeleton
     list.innerHTML = `<div class="home-recent-skeleton">${'<div class="home-recent-skeleton-card"></div>'.repeat(3)}</div>`;
 
     fetchRecentGames(displayUser).then(games => {
-        list.innerHTML = '';
         if (!games || games.length === 0) {
             if (overrideUsername) {
                 list.innerHTML = `<div class="container-message">${t('games_fetch_error')}</div>`;
             } else {
                 section.classList.add('hidden');
             }
+            cachedHomeGames = [];
             return;
         }
-        const userLower = displayUser.toLowerCase();
-        const container = document.createElement('div');
-        container.className = 'home-recent-list';
-
-        const dateStrings = { dateToday: t('dateToday'), dateYesterday: t('dateYesterday'), dateDaysAgo: t('dateDaysAgo') };
-
-        // 레이팅 변화(+8/-12) 계산 로직 — 카드에서 노출하지 않기로 함(2026-04-19).
-        // 다른 화면에서 재사용 가능성이 있어 삭제 대신 주석으로 보존.
-        // const prevRatingByClass = {};
-        // const sortedForDiff = [...games].reverse();
-        // const ratingDiffs = new Map();
-        // for (const g of sortedForDiff) {
-        //     const isW = g.white.username.toLowerCase() === userLower;
-        //     const myRating = isW ? g.white.rating : g.black.rating;
-        //     const tc = g.time_class || '';
-        //     if (myRating && tc) {
-        //         if (prevRatingByClass[tc] !== undefined) {
-        //             ratingDiffs.set(g, myRating - prevRatingByClass[tc]);
-        //         }
-        //         prevRatingByClass[tc] = myRating;
-        //     }
-        // }
-
-        games.slice(0, 10).forEach(game => {
-            const isWhite = game.white.username.toLowerCase() === userLower;
-            const mySide = isWhite ? game.white : game.black;
-            const oppSide = isWhite ? game.black : game.white;
-            const opponent = escapeHtml(oppSide.username);
-            const resultCode = mySide.result;
-
-            let resultKey, resultClass;
-            if (resultCode === 'win') {
-                resultKey = 'game_result_win'; resultClass = 'win';
-            } else if (['checkmated', 'timeout', 'resigned', 'abandoned'].includes(resultCode)) {
-                resultKey = 'game_result_loss'; resultClass = 'loss';
-            } else {
-                resultKey = 'game_result_draw'; resultClass = 'draw';
-            }
-
-            const sideClass = isWhite ? 'white' : 'black';
-            const oppRating = oppSide.rating ? ` (${oppSide.rating})` : '';
-
-            const date = game.end_time ? formatRelativeDate(game.end_time, dateStrings) : '';
-            const moveCount = game.pgn ? (game.pgn.match(/\d+\./g) || []).length : 0;
-            const tc = game.time_control ? formatTimeControl(game.time_control) : '';
-            const meta = [date, moveCount ? `${moveCount}${t('moves_suffix')}` : '', tc].filter(Boolean).join(' · ');
-
-            const card = document.createElement('div');
-            card.className = `home-recent-card ${sideClass}`;
-            card.innerHTML = `
-                <div class="home-recent-info">
-                    <div class="home-recent-opponent">vs ${opponent}<span class="home-recent-rating">${escapeHtml(oppRating)}</span></div>
-                    <div class="home-recent-meta">${escapeHtml(meta)}</div>
-                </div>
-                <div class="home-recent-result home-recent-result--${resultClass}">${t(resultKey)}</div>
-            `;
-
-            card.addEventListener('click', () => {
-                if (!game.pgn) return;
-                pgnInput.value = game.pgn;
-                handlePgnReviewStart(null, isWhite, null, true);
-            });
-
-            container.appendChild(card);
-        });
-
-        list.appendChild(container);
+        cachedHomeGames = games;
+        renderHomeGamesList(games, displayUser);
     }).catch(() => {
+        cachedHomeGames = [];
         if (overrideUsername) {
             list.innerHTML = `<div class="container-message container-message--error">${t('games_fetch_error')}</div>`;
         } else {
@@ -423,6 +428,11 @@ function updateHomeHeader() {
             document.getElementById('profileRapid').textContent = ratings.rapid || '—';
             document.getElementById('profileBlitz').textContent = ratings.blitz || '—';
             document.getElementById('profileBullet').textContent = ratings.bullet || '—';
+            document.querySelectorAll('.profile-rating-col[data-time-class]').forEach(col => {
+                const tc = col.dataset.timeClass;
+                col.classList.toggle('disabled', !ratings[tc]);
+                col.classList.remove('active');
+            });
         });
     } else {
         heroSection.classList.remove('home-hero--user');
@@ -436,6 +446,26 @@ function updateHomeHeader() {
         usernameInput.placeholder = t('usernamePlaceholder');
     }
 }
+
+// ── Time Class Filter Tabs ────────────────────────────────────────
+document.querySelectorAll('.profile-rating-col[data-time-class]').forEach(col => {
+    col.addEventListener('click', () => {
+        if (col.classList.contains('disabled')) return;
+        const tc = col.dataset.timeClass;
+        if (activeTimeClassFilter === tc) {
+            activeTimeClassFilter = null;
+            col.classList.remove('active');
+        } else {
+            activeTimeClassFilter = tc;
+            document.querySelectorAll('.profile-rating-col[data-time-class]').forEach(c => c.classList.remove('active'));
+            col.classList.add('active');
+        }
+        const displayUser = viewingUserId || getMyUserId();
+        if (cachedHomeGames.length > 0 && displayUser) {
+            renderHomeGamesList(cachedHomeGames, displayUser);
+        }
+    });
+});
 
 // ── Onboarding ─────────────────────────────────────────────────────
 const onboardingView = document.getElementById('onboardingView');
@@ -692,8 +722,12 @@ function doUndoInput() {
     inputChess.undo();
     updateInputBoard();
 }
-inputViewUndoBtn.addEventListener('click', doUndoInput);
 inputViewUndoBtnBottom.addEventListener('click', doUndoInput);
+inputViewResetBtn.addEventListener('click', () => {
+    inputChess.reset();
+    inputBoardPgn.value = '';
+    updateInputBoard();
+});
 
 inputBoardPgn.addEventListener('input', () => {
     const text = inputBoardPgn.value.trim();
@@ -1188,10 +1222,10 @@ function handleExplorationMove(orig, dest) {
     
     explorationEngineLines = [];
     updateTopEvalDisplay('...', 'Exploring', isUserWhite);
-    engineLinesContainer.innerHTML = '<div class="container-message">Analyzing variation...</div>';
+    engineLinesContainer.innerHTML = `<div class="container-message">${t('analysis_variation')}</div>`;
     
     analysisStatus.className = 'tag engine-loading';
-    analysisStatus.textContent = 'Exploring position...';
+    analysisStatus.textContent = t('analysis_exploring');
     stockfish.analyzeFen(explorationChess.fen(), ANALYSIS_DEPTH);
 }
 
@@ -1397,7 +1431,7 @@ function handlePgnReviewStart(e = null, isWhiteGame = null, targetIndex = null, 
     // Safe Engine Restart Logic
     if (isAnalyzing || isWaitingForStop) {
         analysisStatus.className = 'tag engine-loading';
-        analysisStatus.textContent = 'Stopping previous analysis...';
+        analysisStatus.textContent = t('analysis_stopping');
         pendingQueue = newQueue;
         pendingTargetIndex = targetIndex;
         isWaitingForStop = true;
@@ -1439,7 +1473,7 @@ function handleFenReviewStart(fenText, isWhiteGame) {
 
     if (isAnalyzing || isWaitingForStop) {
         analysisStatus.className = 'tag engine-loading';
-        analysisStatus.textContent = 'Stopping previous analysis...';
+        analysisStatus.textContent = t('analysis_stopping');
         pendingQueue = newQueue;
         pendingTargetIndex = 0;
         isWaitingForStop = true;
@@ -1496,7 +1530,7 @@ function startNewAnalysis(newQueue, targetIndex = null, previewOnly = false) {
     }
 
     analysisStatus.className = 'tag engine-loading';
-    analysisStatus.textContent = `Analyzing 0 / ${analysisQueue.length} moves...`;
+    analysisStatus.textContent = t('analysis_progress_start').replace('{total}', analysisQueue.length);
 
     if (analysisQueue.length > 0 && targetIndex != null && targetIndex >= 0 && targetIndex < analysisQueue.length) {
         updateBoardPosition(targetIndex, analysisQueue[targetIndex].fen);
@@ -1572,7 +1606,7 @@ function startAnalysisFromPreview() {
     removePreviewControls();
 
     analysisStatus.className = 'tag engine-loading';
-    analysisStatus.textContent = `Analyzing 0 / ${analysisQueue.length} moves...`;
+    analysisStatus.textContent = t('analysis_progress_start').replace('{total}', analysisQueue.length);
 
     if (isEngineReady) {
         processNextInQueue();
@@ -1598,14 +1632,14 @@ function processNextInQueue() {
     const pos = analysisQueue[currentAnalysisIndex];
     currentEval = '';
     
-    analysisStatus.textContent = `Analyzing move ${currentAnalysisIndex + 1} / ${analysisQueue.length}`;
+    analysisStatus.textContent = t('analysis_progress').replace('{current}', currentAnalysisIndex + 1).replace('{total}', analysisQueue.length);
     
     updateBoardPosition(currentAnalysisIndex, pos.fen);
     
     // Ensure engine is fully ready before sending position
     // If not ready, we skip sending 'go' and rely on onReady callback
     if (!isEngineReady) {
-        analysisStatus.textContent = 'Waiting for Engine...';
+        analysisStatus.textContent = t('analysis_waiting_engine');
         isAnalyzing = false; // 엔진 준비 콜백(onReady)에서 큐를 정상적으로 재개할 수 있도록 상태 해제 (교착 상태 방지)
         return;
     }
@@ -1803,7 +1837,7 @@ function handleEngineLineClick(lineIndex) {
     if (!pv) return;
 
     const tempChess = new Chess(baseFen);
-    simulationQueue = [{ fen: baseFen, san: 'Start' }];
+    simulationQueue = [{ fen: baseFen, san: t('sim_start') }];
     
     const moves = pv.split(' ');
     for (const move of moves) {
@@ -1830,7 +1864,7 @@ function updateBoardForSimulation(index) {
 
     const movesHtml = simulationQueue.map((m, i) => {
         let state = i < index ? 'done' : i === index ? 'active' : 'upcoming';
-        return `<span class="sim-move sim-move--${state}" data-sim-index="${i}">${i === 0 ? 'Start' : m.san}</span>`;
+        return `<span class="sim-move sim-move--${state}" data-sim-index="${i}">${i === 0 ? t('sim_start') : m.san}</span>`;
     }).join('');
 
     engineLinesContainer.innerHTML = `

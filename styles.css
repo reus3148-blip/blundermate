@@ -378,9 +378,14 @@ body {
     opacity: 0.6;
 }
 
+.input-controls {
+    gap: 8px;
+}
+.input-controls .control-btn {
+    flex: 1;
+}
 .input-analyze-btn {
     flex: 1;
-    margin-left: 12px;
     height: 44px;
     border-radius: 8px;
     background: var(--ac);
@@ -2087,6 +2092,24 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     flex-direction: column;
     align-items: center;
     gap: 2px;
+    cursor: pointer;
+    padding: 6px 0;
+    border-radius: 6px;
+    transition: background 0.15s ease;
+}
+.profile-rating-col:hover {
+    background: var(--bg-elevated);
+}
+.profile-rating-col.active .profile-rating-label,
+.profile-rating-col.active .profile-rating-value {
+    color: var(--ac);
+}
+.profile-rating-col.disabled {
+    cursor: not-allowed;
+    opacity: 0.4;
+}
+.profile-rating-col.disabled:hover {
+    background: none;
 }
 .profile-rating-label {
     font-size: 11px;

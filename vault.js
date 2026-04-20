@@ -177,7 +177,7 @@ function openVaultItem(item) {
     });
 
     vaultDetailChess = new Chess();
-    const isCoordsEnabled = localStorage.getItem(COORDS_KEY) === 'true';
+    const isCoordsEnabled = localStorage.getItem(COORDS_KEY) !== 'false';
     if (!vaultDetailCg) {
         vaultDetailCg = Chessground(vaultDetailBoard, {
             fen: vaultDetailStartFen,

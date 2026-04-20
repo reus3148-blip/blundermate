@@ -129,6 +129,18 @@ const STRINGS = {
     ratingBlitz: 'Blitz',
     ratingBullet: 'Bullet',
     noRating: '—',
+    analysis_variation: '변이 분석 중...',
+    analysis_exploring: '포지션 탐색 중...',
+    analysis_stopping: '이전 분석 중지 중...',
+    analysis_progress_start: '0 / {total}수 분석 중...',
+    analysis_progress: '{current} / {total}수 분석 중',
+    analysis_waiting_engine: '엔진 대기 중...',
+    sim_start: '시작',
+    input_placeholder: 'PGN 또는 FEN을 붙여넣거나 보드에서 수를 입력하세요',
+    input_reset: '처음부터',
+    filter_no_games: '표시할 게임이 없습니다',
+    time_min: '{n}분',
+    time_sec: '{n}초',
   },
   en: {
     heroTitle: 'What game would you like to review?',
@@ -260,10 +272,29 @@ const STRINGS = {
     ratingBlitz: 'Blitz',
     ratingBullet: 'Bullet',
     noRating: '—',
+    analysis_variation: 'Analyzing variation...',
+    analysis_exploring: 'Exploring position...',
+    analysis_stopping: 'Stopping previous analysis...',
+    analysis_progress_start: 'Analyzing 0 / {total} moves...',
+    analysis_progress: 'Analyzing move {current} / {total}',
+    analysis_waiting_engine: 'Waiting for Engine...',
+    sim_start: 'Start',
+    input_placeholder: 'Paste PGN or FEN, or enter moves on the board',
+    input_reset: 'Reset',
+    filter_no_games: 'No games to show',
+    time_min: '{n} min',
+    time_sec: '{n}s',
   },
 };
 
-let locale = localStorage.getItem('locale') || 'ko';
+function detectLocale() {
+  const stored = localStorage.getItem('locale');
+  if (stored) return stored;
+  if (navigator.language && navigator.language.startsWith('ko')) return 'ko';
+  return 'en';
+}
+
+let locale = detectLocale();
 export const t = (key) => STRINGS[locale]?.[key] ?? STRINGS['ko']?.[key] ?? key;
 export const setLocale = (lang) => {
   locale = lang;

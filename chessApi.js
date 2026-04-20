@@ -1,4 +1,4 @@
-const RECENT_GAMES_LIMIT = 10;
+const RECENT_GAMES_LIMIT = 30;
 let cachedProfile = null;
 let cachedProfileUser = null;
 

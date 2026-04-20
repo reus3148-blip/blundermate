@@ -1,3 +1,5 @@
+import { t } from './strings.js';
+
 /**
  * 엔진 평가값(CP, Mate)을 백 기준 관례(+ = 백 유리)로 파싱합니다.
  * Stockfish는 side-to-move 기준으로 반환하므로 흑 차례이면 부호를 반전합니다.
@@ -258,9 +260,9 @@ export function formatTimeControl(tc) {
     const seconds = Number(str);
     if (!isFinite(seconds) || seconds <= 0) return str;
     const mins = seconds / 60;
-    if (Number.isInteger(mins)) return `${mins}분`;
-    if (seconds < 60) return `${seconds}초`;
-    return `${mins.toFixed(1)}분`;
+    if (Number.isInteger(mins)) return t('time_min').replace('{n}', mins);
+    if (seconds < 60) return t('time_sec').replace('{n}', seconds);
+    return t('time_min').replace('{n}', mins.toFixed(1));
 }
 
 export function formatRelativeDate(dateStr, strings) {
