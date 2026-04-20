@@ -226,13 +226,12 @@ const CLASS_COLOR = {
 };
 
 /**
- * user-POV pawn eval → 백 기준 승률(%). 0~100 범위.
- * 메이트 표기는 scoreNum이 ±999로 들어오므로 sigmoid로 자연스럽게 포화됨.
+ * 백 기준 pawn eval → 백 기준 승률(%). 0~100 범위.
+ * scoreNum은 이미 백 기준(+ = 백 유리)이므로 변환 없이 sigmoid 적용.
  */
-function scoreToWhiteWinPct(scoreNum, isUserWhite) {
+function scoreToWhiteWinPct(scoreNum) {
     if (scoreNum === undefined || scoreNum === null || Number.isNaN(scoreNum)) return null;
-    const whitePawn = isUserWhite ? scoreNum : -scoreNum;
-    const cp = Math.max(-99900, Math.min(99900, whitePawn * 100));
+    const cp = Math.max(-99900, Math.min(99900, scoreNum * 100));
     return 50 + 50 * (2 / (1 + Math.exp(-0.00368208 * cp)) - 1);
 }
 
@@ -240,14 +239,14 @@ function scoreToWhiteWinPct(scoreNum, isUserWhite) {
  * Lichess Accuracy per move: 103.1668 * exp(-0.04354 * winPctLoss) - 3.1669
  * forWhitePlayer가 true면 백의 평균 정확도, false면 흑의 평균 정확도.
  */
-function computePlayerAccuracy(analysisQueue, isUserWhite, forWhitePlayer) {
+function computePlayerAccuracy(analysisQueue, forWhitePlayer) {
     const accuracies = [];
     for (let i = 0; i < analysisQueue.length; i++) {
         const move = analysisQueue[i];
         if (move.isWhite !== forWhitePlayer) continue;
         if (!move.engineLines || !move.engineLines[0]) continue;
 
-        const currWhiteWinPct = scoreToWhiteWinPct(move.engineLines[0].scoreNum, isUserWhite);
+        const currWhiteWinPct = scoreToWhiteWinPct(move.engineLines[0].scoreNum);
         if (currWhiteWinPct === null) continue;
 
         let prevWhiteWinPct;
@@ -256,7 +255,7 @@ function computePlayerAccuracy(analysisQueue, isUserWhite, forWhitePlayer) {
         } else {
             const prev = analysisQueue[i - 1];
             if (!prev.engineLines || !prev.engineLines[0]) continue;
-            prevWhiteWinPct = scoreToWhiteWinPct(prev.engineLines[0].scoreNum, isUserWhite);
+            prevWhiteWinPct = scoreToWhiteWinPct(prev.engineLines[0].scoreNum);
             if (prevWhiteWinPct === null) continue;
         }
 
@@ -305,8 +304,9 @@ export function renderSummaryGraph(container, analysisQueue, isUserWhite) {
     for (let i = 0; i < total; i++) {
         const move = analysisQueue[i];
         if (!move.engineLines || !move.engineLines[0]) continue;
-        const pct = scoreToWhiteWinPct(move.engineLines[0].scoreNum, isUserWhite);
-        if (pct === null) continue;
+        const whitePct = scoreToWhiteWinPct(move.engineLines[0].scoreNum);
+        if (whitePct === null) continue;
+        const pct = isUserWhite ? whitePct : 100 - whitePct;
         points.push({ moveNum: i + 1, pct, classification: move.classification });
     }
 
@@ -387,8 +387,8 @@ export function renderSummaryReport(container, analysisQueue, isUserWhite, onSta
         if (counts[side][m.classification] !== undefined) counts[side][m.classification]++;
     }
 
-    const accW = computePlayerAccuracy(analysisQueue, isUserWhite, true);
-    const accB = computePlayerAccuracy(analysisQueue, isUserWhite, false);
+    const accW = computePlayerAccuracy(analysisQueue, true);
+    const accB = computePlayerAccuracy(analysisQueue, false);
     const fmtAcc = (a) => a === null ? '—' : a.toFixed(1) + '%';
 
     const classRows = CLASS_ORDER.map((c, idx) => `
@@ -434,17 +434,18 @@ export function renderSummaryReport(container, analysisQueue, isUserWhite, onSta
 /**
  * Updates win chance and move classification label in the bottom bar.
  */
-export function updateTopEvalDisplay(scoreStr, classification = '') {
+export function updateTopEvalDisplay(scoreStr, classification = '', isUserWhite = true) {
     const el = document.getElementById('winChanceDisplay');
     const labelEl = document.getElementById('moveClassLabel');
     if (!el) return;
 
-    // Cache scoreStr and classification on the element for use by the toggle handler
     el.dataset.scoreStr = scoreStr || '';
     el.dataset.classification = classification || '';
 
     const mode = localStorage.getItem('evalDisplayMode') || 'percent';
-    const pct = evalToWinChance(scoreStr);
+    // evalToWinChance는 백 기준 승률 반환 → 유저 관점으로 변환
+    const whitePct = evalToWinChance(scoreStr);
+    const pct = whitePct === null ? null : isUserWhite ? whitePct : 100 - whitePct;
     const color = pct === null ? 'var(--tx2)' : pct >= 50 ? 'var(--best)' : pct < 40 ? 'var(--blunder)' : 'var(--tx2)';
 
     if (mode === 'score') {

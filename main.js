@@ -898,7 +898,7 @@ document.getElementById('winChanceDisplay').addEventListener('click', () => {
     localStorage.setItem(EVAL_MODE_KEY, next);
     el.style.opacity = '0';
     setTimeout(() => {
-        updateTopEvalDisplay(el.dataset.scoreStr || '', el.dataset.classification || '');
+        updateTopEvalDisplay(el.dataset.scoreStr || '', el.dataset.classification || '', isUserWhite);
         el.style.opacity = '1';
     }, 150);
 });
@@ -1185,7 +1185,7 @@ function handleExplorationMove(orig, dest) {
     });
     
     explorationEngineLines = [];
-    updateTopEvalDisplay('...', 'Exploring');
+    updateTopEvalDisplay('...', 'Exploring', isUserWhite);
     engineLinesContainer.innerHTML = '<div class="container-message">Analyzing variation...</div>';
     
     analysisStatus.className = 'tag engine-loading';
@@ -1244,19 +1244,19 @@ const engineCallbacks = {
     onEval: (evalData) => {
         if (appMode === 'explore') {
             const isBlackToMove = explorationChess.turn() === 'b';
-            const { scoreStr, scoreNum } = parseEvalData(evalData, isBlackToMove, isUserWhite);
-            
+            const { scoreStr, scoreNum } = parseEvalData(evalData, isBlackToMove);
+
             const lineIndex = evalData.multipv - 1;
             const sanPv = convertPvToSan(evalData.pv, explorationChess.fen());
             const firstUci = evalData.pv ? evalData.pv.split(' ')[0] : '';
             explorationEngineLines[lineIndex] = { scoreStr, scoreNum, pv: sanPv, uci: firstUci };
-            
+
             const now = Date.now();
             if (explorationEngineLines[0] && now - lastEvalRenderTime > EVAL_RENDER_THROTTLE) {
                 lastEvalRenderTime = now;
                 requestAnimationFrame(() => {
                     renderEngineLines(engineLinesContainer, explorationEngineLines.filter(Boolean), drawEngineArrow, clearEngineArrow, handleEngineLineClick);
-                    updateTopEvalDisplay(explorationEngineLines[0].scoreStr, 'Exploring');
+                    updateTopEvalDisplay(explorationEngineLines[0].scoreStr, 'Exploring', isUserWhite);
                 });
             }
             return;
@@ -1266,7 +1266,7 @@ const engineCallbacks = {
         const currentMove = analysisQueue[currentAnalysisIndex];
         if (!currentMove) return; // 비동기 콜백 안전장치
 
-        const { scoreStr, scoreNum } = parseEvalData(evalData, isBlackToMove, isUserWhite);
+        const { scoreStr, scoreNum } = parseEvalData(evalData, isBlackToMove);
         
         const lineIndex = evalData.multipv - 1;
         const sanPv = convertPvToSan(evalData.pv, currentMove.fen);
@@ -1282,7 +1282,7 @@ const engineCallbacks = {
                 lastEvalRenderTime = now;
                 requestAnimationFrame(() => {
                     renderEngineLines(engineLinesContainer, currentMove.engineLines.filter(Boolean), drawEngineArrow, clearEngineArrow, handleEngineLineClick);
-                    updateTopEvalDisplay(currentEval, currentMove.classification);
+                    updateTopEvalDisplay(currentEval, currentMove.classification, isUserWhite);
                 });
             }
         }
@@ -1320,7 +1320,7 @@ const engineCallbacks = {
         if (currentlyViewedIndex === currentAnalysisIndex) {
             // 스로틀링으로 인해 생략되었을 수 있는 최종 평가 라인을 확실하게 다시 렌더링
             renderEngineLines(engineLinesContainer, analysisQueue[currentAnalysisIndex].engineLines.filter(Boolean), drawEngineArrow, clearEngineArrow, handleEngineLineClick);
-            updateTopEvalDisplay(currentEval, classification);
+            updateTopEvalDisplay(currentEval, classification, isUserWhite);
             showPieceBadge(currentlyViewedIndex);
         }
         currentAnalysisIndex++;
@@ -1483,7 +1483,7 @@ function startNewAnalysis(newQueue, targetIndex = null, previewOnly = false) {
             drawable: { autoShapes: [] }
         });
         currentlyViewedIndex = -1;
-        updateTopEvalDisplay('-');
+        updateTopEvalDisplay('-', '', isUserWhite);
     }
 
     if (previewOnly) {
@@ -1693,10 +1693,10 @@ function updateBoardPosition(index, fen) {
     // 화면이 바뀔 때, 해당 수에 저장된 엔진 추천 라인이 있다면 화면에 다시 렌더링
     if (analysisQueue[index] && analysisQueue[index].engineLines && analysisQueue[index].engineLines.length > 0) {
         renderEngineLines(engineLinesContainer, analysisQueue[index].engineLines.filter(Boolean), drawEngineArrow, clearEngineArrow, handleEngineLineClick);
-        updateTopEvalDisplay(analysisQueue[index].engineLines[0].scoreStr, analysisQueue[index].classification);
+        updateTopEvalDisplay(analysisQueue[index].engineLines[0].scoreStr, analysisQueue[index].classification, isUserWhite);
     } else {
         engineLinesContainer.innerHTML = '';
-        updateTopEvalDisplay('-');
+        updateTopEvalDisplay('-', '', isUserWhite);
     }
 
     showPieceBadge(index);
@@ -1823,7 +1823,7 @@ function updateBoardForSimulation(index) {
     const tempChess = new Chess(item.fen);
     const turnColor = tempChess.turn() === 'w' ? 'white' : 'black';
     cg.set({ fen: item.fen, turnColor: turnColor, movable: { color: turnColor, free: false, dests: getDests(tempChess) }, drawable: { autoShapes: [] } });
-    updateTopEvalDisplay('—', 'Simulating');
+    updateTopEvalDisplay('—', 'Simulating', isUserWhite);
     switchTab('engine');
 
     const movesHtml = simulationQueue.map((m, i) => {
