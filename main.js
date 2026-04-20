@@ -147,6 +147,97 @@ let isCoordsEnabled = localStorage.getItem(COORDS_KEY) === 'true'; // 보드 좌
 let isGeminiEnabled = localStorage.getItem(GEMINI_KEY) === 'true'; // Gemini AI 토글 상태
 
 // ==========================================
+// 2-2. History-based Navigation
+// ==========================================
+const SCREENS = {
+    HOME: 'home',
+    ANALYSIS: 'analysis',
+    INPUT: 'input',
+    VAULT_LIST: 'vault_list',
+    VAULT_DETAIL: 'vault_detail',
+    SAVED_GAMES: 'saved_games',
+};
+
+let _currentScreen = SCREENS.HOME;
+
+const vaultViewNav = document.getElementById('vaultView');
+const vaultDetailViewNav = document.getElementById('vaultDetailView');
+const savedGamesViewNav = document.getElementById('savedGamesView');
+
+function navigateTo(screen, state = {}) {
+    console.log('[Nav] push:', screen, state);
+    _currentScreen = screen;
+    history.pushState({ screen, ...state }, '', `#${screen}`);
+}
+
+function hideAllViews() {
+    homeView.classList.add('hidden');
+    analysisView.classList.add('hidden');
+    analysisView.classList.remove('view-summary');
+    inputView.classList.add('hidden');
+    vaultViewNav.classList.add('hidden');
+    vaultDetailViewNav.classList.add('hidden');
+    savedGamesViewNav.classList.add('hidden');
+}
+
+function cleanupAnalysis() {
+    if (isPreviewMode) {
+        isPreviewMode = false;
+        removePreviewControls();
+    }
+    if (stockfish) stockfish.stop();
+    isAnalyzing = false;
+    isWaitingForStop = false;
+    pendingQueue = null;
+    analysisQueue = [];
+}
+
+function renderScreen(screen) {
+    console.log('[Nav] render:', screen);
+    if (_currentScreen === SCREENS.ANALYSIS && screen !== SCREENS.ANALYSIS) {
+        cleanupAnalysis();
+    }
+    _currentScreen = screen;
+    hideAllViews();
+    switch (screen) {
+        case SCREENS.HOME:
+            homeView.classList.remove('hidden');
+            refreshHomeCounts();
+            break;
+        case SCREENS.ANALYSIS:
+            analysisView.classList.remove('hidden');
+            break;
+        case SCREENS.INPUT:
+            inputView.classList.remove('hidden');
+            break;
+        case SCREENS.VAULT_LIST:
+            vaultViewNav.classList.remove('hidden');
+            break;
+        case SCREENS.VAULT_DETAIL:
+            vaultDetailViewNav.classList.remove('hidden');
+            break;
+        case SCREENS.SAVED_GAMES:
+            savedGamesViewNav.classList.remove('hidden');
+            break;
+        default:
+            homeView.classList.remove('hidden');
+            break;
+    }
+}
+
+window.addEventListener('popstate', (event) => {
+    console.log('[Nav] pop:', event.state);
+    const state = event.state;
+    if (state && state.screen) {
+        renderScreen(state.screen);
+    } else {
+        renderScreen(SCREENS.HOME);
+    }
+});
+
+history.replaceState({ screen: SCREENS.HOME }, '', '#home');
+
+// ==========================================
 // 3. Initialization
 // ==========================================
 cg = Chessground(boardContainer, {
@@ -567,6 +658,7 @@ document.getElementById('langEnBtn').addEventListener('click', () => {
 // 4. Event Listeners
 // ==========================================
 function openInputView() {
+    navigateTo(SCREENS.INPUT);
     homeView.classList.add('hidden');
     inputView.classList.remove('hidden');
     inputChess.reset();
@@ -592,9 +684,7 @@ function openInputView() {
 openBoardInputBtn.addEventListener('click', openInputView);
 
 inputViewBackBtn.addEventListener('click', () => {
-    inputView.classList.add('hidden');
-    homeView.classList.remove('hidden');
-    refreshHomeCounts();
+    history.back();
 });
 
 function doUndoInput() {
@@ -662,23 +752,7 @@ inputViewAnalyzeBtn.addEventListener('click', () => {
 });
 
 backBtn.addEventListener('click', () => {
-    analysisView.classList.add('hidden');
-    analysisView.classList.remove('view-summary');
-    homeView.classList.remove('hidden');
-    refreshHomeCounts();
-
-    // Reset preview state
-    if (isPreviewMode) {
-        isPreviewMode = false;
-        removePreviewControls();
-    }
-
-    // Stop engine to save resources when returning to home view
-    stockfish.stop();
-    isAnalyzing = false;
-    isWaitingForStop = false;
-    pendingQueue = null;
-    analysisQueue = []; // 큐도 초기화하여 백그라운드 엔진 메시지로 인한 충돌 방지
+    history.back();
 });
 
 function updateInputBoard() {
@@ -841,7 +915,7 @@ function closeMovesOverlay() {
     _overlayGetPgn = null;
 }
 
-initVault({ showMovesOverlay, closeMovesOverlay });
+initVault({ showMovesOverlay, closeMovesOverlay, navigateTo });
 initSavedGames({
     onLoadGame: (pgn) => {
         pgnInput.value = pgn;
@@ -851,6 +925,7 @@ initSavedGames({
     showButtonSuccess,
     saveMoveBtn,
     initHomeVaultBadge: refreshHomeCounts,
+    navigateTo,
 });
 
 function buildInputMovesQueue() {
@@ -1375,6 +1450,9 @@ function handleFenReviewStart(fenText, isWhiteGame) {
 
 function startNewAnalysis(newQueue, targetIndex = null, previewOnly = false) {
     // Switch to Analysis View
+    if (_currentScreen !== SCREENS.ANALYSIS) {
+        navigateTo(SCREENS.ANALYSIS);
+    }
     homeView.classList.add('hidden');
     analysisView.classList.remove('hidden');
 

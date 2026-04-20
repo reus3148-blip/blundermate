@@ -42,6 +42,7 @@ function getSelectedCategory() {
 let _activeFilter = 'all';
 let _editingGameId = null;
 let _pendingSavePgn = null; // 카드의 저장 버튼에서 모달을 열 때 사용할 PGN (분석 화면의 chess 인스턴스 대신)
+let _navigateTo = null;
 
 // ==========================================
 // Rendering
@@ -111,6 +112,7 @@ function renderSavedGamesList(container, savedGames, onDelete, onLoad, onEdit) {
 async function openSavedGamesFromHome() {
     _activeFilter = 'all';
     syncFilterBar();
+    if (_navigateTo) _navigateTo('saved_games');
     homeView.classList.add('hidden');
     savedGamesView.classList.remove('hidden');
     await updateSavedGamesView();
@@ -146,11 +148,12 @@ function syncFilterBar() {
 // ==========================================
 // Public API
 // ==========================================
-export function initSavedGames({ onLoadGame, getChess, showButtonSuccess, saveMoveBtn, initHomeVaultBadge }) {
+export function initSavedGames({ onLoadGame, getChess, showButtonSuccess, saveMoveBtn, initHomeVaultBadge, navigateTo }) {
     _onLoadGame = onLoadGame;
     _getChess = getChess;
     _showButtonSuccess = showButtonSuccess;
     _saveMoveBtn = saveMoveBtn;
+    _navigateTo = navigateTo || null;
 
     openSavedGamesBtn.addEventListener('click', openSavedGamesFromHome);
 
@@ -163,9 +166,7 @@ export function initSavedGames({ onLoadGame, getChess, showButtonSuccess, saveMo
     }
 
     savedGamesBackBtn.addEventListener('click', () => {
-        savedGamesView.classList.add('hidden');
-        homeView.classList.remove('hidden');
-        initHomeVaultBadge();
+        history.back();
     });
 
     // Category picker (Save Game modal)
