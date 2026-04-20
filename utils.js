@@ -1,12 +1,13 @@
 /**
- * 엔진 평가값(CP, Mate)을 사용자의 플레이 색상(백/흑) 기준에 맞게 파싱합니다.
+ * 엔진 평가값(CP, Mate)을 백 기준 관례(+ = 백 유리)로 파싱합니다.
+ * Stockfish는 side-to-move 기준으로 반환하므로 흑 차례이면 부호를 반전합니다.
  */
-export function parseEvalData(evalData, isBlackToMove, isUserWhite) {
+export function parseEvalData(evalData, isBlackToMove) {
     let scoreStr = '';
     let scoreNum = 0;
-    
-    let invert = isBlackToMove === isUserWhite;
-    
+
+    const invert = isBlackToMove;
+
     if (evalData.type === 'cp') {
         let score = evalData.value;
         if (invert) score = -score;
@@ -15,7 +16,6 @@ export function parseEvalData(evalData, isBlackToMove, isUserWhite) {
     } else if (evalData.type === 'mate') {
         let mateIn = evalData.value;
         if (mateIn === 0) {
-            // mate 0 = 현재 차례인 쪽이 체크메이트 당한 상태
             scoreNum = invert ? 999 : -999;
             scoreStr = invert ? '+M0' : '-M0';
         } else {
@@ -94,7 +94,7 @@ export function classifyMove(index, analysisQueue, isUserWhite) {
     const isWhite = move.isWhite;
     const currEval = move.engineLines[0];
 
-    let prevEval = { scoreNum: isUserWhite ? 0.2 : -0.2, scoreStr: isUserWhite ? '+0.20' : '-0.20' };
+    let prevEval = { scoreNum: 0.2, scoreStr: '+0.20' };
     let prevLines = [];
     if (index > 0) {
         const prevMove = analysisQueue[index - 1];
@@ -103,7 +103,8 @@ export function classifyMove(index, analysisQueue, isUserWhite) {
         prevLines = prevMove.engineLines;
     }
 
-    const perspectiveMultiplier = (isUserWhite === isWhite) ? 1 : -1;
+    // scoreNum/scoreStr는 백 기준 → 수를 둔 쪽 기준으로 변환
+    const perspectiveMultiplier = isWhite ? 1 : -1;
 
     // --- 메이트 표기 파싱 ---
     const getMate = (str) => {
