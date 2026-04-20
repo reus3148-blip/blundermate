@@ -14,10 +14,16 @@ export function parseEvalData(evalData, isBlackToMove, isUserWhite) {
         scoreStr = score > 0 ? `+${score.toFixed(2)}` : score.toFixed(2);
     } else if (evalData.type === 'mate') {
         let mateIn = evalData.value;
-        if (invert) mateIn = -mateIn;
-        scoreNum = mateIn > 0 ? 999 : -999;
-        scoreStr = `M${Math.abs(mateIn)}`;
-        scoreStr = mateIn > 0 ? `+${scoreStr}` : `-${scoreStr}`;
+        if (mateIn === 0) {
+            // mate 0 = 현재 차례인 쪽이 체크메이트 당한 상태
+            scoreNum = invert ? 999 : -999;
+            scoreStr = invert ? '+M0' : '-M0';
+        } else {
+            if (invert) mateIn = -mateIn;
+            scoreNum = mateIn > 0 ? 999 : -999;
+            scoreStr = `M${Math.abs(mateIn)}`;
+            scoreStr = mateIn > 0 ? `+${scoreStr}` : `-${scoreStr}`;
+        }
     }
     return { scoreStr, scoreNum };
 }
@@ -111,6 +117,9 @@ export function classifyMove(index, analysisQueue, isUserWhite) {
     const currMate = getMate(currEval.scoreStr) !== null ? getMate(currEval.scoreStr) * perspectiveMultiplier : null;
 
     // --- 메이트 엣지 케이스 ---
+    // mate 0 = 체크메이트 완료 — 수를 둔 쪽이 메이트를 완성한 것이므로 항상 Best
+    if (currMate !== null && currMate === 0) return 'Best';
+
     if (prevMate !== null) {
         if (prevMate > 0) {
             if (currMate !== null && currMate > 0) return currMate <= prevMate ? 'Best' : 'Good';
