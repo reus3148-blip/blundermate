@@ -15,7 +15,7 @@ import { t, setLocale, getLocale } from './strings.js';
 // Manual inputs
 const pgnInput = document.getElementById('pgnInput');
 const analyzeBtn = document.getElementById('analyzeBtn');
-const openBoardInputBtn = document.getElementById('openBoardInputBtn');
+const openBoardInputBtn = document.getElementById('homeBoardInputBtn');
 const manualInputWrapper = document.getElementById('manualInputWrapper');
 // API inputs
 const usernameInput = document.getElementById('usernameInput');
@@ -91,7 +91,7 @@ const chooseBlackBtn = document.getElementById('chooseBlackBtn');
 let pendingAnalysisCallback = null;
 
 // Settings Elements
-const settingsBtn = document.getElementById('settingsBtn');
+const settingsBtn = document.getElementById('homeSettingsBtn');
 const settingsModal = document.getElementById('settingsModal');
 const coordsToggle = document.getElementById('coordsToggle');
 const geminiToggle = document.getElementById('geminiToggle');
@@ -106,7 +106,7 @@ const submitFeedbackBtn = document.getElementById('submitFeedbackBtn');
 const feedbackStatusText = document.getElementById('feedbackStatusText');
 
 // User Search Modal
-const openUserSearchBtn = document.getElementById('openUserSearchBtn');
+const openUserSearchBtn = document.getElementById('homeSearchBtn');
 const userSearchModal = document.getElementById('userSearchModal');
 const closeUserSearchBtn = document.getElementById('closeUserSearchBtn');
 
@@ -271,6 +271,9 @@ function applyLocale() {
     });
     document.querySelectorAll('[data-i18n-title]').forEach(el => {
         el.title = t(el.dataset.i18nTitle);
+    });
+    document.querySelectorAll('[data-i18n-aria]').forEach(el => {
+        el.setAttribute('aria-label', t(el.dataset.i18nAria));
     });
     // Sync lang button active state
     const locale = getLocale();
