@@ -2,6 +2,7 @@ import { Chessground } from 'https://cdnjs.cloudflare.com/ajax/libs/chessground/
 import { fetchRecentGames, fetchPlayerProfile } from './chessApi.js';
 import { StockfishEngine } from './engine.js';
 import { parseEvalData, getDests, convertPvToSan, classifyMove, parseAndLoadPgn, isValidFen, escapeHtml, parseOpeningFromPgn, formatTimeControl, formatRelativeDate } from './utils.js';
+import { getDisplayName as getOpeningDisplayName } from './openings.js';
 import { renderMovesTable, updateUIWithEval, highlightActiveMove, renderEngineLines, updateTopEvalDisplay, renderSummaryGraph, renderSummaryReport } from './ui.js';
 import { addVaultItem, getSavedGames, setMyUserId, getMyUserId, ONBOARDING_KEY, COORDS_KEY, GEMINI_KEY, EVAL_MODE_KEY } from './storage.js';
 import { initVault, initHomeVaultBadge, isVaultDetailActive, getVaultDetailIndex, setVaultDetailIndex, flipVaultBoard, setVaultCoords, redrawVaultBoard } from './vault.js';
@@ -1593,7 +1594,8 @@ function renderPreviewCard() {
     metaParts.push(t('preview_moves').replace('{n}', analysisQueue.length));
     const metaLine = metaParts.join(' \u00b7 ');
 
-    const { name: openingName, eco } = parseOpeningFromPgn(chess.pgn());
+    const { eco, ecoUrl } = parseOpeningFromPgn(chess.pgn());
+    const openingName = getOpeningDisplayName(eco, ecoUrl);
     let openingBlock = '';
     if (openingName) {
         openingBlock = `
