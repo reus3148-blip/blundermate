@@ -433,6 +433,9 @@ function updateHomeHeader() {
         heroSection.classList.add('home-hero--user');
         profileName.classList.remove('hidden');
         profileName.textContent = userId;
+        profileName.classList.remove('username-md', 'username-sm');
+        if (userId.length > 15) profileName.classList.add('username-sm');
+        else if (userId.length > 10) profileName.classList.add('username-md');
         profileRatings.classList.remove('hidden');
         document.getElementById('profileRapid').textContent = '—';
         document.getElementById('profileBlitz').textContent = '—';
