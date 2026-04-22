@@ -130,25 +130,23 @@
                     <span data-i18n="back">Back</span>
                 </button>
                 <span class="app-title" data-i18n="input_title">수 입력</span>
-                <div style="display:flex;gap:4px;">
-                    <button id="inputViewMovesBtn" class="topbar-icon-btn" title="기보" data-i18n-title="moves">☰</button>
-                </div>
+                <button id="inputViewMovesBtn" class="topbar-icon-btn" title="기보" data-i18n-title="moves">☰</button>
             </div>
 
             <div class="board-wrapper">
                 <div id="inputBoardContainer" class="board-container"></div>
             </div>
 
-            <div class="input-pgn-area">
-                <textarea id="inputBoardPgn" class="input-pgn-textarea" placeholder="PGN 또는 FEN을 붙여넣거나 보드에서 수를 입력하세요" data-i18n-placeholder="input_placeholder" spellcheck="false"></textarea>
-            </div>
-
             <div class="unified-controls">
                 <div class="unified-controls-inner input-controls">
-                    <button id="inputViewUndoBtnBottom" class="control-btn" data-i18n="input_undo">Undo</button>
-                    <button id="inputViewResetBtn" class="control-btn" data-i18n="input_reset">처음부터</button>
+                    <button id="inputViewUndoBtnBottom" class="input-secondary-btn" data-i18n="input_undo">Undo</button>
                     <button id="inputViewAnalyzeBtn" class="input-analyze-btn" data-i18n="input_analyze">분석 시작 →</button>
+                    <button id="inputViewResetBtn" class="input-secondary-btn" data-i18n="input_reset">처음부터</button>
                 </div>
+            </div>
+
+            <div class="input-pgn-area">
+                <textarea id="inputBoardPgn" class="input-pgn-textarea" placeholder="PGN 또는 FEN을 붙여넣거나 보드에서 수를 입력하세요" data-i18n-placeholder="input_placeholder" spellcheck="false"></textarea>
             </div>
         </div>
 
@@ -338,7 +336,7 @@
                     <button id="closeFeedbackBtn" class="modal-close-btn">✕</button>
                 </div>
                 <div class="form-group">
-                    <textarea id="feedbackInput" class="text-input" placeholder="웹사이트에 대한 의견이나 버그를 자유롭게 남겨주세요..." style="min-height: 120px; font-family: inherit; font-size: 0.9rem; padding: 12px; resize: vertical;"></textarea>
+                    <textarea id="feedbackInput" class="text-input" placeholder="웹사이트에 대한 의견이나 버그를 자유롭게 남겨주세요..." style="min-height: 120px; font-family: inherit; font-size: 0.9rem; padding: 12px; resize: none;"></textarea>
                 </div>
                 <div class="modal-actions modal-actions--spread" style="margin-top:20px;">
                     <div id="feedbackStatusText" style="font-size: 0.85rem; color: var(--tx2); width: 100%;"></div>
