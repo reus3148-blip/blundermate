@@ -77,11 +77,16 @@ export async function fetchRecentGames(username) {
         let games = [];
         let archiveIndex = archives.length - 1;
 
-        while (games.length === 0 && archiveIndex >= 0) {
-            const archiveUrl = archives[archiveIndex];
-            const gamesRes = await fetch(archiveUrl, options);
-            const gamesData = await gamesRes.json();
-            games = gamesData.games || [];
+        while (games.length < RECENT_GAMES_LIMIT && archiveIndex >= 0) {
+            try {
+                const archiveUrl = archives[archiveIndex];
+                const gamesRes = await fetch(archiveUrl, options);
+                const gamesData = await gamesRes.json();
+                const monthGames = gamesData.games || [];
+                games = monthGames.concat(games);
+            } catch (e) {
+                console.error('Archive fetch error:', e);
+            }
             archiveIndex--;
         }
 

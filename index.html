@@ -61,7 +61,7 @@
                 <button id="homeSettingsBtn" class="topbar-icon-btn" aria-label="설정" data-i18n-aria="aria_settings">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
                 </button>
-                <h1 class="home-brand-text"><span class="brand-blunder">blunder</span><span class="brand-mate">mate</span></h1>
+                <span class="home-brand-text"><span class="brand-blunder">blunder</span><span class="brand-mate">mate</span></span>
                 <div class="topbar-right-group">
                     <button id="homeBoardInputBtn" class="topbar-icon-btn" aria-label="수 입력" data-i18n-aria="aria_new_analysis">
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
@@ -77,32 +77,28 @@
                 <section class="home-hero">
                     <div class="hero-title" data-i18n="heroTitle">어떤 게임을 분석할까요?</div>
                     <div class="hero-subtitle" data-i18n="heroSubtitle">Chess.com 유저네임을 입력하세요</div>
-                    <div id="profileCard" class="profile-card hidden">
-                        <div class="profile-card-top">
-                            <div class="profile-card-name" id="profileName"></div>
-                        </div>
-                        <div class="profile-card-divider"></div>
-                        <div class="profile-card-ratings">
-                            <div class="profile-rating-col" data-time-class="rapid">
-                                <span class="profile-rating-label" data-i18n="ratingRapid">Rapid</span>
-                                <span class="profile-rating-value" id="profileRapid">—</span>
-                            </div>
-                            <div class="profile-rating-col" data-time-class="blitz">
-                                <span class="profile-rating-label" data-i18n="ratingBlitz">Blitz</span>
-                                <span class="profile-rating-value" id="profileBlitz">—</span>
-                            </div>
-                            <div class="profile-rating-col" data-time-class="bullet">
-                                <span class="profile-rating-label" data-i18n="ratingBullet">Bullet</span>
-                                <span class="profile-rating-value" id="profileBullet">—</span>
-                            </div>
-                        </div>
-                    </div>
+                    <div id="profileName" class="home-username hidden"></div>
                 </section>
 
 
                 <div id="manualInputWrapper" style="display:none">
                     <textarea id="pgnInput"></textarea>
                     <button id="analyzeBtn"></button>
+                </div>
+
+                <div id="profileRatings" class="home-ratings hidden">
+                    <div class="profile-rating-col" data-time-class="rapid">
+                        <span class="profile-rating-label" data-i18n="ratingRapid">Rapid</span>
+                        <span class="profile-rating-value" id="profileRapid">—</span>
+                    </div>
+                    <div class="profile-rating-col" data-time-class="blitz">
+                        <span class="profile-rating-label" data-i18n="ratingBlitz">Blitz</span>
+                        <span class="profile-rating-value" id="profileBlitz">—</span>
+                    </div>
+                    <div class="profile-rating-col" data-time-class="bullet">
+                        <span class="profile-rating-label" data-i18n="ratingBullet">Bullet</span>
+                        <span class="profile-rating-value" id="profileBullet">—</span>
+                    </div>
                 </div>
 
                 <div id="homeRecentSection" class="hidden">
