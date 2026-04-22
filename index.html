@@ -390,6 +390,22 @@
 
                 <div class="form-group settings-row">
                     <div class="settings-row-inner">
+                        <span class="settings-label" data-i18n="settings_depth">엔진 분석 깊이</span>
+                        <select id="depthSelect" class="select-auto">
+                            <option value="8">8</option>
+                            <option value="10">10</option>
+                            <option value="12" selected>12</option>
+                            <option value="14">14</option>
+                            <option value="16">16</option>
+                            <option value="18">18</option>
+                            <option value="20">20</option>
+                        </select>
+                    </div>
+                    <span class="settings-hint" data-i18n="settings_depth_hint">모바일: 12 이하, PC: 16 이하 권장. 높을수록 정확하지만 느려집니다.</span>
+                </div>
+
+                <div class="form-group settings-row">
+                    <div class="settings-row-inner">
                         <span class="settings-label">Last GitHub push</span>
                         <span id="lastPushTime" class="settings-hint" style="margin:0;">—</span>
                     </div>
