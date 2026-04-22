@@ -114,7 +114,7 @@ const closeUserSearchBtn = document.getElementById('closeUserSearchBtn');
 // 2. Application State
 // ==========================================
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
-const ANALYSIS_DEPTH = 12;
+let ANALYSIS_DEPTH = parseInt(localStorage.getItem('blundermate_depth')) || 12;
 let stockfish;
 let isEngineReady = false;
 let chess = new Chess();
@@ -579,6 +579,13 @@ async function fetchLastPushTime() {
 settingsBtn.addEventListener('click', () => {
     settingsModal.classList.remove('hidden');
     fetchLastPushTime();
+    const depthSelect = document.getElementById('depthSelect');
+    if (depthSelect) depthSelect.value = String(ANALYSIS_DEPTH);
+});
+
+document.getElementById('depthSelect')?.addEventListener('change', (e) => {
+    ANALYSIS_DEPTH = parseInt(e.target.value) || 12;
+    try { localStorage.setItem('blundermate_depth', ANALYSIS_DEPTH); } catch {}
 });
 
 const logoutBtn = document.getElementById('logoutBtn');
@@ -857,6 +864,13 @@ function handlePrevMove() {
         updateBoardForSimulation(simulationIndex);
         return;
     }
+    if (appMode === 'explore') {
+        exitExplorationMode();
+        if (currentlyViewedIndex >= 0 && analysisQueue[currentlyViewedIndex]) {
+            updateBoardPosition(currentlyViewedIndex, analysisQueue[currentlyViewedIndex].fen);
+        }
+        return;
+    }
     if (analysisQueue.length === 0) return;
     // -1 = 시작 포지션(0수). 여기서는 승률 그래프 + 리포트로 교체됨.
     const newIndex = Math.max(-1, currentlyViewedIndex - 1);
@@ -872,6 +886,13 @@ function handleNextMove() {
     if (appMode === 'simulate') {
         simulationIndex = Math.min(simulationQueue.length - 1, simulationIndex + 1);
         updateBoardForSimulation(simulationIndex);
+        return;
+    }
+    if (appMode === 'explore') {
+        exitExplorationMode();
+        if (currentlyViewedIndex >= 0 && analysisQueue[currentlyViewedIndex]) {
+            updateBoardPosition(currentlyViewedIndex, analysisQueue[currentlyViewedIndex].fen);
+        }
         return;
     }
     if (analysisQueue.length === 0) return;
@@ -1072,16 +1093,10 @@ const ctrlCenterSeparator = document.querySelector('.ctrl-center .bar-separator'
 
 function showReturnBtn() {
     returnMainLineBtn.classList.remove('hidden');
-    moveClassLabel.classList.add('hidden');
-    winChanceDisplay.classList.add('hidden');
-    if (ctrlCenterSeparator) ctrlCenterSeparator.classList.add('hidden');
 }
 
 function hideReturnBtn() {
     returnMainLineBtn.classList.add('hidden');
-    moveClassLabel.classList.remove('hidden');
-    winChanceDisplay.classList.remove('hidden');
-    if (ctrlCenterSeparator) ctrlCenterSeparator.classList.remove('hidden');
 }
 
 function showButtonSuccess(button, text) {
