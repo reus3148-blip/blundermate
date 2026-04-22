@@ -49,7 +49,7 @@ let _navigateTo = null;
 // ==========================================
 function renderSavedGamesList(container, savedGames, onDelete, onLoad, onEdit) {
     container.innerHTML = '';
-    container.className = 'saved-games-list';
+    container.className = 'games-list view-list saved-games-list';
 
     const filtered = _activeFilter === 'all'
         ? savedGames
