@@ -325,7 +325,7 @@ function renderHomeGamesList(games, displayUser) {
     container.className = 'home-recent-list';
     const dateStrings = { dateToday: t('dateToday'), dateYesterday: t('dateYesterday'), dateDaysAgo: t('dateDaysAgo') };
 
-    filtered.slice(0, 10).forEach(game => {
+    filtered.slice(0, 15).forEach(game => {
         const isWhite = game.white.username.toLowerCase() === userLower;
         const mySide = isWhite ? game.white : game.black;
         const oppSide = isWhite ? game.black : game.white;
@@ -369,7 +369,20 @@ function renderHomeGamesList(games, displayUser) {
     });
 
     list.appendChild(container);
+    updateScrollFade(list);
 }
+
+function updateScrollFade(el) {
+    const top = el.scrollTop > 2;
+    const bottom = el.scrollTop + el.clientHeight < el.scrollHeight - 2;
+    el.classList.toggle('fade-top', top && !bottom);
+    el.classList.toggle('fade-bottom', bottom && !top);
+    el.classList.toggle('fade-both', top && bottom);
+}
+
+document.getElementById('homeRecentList')?.addEventListener('scroll', function () {
+    updateScrollFade(this);
+});
 
 function loadHomeRecentGames(overrideUsername = null) {
     const displayUser = overrideUsername || getMyUserId();
@@ -413,12 +426,14 @@ function updateHomeHeader() {
     const inputWrap = document.querySelector('.username-input-wrap');
     const heroTitle = document.querySelector('.hero-title');
     const heroSubtitle = document.querySelector('.hero-subtitle');
-    const profileCard = document.getElementById('profileCard');
+    const profileName = document.getElementById('profileName');
+    const profileRatings = document.getElementById('profileRatings');
 
     if (userId) {
         heroSection.classList.add('home-hero--user');
-        profileCard.classList.remove('hidden');
-        document.getElementById('profileName').textContent = userId;
+        profileName.classList.remove('hidden');
+        profileName.textContent = userId;
+        profileRatings.classList.remove('hidden');
         document.getElementById('profileRapid').textContent = '—';
         document.getElementById('profileBlitz').textContent = '—';
         document.getElementById('profileBullet').textContent = '—';
@@ -439,7 +454,8 @@ function updateHomeHeader() {
         });
     } else {
         heroSection.classList.remove('home-hero--user');
-        profileCard.classList.add('hidden');
+        profileName.classList.add('hidden');
+        profileRatings.classList.add('hidden');
         heroTitle.setAttribute('data-i18n', 'heroTitle');
         heroTitle.textContent = t('heroTitle');
         heroSubtitle.classList.remove('hidden');
