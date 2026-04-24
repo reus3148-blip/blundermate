@@ -1,70 +1,46 @@
 :root {
-    /* 1. Base Colors (Source of truth) */
-    --c-bg-0: #100E0B;
-    --c-bg-1: #1B1814;
-    --c-bg-2: #242019;
-    --c-tx-1: #EDE8DF;
-    --c-tx-2: #8A8070;
-    --c-tx-3: rgba(237, 232, 223, 0.35);
-    --c-brd-1: rgba(237, 232, 223, 0.07);
-    --c-brd-2: rgba(237, 232, 223, 0.13);
-    --c-gold: #C49A3C;
-    --c-gold-hover: #B08A32;
+  /* 배경 — 웜 페이퍼 톤 */
+  --bg-base:     #F5F2EA;
+  --bg-surface:  #FAF8F2;
+  --bg-elevated: #EDE8DB;
 
-    /* 2. Semantic Backgrounds & Borders */
-    --bg-base:      var(--c-bg-0);
-    --bg-dark:      var(--c-bg-0);
-    --bg-surface:   var(--c-bg-1);
-    --bg-panel:     var(--c-bg-1);
-    --bg-elevated:  var(--c-bg-2);
+  /* 텍스트 — 소프트 블랙 계열 */
+  --tx:   #2C2824;
+  --tx2:  #6B6358;
+  --tx3:  #A89F90;
 
-    --border:       var(--c-brd-1);
-    --border-color: var(--c-brd-1);
-    --border-mid:   var(--c-brd-2);
-    --brd:          var(--c-brd-1);
-    --brd2:         var(--c-brd-2);
+  /* 포인트 — 톤다운된 앰버 (로고/극소수 강조 전용) */
+  --ac:    #8B6F2A;
+  --ac-lo: rgba(139, 111, 42, 0.10);
+  --ac-br: rgba(139, 111, 42, 0.25);
 
-    /* 3. Text Colors */
-    --text-primary:   var(--c-tx-1);
-    --text-secondary: var(--c-tx-2);
-    --tx:             var(--c-tx-1);
-    --tx2:            var(--c-tx-2);
-    --tx3:            var(--c-tx-3);
+  /* 테두리 */
+  --brd:  rgba(44, 40, 36, 0.10);
+  --brd2: rgba(44, 40, 36, 0.18);
 
-    /* 4. Primary Accents */
-    --primary-color:  var(--c-gold);
-    --primary-hover:  var(--c-gold-hover);
-    --ac:             var(--c-gold);
-    --ac-lo:          rgba(196, 154, 60, 0.12);
-    --ac-br:          rgba(196, 154, 60, 0.30);
+  /* 수 분류 — 라이트 배경용 어두운 톤 */
+  --blunder:    #9A3A2A;
+  --mistake:    #B5612A;
+  --inaccuracy: #8B6F2A;
+  --best:       #5A7A3A;
+  --brilliant:  #3A8560;
 
-    /* 5. Classification Accents & Status */
-    --accent-success: #10b981;
-    --accent-warning: #f59e0b;
-    --accent-danger:  #ef4444;
-    --best:           #5A9E60;
-    --blunder:        #C84040;
-    --mistake:        #D06030;
-    --inaccuracy:     #E8A838;
+  /* 체스 보드 — 따뜻한 톤 유지 */
+  --board-light: #E8DCBF;
+  --board-dark:  #8C6840;
 
-    /* 6. Disabled & Board Colors */
-    --tx-disabled:    rgba(237, 232, 223, 0.25);
-    --bg-board:       #3D3730;
+  /* 레이아웃 z-index (색상 아님 — 유지) */
+  --z-board-coords: 2;
+  --z-badge:        10;
+  --z-overlay:      200;
+  --z-sticky:       999;
+  --z-sticky-top:   1000;
+  --z-modal:        9999;
 
-    /* 7. Z-Index Layers */
-    --z-board-coords: 2;
-    --z-badge:        10;
-    --z-overlay:      200;
-    --z-sticky:       999;   /* Text inputs, primary buttons over background */
-    --z-sticky-top:   1000;  /* Search button over text inputs */
-    --z-modal:        9999;  /* Highest layer for modal overlays */
-
-    /* 8. Layout Dimensions */
-    --topbar-height: 46px;
-
-    /* 9. Game Card Dimensions (홈 최근 게임 박스 높이 계산에 사용) */
-    --game-card-height: 64px;
-    --game-card-gap:    6px;
+  /* 레이아웃 치수 (색상 아님 — 유지) */
+  --topbar-height: 46px;
+  --game-card-height: 64px;
+  --game-card-gap:    6px;
 }
 
 html {
@@ -87,14 +63,14 @@ img, video {
 
 body {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    background-color: #000000; /* PC 배경: 앱 컨테이너와 확실히 구분되도록 순수 블랙 적용 */
-    color: var(--text-primary);
+    background-color: #2C2824; /* PC 배경: 웜 페이퍼 앱 컨테이너와 구분되는 소프트 블랙 */
+    color: var(--tx);
     height: 100vh; /* 하위 브라우저용 Fallback */
     height: 100dvh; /* 모바일 브라우저 주소창(동적 뷰포트) 높이 완벽 대응 */
     overflow: hidden; /* 페이지 밖으로 삐져나가는 전체 스크롤 및 하단 빈 공간 노출 차단 */
     max-width: 100vw;
-    background-image: radial-gradient(circle at 15% 50%, rgba(196, 154, 60, 0.06), transparent 25%),
-                      radial-gradient(circle at 85% 30%, rgba(196, 154, 60, 0.04), transparent 25%);
+    background-image: radial-gradient(circle at 15% 50%, rgba(139, 111, 42, 0.04), transparent 25%),
+                      radial-gradient(circle at 85% 30%, rgba(139, 111, 42, 0.03), transparent 25%);
     display: flex;
     justify-content: center;
     align-items: flex-start;
@@ -109,8 +85,8 @@ body {
     flex-direction: column;
     height: 100vh;
     height: 100dvh; /* 모바일 브라우저 하단 스크롤 잘림(100vh 버그) 완벽 방지 */
-    background-color: var(--bg-dark); /* PC 배경과 구분하기 위한 배경색 */
-    box-shadow: 0 0 40px rgba(0, 0, 0, 0.4); /* 앱 영역 강조 그림자 */
+    background-color: var(--bg-base); /* PC 배경과 구분하기 위한 배경색 */
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.12); /* 앱 영역 강조 그림자 — 라이트 배경에 맞춰 약화 */
     overflow: hidden;
     position: relative;
     padding-bottom: env(safe-area-inset-bottom); /* 모바일 Safe Area (하단 홈 바) 대응 */
@@ -245,7 +221,7 @@ body {
     width: 28px;
     height: 28px;
     flex-shrink: 0;
-    background: rgba(128,128,128,0.15);
+    background: var(--brd2);
     border: none;
     border-radius: 50%;
     color: var(--tx3);
@@ -415,7 +391,7 @@ body.moves-overlay-open .input-pgn-area {
     padding: 0 16px;
     border-radius: 6px;
     background: var(--ac);
-    color: #100E0B;
+    color: #fff;
     font-size: 13px;
     font-weight: 700;
     border: none;
@@ -433,10 +409,10 @@ body.moves-overlay-open .input-pgn-area {
 
 .text-input {
     flex: 1;
-    background: rgba(0, 0, 0, 0.2);
-    border: 1px solid var(--border-color);
+    background: var(--bg-elevated);
+    border: 1px solid var(--brd);
     border-radius: 8px;
-    color: var(--text-primary);
+    color: var(--tx);
     padding: 0.75rem 1rem;
     font-size: 16px; /* iOS 자동 확대 방지를 위해 시스템 기본값과 무관하게 명시적 16px 고정 */
     outline: none;
@@ -451,9 +427,9 @@ body.moves-overlay-open .input-pgn-area {
 }
 
 .text-input:focus {
-    background: rgba(255, 255, 255, 0.05);
-    border-color: var(--primary-color);
-    box-shadow: 0 0 0 3px rgba(196, 154, 60, 0.2);
+    background: var(--bg-surface);
+    border-color: var(--ac);
+    box-shadow: 0 0 0 3px rgba(139, 111, 42, 0.18);
 }
 
 .games-list {
@@ -494,19 +470,19 @@ body.moves-overlay-open .input-pgn-area {
     padding: 0.4rem;
     background: none;
     border: none;
-    color: var(--text-secondary);
+    color: var(--tx2);
     cursor: pointer;
     border-radius: 4px;
     display: flex;
     align-items: center;
     transition: color 0.15s ease, background 0.15s ease;
 }
-.delete-btn:hover { color: var(--blunder); background: rgba(239,68,68,0.08); }
+.delete-btn:hover { color: var(--blunder); background: rgba(154, 58, 42, 0.08); }
 
 .text-btn {
     background: none;
     border: none;
-    color: var(--text-secondary);
+    color: var(--tx2);
     font-size: 0.9rem;
     cursor: pointer;
     text-decoration: underline;
@@ -516,7 +492,7 @@ body.moves-overlay-open .input-pgn-area {
 }
 
 .text-btn:hover {
-    color: var(--text-primary);
+    color: var(--tx);
 }
 
 .hidden {
@@ -553,8 +529,8 @@ body.moves-overlay-open .input-pgn-area {
     align-items: center;
     padding: 0 0.75rem;
     height: var(--topbar-height);
-    background: var(--bg-panel);
-    border-bottom: 3px solid var(--border-color);
+    background: var(--bg-surface);
+    border-bottom: 3px solid var(--brd);
     flex-shrink: 0;
 }
 
@@ -564,7 +540,7 @@ body.moves-overlay-open .input-pgn-area {
     gap: 0.3rem;
     background: none;
     border: none;
-    color: var(--text-secondary);
+    color: var(--tx2);
     font-size: 0.875rem;
     font-weight: 500;
     cursor: pointer;
@@ -573,7 +549,7 @@ body.moves-overlay-open .input-pgn-area {
     transition: color 0.15s ease, background 0.15s ease;
     justify-self: start;
 }
-.back-btn:hover { color: var(--text-primary); background: rgba(255,255,255,0.06); }
+.back-btn:hover { color: var(--tx); background: var(--bg-elevated); }
 .back-btn span { display: none; }
 
 .topbar-icon-btn {
@@ -583,7 +559,7 @@ body.moves-overlay-open .input-pgn-area {
     justify-self: end;
     background: none;
     border: none;
-    color: var(--text-secondary);
+    color: var(--tx2);
     width: 34px;
     height: 30px;
     border-radius: 6px;
@@ -592,12 +568,12 @@ body.moves-overlay-open .input-pgn-area {
     transition: background 0.15s ease, color 0.15s ease;
     flex-shrink: 0;
 }
-.topbar-icon-btn:hover { background: rgba(255, 255, 255, 0.06); color: var(--text-primary); }
+.topbar-icon-btn:hover { background: var(--bg-elevated); color: var(--tx); }
 
 .top-bar-title {
     font-size: 0.95rem;
     font-weight: 600;
-    color: var(--text-primary);
+    color: var(--tx);
 }
 
 .app-title {
@@ -623,10 +599,10 @@ body.moves-overlay-open .input-pgn-area {
 textarea {
     width: 100%;
     height: 120px;
-    background: rgba(0, 0, 0, 0.2);
-    border: 1px solid var(--border-color);
+    background: var(--bg-elevated);
+    border: 1px solid var(--brd);
     border-radius: 8px;
-    color: var(--text-primary);
+    color: var(--tx);
     font-family: monospace;
     padding: 1rem;
     resize: none;
@@ -640,14 +616,14 @@ textarea {
 
 textarea:focus {
     outline: none;
-    border-color: var(--primary-color);
-    box-shadow: 0 0 0 2px rgba(196, 154, 60, 0.2);
+    border-color: var(--ac);
+    box-shadow: 0 0 0 2px rgba(139, 111, 42, 0.18);
 }
 
 .primary-btn {
     align-self: flex-end;
-    background: var(--primary-color);
-    color: #100E0B;
+    background: var(--ac);
+    color: #fff;
     border: none;
     padding: 0.75rem 2rem;
     border-radius: 8px;
@@ -655,13 +631,13 @@ textarea:focus {
     font-weight: 600;
     cursor: pointer;
     transition: background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
-    box-shadow: 0 4px 12px rgba(196, 154, 60, 0.25);
+    box-shadow: 0 4px 12px rgba(139, 111, 42, 0.18);
     position: relative;
     z-index: var(--z-sticky);
 }
 
 .primary-btn:hover {
-    background: var(--primary-hover);
+    background: var(--ac);
     transform: translateY(-1px);
 }
 
@@ -670,8 +646,8 @@ textarea:focus {
 }
 
 .primary-btn:disabled {
-    background: var(--tx-disabled);
-    color: var(--tx-disabled);
+    background: var(--tx3);
+    color: var(--tx3);
     cursor: not-allowed;
     box-shadow: none;
     transform: none;
@@ -705,11 +681,11 @@ textarea:focus {
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
-    border: 1px solid var(--border-color);
+    border: 1px solid var(--brd);
 }
 
-.tag.engine-ready { background: rgba(16, 185, 129, 0.1); border-color: rgba(16, 185, 129, 0.3); color: var(--best); }
-.tag.engine-loading { background: rgba(245, 158, 11, 0.1); border-color: rgba(245, 158, 11, 0.3); color: var(--accent-warning); }
+.tag.engine-ready { background: rgba(90, 122, 58, 0.10); border-color: rgba(90, 122, 58, 0.30); color: var(--best); }
+.tag.engine-loading { background: rgba(139, 111, 42, 0.10); border-color: rgba(139, 111, 42, 0.30); color: var(--inaccuracy); }
 .tag.hidden { display: none; }
 
 .board-container {
@@ -728,8 +704,8 @@ textarea:focus {
     justify-content: center;
     height: 44px;
     padding: 0 8px;
-    background: var(--bg-panel);
-    border-top: 1px solid var(--border-color);
+    background: var(--bg-surface);
+    border-top: 1px solid var(--brd);
     flex-shrink: 0;
 }
 
@@ -775,7 +751,7 @@ textarea:focus {
     border: none;
     border-radius: 6px;
     background: var(--ac);
-    color: #100E0B;
+    color: #fff;
     font-size: 12px;
     font-weight: 700;
     cursor: pointer;
@@ -784,9 +760,9 @@ textarea:focus {
 
 /* Base style for action buttons in library/modals (kept for other views) */
 .control-btn {
-    background: rgba(255, 255, 255, 0.05);
-    color: var(--text-primary);
-    border: 1px solid var(--border-color);
+    background: var(--bg-elevated);
+    color: var(--tx);
+    border: 1px solid var(--brd);
     padding: 0.3rem 0.75rem;
     border-radius: 6px;
     font-size: 0.88rem;
@@ -811,8 +787,8 @@ textarea:focus {
 }
 
 .control-btn:hover {
-    background: rgba(255, 255, 255, 0.1);
-    border-color: var(--primary-color);
+    background: var(--ac-lo);
+    border-color: var(--ac);
 }
 
 .control-btn:active {
@@ -826,7 +802,7 @@ textarea:focus {
     justify-content: center;
     gap: 0.35rem;
     background: transparent;
-    color: var(--text-secondary);
+    color: var(--tx2);
     border: none;
     box-shadow: none;
     border-radius: 6px;
@@ -839,7 +815,7 @@ textarea:focus {
     white-space: nowrap;
 }
 
-.ctrl-btn:hover { color: var(--text-primary); }
+.ctrl-btn:hover { color: var(--tx); }
 .ctrl-btn:active { transform: scale(0.95); }
 .ctrl-btn:disabled,
 .input-secondary-btn:disabled {
@@ -857,7 +833,7 @@ textarea:focus {
     width: 36px;
     flex-shrink: 0;
     padding: 0;
-    color: var(--text-secondary);
+    color: var(--tx2);
 }
 
 
@@ -871,7 +847,7 @@ textarea:focus {
     gap: 0.75rem;
     padding: 0.6rem 0.75rem;
     cursor: pointer;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    border-bottom: 1px solid var(--brd);
     transition: background 0.15s ease;
 }
 
@@ -880,16 +856,16 @@ textarea:focus {
 }
 
 .engine-line:hover {
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--bg-elevated);
 }
 
 .engine-line--best {
-    border-left: 2px solid rgba(196, 154, 60, 0.5);
+    border-left: 2px solid rgba(139, 111, 42, 0.45);
 }
 
 .el-rank {
     font-size: 0.7rem;
-    color: var(--text-secondary);
+    color: var(--tx2);
     min-width: 12px;
     opacity: 0.5;
     font-weight: 500;
@@ -900,7 +876,7 @@ textarea:focus {
     font-size: 0.88rem;
     font-weight: 700;
     min-width: 48px;
-    color: var(--text-primary);
+    color: var(--tx);
 }
 
 .el-score.positive { color: var(--best); }
@@ -909,7 +885,7 @@ textarea:focus {
 .el-moves {
     font-family: monospace;
     font-size: 0.84rem;
-    color: var(--text-secondary);
+    color: var(--tx2);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -919,7 +895,7 @@ textarea:focus {
 
 .engine-hint {
     font-size: 0.7rem;
-    color: var(--text-secondary);
+    color: var(--tx2);
     opacity: 0.35;
     text-align: center;
     padding: 0.9rem 0.75rem 0.5rem;
@@ -974,7 +950,7 @@ textarea:focus {
     display: block;
     flex: 1;
     overflow-y: auto;
-    background: var(--bg-panel);
+    background: var(--bg-surface);
     -webkit-overflow-scrolling: touch;
     overscroll-behavior-y: contain;
 }
@@ -987,11 +963,11 @@ table {
 
 th, td {
     padding: 1rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid var(--brd);
 }
 
 th {
-    color: var(--text-secondary);
+    color: var(--tx2);
     font-weight: 500;
     font-size: 0.9rem;
     text-transform: uppercase;
@@ -1008,19 +984,19 @@ th {
     font-size: 0.8rem;
     padding: 0.2rem 0.4rem;
     border-radius: 4px;
-    background: rgba(255, 255, 255, 0.1);
-    color: var(--text-secondary);
+    background: var(--bg-elevated);
+    color: var(--tx2);
     min-width: 45px;
     text-align: center;
 }
 
-.eval-badge.positive { color: var(--text-primary); background: rgba(16, 185, 129, 0.2); }
-.eval-badge.negative { color: var(--text-primary); background: rgba(239, 68, 68, 0.2); }
+.eval-badge.positive { color: var(--tx); background: rgba(90, 122, 58, 0.18); }
+.eval-badge.negative { color: var(--tx); background: rgba(154, 58, 42, 0.18); }
 
 .empty-state {
     text-align: center;
     padding: 3rem !important;
-    color: var(--text-secondary);
+    color: var(--tx2);
     font-style: italic;
 }
 
@@ -1118,8 +1094,8 @@ th {
     width: calc(100% - 1.5rem);
     height: 44px;
     margin: 0.75rem;
-    background: rgba(196, 154, 60, 0.12);
-    border: 1px solid rgba(196, 154, 60, 0.28);
+    background: rgba(139, 111, 42, 0.10);
+    border: 1px solid rgba(139, 111, 42, 0.25);
     border-radius: 8px;
     color: var(--ac);
     font-size: 0.875rem;
@@ -1130,8 +1106,8 @@ th {
 }
 
 .ai-analyze-btn:hover {
-    background: rgba(196, 154, 60, 0.2);
-    border-color: rgba(196, 154, 60, 0.5);
+    background: rgba(139, 111, 42, 0.18);
+    border-color: rgba(139, 111, 42, 0.45);
 }
 
 .ai-analyze-btn:disabled {
@@ -1142,7 +1118,7 @@ th {
 /* Gemini panel dynamic content styles */
 .gemini-text-panel {
     padding: 1.25rem 1rem;
-    color: var(--text-primary);
+    color: var(--tx);
     line-height: 1.8;
     font-size: 0.95rem;
     overflow-y: auto;
@@ -1215,7 +1191,7 @@ th {
 }
 
 .ai-notice {
-    color: var(--accent-warning);
+    color: var(--inaccuracy);
     padding: 1rem;
     font-size: 0.9rem;
     line-height: 1.6;
@@ -1223,7 +1199,7 @@ th {
 
 .ai-loading {
     text-align: center;
-    color: var(--text-secondary);
+    color: var(--tx2);
     padding: 3rem 0;
     font-size: 0.9rem;
     line-height: 1.8;
@@ -1266,13 +1242,13 @@ th {
 
 .ai-good-move-title {
     font-size: 1.05rem;
-    color: var(--text-primary);
+    color: var(--tx);
     display: block;
     margin-bottom: 0.75rem;
 }
 
 .ai-good-move-desc {
-    color: var(--text-secondary);
+    color: var(--tx2);
     font-size: 0.88rem;
     line-height: 1.7;
 }
@@ -1282,7 +1258,7 @@ th {
     flex: 1;
     overflow-y: auto;
     padding: 0.75rem 1rem 1rem;
-    background: var(--bg-panel);
+    background: var(--bg-surface);
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
@@ -1294,7 +1270,7 @@ th {
     font-weight: 700;
     letter-spacing: 0.05em;
     font-size: 0.75rem;
-    color: var(--accent-warning, #f59e0b);
+    color: var(--inaccuracy);
 }
 .vault-info-row {
     display: flex;
@@ -1302,15 +1278,15 @@ th {
     gap: 0.4rem;
 }
 .vault-info-label {
-    color: var(--text-secondary);
+    color: var(--tx2);
     font-size: 0.78rem;
 }
 .vault-info-notes {
     margin-top: 0.25rem;
     padding: 0.5rem 0.6rem;
-    background: rgba(255, 255, 255, 0.04);
+    background: var(--bg-elevated);
     border-radius: 6px;
-    color: var(--text-secondary);
+    color: var(--tx2);
     white-space: pre-wrap;
     word-break: break-word;
 }
@@ -1320,7 +1296,7 @@ th {
 .return-main-btn {
     background: transparent;
     border: none;
-    color: var(--accent-warning);
+    color: var(--inaccuracy);
     font-size: 11px;
     font-weight: 700;
     cursor: pointer;
@@ -1368,7 +1344,7 @@ th {
 }
 
 .pill-btn.selected {
-    background: var(--ac-lo, rgba(99,102,241,0.1));
+    background: var(--ac-lo);
     border-color: var(--ac-br, var(--ac));
     color: var(--ac);
     font-weight: 600;
@@ -1413,7 +1389,7 @@ th {
     font-weight: 500;
     padding: 2px 8px;
     border-radius: 20px;
-    background: var(--ac-lo, rgba(99,102,241,0.1));
+    background: var(--ac-lo);
     border: 1px solid var(--ac-br, var(--ac));
     color: var(--ac);
     white-space: nowrap;
@@ -1479,14 +1455,14 @@ th {
     height: 8px;
 }
 ::-webkit-scrollbar-track {
-    background: var(--bg-dark); 
+    background: var(--bg-base); 
 }
 ::-webkit-scrollbar-thumb {
-    background: var(--tx-disabled); 
+    background: var(--tx3); 
     border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-    background: #4b5563; 
+    background: var(--tx3);
 }
 
 /* ==========================================
@@ -1509,13 +1485,13 @@ th {
     font-size: 0.72rem;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    color: var(--text-secondary);
+    color: var(--tx2);
     font-weight: 600;
 }
 
 .sim-counter {
     font-size: 0.75rem;
-    color: var(--text-secondary);
+    color: var(--tx2);
     font-family: monospace;
 }
 
@@ -1539,33 +1515,33 @@ th {
 }
 
 .sim-move--done {
-    color: var(--text-secondary);
-    background: rgba(255, 255, 255, 0.04);
-    border-color: rgba(255, 255, 255, 0.08);
+    color: var(--tx2);
+    background: var(--bg-elevated);
+    border-color: var(--brd2);
 }
 
 .sim-move--active {
     color: var(--tx);
-    background: rgba(196, 154, 60, 0.2);
+    background: rgba(139, 111, 42, 0.18);
     border-color: var(--ac);
-    box-shadow: 0 0 0 2px rgba(196, 154, 60, 0.15);
+    box-shadow: 0 0 0 2px rgba(139, 111, 42, 0.15);
 }
 
 .sim-move--upcoming {
-    color: var(--text-secondary);
+    color: var(--tx2);
     background: transparent;
-    border-color: rgba(255, 255, 255, 0.06);
+    border-color: var(--brd);
     opacity: 0.5;
 }
 
 .sim-move:hover {
     opacity: 1;
-    border-color: rgba(255, 255, 255, 0.25);
+    border-color: var(--brd2);
 }
 
 /* Row highlighting for active move */
 .active-move {
-    background: rgba(196, 154, 60, 0.12);
+    background: rgba(139, 111, 42, 0.10);
     border-left: 3px solid var(--ac);
 }
 .active-move .move-cell {
@@ -1573,7 +1549,7 @@ th {
     color: var(--ac);
 }
 .active-move-row {
-    background: rgba(255, 255, 255, 0.02);
+    background: var(--bg-elevated);
 }
 
 /* ==========================================
@@ -1609,9 +1585,9 @@ th {
     white-space: nowrap;
     line-height: 1;
     /* iOS 배지 스타일: 외부 소프트 섀도우로 경계 + 내부 미세 하이라이트로 입체감.
-       JS에서 더 이상 border를 설정하지 않는다. */
+       JS에서 더 이상 border를 설정하지 않는다. 라이트 배경 기준으로 섀도우 약화. */
     box-shadow:
-        0 2px 6px rgba(0, 0, 0, 0.28),
+        0 2px 6px rgba(0, 0, 0, 0.16),
         0 0 0 0.5px rgba(0, 0, 0, 0.08),
         inset 0 1px 0 rgba(255, 255, 255, 0.22);
     font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', sans-serif;
@@ -1693,8 +1669,8 @@ th {
     position: absolute;
     cursor: pointer;
     inset: 0;
-    background: rgba(255,255,255,0.12);
-    border: 1px solid var(--border-color);
+    background: var(--brd2);
+    border: 1px solid var(--brd);
     transition: background 0.2s ease;
 }
 .slider:before {
@@ -1704,12 +1680,12 @@ th {
     height: 18px;
     left: 2px;
     top: 2px;
-    background: var(--text-secondary);
+    background: var(--tx2);
     transition: transform 0.2s ease, background 0.2s ease;
 }
 .slider.round { border-radius: 24px; }
 .slider.round:before { border-radius: 50%; }
-input:checked + .slider { background: rgba(196,154,60,0.35); border-color: var(--ac); }
+input:checked + .slider { background: rgba(139, 111, 42, 0.30); border-color: var(--ac); }
 input:checked + .slider:before { transform: translateX(20px); background: var(--ac); }
 
 /* ==========================================
@@ -1778,7 +1754,7 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     transition: background 0.15s ease;
 }
 .settings-logout-btn:hover {
-    background: rgba(200, 64, 64, 0.08);
+    background: rgba(154, 58, 42, 0.08);
 }
 
 .lang-toggle {
@@ -1788,17 +1764,17 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
 
 .lang-btn {
     padding: 0.25rem 0.6rem;
-    border: 1px solid var(--border-color);
+    border: 1px solid var(--brd);
     border-radius: 4px;
     background: transparent;
-    color: var(--text-secondary);
+    color: var(--tx2);
     font-size: 0.8rem;
     cursor: pointer;
 }
 
 .lang-btn.active {
-    background: var(--primary-color);
-    border-color: var(--primary-color);
+    background: var(--ac);
+    border-color: var(--ac);
     color: #fff;
 }
 
@@ -1822,7 +1798,7 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     height: 44px;
     border-radius: 8px;
     background: var(--ac);
-    color: #100E0B;
+    color: #fff;
     font-size: 14px;
     font-weight: 700;
     border: none;
@@ -1875,7 +1851,7 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
 .container-message {
     text-align: center;
     padding: 1rem;
-    color: var(--text-secondary);
+    color: var(--tx2);
 }
 
 .container-message--error {
@@ -1912,25 +1888,25 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     display: flex;
     flex-direction: column;
     gap: 1.2rem;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
     animation: fadeInUp 0.3s ease-out;
 }
 
 .modal-content h2 { margin: 0; font-size: 17px; font-weight: 700; color: var(--tx); }
-.save-move-text { 
-    font-family: monospace; 
-    font-size: 1.2rem; 
-    color: var(--primary-color); 
-    font-weight: bold; 
-    text-align: center; 
-    background: rgba(0,0,0,0.2); 
-    padding: 0.8rem; 
+.save-move-text {
+    font-family: monospace;
+    font-size: 1.2rem;
+    color: var(--ac);
+    font-weight: bold;
+    text-align: center;
+    background: var(--ac-lo);
+    padding: 0.8rem;
     border-radius: 8px;
 }
 .modal-actions { display: flex; justify-content: flex-end; gap: 1rem; margin-top: 0.5rem; }
 .form-group { display: flex; flex-direction: column; gap: 0.5rem; }
-.form-group label { font-size: 0.9rem; color: var(--text-secondary); }
-.form-group select option { background: var(--bg-dark); color: #fff; }
+.form-group label { font-size: 0.9rem; color: var(--tx2); }
+.form-group select option { background: var(--bg-surface); color: var(--tx); }
 
 /* ==========================================
    Board Surface — Lichess maple 텍스처 (블론드 우드, Apple 가구/마감 느낌).
@@ -2007,27 +1983,27 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     justify-content: space-between;
     height: 48px;
     padding: 0 1rem;
-    border-bottom: 1px solid var(--border-color);
+    border-bottom: 1px solid var(--brd);
     flex-shrink: 0;
 }
 
 .moves-overlay-title {
     font-size: 14px;
     font-weight: 700;
-    color: var(--text-primary);
+    color: var(--tx);
 }
 
 .moves-overlay-close {
     background: none;
     border: none;
-    color: var(--text-secondary);
+    color: var(--tx2);
     font-size: 1.1rem;
     cursor: pointer;
     padding: 0.25rem 0.5rem;
     line-height: 1;
     transition: color 0.15s ease;
 }
-.moves-overlay-close:hover { color: var(--text-primary); }
+.moves-overlay-close:hover { color: var(--tx); }
 
 .moves-overlay-download {
     background: none;
@@ -2059,7 +2035,7 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
 }
 
 .moves-overlay .active-move-row td {
-    background: rgba(196, 154, 60, 0.12);
+    background: rgba(139, 111, 42, 0.10);
     color: var(--ac);
 }
 
@@ -2453,7 +2429,7 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     transition: background 0.15s ease, border-color 0.15s ease;
 }
 .vault-detail-delete-btn:hover {
-    background: rgba(200, 64, 64, 0.08);
+    background: rgba(154, 58, 42, 0.08);
     border-color: var(--blunder);
 }
 .vault-detail-delete-btn:active { opacity: 0.7; }

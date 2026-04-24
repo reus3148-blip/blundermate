@@ -1905,11 +1905,11 @@ function updateBoardPosition(index, fen) {
 // ==========================================
 
 const BADGE_MAP = {
-    'Best':       { symbol: '✦', fontSize: '10px', fontWeight: '700', color: '#100E0B', bg: '#EDE8DF', borderColor: '#C8B898' },
-    'Excellent':  { symbol: '!',  fontSize: '13px', fontWeight: '900', color: '#fff',    bg: '#5A9E60', borderColor: '#3A7E40' },
-    'Inaccuracy': { symbol: '?!', fontSize: '8px',  fontWeight: '700', color: '#fff',    bg: '#C49A3C', borderColor: '#A07A1C' },
-    'Mistake':    { symbol: '?',  fontSize: '13px', fontWeight: '900', color: '#fff',    bg: '#C87840', borderColor: '#A05820' },
-    'Blunder':    { symbol: '??', fontSize: '9px',  fontWeight: '700', color: '#fff',    bg: '#C84040', borderColor: '#A02020' },
+    'Best':       { symbol: '✦', fontSize: '10px', fontWeight: '700', color: '#2C2824', bg: '#FAF8F2', borderColor: '#D8CDB5' },
+    'Excellent':  { symbol: '!',  fontSize: '13px', fontWeight: '900', color: '#fff',    bg: '#5A7A3A', borderColor: '#3E5A25' },
+    'Inaccuracy': { symbol: '?!', fontSize: '8px',  fontWeight: '700', color: '#fff',    bg: '#8B6F2A', borderColor: '#6B551C' },
+    'Mistake':    { symbol: '?',  fontSize: '13px', fontWeight: '900', color: '#fff',    bg: '#B5612A', borderColor: '#8F4A1E' },
+    'Blunder':    { symbol: '??', fontSize: '9px',  fontWeight: '700', color: '#fff',    bg: '#9A3A2A', borderColor: '#75281C' },
 };
 
 function showPieceBadge(index) {
