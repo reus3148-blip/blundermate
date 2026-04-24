@@ -77,27 +77,29 @@
                 <section class="home-hero">
                     <div class="hero-title" data-i18n="heroTitle">어떤 게임을 분석할까요?</div>
                     <div class="hero-subtitle" data-i18n="heroSubtitle">Chess.com 유저네임을 입력하세요</div>
-                    <div id="profileName" class="home-username hidden"></div>
                 </section>
-
 
                 <div id="manualInputWrapper" style="display:none">
                     <textarea id="pgnInput"></textarea>
                     <button id="analyzeBtn"></button>
                 </div>
 
-                <div id="profileRatings" class="home-ratings hidden">
-                    <div class="profile-rating-col" data-time-class="rapid">
-                        <span class="profile-rating-label" data-i18n="ratingRapid">Rapid</span>
-                        <span class="profile-rating-value" id="profileRapid">—</span>
+                <div id="homeProfileCard" class="home-profile-card hidden">
+                    <div class="home-profile-main">
+                        <div class="home-profile-avatar" id="profileAvatar"></div>
+                        <div class="home-profile-info">
+                            <div id="profileName" class="home-profile-name"></div>
+                            <div class="home-profile-meta">
+                                <span class="home-profile-tier" id="profileTier"></span>
+                                <span class="home-profile-rapid" id="profileRapid">—</span>
+                            </div>
+                        </div>
                     </div>
-                    <div class="profile-rating-col" data-time-class="blitz">
-                        <span class="profile-rating-label" data-i18n="ratingBlitz">Blitz</span>
-                        <span class="profile-rating-value" id="profileBlitz">—</span>
-                    </div>
-                    <div class="profile-rating-col" data-time-class="bullet">
-                        <span class="profile-rating-label" data-i18n="ratingBullet">Bullet</span>
-                        <span class="profile-rating-value" id="profileBullet">—</span>
+                    <div class="home-profile-record" id="homeProfileRecord">
+                        <span class="profile-record-label" data-i18n="profile_record_label">최근 15경기</span>
+                        <span class="profile-record-value" id="profileRecord">
+                            <span class="profile-record-dash">—</span>
+                        </span>
                     </div>
                 </div>
 
@@ -107,11 +109,6 @@
                         <button id="backToMyGamesBtn" class="home-recent-back hidden" data-i18n="home_back_to_my_games">내 게임으로 돌아가기</button>
                     </div>
                     <div id="homeRecentList" class="recent-games-scroll"></div>
-                </div>
-
-                <div class="home-pair-btns">
-                    <button id="openVaultBtn" class="home-pair-btn" data-i18n="archive_vault_btn">복기</button>
-                    <button id="openSavedGamesBtn" class="home-pair-btn" data-i18n="archive_saved_games_btn">저장된 게임</button>
                 </div>
 
                 <div class="home-secondary-links">
@@ -515,6 +512,22 @@
                 </div>
             </div>
         </div>
+
+        <!-- Bottom Navigation -->
+        <nav id="bottomNav" class="bottom-nav" aria-label="Main">
+            <button id="navHomeBtn" class="bottom-nav-tab" data-screen="home" aria-label="홈" data-i18n-aria="nav_home">
+                <svg class="bottom-nav-icon" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                <span class="bottom-nav-label" data-i18n="nav_home">홈</span>
+            </button>
+            <button id="navVaultBtn" class="bottom-nav-tab" data-screen="vault_list" aria-label="복기" data-i18n-aria="nav_vault">
+                <svg class="bottom-nav-icon" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
+                <span class="bottom-nav-label" data-i18n="nav_vault">복기</span>
+            </button>
+            <button id="navSavedBtn" class="bottom-nav-tab" data-screen="saved_games" aria-label="저장" data-i18n-aria="nav_saved">
+                <svg class="bottom-nav-icon" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+                <span class="bottom-nav-label" data-i18n="nav_saved">저장</span>
+            </button>
+        </nav>
 
     </div><!-- /.app-container -->
 

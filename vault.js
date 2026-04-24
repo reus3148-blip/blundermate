@@ -8,7 +8,6 @@ import { t } from './strings.js';
 // DOM Elements
 // ==========================================
 const homeView = document.getElementById('homeView');
-const openVaultBtn = document.getElementById('openVaultBtn');
 const vaultView = document.getElementById('vaultView');
 const vaultList = document.getElementById('vaultList');
 const vaultBackBtn = document.getElementById('vaultBackBtn');
@@ -128,9 +127,12 @@ function findMoveIndexByFen(fens, targetFen) {
 export async function initHomeVaultBadge() {
 }
 
-async function openVaultFromHome() {
+export async function openVaultFromHome() {
     if (_navigateTo) _navigateTo('vault_list');
     homeView.classList.add('hidden');
+    const savedGamesViewEl = document.getElementById('savedGamesView');
+    if (savedGamesViewEl) savedGamesViewEl.classList.add('hidden');
+    vaultDetailView.classList.add('hidden');
     vaultView.classList.remove('hidden');
     await updateVaultView();
 }
@@ -279,8 +281,6 @@ export function initVault({ showMovesOverlay, closeMovesOverlay, navigateTo }) {
     _showMovesOverlay = showMovesOverlay;
     _closeMovesOverlay = closeMovesOverlay;
     _navigateTo = navigateTo || null;
-
-    openVaultBtn.addEventListener('click', openVaultFromHome);
 
     vaultBackBtn.addEventListener('click', () => {
         history.back();

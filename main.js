@@ -1,11 +1,11 @@
 import { Chessground } from 'https://cdnjs.cloudflare.com/ajax/libs/chessground/9.0.0/chessground.min.js';
 import { fetchRecentGames, fetchPlayerProfile } from './chessApi.js';
 import { StockfishEngine } from './engine.js';
-import { parseEvalData, getDests, convertPvToSan, classifyMove, parseAndLoadPgn, isValidFen, escapeHtml, parseOpeningFromPgn, formatTimeControl, formatRelativeDate } from './utils.js';
+import { parseEvalData, getDests, convertPvToSan, classifyMove, parseAndLoadPgn, isValidFen, escapeHtml, parseOpeningFromPgn, formatTimeControl, formatRelativeDate, getTier } from './utils.js';
 import { renderMovesTable, updateUIWithEval, highlightActiveMove, renderEngineLines, updateTopEvalDisplay, renderSummaryGraph, renderSummaryReport } from './ui.js';
 import { addVaultItem, getSavedGames, setMyUserId, getMyUserId, ONBOARDING_KEY, COORDS_KEY, GEMINI_KEY, EVAL_MODE_KEY } from './storage.js';
-import { initVault, initHomeVaultBadge, isVaultDetailActive, getVaultDetailIndex, setVaultDetailIndex, flipVaultBoard, setVaultCoords, redrawVaultBoard } from './vault.js';
-import { initSavedGames, openSaveGameModalForPgn } from './savedGames.js';
+import { initVault, initHomeVaultBadge, isVaultDetailActive, getVaultDetailIndex, setVaultDetailIndex, flipVaultBoard, setVaultCoords, redrawVaultBoard, openVaultFromHome } from './vault.js';
+import { initSavedGames, openSaveGameModalForPgn, openSavedGamesFromHome } from './savedGames.js';
 import { createGeminiHandler } from './gemini.js';
 import { t, setLocale, getLocale } from './strings.js';
 
@@ -155,7 +155,6 @@ let geminiAbortController = null; // Gemini API 요청 취소용 컨트롤러
 let isCoordsEnabled = localStorage.getItem(COORDS_KEY) !== 'false';
 let isGeminiEnabled = localStorage.getItem(GEMINI_KEY) !== 'false';
 let cachedHomeGames = [];
-let activeTimeClassFilter = null;
 
 // ==========================================
 // 2-2. History-based Navigation
@@ -179,6 +178,7 @@ function navigateTo(screen, state = {}) {
     console.log('[Nav] push:', screen, state);
     _currentScreen = screen;
     history.pushState({ screen, ...state }, '', `#${screen}`);
+    syncBottomNav(screen);
 }
 
 function hideAllViews() {
@@ -235,7 +235,38 @@ function renderScreen(screen) {
             homeView.classList.remove('hidden');
             break;
     }
+    syncBottomNav(screen);
 }
+
+const bottomNav = document.getElementById('bottomNav');
+const navHomeBtn = document.getElementById('navHomeBtn');
+const navVaultBtn = document.getElementById('navVaultBtn');
+const navSavedBtn = document.getElementById('navSavedBtn');
+const NAV_VISIBLE_SCREENS = new Set([SCREENS.HOME, SCREENS.VAULT_LIST, SCREENS.SAVED_GAMES]);
+const appContainer = document.querySelector('.app-container');
+
+function syncBottomNav(screen) {
+    const visible = NAV_VISIBLE_SCREENS.has(screen);
+    bottomNav.classList.toggle('hidden', !visible);
+    appContainer.classList.toggle('bottom-nav-hidden', !visible);
+    navHomeBtn.classList.toggle('active', screen === SCREENS.HOME);
+    navVaultBtn.classList.toggle('active', screen === SCREENS.VAULT_LIST);
+    navSavedBtn.classList.toggle('active', screen === SCREENS.SAVED_GAMES);
+}
+
+navHomeBtn.addEventListener('click', () => {
+    if (_currentScreen === SCREENS.HOME) return;
+    navigateTo(SCREENS.HOME);
+    renderScreen(SCREENS.HOME);
+});
+navVaultBtn.addEventListener('click', () => {
+    if (_currentScreen === SCREENS.VAULT_LIST) return;
+    openVaultFromHome();
+});
+navSavedBtn.addEventListener('click', () => {
+    if (_currentScreen === SCREENS.SAVED_GAMES) return;
+    openSavedGamesFromHome();
+});
 
 window.addEventListener('popstate', (event) => {
     console.log('[Nav] pop:', event.state);
@@ -248,6 +279,7 @@ window.addEventListener('popstate', (event) => {
 });
 
 history.replaceState({ screen: SCREENS.HOME }, '', '#home');
+syncBottomNav(SCREENS.HOME);
 
 // ==========================================
 // 3. Initialization
@@ -320,12 +352,8 @@ function renderHomeGamesList(games, displayUser) {
     const section = document.getElementById('homeRecentSection');
     if (!list) return;
 
-    const filtered = activeTimeClassFilter
-        ? games.filter(g => g.time_class === activeTimeClassFilter)
-        : games;
-
     list.innerHTML = '';
-    if (filtered.length === 0) {
+    if (games.length === 0) {
         list.innerHTML = `<div class="container-message">${t('filter_no_games')}</div>`;
         return;
     }
@@ -335,11 +363,10 @@ function renderHomeGamesList(games, displayUser) {
     container.className = 'home-recent-list';
     const dateStrings = { dateToday: t('dateToday'), dateYesterday: t('dateYesterday'), dateDaysAgo: t('dateDaysAgo') };
 
-    filtered.slice(0, 15).forEach(game => {
+    games.slice(0, 15).forEach(game => {
         const isWhite = game.white.username.toLowerCase() === userLower;
         const mySide = isWhite ? game.white : game.black;
         const oppSide = isWhite ? game.black : game.white;
-        const opponent = escapeHtml(oppSide.username);
         const resultCode = mySide.result;
 
         let resultKey, resultClass;
@@ -351,22 +378,38 @@ function renderHomeGamesList(games, displayUser) {
             resultKey = 'game_result_draw'; resultClass = 'draw';
         }
 
-        const sideClass = isWhite ? 'white' : 'black';
-        const oppRating = oppSide.rating ? ` (${oppSide.rating})` : '';
+        const myColor = isWhite ? 'white' : 'black';
+        const oppColor = isWhite ? 'black' : 'white';
+        const myName = escapeHtml(mySide.username);
+        const myRatingStr = mySide.rating ? ` (${mySide.rating})` : '';
+        const oppRatingStr = oppSide.rating ? ` (${oppSide.rating})` : '';
 
         const date = game.end_time ? formatRelativeDate(game.end_time, dateStrings) : '';
         const moveCount = game.pgn ? (game.pgn.match(/\d+\./g) || []).length : 0;
         const tc = game.time_control ? formatTimeControl(game.time_control) : '';
-        const meta = [date, moveCount ? `${moveCount}${t('moves_suffix')}` : '', tc].filter(Boolean).join(' · ');
+        const metaBottom = [moveCount ? `${moveCount}${t('moves_suffix')}` : '', tc].filter(Boolean).join(' · ');
+
+        const pawnPath = 'M22.5 9c-2.21 0-4 1.79-4 4 0 .89.29 1.71.78 2.38C17.33 16.5 16 18.59 16 21c0 2.03.94 3.84 2.41 5.03-3 1.06-7.41 5.55-7.41 13.47h23c0-7.92-4.41-12.41-7.41-13.47 1.47-1.19 2.41-3 2.41-5.03 0-2.41-1.33-4.5-3.28-5.62.49-.67.78-1.49.78-2.38 0-2.21-1.79-4-4-4z';
+        const buildPawn = (color) => `<svg class="home-recent-pawn home-recent-pawn--${color}" viewBox="0 0 45 45" width="14" height="14" aria-hidden="true"><path d="${pawnPath}"/></svg>`;
 
         const card = document.createElement('div');
-        card.className = `home-recent-card ${sideClass}`;
+        card.className = `home-recent-card result-${resultClass}`;
+        card.setAttribute('aria-label', `${t(resultKey)} · ${isWhite ? 'White' : 'Black'}`);
         card.innerHTML = `
-            <div class="home-recent-info">
-                <div class="home-recent-opponent">vs ${opponent}<span class="home-recent-rating">${escapeHtml(oppRating)}</span></div>
-                <div class="home-recent-meta">${escapeHtml(meta)}</div>
+            <div class="home-recent-rows">
+                <div class="home-recent-row home-recent-row--me">
+                    ${buildPawn(myColor)}
+                    <span class="home-recent-name">${myName}</span><span class="home-recent-rating">${escapeHtml(myRatingStr)}</span>
+                </div>
+                <div class="home-recent-row home-recent-row--opp">
+                    ${buildPawn(oppColor)}
+                    <span class="home-recent-name">${escapeHtml(oppSide.username)}</span><span class="home-recent-rating">${escapeHtml(oppRatingStr)}</span>
+                </div>
             </div>
-            <div class="home-recent-result home-recent-result--${resultClass}">${t(resultKey)}</div>
+            <div class="home-recent-meta">
+                <div class="home-recent-meta-line">${escapeHtml(date)}</div>
+                <div class="home-recent-meta-line">${escapeHtml(metaBottom)}</div>
+            </div>
         `;
 
         card.addEventListener('click', () => {
@@ -401,8 +444,6 @@ function loadHomeRecentGames(overrideUsername = null) {
     if (!displayUser || !section || !list) return;
 
     viewingUserId = overrideUsername || null;
-    activeTimeClassFilter = null;
-    document.querySelectorAll('.profile-rating-col[data-time-class]').forEach(c => c.classList.remove('active'));
     updateHomeRecentHeader(isViewingOtherUser() ? viewingUserId : null);
     section.classList.remove('hidden');
 
@@ -416,12 +457,15 @@ function loadHomeRecentGames(overrideUsername = null) {
                 section.classList.add('hidden');
             }
             cachedHomeGames = [];
+            resetProfileRecord();
             return;
         }
         cachedHomeGames = games;
         renderHomeGamesList(games, displayUser);
+        updateProfileRecord(games, displayUser);
     }).catch(() => {
         cachedHomeGames = [];
+        resetProfileRecord();
         if (overrideUsername) {
             list.innerHTML = `<div class="container-message container-message--error">${t('games_fetch_error')}</div>`;
         } else {
@@ -430,45 +474,105 @@ function loadHomeRecentGames(overrideUsername = null) {
     });
 }
 
+function resetProfileRecord() {
+    const recordEl = document.getElementById('profileRecord');
+    if (recordEl) recordEl.innerHTML = '<span class="profile-record-dash">—</span>';
+}
+
+function updateProfileRecord(games, displayUser) {
+    const recordEl = document.getElementById('profileRecord');
+    if (!recordEl || !displayUser) return;
+    const userLower = displayUser.toLowerCase();
+    let w = 0, l = 0, d = 0;
+    games.slice(0, 15).forEach(game => {
+        const isWhite = game.white.username.toLowerCase() === userLower;
+        const result = (isWhite ? game.white : game.black).result;
+        if (result === 'win') w++;
+        else if (['checkmated', 'timeout', 'resigned', 'abandoned'].includes(result)) l++;
+        else d++;
+    });
+    recordEl.innerHTML = `
+        <span class="profile-record-win">${w}${t('profile_record_win_short')}</span>
+        <span class="profile-record-loss">${l}${t('profile_record_loss_short')}</span>
+        <span class="profile-record-draw">${d}${t('profile_record_draw_short')}</span>
+    `;
+}
+
+function renderProfileTier(rapid) {
+    const tierEl = document.getElementById('profileTier');
+    const avatarEl = document.getElementById('profileAvatar');
+    const tier = getTier(rapid);
+    avatarEl.classList.remove('tier-emperor');
+    tierEl.classList.remove('tier-emperor');
+    if (!tier) {
+        tierEl.innerHTML = `<span>${t('tier_unranked')}</span>`;
+        if (!avatarEl.querySelector('img')) {
+            avatarEl.textContent = '\u265F';
+        }
+        return;
+    }
+    tierEl.innerHTML = `<span class="home-profile-tier-glyph">${tier.glyph}</span><span>${t('tier_' + tier.key)}</span>`;
+    if (tier.isEmperor) tierEl.classList.add('tier-emperor');
+    if (!avatarEl.querySelector('img')) {
+        avatarEl.textContent = tier.glyph;
+        if (tier.isEmperor) avatarEl.classList.add('tier-emperor');
+    }
+}
+
+function setProfileAvatar(url, fallbackRapid) {
+    const avatarEl = document.getElementById('profileAvatar');
+    avatarEl.innerHTML = '';
+    avatarEl.classList.remove('tier-emperor');
+    if (url) {
+        const img = new Image();
+        img.alt = '';
+        img.src = url;
+        img.onerror = () => {
+            avatarEl.innerHTML = '';
+            renderProfileTier(fallbackRapid);
+        };
+        avatarEl.appendChild(img);
+    } else {
+        renderProfileTier(fallbackRapid);
+    }
+}
+
 function updateHomeHeader() {
     const userId = getViewingUserId();
     const heroSection = document.querySelector('.home-hero');
     const inputWrap = document.querySelector('.username-input-wrap');
     const heroTitle = document.querySelector('.hero-title');
     const heroSubtitle = document.querySelector('.hero-subtitle');
+    const profileCard = document.getElementById('homeProfileCard');
     const profileName = document.getElementById('profileName');
-    const profileRatings = document.getElementById('profileRatings');
+    const profileRapid = document.getElementById('profileRapid');
+    const profileAvatar = document.getElementById('profileAvatar');
 
     if (userId) {
         heroSection.classList.add('home-hero--user');
-        profileName.classList.remove('hidden');
+        profileCard.classList.remove('hidden');
         profileName.textContent = userId;
         profileName.classList.remove('username-md', 'username-sm');
-        if (userId.length > 12) profileName.classList.add('username-sm');
-        else if (userId.length > 6) profileName.classList.add('username-md');
-        profileRatings.classList.remove('hidden');
-        document.getElementById('profileRapid').textContent = '—';
-        document.getElementById('profileBlitz').textContent = '—';
-        document.getElementById('profileBullet').textContent = '—';
+        if (userId.length > 16) profileName.classList.add('username-sm');
+        else if (userId.length > 10) profileName.classList.add('username-md');
+        profileRapid.textContent = '—';
+        profileAvatar.innerHTML = '';
+        profileAvatar.classList.remove('tier-emperor');
+        renderProfileTier(null);
+        resetProfileRecord();
         inputWrap.classList.add('username-input-wrap--small');
         usernameInput.placeholder = t('home_search_other');
 
         fetchPlayerProfile(userId).then(profile => {
             if (!profile) return;
-            const { ratings } = profile;
-            document.getElementById('profileRapid').textContent = ratings.rapid || '—';
-            document.getElementById('profileBlitz').textContent = ratings.blitz || '—';
-            document.getElementById('profileBullet').textContent = ratings.bullet || '—';
-            document.querySelectorAll('.profile-rating-col[data-time-class]').forEach(col => {
-                const tc = col.dataset.timeClass;
-                col.classList.toggle('disabled', !ratings[tc]);
-                col.classList.remove('active');
-            });
+            const { ratings, avatar } = profile;
+            profileRapid.textContent = ratings.rapid || '—';
+            renderProfileTier(ratings.rapid);
+            setProfileAvatar(avatar, ratings.rapid);
         });
     } else {
         heroSection.classList.remove('home-hero--user');
-        profileName.classList.add('hidden');
-        profileRatings.classList.add('hidden');
+        profileCard.classList.add('hidden');
         heroTitle.setAttribute('data-i18n', 'heroTitle');
         heroTitle.textContent = t('heroTitle');
         heroSubtitle.classList.remove('hidden');
@@ -478,26 +582,6 @@ function updateHomeHeader() {
         usernameInput.placeholder = t('usernamePlaceholder');
     }
 }
-
-// ── Time Class Filter Tabs ────────────────────────────────────────
-document.querySelectorAll('.profile-rating-col[data-time-class]').forEach(col => {
-    col.addEventListener('click', () => {
-        if (col.classList.contains('disabled')) return;
-        const tc = col.dataset.timeClass;
-        if (activeTimeClassFilter === tc) {
-            activeTimeClassFilter = null;
-            col.classList.remove('active');
-        } else {
-            activeTimeClassFilter = tc;
-            document.querySelectorAll('.profile-rating-col[data-time-class]').forEach(c => c.classList.remove('active'));
-            col.classList.add('active');
-        }
-        const displayUser = viewingUserId || getMyUserId();
-        if (cachedHomeGames.length > 0 && displayUser) {
-            renderHomeGamesList(cachedHomeGames, displayUser);
-        }
-    });
-});
 
 // ── Onboarding ─────────────────────────────────────────────────────
 const onboardingView = document.getElementById('onboardingView');
@@ -509,6 +593,7 @@ function finishOnboarding() {
     localStorage.setItem(ONBOARDING_KEY, 'true');
     onboardingView.classList.add('hidden');
     homeView.classList.remove('hidden');
+    syncBottomNav(SCREENS.HOME);
     refreshHomeCounts();
 }
 
@@ -527,6 +612,8 @@ onboardingSkipBtn.addEventListener('click', finishOnboarding);
 if (!localStorage.getItem(ONBOARDING_KEY)) {
     homeView.classList.add('hidden');
     onboardingView.classList.remove('hidden');
+    bottomNav.classList.add('hidden');
+    appContainer.classList.add('bottom-nav-hidden');
 } else {
     refreshHomeCounts();
 }
@@ -615,6 +702,8 @@ if (logoutBtn) {
         homeView.classList.add('hidden');
         if (onboardingUsernameInput) onboardingUsernameInput.value = '';
         onboardingView.classList.remove('hidden');
+        bottomNav.classList.add('hidden');
+        appContainer.classList.add('bottom-nav-hidden');
     });
 }
 
@@ -1616,6 +1705,10 @@ function startNewAnalysis(newQueue, targetIndex = null, previewOnly = false) {
         navigateTo(SCREENS.ANALYSIS);
     }
     homeView.classList.add('hidden');
+    vaultViewNav.classList.add('hidden');
+    vaultDetailViewNav.classList.add('hidden');
+    savedGamesViewNav.classList.add('hidden');
+    inputView.classList.add('hidden');
     analysisView.classList.remove('hidden');
 
     // 이전 탐색(Exploration) 및 시뮬레이션 모드 상태 완전 초기화

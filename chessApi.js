@@ -11,16 +11,24 @@ export async function fetchPlayerProfile(username) {
 
     const safe = encodeURIComponent(username.trim());
     try {
-        const res = await fetch(`https://api.chess.com/pub/player/${safe}/stats`, FETCH_OPTS);
+        const [statsRes, playerRes] = await Promise.all([
+            fetch(`https://api.chess.com/pub/player/${safe}/stats`, FETCH_OPTS),
+            fetch(`https://api.chess.com/pub/player/${safe}`, FETCH_OPTS),
+        ]);
         const ratings = { rapid: null, blitz: null, bullet: null };
-        if (res.ok) {
-            const data = await res.json();
+        if (statsRes.ok) {
+            const data = await statsRes.json();
             const map = { chess_rapid: 'rapid', chess_blitz: 'blitz', chess_bullet: 'bullet' };
             for (const [key, field] of Object.entries(map)) {
                 if (data[key]?.last?.rating) ratings[field] = data[key].last.rating;
             }
         }
-        cachedProfile = { ratings };
+        let avatar = null;
+        if (playerRes.ok) {
+            const player = await playerRes.json();
+            if (player?.avatar) avatar = player.avatar;
+        }
+        cachedProfile = { ratings, avatar };
         cachedProfileUser = lower;
         return cachedProfile;
     } catch {

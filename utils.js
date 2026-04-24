@@ -279,3 +279,23 @@ export function formatRelativeDate(dateStr, strings) {
     if (diffDays < 8) return strings.dateDaysAgo.replace('{n}', diffDays);
     return d.toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' });
 }
+
+const TIERS = [
+    { key: 'pawn',    min: 0,    glyph: '\u265F' },
+    { key: 'knight',  min: 400,  glyph: '\u265E' },
+    { key: 'bishop',  min: 700,  glyph: '\u265D' },
+    { key: 'rook',    min: 1000, glyph: '\u265C' },
+    { key: 'queen',   min: 1400, glyph: '\u265B' },
+    { key: 'king',    min: 1800, glyph: '\u265A' },
+    { key: 'emperor', min: 2200, glyph: '\u2655' },
+];
+
+export function getTier(rapidRating) {
+    const r = Number(rapidRating);
+    if (!isFinite(r) || r <= 0) return null;
+    let tier = TIERS[0];
+    for (const t of TIERS) {
+        if (r >= t.min) tier = t;
+    }
+    return { key: tier.key, glyph: tier.glyph, isEmperor: tier.key === 'emperor' };
+}
