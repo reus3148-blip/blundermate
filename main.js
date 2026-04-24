@@ -2,7 +2,6 @@ import { Chessground } from 'https://cdnjs.cloudflare.com/ajax/libs/chessground/
 import { fetchRecentGames, fetchPlayerProfile } from './chessApi.js';
 import { StockfishEngine } from './engine.js';
 import { parseEvalData, getDests, convertPvToSan, classifyMove, parseAndLoadPgn, isValidFen, escapeHtml, parseOpeningFromPgn, formatTimeControl, formatRelativeDate } from './utils.js';
-import { getDisplayName as getOpeningDisplayName } from './openings.js';
 import { renderMovesTable, updateUIWithEval, highlightActiveMove, renderEngineLines, updateTopEvalDisplay, renderSummaryGraph, renderSummaryReport } from './ui.js';
 import { addVaultItem, getSavedGames, setMyUserId, getMyUserId, ONBOARDING_KEY, COORDS_KEY, GEMINI_KEY, EVAL_MODE_KEY } from './storage.js';
 import { initVault, initHomeVaultBadge, isVaultDetailActive, getVaultDetailIndex, setVaultDetailIndex, flipVaultBoard, setVaultCoords, redrawVaultBoard } from './vault.js';
@@ -69,8 +68,11 @@ const inputViewResetBtn = document.getElementById('inputViewResetBtn');
 const inputViewAnalyzeBtn = document.getElementById('inputViewAnalyzeBtn');
 const inputBoardContainer = document.getElementById('inputBoardContainer');
 const inputBoardPgn = document.getElementById('inputBoardPgn');
+const inputPrevMoveBtn = document.getElementById('inputPrevMoveBtn');
+const inputNextMoveBtn = document.getElementById('inputNextMoveBtn');
 const previewStartBtn = document.getElementById('previewStartBtn');
 const ctrlCenter = document.querySelector('.ctrl-center');
+const analysisLoadingText = document.getElementById('analysisLoadingText');
 
 // Modal Elements
 const saveModal = document.getElementById('saveModal');
@@ -123,6 +125,7 @@ let analysisQueue = [];
 let currentAnalysisIndex = 0;
 let currentEval = '';
 let isAnalyzing = false;
+let isAnalysisLoading = false;
 let currentlyViewedIndex = -1;
 let cg;
 let isWaitingForStop = false;
@@ -137,8 +140,13 @@ let explorationChess = new Chess();
 let explorationEngineLines = [];
 let simulationQueue = [];
 let simulationIndex = -1;
-let inputChess = new window.Chess(); // 수동 보드 입력용 체스 인스턴스
+let inputChess = new window.Chess(); // 수동 보드 입력용 체스 인스턴스 (전체 수 히스토리 보유)
 let inputCg; // 수동 보드 입력용 체스그라운드 인스턴스
+// 입력 뷰 네비게이션 상태: 현재 보고 있는 수 인덱스(0 = 시작, N = N번째 수 이후).
+// 중간 어딘가에서 새 수를 두면 그 지점까지 truncate 후 새 수를 append (fork).
+let inputViewIndex = 0;
+// FEN으로 로드된 커스텀 시작 포지션. null이면 표준 시작.
+let inputStartFen = null;
 let lastEvalRenderTime = 0; // 엔진 UI 렌더링 스로틀링용 타임스탬프
 const EVAL_RENDER_THROTTLE = 100; // UI 업데이트 제한 시간(ms)
 let isPreviewMode = false; // 분석 미리보기 상태 (엔진 미시작)
@@ -188,6 +196,7 @@ function cleanupAnalysis() {
         isPreviewMode = false;
         removePreviewControls();
     }
+    if (isAnalysisLoading) exitAnalysisLoading();
     if (stockfish) stockfish.stop();
     isAnalyzing = false;
     isWaitingForStop = false;
@@ -435,8 +444,8 @@ function updateHomeHeader() {
         profileName.classList.remove('hidden');
         profileName.textContent = userId;
         profileName.classList.remove('username-md', 'username-sm');
-        if (userId.length > 15) profileName.classList.add('username-sm');
-        else if (userId.length > 10) profileName.classList.add('username-md');
+        if (userId.length > 12) profileName.classList.add('username-sm');
+        else if (userId.length > 6) profileName.classList.add('username-md');
         profileRatings.classList.remove('hidden');
         document.getElementById('profileRapid').textContent = '—';
         document.getElementById('profileBlitz').textContent = '—';
@@ -722,7 +731,9 @@ function openInputView() {
     navigateTo(SCREENS.INPUT);
     homeView.classList.add('hidden');
     inputView.classList.remove('hidden');
-    inputChess.reset();
+    inputChess = new window.Chess();
+    inputStartFen = null;
+    inputViewIndex = 0;
     inputBoardPgn.value = '';
 
     if (!inputCg) {
@@ -731,15 +742,64 @@ function openInputView() {
             movable: { free: false },
             coordinates: isCoordsEnabled,
             events: {
-                move: (orig, dest) => {
-                    inputChess.move({ from: orig, to: dest, promotion: 'q' });
-                    updateInputBoard();
-                }
+                move: handleInputBoardMove,
             }
         });
     }
     updateInputBoard();
     forceRedraw(inputCg);
+}
+
+// 현재 inputViewIndex까지 replay한 체스 인스턴스 반환. 보드/토출 용도.
+function getInputViewChess() {
+    const c = new window.Chess();
+    if (inputStartFen) c.load(inputStartFen);
+    const hist = inputChess.history({ verbose: true });
+    const limit = Math.min(inputViewIndex, hist.length);
+    for (let i = 0; i < limit; i++) {
+        c.move({ from: hist[i].from, to: hist[i].to, promotion: hist[i].promotion });
+    }
+    return c;
+}
+
+// 사용자가 현재 보고 있는 위치에서 보드에 수를 두면 호출된다.
+// 끝이 아닌 중간에서 두면 그 지점까지 truncate + fork.
+function handleInputBoardMove(orig, dest) {
+    const hist = inputChess.history({ verbose: true });
+    if (inputViewIndex < hist.length) {
+        const newChess = new window.Chess();
+        if (inputStartFen) newChess.load(inputStartFen);
+        for (let i = 0; i < inputViewIndex; i++) {
+            newChess.move({ from: hist[i].from, to: hist[i].to, promotion: hist[i].promotion });
+        }
+        const result = newChess.move({ from: orig, to: dest, promotion: 'q' });
+        if (!result) return;
+        inputChess = newChess;
+    } else {
+        const result = inputChess.move({ from: orig, to: dest, promotion: 'q' });
+        if (!result) return;
+    }
+    inputViewIndex++;
+    updateInputBoard();
+}
+
+function handleInputPrev() {
+    if (inputViewIndex <= 0) return;
+    inputViewIndex--;
+    updateInputBoard();
+}
+
+function handleInputNext() {
+    if (inputViewIndex >= inputChess.history().length) return;
+    inputViewIndex++;
+    updateInputBoard();
+}
+
+function updateInputNavButtons() {
+    const historyLen = inputChess.history().length;
+    inputPrevMoveBtn.disabled = inputViewIndex === 0;
+    inputNextMoveBtn.disabled = inputViewIndex >= historyLen;
+    inputViewUndoBtnBottom.disabled = inputViewIndex === 0;
 }
 
 openBoardInputBtn.addEventListener('click', openInputView);
@@ -748,21 +808,37 @@ inputViewBackBtn.addEventListener('click', () => {
     history.back();
 });
 
+// Undo: 현재 보고 있는 수 + 그 이후 전부 삭제 (viewIndex - 1 까지 truncate).
+// 끝에서 누르면 마지막 수 제거로 기존 동작과 동일하고, 중간에서 누르면 그 분기를 쳐낸다.
 function doUndoInput() {
-    inputChess.undo();
+    if (inputViewIndex === 0) return;
+    const hist = inputChess.history({ verbose: true });
+    const newChess = new window.Chess();
+    if (inputStartFen) newChess.load(inputStartFen);
+    for (let i = 0; i < inputViewIndex - 1; i++) {
+        newChess.move({ from: hist[i].from, to: hist[i].to, promotion: hist[i].promotion });
+    }
+    inputChess = newChess;
+    inputViewIndex--;
     updateInputBoard();
 }
 inputViewUndoBtnBottom.addEventListener('click', doUndoInput);
 inputViewResetBtn.addEventListener('click', () => {
-    inputChess.reset();
+    inputChess = new window.Chess();
+    inputStartFen = null;
+    inputViewIndex = 0;
     inputBoardPgn.value = '';
     updateInputBoard();
 });
+inputPrevMoveBtn.addEventListener('click', handleInputPrev);
+inputNextMoveBtn.addEventListener('click', handleInputNext);
 
 inputBoardPgn.addEventListener('input', () => {
     const text = inputBoardPgn.value.trim();
     if (!text) {
-        inputChess.reset();
+        inputChess = new window.Chess();
+        inputStartFen = null;
+        inputViewIndex = 0;
         if (inputCg) updateInputBoard();
         return;
     }
@@ -770,14 +846,9 @@ inputBoardPgn.addEventListener('input', () => {
     const result = parseAndLoadPgn(tempChess, text);
     if (result.success) {
         inputChess = tempChess;
-        if (inputCg) {
-            const turnColor = inputChess.turn() === 'w' ? 'white' : 'black';
-            inputCg.set({
-                fen: inputChess.fen(),
-                turnColor: turnColor,
-                movable: { color: turnColor, dests: getDests(inputChess) }
-            });
-        }
+        inputStartFen = null;
+        inputViewIndex = inputChess.history().length;
+        if (inputCg) updateInputBoard();
         return;
     }
     // PGN 파싱 실패 시 FEN으로 시도 — 보드만 갱신, 수는 비어있음
@@ -785,14 +856,9 @@ inputBoardPgn.addEventListener('input', () => {
         const fenChess = new window.Chess();
         fenChess.load(text);
         inputChess = fenChess;
-        if (inputCg) {
-            const turnColor = inputChess.turn() === 'w' ? 'white' : 'black';
-            inputCg.set({
-                fen: inputChess.fen(),
-                turnColor: turnColor,
-                movable: { color: turnColor, dests: getDests(inputChess) }
-            });
-        }
+        inputStartFen = text;
+        inputViewIndex = 0;
+        if (inputCg) updateInputBoard();
     }
 });
 
@@ -821,17 +887,33 @@ backBtn.addEventListener('click', () => {
 });
 
 function updateInputBoard() {
-    const turnColor = inputChess.turn() === 'w' ? 'white' : 'black';
+    // 보드는 inputViewIndex까지만 replay한 상태를 표시, dests도 그 포지션 기준으로 계산.
+    // textarea는 항상 inputChess의 전체 PGN을 보여준다.
+    const viewChess = getInputViewChess();
+    const turnColor = viewChess.turn() === 'w' ? 'white' : 'black';
+
+    // 현재 포지션으로 이끈 마지막 수를 두 칸 하이라이트로 표시 (Lichess/Chess.com 관례).
+    // 시작 포지션(viewIndex === 0)에서는 빈 배열로 명시해 이전 하이라이트를 지운다.
+    let lastMove = [];
+    if (inputViewIndex > 0) {
+        const hist = inputChess.history({ verbose: true });
+        const m = hist[inputViewIndex - 1];
+        if (m) lastMove = [m.from, m.to];
+    }
+
     inputCg.set({
-        fen: inputChess.fen(),
+        fen: viewChess.fen(),
         turnColor: turnColor,
+        lastMove,
         movable: {
             color: turnColor,
-            dests: getDests(inputChess)
-        }
+            dests: getDests(viewChess)
+        },
+        drawable: { autoShapes: [] }
     });
     inputBoardPgn.value = inputChess.pgn();
     inputBoardPgn.scrollTop = inputBoardPgn.scrollHeight;
+    updateInputNavButtons();
 }
 
 fetchBtn.addEventListener('click', handleApiFetch);
@@ -987,11 +1069,17 @@ let _overlayGetPgn = null;
 function showMovesOverlay({ getPgn, renderBody } = {}) {
     _overlayGetPgn = getPgn || null;
     if (renderBody) renderBody();
+    // 가상 키보드/포커스가 PGN textarea에 남아있으면 내려보낸다
+    if (document.activeElement && document.activeElement.blur) {
+        document.activeElement.blur();
+    }
     movesOverlay.classList.add('open');
+    document.body.classList.add('moves-overlay-open');
 }
 function closeMovesOverlay() {
     movesOverlay.classList.remove('open');
     _overlayGetPgn = null;
+    document.body.classList.remove('moves-overlay-open');
 }
 
 initVault({ showMovesOverlay, closeMovesOverlay, navigateTo });
@@ -1534,6 +1622,7 @@ function startNewAnalysis(newQueue, targetIndex = null, previewOnly = false) {
     appMode = 'main';
     hideReturnBtn();
     analysisView.classList.remove('view-summary');
+    exitAnalysisLoading();
 
     // Force Chessground to recalculate board size for mobile
     forceRedraw(cg);
@@ -1567,8 +1656,7 @@ function startNewAnalysis(newQueue, targetIndex = null, previewOnly = false) {
         return;
     }
 
-    analysisStatus.className = 'tag engine-loading';
-    analysisStatus.textContent = t('analysis_progress_start').replace('{total}', analysisQueue.length);
+    enterAnalysisLoading();
 
     if (analysisQueue.length > 0 && targetIndex != null && targetIndex >= 0 && targetIndex < analysisQueue.length) {
         updateBoardPosition(targetIndex, analysisQueue[targetIndex].fen);
@@ -1594,8 +1682,7 @@ function renderPreviewCard() {
     metaParts.push(t('preview_moves').replace('{n}', analysisQueue.length));
     const metaLine = metaParts.join(' \u00b7 ');
 
-    const { eco, ecoUrl } = parseOpeningFromPgn(chess.pgn());
-    const openingName = getOpeningDisplayName(eco, ecoUrl);
+    const { name: openingName, eco } = parseOpeningFromPgn(chess.pgn());
     let openingBlock = '';
     if (openingName) {
         openingBlock = `
@@ -1640,12 +1727,33 @@ function removePreviewControls() {
     previewStartBtn.classList.add('hidden');
 }
 
+// 분석 로딩 상태: 중간 바 중앙에 "로딩중입니다..."만, 그 아래는 전부 숨김.
+// view-summary와 공존하지 않음 — 완료 시점에 요약 뷰가 켜진다.
+function enterAnalysisLoading() {
+    isAnalysisLoading = true;
+    analysisView.classList.remove('view-summary');
+    analysisView.classList.add('analyzing-loading');
+    moveClassLabel.classList.add('hidden');
+    winChanceDisplay.classList.add('hidden');
+    if (ctrlCenterSeparator) ctrlCenterSeparator.classList.add('hidden');
+    analysisLoadingText.classList.remove('hidden');
+    analysisStatus.classList.add('hidden');
+}
+
+function exitAnalysisLoading() {
+    if (!isAnalysisLoading) return;
+    isAnalysisLoading = false;
+    analysisView.classList.remove('analyzing-loading');
+    moveClassLabel.classList.remove('hidden');
+    winChanceDisplay.classList.remove('hidden');
+    if (ctrlCenterSeparator) ctrlCenterSeparator.classList.remove('hidden');
+    analysisLoadingText.classList.add('hidden');
+}
+
 function startAnalysisFromPreview() {
     isPreviewMode = false;
     removePreviewControls();
-
-    analysisStatus.className = 'tag engine-loading';
-    analysisStatus.textContent = t('analysis_progress_start').replace('{total}', analysisQueue.length);
+    enterAnalysisLoading();
 
     if (isEngineReady) {
         processNextInQueue();
@@ -1657,6 +1765,7 @@ function processNextInQueue() {
         analysisStatus.textContent = '';
         analysisStatus.className = 'tag hidden';
         analyzeBtn.disabled = false;
+        exitAnalysisLoading();
 
         // FEN 단일 포지션 분석은 요약 화면이 없으므로 그 자리에 머문다
         const isFenOnly = analysisQueue.length === 1 && analysisQueue[0]?.isFenOnly;
@@ -1699,6 +1808,8 @@ function shouldShowSummary(index) {
     // preview 모드(저장 게임/복기 초기 진입)에서도 0수 진입을 허용한다.
     // 엔진 데이터가 비어있으면 renderSummaryGraph가 "분석 데이터 없음" 빈 상태를 그린다.
     // FEN 단일 포지션 분석은 요약 화면 대상이 아니다.
+    // 분석 로딩 중에는 요약 뷰 대신 로딩 상태가 우선한다.
+    if (isAnalysisLoading) return false;
     const isFenOnly = analysisQueue.length === 1 && analysisQueue[0]?.isFenOnly;
     return appMode === 'main'
         && analysisQueue.length > 0
@@ -1728,9 +1839,17 @@ function updateBoardPosition(index, fen) {
     const validFen = fen === 'start' ? START_FEN : fen;
     const tempChess = new Chess(validFen);
     const turnColor = tempChess.turn() === 'w' ? 'white' : 'black';
+
+    // 현재 포지션으로 이끈 수를 두 칸 하이라이트 (Lichess/Chess.com 관례).
+    let lastMove = [];
+    if (index >= 0 && analysisQueue[index] && analysisQueue[index].from && analysisQueue[index].to) {
+        lastMove = [analysisQueue[index].from, analysisQueue[index].to];
+    }
+
     cg.set({
         fen: fen,
         turnColor: turnColor,
+        lastMove,
         movable: { color: turnColor, free: false, dests: getDests(tempChess) }
     });
 
@@ -1738,15 +1857,19 @@ function updateBoardPosition(index, fen) {
     applySummaryView(index);
     highlightActiveMove(index);
 
-    // 미리보기 모드에서는 보드 위치와 하이라이트만 업데이트하고, 엔진/AI 패널은 건드리지 않음
-    if (isPreviewMode) return;
+    // 미리보기 모드에서는 하이라이트까지만 반영하고 나머지(엔진/AI 패널)는 건드리지 않음.
+    // 이전 세션의 화살표가 남아있을 수 있으므로 autoShapes도 비워둔다.
+    persistentShapes = [];
+    if (isPreviewMode) {
+        cg.set({ drawable: { autoShapes: [] } });
+        return;
+    }
 
     // 수 이동 시 엔진 탭으로 복귀하고 AI 패널은 현재 포지션에 맞게 갱신
     renderAiTabContent();
     switchTab('engine');
 
-    // 블런더나 실수인 경우, 이전 턴(index - 1)에서 엔진이 추천했던 최선의 수를 파란색 화살표로 표시
-    persistentShapes = [];
+    // 블런더/실수일 때 엔진 추천 최선 수를 파란색 화살표로 표시 (실제 둔 수는 칸 하이라이트로 이미 표시됨)
     if (index > 0 && analysisQueue[index]) {
         const cls = analysisQueue[index].classification;
         if (cls === 'Blunder' || cls === 'Mistake') {
@@ -1820,7 +1943,7 @@ function showPieceBadge(index) {
     square.style.left = `${col / 8 * 100}%`;
     square.style.top = `${row / 8 * 100}%`;
 
-    // 원형 배지
+    // 원형 배지 — border 대신 CSS box-shadow로 경계 표현 (iOS 알림 배지 스타일)
     const badge = document.createElement('div');
     badge.className = 'piece-badge';
     badge.textContent = config.symbol;
@@ -1828,7 +1951,6 @@ function showPieceBadge(index) {
     badge.style.fontWeight = config.fontWeight;
     badge.style.color = config.color;
     badge.style.background = config.bg;
-    badge.style.border = `1.5px solid ${config.borderColor}`;
 
     square.appendChild(badge);
     boardContainer.appendChild(square);
