@@ -89,7 +89,13 @@ body {
     box-shadow: 0 0 40px rgba(0, 0, 0, 0.12); /* 앱 영역 강조 그림자 — 라이트 배경에 맞춰 약화 */
     overflow: hidden;
     position: relative;
-    padding-bottom: env(safe-area-inset-bottom); /* 모바일 Safe Area (하단 홈 바) 대응 */
+    /* 바텀 네비게이션이 보일 때는 nav가 자체 padding으로 safe-area 처리,
+       숨겨져 있을 때(분석/입력 화면)만 .app-container가 safe-area 보정 */
+    padding-bottom: 0;
+}
+
+.app-container.bottom-nav-hidden {
+    padding-bottom: env(safe-area-inset-bottom);
 }
 
 /* PC/태블릿(≥480px): 수직 중앙 정렬 + 프레임 효과. 모바일(<480px)은 기존 그대로. */
@@ -282,47 +288,73 @@ body {
 
 .home-link-btn:hover { color: var(--tx2); }
 
-/* ==========================================
-   Home View: Pair Buttons (Vault / Saved Games)
-   ========================================== */
-
-.home-pair-btns {
-    display: flex;
-    gap: 8px;
-    padding: 0 16px;
-    margin-top: 24px;
-    flex-shrink: 0;
-}
-
-.home-pair-btn {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 38px;
-    background: var(--bg-surface);
-    border: 1px solid var(--brd);
-    border-radius: 8px;
-    color: var(--tx);
-    font-family: 'Outfit', sans-serif;
-    font-size: 15px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: background 0.15s, border-color 0.15s;
-}
-
-.home-pair-btn:hover {
-    background: var(--bg-elevated);
-    border-color: var(--brd2);
-}
-
-.home-pair-btn:active {
-    background: var(--bg-elevated);
-}
-
 .home-ad-space {
     height: 60px;
     flex-shrink: 0;
+}
+
+/* ==========================================
+   Bottom Navigation
+   ========================================== */
+
+.bottom-nav {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: stretch;
+    justify-content: space-around;
+    background: var(--bg-surface);
+    border-top: 1px solid var(--brd);
+    padding-bottom: env(safe-area-inset-bottom);
+    z-index: var(--z-sticky);
+}
+
+.bottom-nav.hidden {
+    display: none;
+}
+
+.bottom-nav-tab {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    height: 56px;
+    background: none;
+    border: none;
+    color: var(--tx3);
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: color 0.15s;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.bottom-nav-tab:active {
+    color: var(--tx2);
+}
+
+.bottom-nav-tab.active {
+    color: var(--tx);
+}
+
+.bottom-nav-icon {
+    flex-shrink: 0;
+}
+
+.bottom-nav-label {
+    line-height: 1;
+}
+
+/* 바텀 네비게이션 표시 시 스크롤 영역 하단 여백 확보 (nav에 가리지 않도록) */
+.app-container:not(.bottom-nav-hidden) .home-state,
+.app-container:not(.bottom-nav-hidden) #vaultView .games-list,
+.app-container:not(.bottom-nav-hidden) #savedGamesView .games-list {
+    padding-bottom: calc(56px + env(safe-area-inset-bottom));
 }
 
 /* ==========================================
@@ -2096,67 +2128,130 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
 /* ── Home: Logged-in state ─────────────────────────────────────── */
 .home-hero--user .hero-title,
 .home-hero--user .hero-subtitle { display: none; }
+.home-hero--user { padding-bottom: 0; }
 
-/* Username (directly under top bar) */
-.home-username {
-    font-size: 24px;
+/* Profile Card (Apple/Notion soft surface — no border, large radius) */
+.home-profile-card {
+    margin: 4px 16px 16px;
+    padding: 18px 20px 16px;
+    background: var(--bg-surface);
+    border-radius: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    flex-shrink: 0;
+}
+.home-profile-card.hidden { display: none; }
+
+.home-profile-main {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-width: 0;
+}
+
+.home-profile-avatar {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--bg-elevated);
+    flex-shrink: 0;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--tx);
+    font-size: 32px;
+    line-height: 1;
+}
+.home-profile-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+.home-profile-avatar.tier-emperor { color: var(--ac); }
+
+.home-profile-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.home-profile-name {
+    font-size: 22px;
     font-weight: 700;
     color: var(--tx);
-    letter-spacing: 0.04em;
-    width: calc((100% - 32px) / 3);
-    margin-left: 16px;
-    text-align: center;
+    letter-spacing: -0.01em;
+    line-height: 1.1;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
-.home-username.username-md { font-size: 18px; }
-.home-username.username-sm { font-size: 14px; }
+.home-profile-name.username-md { font-size: 19px; }
+.home-profile-name.username-sm { font-size: 16px; }
 
-/* Ratings row (above game list) */
-.home-ratings {
+.home-profile-meta {
     display: flex;
-    padding: 0 16px;
-    margin-top: 9px;
-    margin-bottom: 15px;
-    flex-shrink: 0;
+    align-items: baseline;
+    gap: 8px;
+    font-variant-numeric: tabular-nums;
+    min-width: 0;
 }
-.profile-rating-col {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
+.home-profile-tier {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--tx2);
+    display: inline-flex;
     align-items: center;
-    gap: 2px;
-    cursor: pointer;
-    padding: 6px 0;
-    border-radius: 6px;
-    transition: background 0.15s ease;
+    gap: 5px;
+    white-space: nowrap;
 }
-.profile-rating-col:hover {
-    background: var(--bg-elevated);
+.home-profile-tier-glyph {
+    font-size: 15px;
+    line-height: 1;
 }
-.profile-rating-col.active .profile-rating-label,
-.profile-rating-col.active .profile-rating-value {
+.home-profile-tier.tier-emperor {
     color: var(--ac);
 }
-.profile-rating-col.disabled {
-    cursor: not-allowed;
-    opacity: 0.4;
-}
-.profile-rating-col.disabled:hover {
-    background: none;
-}
-.profile-rating-label {
-    font-size: 11px;
-    color: var(--tx2);
+.home-profile-rapid {
+    font-size: 13px;
+    color: var(--tx3);
     font-weight: 500;
 }
-.profile-rating-value {
-    font-size: 18px;
-    font-weight: 700;
-    color: var(--tx);
-    letter-spacing: -0.01em;
+.home-profile-rapid::before {
+    content: '· ';
+    color: var(--tx3);
+    margin-right: 2px;
 }
+
+/* Last 15 record line */
+.home-profile-record {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding: 0 8px;
+}
+.profile-record-label {
+    font-size: 11px;
+    color: var(--tx3);
+    font-weight: 500;
+    letter-spacing: 0.02em;
+}
+.profile-record-value {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--tx2);
+    font-variant-numeric: tabular-nums;
+    display: inline-flex;
+    gap: 8px;
+}
+.profile-record-win,
+.profile-record-loss,
+.profile-record-draw { color: var(--tx2); }
+.profile-record-dash { color: var(--tx3); }
 
 .username-input-wrap--small {
     height: 40px;
@@ -2285,50 +2380,94 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     opacity: 0.7;
 }
 
-.home-recent-card { height: var(--game-card-height); }
-.home-recent-card.white::before { background: var(--tx); }
-.home-recent-card.black::before { background: var(--tx2); }
+.home-recent-card {
+    height: var(--game-card-height);
+    padding: 0 18px 0 14px;
+    gap: 10px;
+}
+.home-recent-card::before { display: none; }
+.home-recent-card::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 5px;
+}
+.home-recent-card.result-win::after  { background: var(--best); }
+.home-recent-card.result-loss::after { background: var(--blunder); }
+.home-recent-card.result-draw::after { background: var(--tx3); }
 
-.home-recent-info {
+.home-recent-rows {
     flex: 1;
     min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: 3px;
+    gap: 4px;
 }
-
-.home-recent-opponent {
+.home-recent-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
     font-size: 13px;
-    font-weight: 600;
     color: var(--tx);
     white-space: nowrap;
     overflow: hidden;
+}
+.home-recent-row--me { font-weight: 700; }
+.home-recent-row--opp {
+    font-weight: 500;
+    color: var(--tx2);
+}
+
+.home-recent-name {
+    overflow: hidden;
     text-overflow: ellipsis;
+    min-width: 0;
 }
 
 .home-recent-rating {
-    color: var(--tx2);
+    color: var(--tx3);
     font-weight: 400;
     font-size: 12px;
-}
-
-.home-recent-meta {
-    font-size: 11px;
-    color: var(--tx2);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.home-recent-result {
-    font-size: 11px;
-    font-weight: 600;
     flex-shrink: 0;
 }
 
-.home-recent-result--win  { color: var(--best); }
-.home-recent-result--loss { color: var(--blunder); }
-.home-recent-result--draw { color: var(--tx3); }
+.home-recent-pawn {
+    flex-shrink: 0;
+    width: 14px;
+    height: 14px;
+}
+.home-recent-pawn--white path {
+    fill: none;
+    stroke: var(--tx);
+    stroke-width: 2.5;
+    stroke-linejoin: round;
+}
+.home-recent-pawn--black path {
+    fill: var(--tx);
+    stroke: none;
+}
+.home-recent-row--opp .home-recent-pawn--white path { stroke: var(--tx2); }
+.home-recent-row--opp .home-recent-pawn--black path { fill: var(--tx2); }
+
+.home-recent-meta {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 4px;
+    font-size: 10px;
+    color: var(--tx3);
+    line-height: 1.2;
+    font-variant-numeric: tabular-nums;
+}
+.home-recent-meta-line {
+    white-space: nowrap;
+}
+
 
 /* Skeleton */
 .home-recent-skeleton {

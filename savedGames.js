@@ -8,7 +8,6 @@ const BOOKMARK_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height=
 // DOM Elements
 // ==========================================
 const homeView = document.getElementById('homeView');
-const openSavedGamesBtn = document.getElementById('openSavedGamesBtn');
 const savedGamesView = document.getElementById('savedGamesView');
 const savedGamesList = document.getElementById('savedGamesList');
 const savedGamesBackBtn = document.getElementById('savedGamesBackBtn');
@@ -109,11 +108,15 @@ function renderSavedGamesList(container, savedGames, onDelete, onLoad, onEdit) {
 // ==========================================
 // Core Functions
 // ==========================================
-async function openSavedGamesFromHome() {
+export async function openSavedGamesFromHome() {
     _activeFilter = 'all';
     syncFilterBar();
     if (_navigateTo) _navigateTo('saved_games');
     homeView.classList.add('hidden');
+    const vaultViewEl = document.getElementById('vaultView');
+    const vaultDetailViewEl = document.getElementById('vaultDetailView');
+    if (vaultViewEl) vaultViewEl.classList.add('hidden');
+    if (vaultDetailViewEl) vaultDetailViewEl.classList.add('hidden');
     savedGamesView.classList.remove('hidden');
     await updateSavedGamesView();
 }
@@ -154,8 +157,6 @@ export function initSavedGames({ onLoadGame, getChess, showButtonSuccess, saveMo
     _showButtonSuccess = showButtonSuccess;
     _saveMoveBtn = saveMoveBtn;
     _navigateTo = navigateTo || null;
-
-    openSavedGamesBtn.addEventListener('click', openSavedGamesFromHome);
 
     if (cancelSaveGameBtn) {
         cancelSaveGameBtn.addEventListener('click', () => {
