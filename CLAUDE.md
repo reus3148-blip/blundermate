@@ -89,6 +89,25 @@ Runs in a Web Worker (`engine/stockfish-18-lite-single.js` + `.wasm`). The lite 
 - **장기 계획:** vault(복기), saved games 데이터를 Supabase 백엔드로 전환 예정
 - **전환 전략:** `storage.js`를 데이터 계층으로 유지 — 내부 구현을 localStorage → Supabase로 교체하면 vault.js, savedGames.js 등 소비자 코드는 수정 불필요
 
+## Design System
+
+**라이트 (Warm Paper) 전용.** 다크 모드 토글 없음. 전 화면 단일 테마.
+
+### 색상 변수 (`styles.css` `:root`)
+
+- 배경: `--bg-base` `#F5F2EA`, `--bg-surface` `#FAF8F2`, `--bg-elevated` `#EDE8DB`
+- 텍스트: `--tx` `#2C2824`, `--tx2` `#6B6358`, `--tx3` `#A89F90` (소프트 블랙 계열)
+- 포인트: `--ac` `#8B6F2A` — 톤다운된 앰버, **로고 및 극소수 강조 전용**. UI는 무채색 중심. `--ac-lo` / `--ac-br`는 저/고 투명도 변형.
+- 테두리: `--brd` `rgba(44,40,36,0.10)`, `--brd2` `rgba(44,40,36,0.18)`
+- 수 분류: `--blunder` `#9A3A2A`, `--mistake` `#B5612A`, `--inaccuracy` `#8B6F2A`, `--best` `#5A7A3A`, `--brilliant` `#3A8560` — 라이트 배경용 어두운 톤. **변수명 변경 금지.**
+- 체스 보드: `--board-light` `#E8DCBF`, `--board-dark` `#8C6840`
+
+### 원칙
+
+- **파랑/인디고 금지.** 포인트 색은 앰버 하나만 허용. 성공/경고/위험 상태는 분류 색(--best/--inaccuracy/--blunder)으로 표현.
+- 하드코딩 색상 금지 — 위 변수로 치환. 예외: 라이트 배경용 섀도우 미세조정(`rgba(0,0,0,0.1x)` 수준)과 앰버/분류 색의 알파 변형.
+- 검은 오버레이(`rgba(0,0,0,0.5~0.7)`)는 모달/시트 뒤 배경으로 유지 OK. 흰 오버레이는 사용하지 않음.
+
 ## Critical Constraints
 
 - **Mobile-first, always.** Use `100dvh` for viewport height (iOS Safari fix). All interactive elements must be touch-friendly.
