@@ -1,6 +1,6 @@
 import { fetchRecentGames } from './chessApi.js';
 import { getMyUserId } from './storage.js';
-import { escapeHtml, parseOpeningFromPgn, rootOpeningName, isWhitePlayer, classifyGameResult } from './utils.js';
+import { escapeHtml, parseOpeningFromPgn, rootOpeningName, isWhitePlayer, classifyGameResult, extractMoveTimesForUser } from './utils.js';
 import { t } from './strings.js';
 
 // 통계 bucket 분류용 가벼운 수 카운트.
@@ -106,6 +106,17 @@ function computeInsights(games, userLower) {
     const termination = { checkmate: 0, timeout: 0, resign: 0, abandon: 0, draw: 0, other: 0 };
     const moveBuckets = { short: emptyWDL(), medium: emptyWDL(), long: emptyWDL(), marathon: emptyWDL() };
     const timeBuckets = { morning: emptyWDL(), afternoon: emptyWDL(), evening: emptyWDL(), night: emptyWDL() };
+    // 시간 통계: 클럭 주석 있는 게임만 누적. correspondence/clock 없는 게임은 자동 스킵.
+    const timeStats = {
+        gamesWithClocks: 0,
+        totalMoves: 0,
+        totalTimeSpent: 0,
+        opening: { moves: 0, time: 0 },   // user moves 1–10
+        middle:  { moves: 0, time: 0 },   // 11–30
+        end:     { moves: 0, time: 0 },   // 31+
+        timePressureMoves: 0,             // clockBefore ≤ 10s
+        instantMoves: 0,                  // timeSpent < 3s
+    };
 
     for (const game of games) {
         const isWhite = isWhitePlayer(game, userLower);
@@ -132,6 +143,23 @@ function computeInsights(games, userLower) {
 
         const hb = hourBucket(game.end_time);
         if (hb) addResult(timeBuckets[hb], r);
+
+        const moveTimes = extractMoveTimesForUser(game.pgn || '', isWhite);
+        if (moveTimes && moveTimes.length > 0) {
+            timeStats.gamesWithClocks++;
+            for (const m of moveTimes) {
+                timeStats.totalMoves++;
+                timeStats.totalTimeSpent += m.timeSpent;
+                let phase;
+                if (m.userMoveNumber <= 10) phase = timeStats.opening;
+                else if (m.userMoveNumber <= 30) phase = timeStats.middle;
+                else phase = timeStats.end;
+                phase.moves++;
+                phase.time += m.timeSpent;
+                if (m.clockBefore <= 10) timeStats.timePressureMoves++;
+                if (m.timeSpent < 3) timeStats.instantMoves++;
+            }
+        }
     }
 
     const topOpenings = [...openings.entries()]
@@ -139,7 +167,7 @@ function computeInsights(games, userLower) {
         .sort((a, b) => b.games - a.games)
         .slice(0, 5);
 
-    return { overall, byColor, byTimeClass, topOpenings, termination, moveBuckets, timeBuckets };
+    return { overall, byColor, byTimeClass, topOpenings, termination, moveBuckets, timeBuckets, timeStats };
 }
 
 // ==========================================
@@ -283,6 +311,101 @@ function renderMoveLengthCard(moveBuckets) {
     return renderRowCard(t('insights_game_length'), rows);
 }
 
+// ──────────────────────────────────────────────────────────────────
+// Time stats cards (chess.com PGN clock annotations 기반)
+// ──────────────────────────────────────────────────────────────────
+function fmtSeconds(s) {
+    if (!Number.isFinite(s)) return '—';
+    if (s < 10) return `${s.toFixed(1)}${t('insights_time_unit_sec')}`;
+    if (s < 60) return `${Math.round(s)}${t('insights_time_unit_sec')}`;
+    const m = s / 60;
+    return `${m.toFixed(1)}${t('insights_time_unit_min')}`;
+}
+
+function renderTimeStatsEmptyCard(title) {
+    return `
+        <div class="insight-card">
+            <div class="insight-card-title">${escapeHtml(title)}</div>
+            <div class="insight-card-body"><div class="insight-empty">${t('insights_time_no_clock')}</div></div>
+        </div>`;
+}
+
+function renderAvgThinkCard(timeStats) {
+    if (timeStats.totalMoves === 0) return renderTimeStatsEmptyCard(t('insights_avg_think'));
+    const avg = timeStats.totalTimeSpent / timeStats.totalMoves;
+    return `
+        <div class="insight-card">
+            <div class="insight-card-title">${t('insights_avg_think')}</div>
+            <div class="insight-card-body insight-card-body--single">
+                <div class="insight-big-metric">
+                    <span class="insight-big-value">${fmtSeconds(avg)}</span>
+                    <span class="insight-big-sub">${t('insights_avg_think_sub').replace('{moves}', timeStats.totalMoves).replace('{games}', timeStats.gamesWithClocks)}</span>
+                </div>
+            </div>
+        </div>`;
+}
+
+function renderPhaseTimeCard(timeStats) {
+    if (timeStats.totalMoves === 0) return renderTimeStatsEmptyCard(t('insights_phase_time'));
+    const phases = [
+        { label: t('insights_phase_opening'), data: timeStats.opening },
+        { label: t('insights_phase_middle'),  data: timeStats.middle },
+        { label: t('insights_phase_end'),     data: timeStats.end },
+    ].filter(p => p.data.moves > 0);
+    const maxAvg = Math.max(...phases.map(p => p.data.time / p.data.moves), 0.001);
+    const body = phases.map(p => {
+        const avg = p.data.time / p.data.moves;
+        const pct = (avg / maxAvg) * 100;
+        return `
+            <div class="insight-row">
+                <div class="insight-row-label">${escapeHtml(p.label)}</div>
+                <div class="insight-row-bar-wrap">
+                    <div class="insight-term-bar"><div class="insight-term-bar-fill" style="width:${pct}%"></div></div>
+                    <span class="insight-term-count">${fmtSeconds(avg)}</span>
+                </div>
+            </div>`;
+    }).join('');
+    return `
+        <div class="insight-card">
+            <div class="insight-card-title">${t('insights_phase_time')}</div>
+            <div class="insight-card-body">${body}</div>
+        </div>`;
+}
+
+function renderTimePressureCard(timeStats) {
+    if (timeStats.totalMoves === 0) return renderTimeStatsEmptyCard(t('insights_time_pressure'));
+    const n = timeStats.timePressureMoves;
+    const pct = (n / timeStats.totalMoves) * 100;
+    return `
+        <div class="insight-card">
+            <div class="insight-card-title">${t('insights_time_pressure')}</div>
+            <div class="insight-card-body insight-card-body--single">
+                <div class="insight-big-metric">
+                    <span class="insight-big-value">${pct.toFixed(1)}%</span>
+                    <span class="insight-big-sub">${t('insights_time_pressure_sub').replace('{n}', n).replace('{total}', timeStats.totalMoves)}</span>
+                </div>
+                <div class="insight-term-bar"><div class="insight-term-bar-fill" style="width:${Math.min(pct, 100)}%"></div></div>
+            </div>
+        </div>`;
+}
+
+function renderInstantMovesCard(timeStats) {
+    if (timeStats.totalMoves === 0) return renderTimeStatsEmptyCard(t('insights_instant'));
+    const n = timeStats.instantMoves;
+    const pct = (n / timeStats.totalMoves) * 100;
+    return `
+        <div class="insight-card">
+            <div class="insight-card-title">${t('insights_instant')}</div>
+            <div class="insight-card-body insight-card-body--single">
+                <div class="insight-big-metric">
+                    <span class="insight-big-value">${pct.toFixed(1)}%</span>
+                    <span class="insight-big-sub">${t('insights_instant_sub').replace('{n}', n).replace('{total}', timeStats.totalMoves)}</span>
+                </div>
+                <div class="insight-term-bar"><div class="insight-term-bar-fill" style="width:${Math.min(pct, 100)}%"></div></div>
+            </div>
+        </div>`;
+}
+
 function renderTimeOfDayCard(timeBuckets) {
     const order = ['morning', 'afternoon', 'evening', 'night'];
     const labelMap = {
@@ -313,6 +436,10 @@ function renderInsights(insights, opts = {}) {
     }
     cards.push(
         renderOpeningsCard(insights.topOpenings),
+        renderAvgThinkCard(insights.timeStats),
+        renderPhaseTimeCard(insights.timeStats),
+        renderTimePressureCard(insights.timeStats),
+        renderInstantMovesCard(insights.timeStats),
         renderMoveLengthCard(insights.moveBuckets),
         renderTerminationCard(insights.termination, insights.overall.games),
         renderTimeOfDayCard(insights.timeBuckets),

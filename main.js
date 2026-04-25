@@ -17,7 +17,7 @@ import {
     setAppMode, setIsPreviewMode, setIsReviewMode, clearExplorationEngineLines, setExplorationLineAt,
     setSimulationQueue, pushSimulationQueueItem, setSimulationIndex,
 } from './modes.js';
-import { parseEvalData, getDests, convertPvToSan, classifyMove, parseAndLoadPgn, isValidFen, escapeHtml, parseOpeningFromPgn, formatTimeControl, formatRelativeDate, getTier, isWhitePlayer, classifyGameResult, countMovesFromPgn } from './utils.js';
+import { parseEvalData, getDests, convertPvToSan, classifyMove, parseAndLoadPgn, isValidFen, escapeHtml, parseOpeningFromPgn, formatTimeControl, formatRelativeDate, getTier, TIERS, isWhitePlayer, classifyGameResult, countMovesFromPgn } from './utils.js';
 import { renderMovesTable, updateUIWithEval, highlightActiveMove, renderEngineLines, updateTopEvalDisplay, renderReviewReport, buildPreviewCardHtml } from './ui.js';
 import { addVaultItem, getSavedGames, setMyUserId, getMyUserId, ONBOARDING_KEY, COORDS_KEY, EVAL_MODE_KEY } from './storage.js';
 import { initVault, initHomeVaultBadge, isVaultDetailActive, getVaultDetailIndex, setVaultDetailIndex, flipVaultBoard, setVaultCoords, redrawVaultBoard, loadVaultData } from './vault.js';
@@ -129,6 +129,11 @@ const colorChoiceModal = document.getElementById('colorChoiceModal');
 const chooseWhiteBtn = document.getElementById('chooseWhiteBtn');
 const chooseBlackBtn = document.getElementById('chooseBlackBtn');
 let pendingAnalysisCallback = null;
+
+// Tier Info Modal
+const tierModal = document.getElementById('tierModal');
+const tierList = document.getElementById('tierList');
+const closeTierModalBtn = document.getElementById('closeTierModalBtn');
 
 // Settings Elements
 const settingsBtn = document.getElementById('homeSettingsBtn');
@@ -801,11 +806,44 @@ function closeModal(modal) {
     if (modal === saveModal) vaultSnapshot = null;
 }
 
+// 티어 모달: TIERS를 순회하며 각 행의 범위를 동적으로 계산. 현재 rapid 레이팅이 속한 행은 강조.
+function populateTierList(currentRapid) {
+    if (!tierList) return;
+    const rapid = Number(currentRapid);
+    const userTier = getTier(rapid);
+    const html = TIERS.map((tier, i) => {
+        const next = TIERS[i + 1];
+        const range = next
+            ? t('tier_range_closed').replace('{min}', tier.min).replace('{max}', next.min - 1)
+            : t('tier_range_open').replace('{min}', tier.min);
+        const isCurrent = userTier && userTier.key === tier.key;
+        const emperorCls = tier.key === 'emperor' ? ' tier-row--emperor' : '';
+        const currentCls = isCurrent ? ' is-current' : '';
+        return `
+            <li class="tier-row${emperorCls}${currentCls}">
+                <span class="tier-row-glyph">${tier.glyph}</span>
+                <span class="tier-row-name">${escapeHtml(t('tier_' + tier.key))}</span>
+                <span class="tier-row-range">${range}</span>
+            </li>`;
+    }).join('');
+    tierList.innerHTML = html;
+}
+
+const profileTierBtn = document.getElementById('profileTier');
+if (profileTierBtn && tierModal) {
+    profileTierBtn.addEventListener('click', () => {
+        const rapid = homeProfileRatings ? homeProfileRatings.rapid : null;
+        populateTierList(rapid);
+        tierModal.classList.remove('hidden');
+    });
+}
+
 const modalConfigs = [
     { modal: settingsModal, closeBtn: document.getElementById('closeSettingsBtn') },
     { modal: feedbackModal, closeBtn: cancelFeedbackBtn },
     { modal: feedbackModal, closeBtn: closeFeedbackBtn },
     { modal: userSearchModal, closeBtn: closeUserSearchBtn },
+    { modal: tierModal, closeBtn: closeTierModalBtn },
     { modal: saveChoiceModal, closeBtn: cancelChoiceBtn, noBg: true },
     { modal: saveModal, closeBtn: cancelSaveBtn, noBg: true },
 ];

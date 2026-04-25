@@ -258,11 +258,6 @@ body {
 
 .home-submit-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
-.home-ad-space {
-    height: 60px;
-    flex-shrink: 0;
-}
-
 /* ==========================================
    Bottom Navigation
    ========================================== */
@@ -1960,6 +1955,55 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
 }
 
 .modal-content h2 { margin: 0; font-size: 17px; font-weight: 700; color: var(--tx); }
+
+/* Tier Info Modal */
+.tier-modal-intro {
+    font-size: 13px;
+    color: var(--tx2);
+    line-height: 1.5;
+    margin: 0 0 16px;
+}
+.tier-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.tier-row {
+    display: grid;
+    grid-template-columns: 28px 1fr auto;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 8px;
+    border-radius: 8px;
+    font-size: 14px;
+    color: var(--tx);
+}
+.tier-row.is-current {
+    background: var(--ac-lo);
+}
+.tier-row.is-current .tier-row-name {
+    color: var(--ac);
+    font-weight: 700;
+}
+.tier-row-glyph {
+    font-size: 18px;
+    line-height: 1;
+    text-align: center;
+}
+.tier-row-name {
+    font-weight: 600;
+}
+.tier-row-range {
+    font-family: 'IBM Plex Mono', 'SF Mono', monospace;
+    font-size: 12px;
+    color: var(--tx3);
+}
+.tier-row--emperor .tier-row-glyph { color: var(--ac); }
+.tier-row--emperor.is-current .tier-row-glyph { color: var(--ac); }
+
 .save-move-text {
     font-family: monospace;
     font-size: 1.2rem;
@@ -2248,6 +2292,18 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     align-items: center;
     gap: 5px;
     white-space: nowrap;
+    background: none;
+    border: none;
+    padding: 2px 4px;
+    margin: -2px -4px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: inherit;
+    -webkit-tap-highlight-color: transparent;
+    transition: background 0.15s;
+}
+.home-profile-tier:active {
+    background: var(--bg-elevated);
 }
 .home-profile-tier-glyph {
     font-size: 15px;
@@ -2615,7 +2671,7 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
 
 /* ==========================================
    Analysis Review View — 분석 완료 후 리포트 화면
-   - 5단계 카드 (헤더 / Hero 정확도 / 차트 / 통계 / CTA) 자연 흐름
+   - 4단계 카드 (헤더 / 차트 / 통계 / CTA) 자연 흐름
    - 보드 자리(board-wrapper) 전체를 리포트 영역으로 사용. 중간바/패널/상태바 숨김
    - 보드 위치 이동 시 자동 이탈
    ========================================== */
@@ -2675,7 +2731,7 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
 
 /* ==========================================
    Analysis Review View: Layout & Cards
-   - .summary-graph = 5단계 카드 컨테이너 (보드 자리 점령)
+   - .summary-graph = 4단계 카드 컨테이너 (보드 자리 점령)
    - .review-report = 카드 스택 (gap 12px)
    - .review-card = 4개 카드 공통 (--bg-surface + --brd + radius 10)
    ========================================== */
@@ -2744,41 +2800,7 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
 .review-header-meta.is-loss { color: var(--blunder); }
 .review-header-meta.is-draw { color: var(--tx2); }
 
-/* 2. Hero 정확도 카드 */
-.review-hero-card {
-    padding: 18px 18px 16px;
-}
-.review-hero-value {
-    font-size: 56px;
-    font-weight: 700;
-    line-height: 1;
-    letter-spacing: -0.02em;
-    margin-top: 4px;
-    margin-bottom: 12px;
-}
-.review-hero-compare {
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-    font-size: 13px;
-    color: var(--tx2);
-}
-.review-hero-compare-label {
-    color: var(--tx3);
-}
-.review-hero-compare-value {
-    color: var(--tx);
-    font-weight: 600;
-    font-family: 'IBM Plex Mono', 'SF Mono', monospace;
-}
-.review-hero-delta {
-    font-size: 11px;
-    margin-left: 2px;
-}
-.review-hero-delta.is-up   { color: var(--best); }
-.review-hero-delta.is-down { color: var(--blunder); }
-
-/* 3. 차트 카드 */
+/* 2. 차트 카드 */
 .review-chart-card {
     padding: 14px 14px 10px;
 }
@@ -2900,7 +2922,7 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     text-align: center;
 }
 
-/* 5. CTA — 풀너비 앰버 버튼. 5단계 카드 마지막 자리. */
+/* 4. CTA — 풀너비 앰버 버튼. 4단계 카드 마지막 자리. */
 .review-cta-btn {
     width: 100%;
     height: 48px;
@@ -3097,6 +3119,29 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     font-size: 11px;
     color: var(--tx2);
     min-width: 56px;
+    text-align: right;
+}
+
+/* Single-metric card (avg think / time pressure / instant moves) */
+.insight-card-body--single {
+    gap: 8px;
+}
+.insight-big-metric {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+}
+.insight-big-value {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--tx);
+    letter-spacing: -0.02em;
+    line-height: 1;
+}
+.insight-big-sub {
+    font-size: 11px;
+    color: var(--tx3);
     text-align: right;
 }
 
