@@ -7,7 +7,6 @@ import { t } from './strings.js';
 // ==========================================
 // DOM Elements
 // ==========================================
-const homeView = document.getElementById('homeView');
 const vaultView = document.getElementById('vaultView');
 const vaultList = document.getElementById('vaultList');
 const vaultBackBtn = document.getElementById('vaultBackBtn');
@@ -127,13 +126,8 @@ function findMoveIndexByFen(fens, targetFen) {
 export async function initHomeVaultBadge() {
 }
 
-export async function openVaultFromHome() {
-    if (_navigateTo) _navigateTo('vault_list');
-    homeView.classList.add('hidden');
-    const savedGamesViewEl = document.getElementById('savedGamesView');
-    if (savedGamesViewEl) savedGamesViewEl.classList.add('hidden');
-    vaultDetailView.classList.add('hidden');
-    vaultView.classList.remove('hidden');
+// 데이터 로드만 담당. 뷰 가시성은 main.js의 renderScreen이 단독 관리.
+export async function loadVaultData() {
     await updateVaultView();
 }
 

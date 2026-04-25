@@ -7,7 +7,6 @@ const BOOKMARK_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height=
 // ==========================================
 // DOM Elements
 // ==========================================
-const homeView = document.getElementById('homeView');
 const savedGamesView = document.getElementById('savedGamesView');
 const savedGamesList = document.getElementById('savedGamesList');
 const savedGamesBackBtn = document.getElementById('savedGamesBackBtn');
@@ -41,7 +40,6 @@ function getSelectedCategory() {
 let _activeFilter = 'all';
 let _editingGameId = null;
 let _pendingSavePgn = null; // 카드의 저장 버튼에서 모달을 열 때 사용할 PGN (분석 화면의 chess 인스턴스 대신)
-let _navigateTo = null;
 
 // ==========================================
 // Rendering
@@ -108,16 +106,10 @@ function renderSavedGamesList(container, savedGames, onDelete, onLoad, onEdit) {
 // ==========================================
 // Core Functions
 // ==========================================
-export async function openSavedGamesFromHome() {
+// 데이터 로드만 담당. 뷰 가시성은 main.js의 renderScreen이 단독 관리.
+export async function loadSavedGamesData() {
     _activeFilter = 'all';
     syncFilterBar();
-    if (_navigateTo) _navigateTo('saved_games');
-    homeView.classList.add('hidden');
-    const vaultViewEl = document.getElementById('vaultView');
-    const vaultDetailViewEl = document.getElementById('vaultDetailView');
-    if (vaultViewEl) vaultViewEl.classList.add('hidden');
-    if (vaultDetailViewEl) vaultDetailViewEl.classList.add('hidden');
-    savedGamesView.classList.remove('hidden');
     await updateSavedGamesView();
 }
 
@@ -151,12 +143,11 @@ function syncFilterBar() {
 // ==========================================
 // Public API
 // ==========================================
-export function initSavedGames({ onLoadGame, getChess, showButtonSuccess, saveMoveBtn, initHomeVaultBadge, navigateTo }) {
+export function initSavedGames({ onLoadGame, getChess, showButtonSuccess, saveMoveBtn, initHomeVaultBadge }) {
     _onLoadGame = onLoadGame;
     _getChess = getChess;
     _showButtonSuccess = showButtonSuccess;
     _saveMoveBtn = saveMoveBtn;
-    _navigateTo = navigateTo || null;
 
     if (cancelSaveGameBtn) {
         cancelSaveGameBtn.addEventListener('click', () => {

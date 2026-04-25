@@ -299,3 +299,33 @@ export function getTier(rapidRating) {
     }
     return { key: tier.key, glyph: tier.glyph, isEmperor: tier.key === 'emperor' };
 }
+
+// ==========================================
+// Chess.com game helpers
+// ==========================================
+
+const LOSS_CODES = ['checkmated', 'timeout', 'resigned', 'abandoned', 'bughousepartnerlose', 'lose'];
+
+// chess.com 게임에서 사용자가 백을 잡았는지 판별. main.js의 분석용 전역 변수 isUserWhite와 충돌을 피하려고 다른 이름 사용.
+export function isWhitePlayer(game, userLower) {
+    return game.white.username.toLowerCase() === userLower;
+}
+
+// chess.com 게임에서 내 결과를 'win' | 'loss' | 'draw'로 단순화.
+// 무승부 코드(agreed/repetition/stalemate/insufficient/50move/timevsinsufficient 등)는 win/loss가 아니면 모두 draw 처리.
+export function classifyGameResult(game, userLower) {
+    const isWhite = isWhitePlayer(game, userLower);
+    const rc = (isWhite ? game.white : game.black).result;
+    if (rc === 'win') return 'win';
+    if (LOSS_CODES.includes(rc)) return 'loss';
+    return 'draw';
+}
+
+// PGN의 수 번호를 정확히 계산. 시계 주석({[%clk 0:09:59.9]})의 소수점이
+// /\d+\./에 잘못 매치되어 blitz/bullet 게임 길이가 부풀려지는 것을 방지하기 위해
+// {} 주석을 먼저 제거한다.
+export function countMovesFromPgn(pgn) {
+    if (!pgn) return 0;
+    const cleaned = pgn.replace(/\{[^}]*\}/g, '');
+    return (cleaned.match(/\d+\./g) || []).length;
+}

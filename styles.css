@@ -353,7 +353,8 @@ body {
 /* 바텀 네비게이션 표시 시 스크롤 영역 하단 여백 확보 (nav에 가리지 않도록) */
 .app-container:not(.bottom-nav-hidden) .home-state,
 .app-container:not(.bottom-nav-hidden) #vaultView .games-list,
-.app-container:not(.bottom-nav-hidden) #savedGamesView .games-list {
+.app-container:not(.bottom-nav-hidden) #savedGamesView .games-list,
+.app-container:not(.bottom-nav-hidden) #insightsView .insights-body {
     padding-bottom: calc(56px + env(safe-area-inset-bottom));
 }
 
@@ -2764,3 +2765,200 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     font-family: inherit;
 }
 .review-start-btn:active { opacity: 0.75; }
+
+/* ── Insights (통계) ─────────────────────────────────────────── */
+.insights-subtitle {
+    flex-shrink: 0;
+    padding: 0 16px 8px;
+    font-size: 12px;
+    color: var(--tx3);
+}
+.insights-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 0 16px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    -webkit-overflow-scrolling: touch;
+}
+.insight-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--brd);
+    border-radius: 8px;
+    padding: 14px 16px;
+}
+.insight-card-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--tx);
+    letter-spacing: 0.02em;
+    margin-bottom: 12px;
+}
+.insight-card-body {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.insight-empty,
+.insight-empty-state {
+    font-size: 13px;
+    color: var(--tx3);
+    text-align: center;
+    padding: 24px 0;
+}
+
+/* Hero card (overall summary) */
+.insight-card--hero {
+    padding: 18px 16px 14px;
+}
+.insight-hero-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+    gap: 16px;
+}
+.insight-hero-metric {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+.insight-hero-value {
+    font-size: 36px;
+    font-weight: 800;
+    color: var(--tx);
+    line-height: 1;
+    letter-spacing: -0.02em;
+}
+.insight-hero-label {
+    font-size: 11px;
+    color: var(--tx3);
+    margin-top: 4px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+.insight-hero-counts {
+    display: flex;
+    gap: 14px;
+    text-align: right;
+}
+.insight-hero-counts > div {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 36px;
+}
+.hero-count {
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1.2;
+}
+.hero-count--win  { color: var(--best); }
+.hero-count--draw { color: var(--tx3); }
+.hero-count--loss { color: var(--blunder); }
+.hero-count-label {
+    font-size: 10px;
+    color: var(--tx3);
+    margin-top: 2px;
+    letter-spacing: 0.02em;
+}
+.insight-hero-total {
+    font-size: 11px;
+    color: var(--tx3);
+    margin-top: 10px;
+    text-align: center;
+}
+
+/* WDL bar (segmented win/draw/loss) */
+.wdl-bar {
+    display: flex;
+    width: 100%;
+    height: 8px;
+    border-radius: 4px;
+    overflow: hidden;
+    background: var(--bg-elevated);
+}
+.wdl-bar--empty { opacity: 0.4; }
+.wdl-seg--win   { background: var(--best); }
+.wdl-seg--draw  { background: var(--tx3); }
+.wdl-seg--loss  { background: var(--blunder); }
+.wdl-summary {
+    display: block;
+    margin-top: 4px;
+    font-size: 11px;
+    color: var(--tx2);
+    letter-spacing: 0.01em;
+}
+
+/* Generic row (color/timeclass/openings/length/time-of-day) */
+.insight-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.insight-row-label {
+    font-size: 12px;
+    color: var(--tx);
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.insight-row-bar-wrap {
+    display: flex;
+    flex-direction: column;
+}
+
+/* Termination card (single-bar fills) */
+.insight-term-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.insight-term-label {
+    font-size: 12px;
+    color: var(--tx);
+    flex-shrink: 0;
+    width: 72px;
+}
+.insight-term-bar-wrap {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.insight-term-bar {
+    flex: 1;
+    height: 6px;
+    background: var(--bg-elevated);
+    border-radius: 3px;
+    overflow: hidden;
+}
+.insight-term-bar-fill {
+    height: 100%;
+    background: var(--ac);
+    opacity: 0.7;
+}
+.insight-term-count {
+    font-size: 11px;
+    color: var(--tx2);
+    min-width: 56px;
+    text-align: right;
+}
+
+/* Skeleton placeholders */
+.insight-skeleton {
+    background: var(--bg-surface);
+    border: 1px solid var(--brd);
+    border-radius: 8px;
+    height: 100px;
+    opacity: 0.5;
+    animation: insight-skeleton-pulse 1.4s ease-in-out infinite;
+}
+.insight-skeleton:nth-child(1) { height: 140px; }
+@keyframes insight-skeleton-pulse {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 0.7; }
+}

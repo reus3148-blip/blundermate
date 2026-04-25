@@ -53,7 +53,7 @@ export async function fetchPlayerStats(username) {
  * @param {string} username
  * @returns {Promise<Array>} Array of recent games
  */
-export async function fetchRecentGames(username) {
+export async function fetchRecentGames(username, limit = RECENT_GAMES_LIMIT) {
     if (!username) throw new Error('Username is required.');
 
     // 공백 및 특수문자로 인한 URL 파싱 오류(Load failed) 방지
@@ -85,7 +85,7 @@ export async function fetchRecentGames(username) {
         let games = [];
         let archiveIndex = archives.length - 1;
 
-        while (games.length < RECENT_GAMES_LIMIT && archiveIndex >= 0) {
+        while (games.length < limit && archiveIndex >= 0) {
             try {
                 const archiveUrl = archives[archiveIndex];
                 const gamesRes = await fetch(archiveUrl, options);
@@ -102,7 +102,8 @@ export async function fetchRecentGames(username) {
             throw new Error('No games found for this user.');
         }
 
-        return games.slice(-RECENT_GAMES_LIMIT).reverse();
+        games.sort((a, b) => (b.end_time || 0) - (a.end_time || 0));
+        return games.slice(0, limit);
     } catch (error) {
         console.error("Chess.com API Fetch Error:", error);
         // 네트워크 에러(Load failed)인지 API 에러인지 명확히 구분하여 사용자 친화적으로 반환
