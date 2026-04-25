@@ -291,12 +291,13 @@ export function renderSummaryGraph(container, analysisQueue, isUserWhite) {
         return;
     }
 
+    // 체스닷컴 모바일 리뷰 그래프처럼 매우 납작하게. viewBox도 동일 비율로.
     const W = 320;
-    const H = 160;
-    const padL = 10;
-    const padR = 10;
-    const padT = 10;
-    const padB = 18;
+    const H = 60;
+    const padL = 6;
+    const padR = 6;
+    const padT = 4;
+    const padB = 12;
     const plotW = W - padL - padR;
     const plotH = H - padT - padB;
 
@@ -330,7 +331,7 @@ export function renderSummaryGraph(container, analysisQueue, isUserWhite) {
         .map(p => {
             const x = xFor(p.moveNum).toFixed(1);
             const y = yFor(p.pct).toFixed(1);
-            return `<circle cx="${x}" cy="${y}" r="3.5" fill="${MARKER_COLOR[p.classification]}" stroke="var(--bg-surface)" stroke-width="1.5"/>`;
+            return `<circle cx="${x}" cy="${y}" r="2.4" fill="${MARKER_COLOR[p.classification]}" stroke="var(--bg-surface)" stroke-width="1"/>`;
         }).join('');
 
     const ticks = [];
@@ -372,12 +373,39 @@ const CLASS_DOT_COLOR = {
 };
 
 /**
- * 하단 리포트: 정확도 + 수 분류를 하나의 표로 통합, 하단에 "첫 수부터 복기 →" 버튼.
- * onStartReview 콜백은 버튼 클릭 시 호출된다 (1수로 이동).
+ * 미리보기 카드 HTML (제목 / 날짜·수 / 오프닝). 분석 시작 화면과 분석 후 리포트 화면이 공유한다.
+ * @param {object} info - { title, metaLine, openingName, eco }
  */
-export function renderSummaryReport(container, analysisQueue, isUserWhite, onStartReview) {
-    if (!container) return;
+export function buildPreviewCardHtml({ title, metaLine, openingName, eco }) {
+    let openingBlock = '';
+    if (openingName) {
+        openingBlock = `
+            <div class="preview-card-opening">
+                <div class="preview-card-opening-name">${escapeHtml(openingName)}</div>
+                ${eco ? `<div class="preview-card-eco">ECO ${escapeHtml(eco)}</div>` : ''}
+            </div>
+        `;
+    } else if (eco) {
+        openingBlock = `
+            <div class="preview-card-opening">
+                <div class="preview-card-eco">ECO ${escapeHtml(eco)}</div>
+            </div>
+        `;
+    }
+    return `
+        <div class="preview-card">
+            ${title ? `<div class="preview-card-title">${escapeHtml(title)}</div>` : ''}
+            ${metaLine ? `<div class="preview-card-meta">${escapeHtml(metaLine)}</div>` : ''}
+            ${openingBlock}
+        </div>
+    `;
+}
 
+/**
+ * 통계 카드 HTML만 반환 (정확도 + 수 분류 통합 표). 버튼/카드 컨테이너 없음.
+ * 리포트 화면이 보드 자리(summaryGraph 안)에 그래프와 함께 stat 카드를 넣을 때 사용.
+ */
+export function renderStatsCardHtml(analysisQueue) {
     const counts = { white: {}, black: {} };
     for (const c of CLASS_ORDER) { counts.white[c] = 0; counts.black[c] = 0; }
 
@@ -402,7 +430,7 @@ export function renderSummaryReport(container, analysisQueue, isUserWhite, onSta
         </tr>
     `).join('');
 
-    container.innerHTML = `
+    return `
         <div class="review-stats-card">
             <table class="review-stats-table">
                 <thead>
@@ -422,13 +450,7 @@ export function renderSummaryReport(container, analysisQueue, isUserWhite, onSta
                 </tbody>
             </table>
         </div>
-        <button type="button" class="review-start-btn" id="startReviewBtn">${escapeHtml(t('start_review_from_first'))}</button>
     `;
-
-    const btn = container.querySelector('#startReviewBtn');
-    if (btn && typeof onStartReview === 'function') {
-        btn.addEventListener('click', onStartReview);
-    }
 }
 
 /**
