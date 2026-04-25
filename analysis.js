@@ -97,13 +97,6 @@ export function processNext({ onQueueDone, onPositionStart, onWaitingEngine }) {
     _stockfish.analyzeFen(pos.fen, _depth);
 }
 
-// onBestMove 콜백 끝에서 호출 — 분석 완료된 수의 인덱스를 다음으로 옮기고 큐를 이어 돌린다.
-export function markPositionDone(processNextOpts) {
-    advanceCurrentIndex();
-    _isAnalyzing = false;
-    processNext(processNextOpts);
-}
-
 // 분석을 시작하지는 않고 상태만 idle로 — 큐 끝에서 onBestMove가 호출되었을 때 등.
 export function markIdle() {
     _isAnalyzing = false;
@@ -123,7 +116,49 @@ export function stopAndClear() {
     currentAnalysisIndex = 0;
 }
 
-// 분석 화면을 막 떠난 직후, 외부에서 stop만 보낼 때 (탐색 모드 종료 등).
-export function stopEngine() {
-    if (_stockfish) _stockfish.stop();
+// ==========================================
+// Queue builders (pure)
+// ==========================================
+// PGN이 이미 로드된 chess.js 인스턴스로부터 분석 큐를 만든다.
+// 각 엔트리는 그 수가 둔 직후의 FEN과 메타데이터 (san, from, to, turn, moveNumber, isWhite)를 가진다.
+// startFen 헤더가 있으면 그 위치부터 출발 (Chess960이나 중간 위치에서 시작한 게임).
+export function buildQueueFromPgn(chessInstance) {
+    const queue = [];
+    const tempChess = new Chess();
+    const startFen = chessInstance.header().FEN;
+    if (startFen) tempChess.load(startFen);
+
+    chessInstance.history({ verbose: true }).forEach((move, index) => {
+        tempChess.move(move);
+        queue.push({
+            fen: tempChess.fen(),
+            san: move.san,
+            from: move.from,
+            to: move.to,
+            turn: tempChess.turn() === 'w' ? 'b' : 'w',
+            moveNumber: Math.floor(index / 2) + 1,
+            isWhite: index % 2 === 0,
+            engineLines: [],
+        });
+    });
+    return queue;
+}
+
+// FEN 1개짜리 단독 분석 큐 (기보 없이 한 포지션만 분석할 때).
+// isFenOnly 플래그로 분석 완료 후 요약 화면을 띄우지 않게 처리됨.
+export function buildSinglePositionQueue(fenText) {
+    const parts = fenText.trim().split(/\s+/);
+    const sideToMove = parts[1] || 'w';
+    const fullMoveNumber = parseInt(parts[5]) || 1;
+    return [{
+        fen: fenText,
+        san: '',
+        from: null,
+        to: null,
+        turn: sideToMove === 'w' ? 'b' : 'w',
+        moveNumber: fullMoveNumber,
+        isWhite: sideToMove === 'w',
+        engineLines: [],
+        isFenOnly: true,
+    }];
 }

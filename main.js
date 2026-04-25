@@ -1,9 +1,11 @@
+import { Chessground } from 'https://cdnjs.cloudflare.com/ajax/libs/chessground/9.0.0/chessground.min.js';
 import { fetchRecentGames, fetchPlayerProfile } from './chessApi.js';
 import {
     initAnalysis, getEngine, isEngineReady, getDepth, setDepth,
     analysisQueue, currentAnalysisIndex, setQueue, setCurrentIndex, advanceCurrentIndex,
     isRunning, isAwaitingRestart, scheduleRestart, consumePendingRestart,
     processNext, markIdle, stopAndClear,
+    buildQueueFromPgn, buildSinglePositionQueue,
 } from './analysis.js';
 import {
     initBoard, chess, cg, currentlyViewedIndex, isUserWhite, persistentShapes,
@@ -16,7 +18,7 @@ import {
     setSimulationQueue, pushSimulationQueueItem, setSimulationIndex,
 } from './modes.js';
 import { parseEvalData, getDests, convertPvToSan, classifyMove, parseAndLoadPgn, isValidFen, escapeHtml, parseOpeningFromPgn, formatTimeControl, formatRelativeDate, getTier, isWhitePlayer, classifyGameResult, countMovesFromPgn } from './utils.js';
-import { renderMovesTable, updateUIWithEval, highlightActiveMove, renderEngineLines, updateTopEvalDisplay, renderSummaryGraph, renderSummaryReport } from './ui.js';
+import { renderMovesTable, updateUIWithEval, highlightActiveMove, renderEngineLines, updateTopEvalDisplay, renderSummaryGraph, renderStatsCardHtml, buildPreviewCardHtml } from './ui.js';
 import { addVaultItem, getSavedGames, setMyUserId, getMyUserId, ONBOARDING_KEY, COORDS_KEY, EVAL_MODE_KEY } from './storage.js';
 import { initVault, initHomeVaultBadge, isVaultDetailActive, getVaultDetailIndex, setVaultDetailIndex, flipVaultBoard, setVaultCoords, redrawVaultBoard, loadVaultData } from './vault.js';
 import { initSavedGames, openSaveGameModalForPgn, loadSavedGamesData } from './savedGames.js';
@@ -1142,7 +1144,12 @@ tabToggleBtn.addEventListener('click', () => {
 });
 
 previewStartBtn.addEventListener('click', () => {
-    if (isPreviewMode) startAnalysisFromPreview();
+    if (isPreviewMode) {
+        startAnalysisFromPreview();
+    } else if (analysisView.classList.contains('view-summary')) {
+        // 요약 화면 (분석 후 0수 위치)에서 = "복기 시작" → 1수로 이동
+        handleNextMove();
+    }
 });
 
 // Win% / eval score toggle
@@ -1581,28 +1588,7 @@ function handlePgnReviewStart(e = null, isWhiteGame = null, targetIndex = null, 
         pgnInput.value = result.pgn;
     }
 
-    // Build processing queue
-    const newQueue = [];
-    let tempChess = new Chess();
-    const startFen = chess.header().FEN;
-    if (startFen) {
-        tempChess.load(startFen);
-    }
-
-    chess.history({ verbose: true }).forEach((move, index) => {
-        tempChess.move(move);
-
-        newQueue.push({
-            fen: tempChess.fen(),
-            san: move.san,
-            from: move.from,
-            to: move.to,
-            turn: tempChess.turn() === 'w' ? 'b' : 'w',
-            moveNumber: Math.floor(index / 2) + 1,
-            isWhite: index % 2 === 0,
-            engineLines: [],
-        });
-    });
+    const newQueue = buildQueueFromPgn(chess);
 
     // Preview mode: show analysis view without starting engine
     if (previewOnly) {
@@ -1634,21 +1620,7 @@ function handleFenReviewStart(fenText, isWhiteGame) {
     }
     pgnInput.value = chess.pgn();
 
-    const parts = fenText.trim().split(/\s+/);
-    const sideToMove = parts[1] || 'w';
-    const fullMoveNumber = parseInt(parts[5]) || 1;
-
-    const newQueue = [{
-        fen: fenText,
-        san: '',
-        from: null,
-        to: null,
-        turn: sideToMove === 'w' ? 'b' : 'w',
-        moveNumber: fullMoveNumber,
-        isWhite: sideToMove === 'w',
-        engineLines: [],
-        isFenOnly: true,
-    }];
+    const newQueue = buildSinglePositionQueue(fenText);
 
     if (isRunning() || isAwaitingRestart()) {
         analysisStatus.className = 'tag engine-loading';
@@ -1723,7 +1695,9 @@ function startNewAnalysis(newQueue, targetIndex = null, previewOnly = false) {
 // ==========================================
 // 7-2. Analysis Preview Mode
 // ==========================================
-function renderPreviewCard() {
+// \ubd84\uc11d \ud654\uba74 \ud5e4\ub354 \uce74\ub4dc\uc6a9 \uc815\ubcf4(\uac8c\uc784 \uc81c\ubaa9/\ub0a0\uc9dc\u00b7\uc218/\uc624\ud504\ub2dd)\ub97c chess \uc778\uc2a4\ud134\uc2a4\uc5d0\uc11c \ucd94\ucd9c.
+// \ubbf8\ub9ac\ubcf4\uae30 \ud654\uba74\uacfc \ubd84\uc11d \ud6c4 \ub9ac\ud3ec\ud2b8 \ud654\uba74\uc774 \uacf5\uc720\ud55c\ub2e4.
+function buildGameHeaderInfo() {
     const h = chess.header() || {};
     const white = h.White || '?';
     const black = h.Black || '?';
@@ -1736,29 +1710,11 @@ function renderPreviewCard() {
     const metaLine = metaParts.join(' \u00b7 ');
 
     const { name: openingName, eco } = parseOpeningFromPgn(chess.pgn());
-    let openingBlock = '';
-    if (openingName) {
-        openingBlock = `
-            <div class="preview-card-opening">
-                <div class="preview-card-opening-name">${escapeHtml(openingName)}</div>
-                ${eco ? `<div class="preview-card-eco">ECO ${escapeHtml(eco)}</div>` : ''}
-            </div>
-        `;
-    } else if (eco) {
-        openingBlock = `
-            <div class="preview-card-opening">
-                <div class="preview-card-eco">ECO ${escapeHtml(eco)}</div>
-            </div>
-        `;
-    }
+    return { title, metaLine, openingName, eco };
+}
 
-    engineLinesContainer.innerHTML = `
-        <div class="preview-card">
-            ${title ? `<div class="preview-card-title">${escapeHtml(title)}</div>` : ''}
-            <div class="preview-card-meta">${escapeHtml(metaLine)}</div>
-            ${openingBlock}
-        </div>
-    `;
+function renderPreviewCard() {
+    engineLinesContainer.innerHTML = buildPreviewCardHtml(buildGameHeaderInfo());
 }
 
 function applyPreviewControls() {
@@ -1842,17 +1798,16 @@ function processNextInQueue() {
 // ==========================================
 // 8. UI Rendering
 // ==========================================
-// 0수(시작 포지션) 상태에서 체스보드 자리를 승률 그래프로, 하단 패널을 리포트로 교체한다.
+// 0수(시작 포지션) 상태에서 체스보드 자리를 그래프 + 통계 표로 교체한다.
 // 분석 큐가 비어있거나 preview/explore/simulate 모드에서는 진입하지 않는다.
 const summaryGraphEl = document.getElementById('summaryGraph');
-const summaryReportEl = document.getElementById('summaryReport');
 
 function shouldShowSummary(index) {
-    // preview 모드(저장 게임/복기 초기 진입)에서도 0수 진입을 허용한다.
-    // 엔진 데이터가 비어있으면 renderSummaryGraph가 "분석 데이터 없음" 빈 상태를 그린다.
+    // 분석 로딩 중에는 요약 뷰 대신 로딩 상태가 우선.
+    // 미리보기 모드(분석 시작 전)에는 분석 데이터가 없으므로 요약 뷰 진입 금지 — 0수에선 보드+미리보기 카드를 그대로 보여준다.
     // FEN 단일 포지션 분석은 요약 화면 대상이 아니다.
-    // 분석 로딩 중에는 요약 뷰 대신 로딩 상태가 우선한다.
     if (isAnalysisLoading) return false;
+    if (isPreviewMode) return false;
     const isFenOnly = analysisQueue.length === 1 && analysisQueue[0]?.isFenOnly;
     return appMode === 'main'
         && analysisQueue.length > 0
@@ -1862,10 +1817,22 @@ function shouldShowSummary(index) {
 
 function applySummaryView(index) {
     const on = shouldShowSummary(index);
+    const wasOn = analysisView.classList.contains('view-summary');
     analysisView.classList.toggle('view-summary', on);
     if (on) {
+        // 보드 자리 = 그래프 + 통계 표
         renderSummaryGraph(summaryGraphEl, analysisQueue, isUserWhite);
-        renderSummaryReport(summaryReportEl, analysisQueue, isUserWhite, handleNextMove);
+        summaryGraphEl.insertAdjacentHTML('beforeend', renderStatsCardHtml(analysisQueue));
+
+        // 패널 자리 = 미리보기 카드 (게임 정보)
+        engineLinesContainer.innerHTML = buildPreviewCardHtml(buildGameHeaderInfo());
+
+        // 중간바 = "복기 시작" 버튼 (분석 시작 자리 재사용)
+        previewStartBtn.classList.remove('hidden');
+        previewStartBtn.textContent = t('start_review_from_first');
+    } else if (wasOn) {
+        // 요약 모드를 막 떠남 — 버튼 숨김 (preview 모드에 들어가는 게 아니라면)
+        if (!isPreviewMode) previewStartBtn.classList.add('hidden');
     }
 }
 
@@ -1902,6 +1869,12 @@ function updateBoardPosition(index, fen) {
     // 이전 세션의 화살표가 남아있을 수 있으므로 autoShapes도 비워둔다.
     clearPersistentShapes();
     if (isPreviewMode) {
+        cg.set({ drawable: { autoShapes: [] } });
+        return;
+    }
+
+    // 분석 후 0수 요약 화면에서도 동일: applySummaryView가 패널에 미리보기 카드를 썼으니 덮어쓰지 않음.
+    if (analysisView.classList.contains('view-summary')) {
         cg.set({ drawable: { autoShapes: [] } });
         return;
     }

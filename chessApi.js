@@ -36,18 +36,6 @@ export async function fetchPlayerProfile(username) {
     }
 }
 
-export async function fetchPlayerStats(username) {
-    const profile = await fetchPlayerProfile(username);
-    if (!profile) return null;
-    const r = profile.ratings;
-    const entries = [
-        r.rapid && { label: 'Rapid', rating: r.rapid },
-        r.blitz && { label: 'Blitz', rating: r.blitz },
-        r.bullet && { label: 'Bullet', rating: r.bullet },
-    ].filter(Boolean);
-    return entries[0] || null;
-}
-
 /**
  * Fetches recent games for a given Chess.com username.
  * @param {string} username
