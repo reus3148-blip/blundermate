@@ -57,6 +57,22 @@ function isViewingOtherUser() {
     return !!viewingUserId && viewingUserId !== my;
 }
 
+const USERNAME_LOG_DEDUP_KEY = 'blundermate_username_log_last';
+function logUsernameToServer(username, source) {
+    try {
+        const trimmed = (username || '').trim();
+        if (!trimmed) return;
+        const dedupKey = `${source}:${trimmed.toLowerCase()}`;
+        if (localStorage.getItem(USERNAME_LOG_DEDUP_KEY) === dedupKey) return;
+        try { localStorage.setItem(USERNAME_LOG_DEDUP_KEY, dedupKey); } catch (_) {}
+        fetch('/api/log-username', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: trimmed, source })
+        }).catch(() => {});
+    } catch (_) {}
+}
+
 // Analysis Board UI
 const analysisStatus = document.getElementById('analysisStatus');
 const movesBody = document.getElementById('movesBody');
@@ -661,7 +677,10 @@ function finishOnboarding() {
 
 onboardingSubmitBtn.addEventListener('click', () => {
     const username = onboardingUsernameInput.value.trim();
-    if (username) setMyUserId(username);
+    if (username) {
+        setMyUserId(username);
+        logUsernameToServer(username, 'onboarding');
+    }
     finishOnboarding();
 });
 
@@ -678,6 +697,8 @@ if (!localStorage.getItem(ONBOARDING_KEY)) {
     appContainer.classList.add('bottom-nav-hidden');
 } else {
     refreshHomeCounts();
+    const cachedUser = getMyUserId();
+    if (cachedUser) logUsernameToServer(cachedUser, 'cached');
 }
 
 applyLocale();
@@ -1537,6 +1558,8 @@ function exitExplorationMode() {
 async function handleApiFetch() {
     const username = usernameInput.value.trim();
     if (!username) return;
+
+    logUsernameToServer(username, 'search');
 
     if (userSearchModal) closeModal(userSearchModal);
 
