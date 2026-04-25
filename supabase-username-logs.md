@@ -28,6 +28,16 @@ create policy "anon can insert"
 -- (조회는 RLS로 막힘 → Supabase 대시보드 Table Editor / SQL Editor에서만 service_role로 조회 가능)
 ```
 
+## 기존 데이터 lowercase 정규화 (필수, 1회 실행)
+
+vault_items / saved_games / username_logs에 이미 mixed-case로 들어간 행들을 일괄 정규화. 안 돌리면 기존 사용자가 본인의 vault/저장 게임을 못 봅니다.
+
+```sql
+update public.vault_items   set user_id  = lower(user_id)  where user_id  <> lower(user_id);
+update public.saved_games   set user_id  = lower(user_id)  where user_id  <> lower(user_id);
+update public.username_logs set username = lower(username) where username <> lower(username);
+```
+
 ## 이미 위 SQL을 `cached` 없이 실행했다면
 
 CHECK 제약만 갈아끼우면 됩니다.
