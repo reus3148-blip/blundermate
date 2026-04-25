@@ -842,8 +842,14 @@ textarea:focus {
 
 
 /* ==========================================
-   Engine Lines
+   Analysis View: Panel — Engine Lines / Preview Card / AI Coach
+   분석 뷰의 보드 아래 panel-content 안에 들어가는 콘텐츠.
+   - .engine-line / .el-* : 엔진 추천 라인
+   - .preview-card-* : 분석 시작 전 미리보기 카드 (분석 후 0수에서도 재사용)
+   - .gemini-text-panel / .ai-* : Gemini 코치 해설 패널
    ========================================== */
+
+/* ── Engine Lines ──────────────────────────────────────────── */
 .engine-line {
     display: flex;
     align-items: center;
@@ -916,7 +922,7 @@ textarea:focus {
     padding: 0.25rem 0 0;
 }
 
-/* Analysis Preview Card */
+/* ── Preview Card (분석 시작 전 + 분석 후 0수 공유) ─────────── */
 .preview-card {
     padding: 16px;
     display: flex;
@@ -1003,7 +1009,7 @@ th {
     font-style: italic;
 }
 
-/* AI 코치 해설 패널 (탭 내부에 배치, 전체 공간 채움) */
+/* ── AI Coach Panel (Gemini 해설) ──────────────────────────── */
 #geminiExplanation {
     display: flex;
     flex-direction: column;
@@ -1331,7 +1337,7 @@ th {
     flex-shrink: 0;
 }
 
-/* 홈 시간대 필터: homeRecentSection이 이미 좌우 16px 패딩을 가지므로 좌우 0. */
+/* 홈 시간대 필터: 부모(#homeRecentSection)가 이미 좌우 16px 패딩 → 좌우 0 */
 .pill-filter-bar--home {
     padding: 4px 0 10px;
 }
@@ -2092,7 +2098,9 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     color: var(--ac);
 }
 
-/* ── Onboarding ────────────────────────────────────────────────── */
+/* ==========================================
+   Onboarding View
+   ========================================== */
 #onboardingView {
     display: flex;
     flex-direction: column;
@@ -2629,8 +2637,11 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     width: 100%;
 }
 
-/* 분석 로딩 상태: 중간 바에 "로딩중입니다..." 노출, 보드 위 영역은 빈 보드만,
-   중간 바 아래 영역(엔진 라인/요약/상태바)은 모두 숨김. 완료 시 클래스 제거 */
+/* ==========================================
+   Analysis View: Loading State
+   분석 진행 중 — 중간 바에 "로딩중입니다..." 표시, 그 외 영역은 모두 숨김.
+   완료 시 analyzing-loading 클래스 제거.
+   ========================================== */
 .analysis-loading-text {
     color: var(--tx2);
     font-size: 0.95rem;
@@ -2651,7 +2662,12 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     pointer-events: none;
 }
 
-/* 리포트 컨테이너 — 5단계 카드를 세로로 쌓는다. 좌우 12px gutter로 모바일 호흡. */
+/* ==========================================
+   Analysis Review View: Layout & Cards
+   - .summary-graph = 5단계 카드 컨테이너 (보드 자리 점령)
+   - .review-report = 카드 스택 (gap 12px)
+   - .review-card = 4개 카드 공통 (--bg-surface + --brd + radius 10)
+   ========================================== */
 .summary-graph {
     width: 100%;
     flex-shrink: 0;
@@ -2781,28 +2797,7 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     font-size: 12px;
 }
 
-/* 4. 통계 카드 — 기존 review-stats-card는 review-card 베이스를 따라간다. */
-.review-stats-card {
-    /* review-card 공통 스타일 사용 — 별도 background/border 정의 제거 */
-}
-
-/* 5. CTA — 풀너비 앰버 버튼. 카드 아래 마지막 자리. */
-.review-cta-btn {
-    width: 100%;
-    height: 48px;
-    border: none;
-    border-radius: 10px;
-    background: var(--ac);
-    color: #fff;
-    font-size: 14px;
-    font-weight: 600;
-    font-family: inherit;
-    cursor: pointer;
-    margin-top: 4px;
-    transition: opacity 0.15s ease;
-}
-.review-cta-btn:active { opacity: 0.85; }
-.review-cta-btn:hover { opacity: 0.92; }
+/* 4. 통계 카드 — review-card 공통 스타일을 그대로 사용. 표만 자체 스타일. */
 .review-stats-table {
     width: 100%;
     border-collapse: collapse;
@@ -2810,7 +2805,7 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
 }
 .review-stats-table th,
 .review-stats-table td {
-    padding: 8px 8px;
+    padding: 8px;
     font-size: 13px;
     color: var(--tx);
     vertical-align: middle;
@@ -2829,13 +2824,10 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     padding-bottom: 8px;
     border-bottom: 1px solid var(--brd);
 }
-.review-stats-table thead th:first-child {
-    text-align: left;
-}
-/* 백/흑 헤더: "백 (나)" 식으로 한 줄에 배지까지. */
-.review-stats-side {
-    display: table-cell;
-}
+.review-stats-table thead th:first-child { text-align: left; }
+
+/* 백/흑 헤더 + (나) 배지. 본인 진영은 헤더 텍스트 색만 앰버로 강조 (셀 배경은 비움). */
+.review-stats-side { display: table-cell; }
 .review-stats-side-name {
     display: inline-block;
     vertical-align: middle;
@@ -2853,13 +2845,9 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     vertical-align: middle;
     line-height: 1.4;
 }
-
-/* 본인 진영 컬럼: 헤더 텍스트 색 + (나) 배지로만 표시.
-   셀 배경은 칠하지 않는다 — 셀 padding(좌 16px)까지 색이 들어가 label 컬럼과
-   사이에 어색한 색 띠가 생기고 행마다 두께가 들쭉날쭉해 보였던 문제 회피. */
 .review-stats-table th.is-you .review-stats-side-name { color: var(--ac); }
 
-/* 정확도 행: 숫자를 약간 키워서 강조. 패딩은 td 공통 좌측 16px를 유지하면서 상하만 키운다. */
+/* 정확도 행: 위아래 패딩 + 숫자 강조. */
 .review-stats-accuracy td {
     padding-top: 11px;
     padding-bottom: 11px;
@@ -2873,7 +2861,7 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     text-align: center;
 }
 
-/* 정확도와 수 분류 첫 행 사이 구분선 — Hero 영향과 같이 1px 분리. */
+/* 정확도 ↔ 수 분류 사이 1px 구분선. */
 .review-stats-class-first td {
     border-top: 1px solid var(--brd);
     padding-top: 11px;
@@ -2900,6 +2888,24 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     color: var(--tx);
     text-align: center;
 }
+
+/* 5. CTA — 풀너비 앰버 버튼. 5단계 카드 마지막 자리. */
+.review-cta-btn {
+    width: 100%;
+    height: 48px;
+    border: none;
+    border-radius: 10px;
+    background: var(--ac);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    margin-top: 4px;
+    transition: opacity 0.15s ease;
+}
+.review-cta-btn:active { opacity: 0.85; }
+.review-cta-btn:hover { opacity: 0.92; }
 
 /* ── Insights (통계) ─────────────────────────────────────────── */
 .insights-subtitle {
