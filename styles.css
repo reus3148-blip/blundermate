@@ -1342,6 +1342,17 @@ th {
     padding: 4px 0 10px;
 }
 
+/* 통계 화면 필터 바 (타임 컨트롤 + 흑백 두 줄). 위아래 padding 줄여 두 바 사이 간격 단정하게. */
+.pill-filter-bar--insights {
+    padding: 4px 16px;
+}
+.pill-filter-bar--insights:first-of-type {
+    padding-top: 8px;
+}
+.pill-filter-bar--insights:last-of-type {
+    padding-bottom: 10px;
+}
+
 .pill-btn {
     flex-shrink: 0;
     height: 32px;

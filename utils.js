@@ -203,6 +203,26 @@ export function parseOpeningFromPgn(pgn) {
 }
 
 /**
+ * 풀 오프닝 이름을 루트 오프닝(메인 라인)으로 단축.
+ * 통계 그룹화용 — chess.com 슬러그가 변종까지 포함하면 같은 루트가 분산되어 통계 의미가 약해짐.
+ *
+ * 알고리즘:
+ *   1) 첫 root 키워드(Gambit/Defense/Game/Opening/System/Attack) 만나는 지점까지 자르기 (최대 3단어).
+ *   2) 키워드 미발견 시 첫 두 단어 fallback.
+ *
+ * 예: "Italian Game Giuoco Pianissimo" → "Italian Game"
+ *     "Sicilian Defense Najdorf" → "Sicilian Defense"
+ *     "King's Indian Defense Advance" → "King's Indian Defense"
+ *     "Ruy Lopez Berlin Defense" → fallback → "Ruy Lopez"
+ */
+export function rootOpeningName(fullName) {
+    if (!fullName) return '';
+    const m = fullName.match(/^((?:\S+\s+){1,2}?(?:Gambit|Defense|Defence|Game|Opening|System|Attack))\b/);
+    if (m) return m[1];
+    return fullName.split(/\s+/).slice(0, 2).join(' ');
+}
+
+/**
  * PGN 스트링 또는 단순 텍스트 기보를 Chess 인스턴스에 로드하고 결과와 PGN 텍스트를 반환합니다.
  */
 // chess.js의 validate_fen으로 FEN 문자열의 유효성을 판별한다.
