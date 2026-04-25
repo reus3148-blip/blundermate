@@ -1,12 +1,30 @@
-import { Chessground } from 'https://cdnjs.cloudflare.com/ajax/libs/chessground/9.0.0/chessground.min.js';
 import { fetchRecentGames, fetchPlayerProfile } from './chessApi.js';
-import { StockfishEngine } from './engine.js';
-import { parseEvalData, getDests, convertPvToSan, classifyMove, parseAndLoadPgn, isValidFen, escapeHtml, parseOpeningFromPgn, formatTimeControl, formatRelativeDate, getTier } from './utils.js';
+import {
+    initAnalysis, getEngine, isEngineReady, getDepth, setDepth,
+    analysisQueue, currentAnalysisIndex, setQueue, setCurrentIndex, advanceCurrentIndex,
+    isRunning, isAwaitingRestart, scheduleRestart, consumePendingRestart,
+    processNext, markIdle, stopAndClear,
+} from './analysis.js';
+import {
+    initBoard, chess, cg, currentlyViewedIndex, isUserWhite, persistentShapes,
+    setMainGame, resetMainGame, setCurrentlyViewedIndex, setIsUserWhite,
+    setPersistentShapes, pushPersistentShape, clearPersistentShapes,
+} from './board.js';
+import {
+    appMode, explorationChess, explorationEngineLines, simulationQueue, simulationIndex, isPreviewMode,
+    setAppMode, setIsPreviewMode, clearExplorationEngineLines, setExplorationLineAt,
+    setSimulationQueue, pushSimulationQueueItem, setSimulationIndex,
+} from './modes.js';
+import { parseEvalData, getDests, convertPvToSan, classifyMove, parseAndLoadPgn, isValidFen, escapeHtml, parseOpeningFromPgn, formatTimeControl, formatRelativeDate, getTier, isWhitePlayer, classifyGameResult, countMovesFromPgn } from './utils.js';
 import { renderMovesTable, updateUIWithEval, highlightActiveMove, renderEngineLines, updateTopEvalDisplay, renderSummaryGraph, renderSummaryReport } from './ui.js';
-import { addVaultItem, getSavedGames, setMyUserId, getMyUserId, ONBOARDING_KEY, COORDS_KEY, GEMINI_KEY, EVAL_MODE_KEY } from './storage.js';
-import { initVault, initHomeVaultBadge, isVaultDetailActive, getVaultDetailIndex, setVaultDetailIndex, flipVaultBoard, setVaultCoords, redrawVaultBoard, openVaultFromHome } from './vault.js';
-import { initSavedGames, openSaveGameModalForPgn, openSavedGamesFromHome } from './savedGames.js';
-import { createGeminiHandler } from './gemini.js';
+import { addVaultItem, getSavedGames, setMyUserId, getMyUserId, ONBOARDING_KEY, COORDS_KEY, EVAL_MODE_KEY } from './storage.js';
+import { initVault, initHomeVaultBadge, isVaultDetailActive, getVaultDetailIndex, setVaultDetailIndex, flipVaultBoard, setVaultCoords, redrawVaultBoard, loadVaultData } from './vault.js';
+import { initSavedGames, openSaveGameModalForPgn, loadSavedGamesData } from './savedGames.js';
+import { initInsights, loadInsightsData } from './insights.js';
+import {
+    initGemini, handleGeminiExplanation, renderAiTabContent,
+    getIsGeminiEnabled, setIsGeminiEnabled, abortPendingGemini,
+} from './gemini.js';
 import { t, setLocale, getLocale } from './strings.js';
 
 // ==========================================
@@ -117,29 +135,14 @@ const closeUserSearchBtn = document.getElementById('closeUserSearchBtn');
 // 2. Application State
 // ==========================================
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
-let ANALYSIS_DEPTH = parseInt(localStorage.getItem('blundermate_depth')) || 12;
-let stockfish;
-let isEngineReady = false;
-let chess = new Chess();
-let analysisQueue = [];
-let currentAnalysisIndex = 0;
+// stockfish, isEngineReady, ANALYSIS_DEPTH, analysisQueue, currentAnalysisIndex,
+// isAnalyzing, isWaitingForStop, pendingQueue, pendingTargetIndex 는 analysis.js로 이전.
+// chess, cg, currentlyViewedIndex, isUserWhite, persistentShapes 는 board.js로 이전.
+// appMode, explorationChess, explorationEngineLines, simulationQueue, simulationIndex, isPreviewMode 는 modes.js로 이전.
 let currentEval = '';
-let isAnalyzing = false;
 let isAnalysisLoading = false;
-let currentlyViewedIndex = -1;
-let cg;
-let isWaitingForStop = false;
-let pendingQueue = null;
-let pendingTargetIndex = null;
-let persistentShapes = []; // 블런더/실수 시 보드에 고정될 화살표를 저장하는 배열
-let isUserWhite = true; // 분석 기준이 되는 사용자 색상 (기본: 백)
 let currentBestMoveForVault = ''; // 저장 시 함께 보관할 최선의 수
 let vaultSnapshot = null; // 🔖 탭 시점의 수 데이터 스냅샷 (모달 열린 동안 고정)
-let appMode = 'main'; // 'main', 'explore', 'simulate'
-let explorationChess = new Chess();
-let explorationEngineLines = [];
-let simulationQueue = [];
-let simulationIndex = -1;
 let inputChess = new window.Chess(); // 수동 보드 입력용 체스 인스턴스 (전체 수 히스토리 보유)
 let inputCg; // 수동 보드 입력용 체스그라운드 인스턴스
 // 입력 뷰 네비게이션 상태: 현재 보고 있는 수 인덱스(0 = 시작, N = N번째 수 이후).
@@ -149,11 +152,8 @@ let inputViewIndex = 0;
 let inputStartFen = null;
 let lastEvalRenderTime = 0; // 엔진 UI 렌더링 스로틀링용 타임스탬프
 const EVAL_RENDER_THROTTLE = 100; // UI 업데이트 제한 시간(ms)
-let isPreviewMode = false; // 분석 미리보기 상태 (엔진 미시작)
-let isGeminiLoading = false; // Gemini API 중복 호출 방지용 플래그
-let geminiAbortController = null; // Gemini API 요청 취소용 컨트롤러
+// isGeminiLoading, geminiAbortController, isGeminiEnabled 는 gemini.js로 이전.
 let isCoordsEnabled = localStorage.getItem(COORDS_KEY) !== 'false';
-let isGeminiEnabled = localStorage.getItem(GEMINI_KEY) !== 'false';
 let cachedHomeGames = [];
 
 // ==========================================
@@ -166,6 +166,7 @@ const SCREENS = {
     VAULT_LIST: 'vault_list',
     VAULT_DETAIL: 'vault_detail',
     SAVED_GAMES: 'saved_games',
+    INSIGHTS: 'insights',
 };
 
 let _currentScreen = SCREENS.HOME;
@@ -173,6 +174,7 @@ let _currentScreen = SCREENS.HOME;
 const vaultViewNav = document.getElementById('vaultView');
 const vaultDetailViewNav = document.getElementById('vaultDetailView');
 const savedGamesViewNav = document.getElementById('savedGamesView');
+const insightsViewNav = document.getElementById('insightsView');
 
 function navigateTo(screen, state = {}) {
     console.log('[Nav] push:', screen, state);
@@ -189,19 +191,16 @@ function hideAllViews() {
     vaultViewNav.classList.add('hidden');
     vaultDetailViewNav.classList.add('hidden');
     savedGamesViewNav.classList.add('hidden');
+    if (insightsViewNav) insightsViewNav.classList.add('hidden');
 }
 
 function cleanupAnalysis() {
     if (isPreviewMode) {
-        isPreviewMode = false;
+        setIsPreviewMode(false);
         removePreviewControls();
     }
     if (isAnalysisLoading) exitAnalysisLoading();
-    if (stockfish) stockfish.stop();
-    isAnalyzing = false;
-    isWaitingForStop = false;
-    pendingQueue = null;
-    analysisQueue = [];
+    stopAndClear();
 }
 
 function renderScreen(screen) {
@@ -224,12 +223,18 @@ function renderScreen(screen) {
             break;
         case SCREENS.VAULT_LIST:
             vaultViewNav.classList.remove('hidden');
+            loadVaultData();
             break;
         case SCREENS.VAULT_DETAIL:
             vaultDetailViewNav.classList.remove('hidden');
             break;
         case SCREENS.SAVED_GAMES:
             savedGamesViewNav.classList.remove('hidden');
+            loadSavedGamesData();
+            break;
+        case SCREENS.INSIGHTS:
+            if (insightsViewNav) insightsViewNav.classList.remove('hidden');
+            loadInsightsData();
             break;
         default:
             homeView.classList.remove('hidden');
@@ -242,7 +247,8 @@ const bottomNav = document.getElementById('bottomNav');
 const navHomeBtn = document.getElementById('navHomeBtn');
 const navVaultBtn = document.getElementById('navVaultBtn');
 const navSavedBtn = document.getElementById('navSavedBtn');
-const NAV_VISIBLE_SCREENS = new Set([SCREENS.HOME, SCREENS.VAULT_LIST, SCREENS.SAVED_GAMES]);
+const navInsightsBtn = document.getElementById('navInsightsBtn');
+const NAV_VISIBLE_SCREENS = new Set([SCREENS.HOME, SCREENS.VAULT_LIST, SCREENS.SAVED_GAMES, SCREENS.INSIGHTS]);
 const appContainer = document.querySelector('.app-container');
 
 function syncBottomNav(screen) {
@@ -252,6 +258,7 @@ function syncBottomNav(screen) {
     navHomeBtn.classList.toggle('active', screen === SCREENS.HOME);
     navVaultBtn.classList.toggle('active', screen === SCREENS.VAULT_LIST);
     navSavedBtn.classList.toggle('active', screen === SCREENS.SAVED_GAMES);
+    if (navInsightsBtn) navInsightsBtn.classList.toggle('active', screen === SCREENS.INSIGHTS);
 }
 
 navHomeBtn.addEventListener('click', () => {
@@ -261,12 +268,21 @@ navHomeBtn.addEventListener('click', () => {
 });
 navVaultBtn.addEventListener('click', () => {
     if (_currentScreen === SCREENS.VAULT_LIST) return;
-    openVaultFromHome();
+    navigateTo(SCREENS.VAULT_LIST);
+    renderScreen(SCREENS.VAULT_LIST);
 });
 navSavedBtn.addEventListener('click', () => {
     if (_currentScreen === SCREENS.SAVED_GAMES) return;
-    openSavedGamesFromHome();
+    navigateTo(SCREENS.SAVED_GAMES);
+    renderScreen(SCREENS.SAVED_GAMES);
 });
+if (navInsightsBtn) {
+    navInsightsBtn.addEventListener('click', () => {
+        if (_currentScreen === SCREENS.INSIGHTS) return;
+        navigateTo(SCREENS.INSIGHTS);
+        renderScreen(SCREENS.INSIGHTS);
+    });
+}
 
 window.addEventListener('popstate', (event) => {
     console.log('[Nav] pop:', event.state);
@@ -284,7 +300,7 @@ syncBottomNav(SCREENS.HOME);
 // ==========================================
 // 3. Initialization
 // ==========================================
-cg = Chessground(boardContainer, {
+initBoard(boardContainer, {
     fen: 'start',
     animation: { enabled: true, duration: 250 },
     coordinates: isCoordsEnabled,
@@ -364,19 +380,11 @@ function renderHomeGamesList(games, displayUser) {
     const dateStrings = { dateToday: t('dateToday'), dateYesterday: t('dateYesterday'), dateDaysAgo: t('dateDaysAgo') };
 
     games.slice(0, 15).forEach(game => {
-        const isWhite = game.white.username.toLowerCase() === userLower;
+        const isWhite = isWhitePlayer(game, userLower);
         const mySide = isWhite ? game.white : game.black;
         const oppSide = isWhite ? game.black : game.white;
-        const resultCode = mySide.result;
-
-        let resultKey, resultClass;
-        if (resultCode === 'win') {
-            resultKey = 'game_result_win'; resultClass = 'win';
-        } else if (['checkmated', 'timeout', 'resigned', 'abandoned'].includes(resultCode)) {
-            resultKey = 'game_result_loss'; resultClass = 'loss';
-        } else {
-            resultKey = 'game_result_draw'; resultClass = 'draw';
-        }
+        const resultClass = classifyGameResult(game, userLower);
+        const resultKey = `game_result_${resultClass}`;
 
         const myColor = isWhite ? 'white' : 'black';
         const oppColor = isWhite ? 'black' : 'white';
@@ -385,7 +393,7 @@ function renderHomeGamesList(games, displayUser) {
         const oppRatingStr = oppSide.rating ? ` (${oppSide.rating})` : '';
 
         const date = game.end_time ? formatRelativeDate(game.end_time, dateStrings) : '';
-        const moveCount = game.pgn ? (game.pgn.match(/\d+\./g) || []).length : 0;
+        const moveCount = countMovesFromPgn(game.pgn);
         const tc = game.time_control ? formatTimeControl(game.time_control) : '';
         const metaBottom = [moveCount ? `${moveCount}${t('moves_suffix')}` : '', tc].filter(Boolean).join(' · ');
 
@@ -485,10 +493,9 @@ function updateProfileRecord(games, displayUser) {
     const userLower = displayUser.toLowerCase();
     let w = 0, l = 0, d = 0;
     games.slice(0, 15).forEach(game => {
-        const isWhite = game.white.username.toLowerCase() === userLower;
-        const result = (isWhite ? game.white : game.black).result;
-        if (result === 'win') w++;
-        else if (['checkmated', 'timeout', 'resigned', 'abandoned'].includes(result)) l++;
+        const r = classifyGameResult(game, userLower);
+        if (r === 'win') w++;
+        else if (r === 'loss') l++;
         else d++;
     });
     recordEl.innerHTML = `
@@ -628,11 +635,10 @@ applyLocale();
 // ==========================================
 // 3-3. Settings UI
 // ==========================================
-geminiToggle.checked = isGeminiEnabled;
+geminiToggle.checked = getIsGeminiEnabled();
 
 geminiToggle.addEventListener('change', (e) => {
-    isGeminiEnabled = e.target.checked;
-    localStorage.setItem(GEMINI_KEY, isGeminiEnabled);
+    setIsGeminiEnabled(e.target.checked);
 });
 
 coordsToggle.checked = isCoordsEnabled;
@@ -677,12 +683,11 @@ settingsBtn.addEventListener('click', () => {
     settingsModal.classList.remove('hidden');
     fetchLastPushTime();
     const depthSelect = document.getElementById('depthSelect');
-    if (depthSelect) depthSelect.value = String(ANALYSIS_DEPTH);
+    if (depthSelect) depthSelect.value = String(getDepth());
 });
 
 document.getElementById('depthSelect')?.addEventListener('change', (e) => {
-    ANALYSIS_DEPTH = parseInt(e.target.value) || 12;
-    try { localStorage.setItem('blundermate_depth', ANALYSIS_DEPTH); } catch {}
+    setDepth(e.target.value);
 });
 
 const logoutBtn = document.getElementById('logoutBtn');
@@ -1032,7 +1037,7 @@ analyzeBtn.addEventListener('click', () => {
 // --- Move Navigation Helpers ---
 function handlePrevMove() {
     if (appMode === 'simulate') {
-        simulationIndex = Math.max(0, simulationIndex - 1);
+        setSimulationIndex(Math.max(0, simulationIndex - 1));
         updateBoardForSimulation(simulationIndex);
         return;
     }
@@ -1056,7 +1061,7 @@ function handlePrevMove() {
 
 function handleNextMove() {
     if (appMode === 'simulate') {
-        simulationIndex = Math.min(simulationQueue.length - 1, simulationIndex + 1);
+        setSimulationIndex(Math.min(simulationQueue.length - 1, simulationIndex + 1));
         updateBoardForSimulation(simulationIndex);
         return;
     }
@@ -1181,8 +1186,8 @@ initSavedGames({
     showButtonSuccess,
     saveMoveBtn,
     initHomeVaultBadge: refreshHomeCounts,
-    navigateTo,
 });
+initInsights();
 
 function buildInputMovesQueue() {
     const history = inputChess.history({ verbose: true });
@@ -1232,29 +1237,7 @@ copyPgnBtn.addEventListener('click', () => {
 });
 
 // --- Gemini AI Coach Logic ---
-function renderAiTabContent() {
-    if (!geminiExplanation) return;
-    const move = analysisQueue[currentlyViewedIndex];
-    if (move?.cachedExplanation) {
-        geminiExplanation.innerHTML = `<div id="geminiText" class="gemini-text-panel">${move.cachedExplanation}</div>`;
-    } else {
-        geminiExplanation.innerHTML = `<button id="aiAnalyzeBtn" class="ai-analyze-btn">${t('analyzePosition')}</button>`;
-    }
-}
-
-const handleGeminiExplanation = createGeminiHandler({
-    getState: () => ({
-        isGeminiLoading,
-        geminiAbortController,
-        isGeminiEnabled,
-        appMode,
-        currentlyViewedIndex,
-        analysisQueue,
-    }),
-    setState: (patch) => {
-        if ('isGeminiLoading' in patch) isGeminiLoading = patch.isGeminiLoading;
-        if ('geminiAbortController' in patch) geminiAbortController = patch.geminiAbortController;
-    },
+initGemini({
     geminiEl: geminiExplanation,
     onOpen: () => switchTab('ai'),
 });
@@ -1403,23 +1386,23 @@ window.addEventListener('resize', () => {
 function handleExplorationMove(orig, dest) {
     if (isPreviewMode) return;
     if (appMode === 'simulate') {
-        appMode = 'explore';
+        setAppMode('explore');
         explorationChess.load(simulationQueue[simulationIndex].fen);
-        explorationEngineLines = [];
-        stockfish.stop();
+        clearExplorationEngineLines();
+        getEngine().stop();
     } else if (appMode !== 'explore') {
-        appMode = 'explore';
+        setAppMode('explore');
         showReturnBtn();
-        
+
         let baseFen = START_FEN;
         if (currentlyViewedIndex >= 0 && analysisQueue[currentlyViewedIndex]) baseFen = analysisQueue[currentlyViewedIndex].fen;
         else if (chess.header().FEN) baseFen = chess.header().FEN;
-        
+
         explorationChess.load(baseFen);
-        explorationEngineLines = [];
-        
+        clearExplorationEngineLines();
+
         // 메인 기보 분석 중지
-        stockfish.stop();
+        getEngine().stop();
     }
     
     const moveRes = explorationChess.move({ from: orig, to: dest, promotion: 'q' });
@@ -1435,23 +1418,23 @@ function handleExplorationMove(orig, dest) {
         movable: { color: turnColor, free: false, dests: getDests(explorationChess) }
     });
     
-    explorationEngineLines = [];
+    clearExplorationEngineLines();
     updateTopEvalDisplay('...', 'Exploring', isUserWhite);
     engineLinesContainer.innerHTML = `<div class="container-message">${t('analysis_variation')}</div>`;
-    
+
     analysisStatus.className = 'tag engine-loading';
     analysisStatus.textContent = t('analysis_exploring');
-    stockfish.analyzeFen(explorationChess.fen(), ANALYSIS_DEPTH);
+    getEngine().analyzeFen(explorationChess.fen(), getDepth());
 }
 
 function exitExplorationMode() {
-    appMode = 'main';
+    setAppMode('main');
     hideReturnBtn();
-    explorationEngineLines = [];
-    simulationQueue = [];
-    
+    clearExplorationEngineLines();
+    setSimulationQueue([]);
+
     // 메인 라인 전체 기보 분석이 중단된 상태였다면 재개
-    if (isEngineReady && currentAnalysisIndex < analysisQueue.length) {
+    if (isEngineReady() && currentAnalysisIndex < analysisQueue.length) {
         processNextInQueue();
     } else {
         analysisStatus.className = 'tag engine-ready hidden';
@@ -1484,11 +1467,8 @@ const engineCallbacks = {
     onError: (e) => {
         console.error("Failed to load Stockfish worker:", e);
     },
-    onUciOk: () => {
-        isEngineReady = true;
-    },
     onReady: () => {
-        if (analysisQueue.length > 0 && !isAnalyzing) {
+        if (analysisQueue.length > 0 && !isRunning()) {
             processNextInQueue();
         }
     },
@@ -1500,7 +1480,7 @@ const engineCallbacks = {
             const lineIndex = evalData.multipv - 1;
             const sanPv = convertPvToSan(evalData.pv, explorationChess.fen());
             const firstUci = evalData.pv ? evalData.pv.split(' ')[0] : '';
-            explorationEngineLines[lineIndex] = { scoreStr, scoreNum, pv: sanPv, uci: firstUci };
+            setExplorationLineAt(lineIndex, { scoreStr, scoreNum, pv: sanPv, uci: firstUci });
 
             const now = Date.now();
             if (explorationEngineLines[0] && now - lastEvalRenderTime > EVAL_RENDER_THROTTLE) {
@@ -1540,33 +1520,27 @@ const engineCallbacks = {
     },
     onBestMove: () => {
         // 대기 상태인 경우: 이전 분석이 완전히 종료되었음을 확인하고 새 분석 시작
-        if (isWaitingForStop) {
-            isWaitingForStop = false;
-            if (pendingQueue) {
-                const q = pendingQueue;
-                const idx = pendingTargetIndex;
-                pendingQueue = null;
-                pendingTargetIndex = null;
-                startNewAnalysis(q, idx);
-            }
+        if (isAwaitingRestart()) {
+            const restart = consumePendingRestart();
+            if (restart) startNewAnalysis(restart.queue, restart.targetIndex);
             return;
         }
-        
+
         if (appMode === 'explore') {
             analysisStatus.className = 'tag engine-ready hidden';
             analysisStatus.textContent = '';
             return;
         }
-        
+
         if (!analysisQueue || currentAnalysisIndex >= analysisQueue.length) {
-            isAnalyzing = false;
+            markIdle();
             return;
         }
 
         // 기보 분석 판별 로직 호출
         const classification = classifyMove(currentAnalysisIndex, analysisQueue, isUserWhite);
         analysisQueue[currentAnalysisIndex].classification = classification;
-        
+
         updateUIWithEval(currentAnalysisIndex, currentEval, classification);
         if (currentlyViewedIndex === currentAnalysisIndex) {
             // 스로틀링으로 인해 생략되었을 수 있는 최종 평가 라인을 확실하게 다시 렌더링
@@ -1574,19 +1548,19 @@ const engineCallbacks = {
             updateTopEvalDisplay(currentEval, classification, isUserWhite);
             showPieceBadge(currentlyViewedIndex);
         }
-        currentAnalysisIndex++;
-        isAnalyzing = false;
+        advanceCurrentIndex();
+        markIdle();
         processNextInQueue();
     }
 };
 
-stockfish = new StockfishEngine('./engine/stockfish-18-lite-single.js', engineCallbacks);
+initAnalysis({ enginePath: './engine/stockfish-18-lite-single.js', callbacks: engineCallbacks });
 
 // ==========================================
 // 7. Analysis Workflow
 // ==========================================
 function handlePgnReviewStart(e = null, isWhiteGame = null, targetIndex = null, previewOnly = false) {
-    isUserWhite = isWhiteGame !== null ? isWhiteGame : true;
+    setIsUserWhite(isWhiteGame !== null ? isWhiteGame : true);
 
     const pgnText = pgnInput.value.trim();
     if (!pgnText) return;
@@ -1595,7 +1569,7 @@ function handlePgnReviewStart(e = null, isWhiteGame = null, targetIndex = null, 
         .filter(line => line.startsWith('['))
         .join('\n'));
 
-    chess = new Chess();
+    resetMainGame();
     const result = parseAndLoadPgn(chess, pgnText);
 
     if (!result.success) {
@@ -1632,26 +1606,16 @@ function handlePgnReviewStart(e = null, isWhiteGame = null, targetIndex = null, 
 
     // Preview mode: show analysis view without starting engine
     if (previewOnly) {
-        if (isAnalyzing || isWaitingForStop) {
-            stockfish.stop();
-            isAnalyzing = false;
-            isWaitingForStop = false;
-            pendingQueue = null;
-            pendingTargetIndex = null;
-        }
+        if (isRunning() || isAwaitingRestart()) stopAndClear();
         startNewAnalysis(newQueue, targetIndex, true);
         return;
     }
 
-    // Safe Engine Restart Logic
-    if (isAnalyzing || isWaitingForStop) {
+    // Safe Engine Restart Logic — stop은 비동기, 완료 시점은 onBestMove에서 처리.
+    if (isRunning() || isAwaitingRestart()) {
         analysisStatus.className = 'tag engine-loading';
         analysisStatus.textContent = t('analysis_stopping');
-        pendingQueue = newQueue;
-        pendingTargetIndex = targetIndex;
-        isWaitingForStop = true;
-        isAnalyzing = false;
-        stockfish.stop();
+        scheduleRestart(newQueue, targetIndex);
         return;
     }
 
@@ -1661,9 +1625,9 @@ function handlePgnReviewStart(e = null, isWhiteGame = null, targetIndex = null, 
 // FEN 단일 포지션 분석: 기보 없이 해당 포지션만 엔진으로 평가한다.
 // 한 개의 isFenOnly 엔트리 큐를 구성해 기존 분석 파이프라인을 그대로 재사용한다.
 function handleFenReviewStart(fenText, isWhiteGame) {
-    isUserWhite = isWhiteGame !== null ? isWhiteGame : true;
+    setIsUserWhite(isWhiteGame !== null ? isWhiteGame : true);
 
-    chess = new Chess();
+    resetMainGame();
     if (!chess.load(fenText)) {
         alert(t('analysis_invalid_pgn'));
         return;
@@ -1686,14 +1650,10 @@ function handleFenReviewStart(fenText, isWhiteGame) {
         isFenOnly: true,
     }];
 
-    if (isAnalyzing || isWaitingForStop) {
+    if (isRunning() || isAwaitingRestart()) {
         analysisStatus.className = 'tag engine-loading';
         analysisStatus.textContent = t('analysis_stopping');
-        pendingQueue = newQueue;
-        pendingTargetIndex = 0;
-        isWaitingForStop = true;
-        isAnalyzing = false;
-        stockfish.stop();
+        scheduleRestart(newQueue, 0);
         return;
     }
     startNewAnalysis(newQueue, 0);
@@ -1712,7 +1672,7 @@ function startNewAnalysis(newQueue, targetIndex = null, previewOnly = false) {
     analysisView.classList.remove('hidden');
 
     // 이전 탐색(Exploration) 및 시뮬레이션 모드 상태 완전 초기화
-    appMode = 'main';
+    setAppMode('main');
     hideReturnBtn();
     analysisView.classList.remove('view-summary');
     exitAnalysisLoading();
@@ -1720,7 +1680,7 @@ function startNewAnalysis(newQueue, targetIndex = null, previewOnly = false) {
     // Force Chessground to recalculate board size for mobile
     forceRedraw(cg);
 
-    analysisQueue = newQueue;
+    setQueue(newQueue);
     analyzeBtn.disabled = true;
 
     renderMovesTable(movesBody, analysisQueue, (index) => {
@@ -1728,22 +1688,22 @@ function startNewAnalysis(newQueue, targetIndex = null, previewOnly = false) {
         closeMovesOverlay();
     });
 
-    currentAnalysisIndex = 0;
+    setCurrentIndex(0);
 
     if (analysisQueue.length > 0) {
-        persistentShapes = [];
+        clearPersistentShapes();
         const initialFen = chess.header().FEN || 'start';
         cg.set({
             fen: initialFen,
             orientation: isUserWhite ? 'white' : 'black',
             drawable: { autoShapes: [] }
         });
-        currentlyViewedIndex = -1;
+        setCurrentlyViewedIndex(-1);
         updateTopEvalDisplay('-', '', isUserWhite);
     }
 
     if (previewOnly) {
-        isPreviewMode = true;
+        setIsPreviewMode(true);
         renderPreviewCard();
         applyPreviewControls();
         return;
@@ -1755,7 +1715,7 @@ function startNewAnalysis(newQueue, targetIndex = null, previewOnly = false) {
         updateBoardPosition(targetIndex, analysisQueue[targetIndex].fen);
     }
 
-    if (isEngineReady) {
+    if (isEngineReady()) {
         processNextInQueue();
     }
 }
@@ -1844,49 +1804,39 @@ function exitAnalysisLoading() {
 }
 
 function startAnalysisFromPreview() {
-    isPreviewMode = false;
+    setIsPreviewMode(false);
     removePreviewControls();
     enterAnalysisLoading();
 
-    if (isEngineReady) {
+    if (isEngineReady()) {
         processNextInQueue();
     }
 }
 
+// analysis.processNext 위임. 큐 라이프사이클은 모듈이 가지고, UI 측 상태 갱신만 콜백으로 받는다.
 function processNextInQueue() {
-    if (currentAnalysisIndex >= analysisQueue.length) {
-        analysisStatus.textContent = '';
-        analysisStatus.className = 'tag hidden';
-        analyzeBtn.disabled = false;
-        exitAnalysisLoading();
-
-        // FEN 단일 포지션 분석은 요약 화면이 없으므로 그 자리에 머문다
-        const isFenOnly = analysisQueue.length === 1 && analysisQueue[0]?.isFenOnly;
-        if (!isFenOnly) {
-            // 분석 완료 시 체스판을 제일 첫 화면(시작 위치)으로 되돌리기
-            updateBoardPosition(-1, chess.header().FEN || 'start');
-        }
-        return;
-    }
-
-    isAnalyzing = true;
-    const pos = analysisQueue[currentAnalysisIndex];
-    currentEval = '';
-    
-    analysisStatus.textContent = t('analysis_progress').replace('{current}', currentAnalysisIndex + 1).replace('{total}', analysisQueue.length);
-    
-    updateBoardPosition(currentAnalysisIndex, pos.fen);
-    
-    // Ensure engine is fully ready before sending position
-    // If not ready, we skip sending 'go' and rely on onReady callback
-    if (!isEngineReady) {
-        analysisStatus.textContent = t('analysis_waiting_engine');
-        isAnalyzing = false; // 엔진 준비 콜백(onReady)에서 큐를 정상적으로 재개할 수 있도록 상태 해제 (교착 상태 방지)
-        return;
-    }
-
-    // 일관된 분석을 위해 엔진 깊이(Depth)를 12로 고정
-    stockfish.analyzeFen(pos.fen, ANALYSIS_DEPTH);
+    processNext({
+        onQueueDone: () => {
+            analysisStatus.textContent = '';
+            analysisStatus.className = 'tag hidden';
+            analyzeBtn.disabled = false;
+            exitAnalysisLoading();
+            // FEN 단일 포지션 분석은 요약 화면이 없으므로 그 자리에 머문다
+            const isFenOnly = analysisQueue.length === 1 && analysisQueue[0]?.isFenOnly;
+            if (!isFenOnly) {
+                // 분석 완료 시 체스판을 제일 첫 화면(시작 위치)으로 되돌리기
+                updateBoardPosition(-1, chess.header().FEN || 'start');
+            }
+        },
+        onPositionStart: (idx, pos) => {
+            currentEval = '';
+            analysisStatus.textContent = t('analysis_progress').replace('{current}', idx + 1).replace('{total}', analysisQueue.length);
+            updateBoardPosition(idx, pos.fen);
+        },
+        onWaitingEngine: () => {
+            analysisStatus.textContent = t('analysis_waiting_engine');
+        },
+    });
 }
 
 // ==========================================
@@ -1925,9 +1875,7 @@ function updateBoardPosition(index, fen) {
     }
 
     // 다른 수로 이동 시 기존에 진행 중이던 AI 해설이 있다면 즉시 취소하여 리소스 및 서버 연결 확보
-    if (geminiAbortController) {
-        geminiAbortController.abort();
-    }
+    abortPendingGemini();
 
     const validFen = fen === 'start' ? START_FEN : fen;
     const tempChess = new Chess(validFen);
@@ -1946,13 +1894,13 @@ function updateBoardPosition(index, fen) {
         movable: { color: turnColor, free: false, dests: getDests(tempChess) }
     });
 
-    currentlyViewedIndex = index;
+    setCurrentlyViewedIndex(index);
     applySummaryView(index);
     highlightActiveMove(index);
 
     // 미리보기 모드에서는 하이라이트까지만 반영하고 나머지(엔진/AI 패널)는 건드리지 않음.
     // 이전 세션의 화살표가 남아있을 수 있으므로 autoShapes도 비워둔다.
-    persistentShapes = [];
+    clearPersistentShapes();
     if (isPreviewMode) {
         cg.set({ drawable: { autoShapes: [] } });
         return;
@@ -1973,7 +1921,7 @@ function updateBoardPosition(index, fen) {
                     const orig = bestUci.slice(0, 2);
                     const dest = bestUci.slice(2, 4);
                     if (/^[a-h][1-8]$/.test(orig) && /^[a-h][1-8]$/.test(dest)) {
-                        persistentShapes.push({ orig, dest, brush: 'blue' });
+                        pushPersistentShape({ orig, dest, brush: 'blue' });
                     }
                 }
             }
@@ -2090,20 +2038,24 @@ function handleEngineLineClick(lineIndex) {
     const pv = lines[lineIndex].pv;
     if (!pv) return;
 
+    // PV의 평가치를 모든 단계에서 동일하게 표시한다.
+    // 엔진의 평가치 의미상 양쪽이 PV대로 둔다는 가정이므로 라인을 따라가도 값은 유지된다.
+    const scoreStr = lines[lineIndex].scoreStr || '';
+
     const tempChess = new Chess(baseFen);
-    simulationQueue = [{ fen: baseFen, san: t('sim_start') }];
-    
+    setSimulationQueue([{ fen: baseFen, san: t('sim_start'), scoreStr }]);
+
     const moves = pv.split(' ');
     for (const move of moves) {
         const moveRes = tempChess.move(move);
-        if (moveRes) simulationQueue.push({ fen: tempChess.fen(), san: moveRes.san });
+        if (moveRes) pushSimulationQueueItem({ fen: tempChess.fen(), san: moveRes.san, scoreStr });
         else break;
     }
 
-    appMode = 'simulate';
-    simulationIndex = 1;
-    
-    stockfish.stop();
+    setAppMode('simulate');
+    setSimulationIndex(1);
+
+    getEngine().stop();
     showReturnBtn();
     updateBoardForSimulation(simulationIndex);
 }
@@ -2113,7 +2065,7 @@ function updateBoardForSimulation(index) {
     const tempChess = new Chess(item.fen);
     const turnColor = tempChess.turn() === 'w' ? 'white' : 'black';
     cg.set({ fen: item.fen, turnColor: turnColor, movable: { color: turnColor, free: false, dests: getDests(tempChess) }, drawable: { autoShapes: [] } });
-    updateTopEvalDisplay('—', 'Simulating', isUserWhite);
+    updateTopEvalDisplay(item.scoreStr || '—', 'Simulating', isUserWhite);
     switchTab('engine');
 
     const movesHtml = simulationQueue.map((m, i) => {
@@ -2133,7 +2085,7 @@ function updateBoardForSimulation(index) {
 
     engineLinesContainer.querySelectorAll('.sim-move').forEach(el => {
         el.addEventListener('click', () => {
-            simulationIndex = parseInt(el.dataset.simIndex, 10);
+            setSimulationIndex(parseInt(el.dataset.simIndex, 10));
             updateBoardForSimulation(simulationIndex);
         });
     });
