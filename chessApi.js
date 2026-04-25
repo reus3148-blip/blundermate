@@ -27,11 +27,14 @@ export async function fetchPlayerProfile(username) {
             }
         }
         let avatar = null;
+        let displayName = null;
         if (playerRes.ok) {
             const player = await playerRes.json();
             if (player?.avatar) avatar = player.avatar;
+            // chess.com이 등록한 원본 케이스 보존 (예: "Bywxx"). 표시 전용. 저장/비교는 항상 lowercase.
+            if (player?.username) displayName = player.username;
         }
-        cachedProfile = { ratings, avatar };
+        cachedProfile = { ratings, avatar, displayName };
         cachedProfileUser = lower;
         return cachedProfile;
     } catch {

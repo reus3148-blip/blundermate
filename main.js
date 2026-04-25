@@ -60,15 +60,15 @@ function isViewingOtherUser() {
 const USERNAME_LOG_DEDUP_KEY = 'blundermate_username_log_last';
 function logUsernameToServer(username, source) {
     try {
-        const trimmed = (username || '').trim();
-        if (!trimmed) return;
-        const dedupKey = `${source}:${trimmed.toLowerCase()}`;
+        const normalized = (username || '').trim().toLowerCase();
+        if (!normalized) return;
+        const dedupKey = `${source}:${normalized}`;
         if (localStorage.getItem(USERNAME_LOG_DEDUP_KEY) === dedupKey) return;
         try { localStorage.setItem(USERNAME_LOG_DEDUP_KEY, dedupKey); } catch (_) {}
         fetch('/api/log-username', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username: trimmed, source })
+            body: JSON.stringify({ username: normalized, source })
         }).catch(() => {});
     } catch (_) {}
 }
@@ -498,12 +498,13 @@ document.getElementById('homeTimeFilterBar')?.addEventListener('click', (e) => {
 });
 
 function loadHomeRecentGames(overrideUsername = null) {
-    const displayUser = overrideUsername || getMyUserId();
+    const normalizedOverride = overrideUsername ? overrideUsername.toLowerCase() : null;
+    const displayUser = normalizedOverride || getMyUserId();
     const section = document.getElementById('homeRecentSection');
     const list = document.getElementById('homeRecentList');
     if (!displayUser || !section || !list) return;
 
-    viewingUserId = overrideUsername || null;
+    viewingUserId = normalizedOverride;
     updateHomeRecentHeader(isViewingOtherUser() ? viewingUserId : null);
     section.classList.remove('hidden');
 
@@ -640,8 +641,15 @@ function updateHomeHeader() {
 
         fetchPlayerProfile(userId).then(profile => {
             if (!profile) return;
-            const { ratings, avatar } = profile;
+            const { ratings, avatar, displayName } = profile;
             homeProfileRatings = ratings;
+            // chess.com 캐노니컬 케이스로 표시명 갱신 ("bywxx" → "Bywxx" 등)
+            if (displayName) {
+                profileName.textContent = displayName;
+                profileName.classList.remove('username-md', 'username-sm');
+                if (displayName.length > 16) profileName.classList.add('username-sm');
+                else if (displayName.length > 10) profileName.classList.add('username-md');
+            }
             // 현재 필터 기준으로 레이팅 + 티어 표시
             applyProfileRatingForFilter();
             // 아바타는 한 번만 세팅 (URL 동일하면 그대로)

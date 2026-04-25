@@ -11,12 +11,14 @@ export const EVAL_MODE_KEY = 'evalDisplayMode';
 // 다른 유저 검색(viewing) 상태는 이 파일과 무관하며 localStorage에 저장되면 안 된다.
 // 모든 vault/saved_games 저장·조회는 getMyUserId()만 사용한다.
 
+// Chess.com 닉네임은 대소문자 구분 X. 경계에서 소문자로 정규화해 dedup/비교 안정화.
 export function getMyUserId() {
-    return localStorage.getItem(USER_ID_KEY) || null;
+    const raw = localStorage.getItem(USER_ID_KEY);
+    return raw ? raw.toLowerCase() : null;
 }
 
 export function setMyUserId(id) {
-    if (id) localStorage.setItem(USER_ID_KEY, id);
+    if (id) localStorage.setItem(USER_ID_KEY, id.toLowerCase());
 }
 
 // ── Supabase proxy helper ──────────────────────────────────────────
