@@ -280,24 +280,21 @@ const MARKER_COLOR = {
 };
 
 /**
- * 승률 그래프를 SVG로 렌더링한다. 체스보드와 동일한 정사각 비율.
+ * 승률 그래프를 SVG 문자열로만 빌드한다 (DOM 삽입은 호출자 책임).
  * 외부 차트 라이브러리를 쓰지 않고 viewBox 기반으로 순수 구현.
+ * 분석 데이터가 부족해 그릴 수 없으면 null 반환.
  */
-export function renderSummaryGraph(container, analysisQueue, isUserWhite) {
-    if (!container) return;
+export function buildSummaryGraphSvgHtml(analysisQueue, isUserWhite) {
     const total = analysisQueue.length;
-    if (total === 0) {
-        container.innerHTML = `<div class="summary-empty">${escapeHtml(t('report_empty'))}</div>`;
-        return;
-    }
+    if (total === 0) return null;
 
-    // 체스닷컴 모바일 리뷰 그래프처럼 매우 납작하게. viewBox도 동일 비율로.
+    // 체스닷컴 모바일 리뷰 그래프처럼 납작. viewBox는 16:4 비율.
     const W = 320;
-    const H = 60;
-    const padL = 6;
-    const padR = 6;
-    const padT = 4;
-    const padB = 12;
+    const H = 80;
+    const padL = 8;
+    const padR = 8;
+    const padT = 6;
+    const padB = 16;
     const plotW = W - padL - padR;
     const plotH = H - padT - padB;
 
@@ -311,10 +308,7 @@ export function renderSummaryGraph(container, analysisQueue, isUserWhite) {
         points.push({ moveNum: i + 1, pct, classification: move.classification });
     }
 
-    if (points.length === 0) {
-        container.innerHTML = `<div class="summary-empty">${escapeHtml(t('report_empty'))}</div>`;
-        return;
-    }
+    if (points.length === 0) return null;
 
     const xFor = (n) => padL + ((n - 1) / Math.max(1, total - 1)) * plotW;
     const yFor = (pct) => padT + (1 - pct / 100) * plotH;
@@ -331,20 +325,20 @@ export function renderSummaryGraph(container, analysisQueue, isUserWhite) {
         .map(p => {
             const x = xFor(p.moveNum).toFixed(1);
             const y = yFor(p.pct).toFixed(1);
-            return `<circle cx="${x}" cy="${y}" r="2.4" fill="${MARKER_COLOR[p.classification]}" stroke="var(--bg-surface)" stroke-width="1"/>`;
+            return `<circle cx="${x}" cy="${y}" r="2.6" fill="${MARKER_COLOR[p.classification]}" stroke="var(--bg-surface)" stroke-width="1"/>`;
         }).join('');
 
     const ticks = [];
     for (let k = 10; k < total; k += 10) ticks.push(k);
     const tickLabels = ticks.map(k => {
         const x = xFor(k).toFixed(1);
-        return `<text x="${x}" y="${(H - 6).toFixed(1)}" class="summary-graph-tick" text-anchor="middle">${k}</text>`;
+        return `<text x="${x}" y="${(H - 4).toFixed(1)}" class="summary-graph-tick" text-anchor="middle">${k}</text>`;
     }).join('');
 
-    container.innerHTML = `
-        <svg viewBox="0 0 ${W} ${H}" class="summary-graph-svg" role="img" aria-label="${escapeHtml(t('report_win_chance'))}">
+    return `
+        <svg viewBox="0 0 ${W} ${H}" class="summary-graph-svg" role="img" aria-label="${escapeHtml(t('report_win_chance'))}" preserveAspectRatio="none">
             <line x1="${padL}" y1="${midY.toFixed(1)}" x2="${W - padR}" y2="${midY.toFixed(1)}"
-                  stroke="var(--brd2)" stroke-width="1" stroke-dasharray="3 3"/>
+                  stroke="var(--tx3)" stroke-width="0.8" stroke-dasharray="3 3" opacity="0.6"/>
             <path d="${areaD}" fill="var(--ac-lo)"/>
             <polyline points="${linePts}" fill="none" stroke="var(--ac)" stroke-width="2"
                       stroke-linecap="round" stroke-linejoin="round"/>
@@ -352,6 +346,19 @@ export function renderSummaryGraph(container, analysisQueue, isUserWhite) {
             ${tickLabels}
         </svg>
     `;
+}
+
+/**
+ * 승률 그래프를 컨테이너에 직접 렌더 (구버전 유지 — 다른 곳에서 호출 가능).
+ */
+export function renderSummaryGraph(container, analysisQueue, isUserWhite) {
+    if (!container) return;
+    const svg = buildSummaryGraphSvgHtml(analysisQueue, isUserWhite);
+    if (!svg) {
+        container.innerHTML = `<div class="summary-empty">${escapeHtml(t('report_empty'))}</div>`;
+        return;
+    }
+    container.innerHTML = svg;
 }
 
 const CLASS_ORDER = ['Best', 'Excellent', 'Good', 'Inaccuracy', 'Mistake', 'Blunder'];
@@ -404,8 +411,9 @@ export function buildPreviewCardHtml({ title, metaLine, openingName, eco }) {
 /**
  * 통계 카드 HTML만 반환 (정확도 + 수 분류 통합 표). 버튼/카드 컨테이너 없음.
  * 리포트 화면이 보드 자리(summaryGraph 안)에 그래프와 함께 stat 카드를 넣을 때 사용.
+ * isUserWhite: 본인 진영 컬럼을 앰버로 강조하고 헤더에 "(나)" 배지를 표시한다.
  */
-export function renderStatsCardHtml(analysisQueue) {
+export function renderStatsCardHtml(analysisQueue, isUserWhite = true) {
     const counts = { white: {}, black: {} };
     for (const c of CLASS_ORDER) { counts.white[c] = 0; counts.black[c] = 0; }
 
@@ -419,36 +427,127 @@ export function renderStatsCardHtml(analysisQueue) {
     const accB = computePlayerAccuracy(analysisQueue, false);
     const fmtAcc = (a) => a === null ? '—' : a.toFixed(1) + '%';
 
+    const youBadge = `<span class="review-stats-you">${escapeHtml(t('report_you'))}</span>`;
+    const wColCls = isUserWhite ? ' is-you' : '';
+    const bColCls = isUserWhite ? '' : ' is-you';
+
     const classRows = CLASS_ORDER.map((c, idx) => `
         <tr${idx === 0 ? ' class="review-stats-class-first"' : ''}>
             <td class="review-stats-label">
                 <span class="review-stats-dot" style="background:${CLASS_DOT_COLOR[c]};"></span>
                 <span>${escapeHtml(t(CLASS_I18N[c]))}</span>
             </td>
-            <td class="review-stats-num">${counts.white[c]}</td>
-            <td class="review-stats-num">${counts.black[c]}</td>
+            <td class="review-stats-num${wColCls}">${counts.white[c]}</td>
+            <td class="review-stats-num${bColCls}">${counts.black[c]}</td>
         </tr>
     `).join('');
 
     return `
-        <div class="review-stats-card">
+        <div class="review-card review-stats-card">
+            <div class="review-card-title">${escapeHtml(t('review_move_quality'))}</div>
             <table class="review-stats-table">
                 <thead>
                     <tr>
                         <th></th>
-                        <th>${escapeHtml(t('report_white'))}</th>
-                        <th>${escapeHtml(t('report_black'))}</th>
+                        <th class="review-stats-side${wColCls}">
+                            <span class="review-stats-side-name">${escapeHtml(t('report_white'))}</span>
+                            ${isUserWhite ? youBadge : ''}
+                        </th>
+                        <th class="review-stats-side${bColCls}">
+                            <span class="review-stats-side-name">${escapeHtml(t('report_black'))}</span>
+                            ${!isUserWhite ? youBadge : ''}
+                        </th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr class="review-stats-accuracy">
                         <td class="review-stats-label">${escapeHtml(t('report_accuracy'))}</td>
-                        <td class="review-stats-num-strong">${fmtAcc(accW)}</td>
-                        <td class="review-stats-num-strong">${fmtAcc(accB)}</td>
+                        <td class="review-stats-num-strong${wColCls}">${fmtAcc(accW)}</td>
+                        <td class="review-stats-num-strong${bColCls}">${fmtAcc(accB)}</td>
                     </tr>
                     ${classRows}
                 </tbody>
             </table>
+        </div>
+    `;
+}
+
+/**
+ * 리포트 화면(분석 완료 후 리뷰)의 5단계 카드 HTML을 한 번에 빌드한다.
+ * gameInfo: { title, metaLine, openingName, eco, result } — main.js의 buildGameHeaderInfo 결과
+ * 결과(result): 'win' | 'loss' | 'draw' | null
+ *
+ * 구조 (위→아래):
+ *   1. 게임 헤더 카드 (오프닝 / vs / 메타+결과)
+ *   2. Hero 정확도 카드 (큰 숫자 + 상대 비교)
+ *   3. 차트 카드 (수별 평가 그래프)
+ *   4. 통계 표 카드 (수 분류 — renderStatsCardHtml 활용)
+ *   5. CTA 버튼 (#reviewStartBtn — 핸들러는 호출자가 와이어링)
+ */
+export function renderReviewReport({ analysisQueue, isUserWhite, gameInfo }) {
+    const userAcc = computePlayerAccuracy(analysisQueue, isUserWhite);
+    const oppAcc = computePlayerAccuracy(analysisQueue, !isUserWhite);
+    const fmtAcc = (a) => a === null ? '—' : a.toFixed(1) + '%';
+
+    // 정확도 색 매핑 (90+ best, 70~89 기본, 50~69 inaccuracy, <50 blunder)
+    let accColor = 'var(--tx)';
+    if (userAcc !== null) {
+        if (userAcc >= 90) accColor = 'var(--best)';
+        else if (userAcc >= 50 && userAcc < 70) accColor = 'var(--inaccuracy)';
+        else if (userAcc < 50) accColor = 'var(--blunder)';
+    }
+
+    // 상대 대비 차이 (양수=내가 더 잘함, 음수=상대가 더 잘함)
+    let deltaHtml = '';
+    if (userAcc !== null && oppAcc !== null) {
+        const diff = userAcc - oppAcc;
+        const icon = diff >= 0 ? '▲' : '▼';
+        const cls = diff >= 0 ? 'is-up' : 'is-down';
+        deltaHtml = `<span class="review-hero-delta ${cls}">${icon}</span>`;
+    }
+
+    const graphSvg = buildSummaryGraphSvgHtml(analysisQueue, isUserWhite)
+        || `<div class="summary-empty">${escapeHtml(t('report_empty'))}</div>`;
+
+    // 헤더 메타 라인에 결과 단어 추가 (이미 main.js에서 만든 metaLine 뒤에 결과 붙임)
+    let metaWithResult = gameInfo.metaLine || '';
+    let resultClass = '';
+    if (gameInfo.result) {
+        const resultWord = t(`game_result_${gameInfo.result}`);
+        metaWithResult = metaWithResult ? `${metaWithResult} · ${resultWord}` : resultWord;
+        resultClass = `is-${gameInfo.result}`;
+    }
+
+    const openingLine = gameInfo.openingName
+        ? `<div class="review-header-opening">${escapeHtml(gameInfo.openingName)}${gameInfo.eco ? ` · <span class="review-header-eco">${escapeHtml(gameInfo.eco)}</span>` : ''}</div>`
+        : (gameInfo.eco ? `<div class="review-header-opening"><span class="review-header-eco">ECO ${escapeHtml(gameInfo.eco)}</span></div>` : '');
+
+    return `
+        <div class="review-report">
+            <div class="review-card review-header-card">
+                ${openingLine}
+                ${gameInfo.title ? `<div class="review-header-title">${escapeHtml(gameInfo.title)}</div>` : ''}
+                ${metaWithResult ? `<div class="review-header-meta ${resultClass}">${escapeHtml(metaWithResult)}</div>` : ''}
+            </div>
+
+            <div class="review-card review-hero-card">
+                <div class="review-card-title">${escapeHtml(t('review_accuracy_yours'))}</div>
+                <div class="review-hero-value" style="color:${accColor};">${fmtAcc(userAcc)}</div>
+                <div class="review-hero-compare">
+                    <span class="review-hero-compare-label">${escapeHtml(t('review_accuracy_opponent'))}</span>
+                    <span class="review-hero-compare-value">${fmtAcc(oppAcc)}</span>
+                    ${deltaHtml}
+                </div>
+            </div>
+
+            <div class="review-card review-chart-card">
+                <div class="review-card-title">${escapeHtml(t('review_eval_over_time'))}</div>
+                <div class="review-chart-svg-wrap">${graphSvg}</div>
+            </div>
+
+            ${renderStatsCardHtml(analysisQueue, isUserWhite)}
+
+            <button id="reviewStartBtn" class="review-cta-btn">${escapeHtml(t('start_review_from_first'))}</button>
         </div>
     `;
 }

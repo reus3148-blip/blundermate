@@ -1,7 +1,23 @@
 import { fetchRecentGames } from './chessApi.js';
 import { getMyUserId } from './storage.js';
-import { escapeHtml, parseOpeningFromPgn, isWhitePlayer, classifyGameResult, countMovesFromPgn } from './utils.js';
+import { escapeHtml, parseOpeningFromPgn, isWhitePlayer, classifyGameResult } from './utils.js';
 import { t } from './strings.js';
+
+// 통계 bucket 분류용 가벼운 수 카운트.
+// utils.countMovesFromPgn은 chess.js로 PGN을 매번 파싱(100게임 × ~5ms)하는데,
+// bucket 경계(20/40/60수)에선 ±1 오차가 분류에 영향 없으므로 정규식 fallback으로 충분하다.
+// 1) [PlyCount "..."] 헤더가 있으면 즉시 반환 (가장 빠름)
+// 2) 헤더/시계 주석 제거 후 "1."/"2." 매치 카운트 — "1..." 흑 표기는 lookahead로 제외
+function countMovesFromPgnFast(pgn) {
+    if (!pgn) return 0;
+    const plyHeader = pgn.match(/\[PlyCount "(\d+)"\]/)?.[1];
+    if (plyHeader) return Math.ceil(parseInt(plyHeader, 10) / 2);
+    const body = pgn
+        .replace(/^\[[^\]]*\]\s*\n?/gm, '')
+        .replace(/\{[^}]*\}/g, '');
+    const matches = body.match(/\d+\.(?!\.)/g);
+    return matches ? matches.length : 0;
+}
 
 const INSIGHTS_GAMES_LIMIT = 100;
 
@@ -38,7 +54,7 @@ function hourBucket(endTime) {
 }
 
 function moveCountBucket(pgn) {
-    const moves = countMovesFromPgn(pgn);
+    const moves = countMovesFromPgnFast(pgn);
     if (moves === 0) return null;
     if (moves < 20) return 'short';
     if (moves < 40) return 'medium';
@@ -300,6 +316,9 @@ export async function loadInsightsData() {
 
     try {
         const games = await fetchRecentGames(username, INSIGHTS_GAMES_LIMIT);
+        // 무거운 동기 계산(100게임 × chess.js PGN 파싱)을 다음 frame으로 미뤄 화면 전환 잔렉 제거.
+        // rAF 한 번 + setTimeout 0 = 화면이 그려진 뒤 계산 시작 → 사용자 체감상 부드러운 전환 + 짧은 스켈레톤.
+        await new Promise(resolve => requestAnimationFrame(() => setTimeout(resolve, 0)));
         const insights = computeInsights(games, username.toLowerCase());
         renderInsights(insights);
         if (insightsSubtitle) {

@@ -108,11 +108,13 @@
                         <span id="homeRecentLabel" class="home-section-label hidden"></span>
                         <button id="backToMyGamesBtn" class="home-recent-back hidden" data-i18n="home_back_to_my_games">내 게임으로 돌아가기</button>
                     </div>
+                    <div id="homeTimeFilterBar" class="pill-filter-bar pill-filter-bar--home">
+                        <button type="button" class="pill-btn" data-tc="all" data-i18n="saved_games_filter_all">전체</button>
+                        <button type="button" class="pill-btn selected" data-tc="rapid" data-i18n="home_filter_rapid">래피드</button>
+                        <button type="button" class="pill-btn" data-tc="blitz" data-i18n="home_filter_blitz">블리츠</button>
+                        <button type="button" class="pill-btn" data-tc="bullet" data-i18n="home_filter_bullet">불렛</button>
+                    </div>
                     <div id="homeRecentList" class="recent-games-scroll"></div>
-                </div>
-
-                <div class="home-secondary-links">
-                    <button id="feedbackBtn" class="home-link-btn" data-i18n="home_feedback">피드백</button>
                 </div>
 
                 <div class="home-ad-space"></div>
@@ -423,15 +425,19 @@
                     <span class="settings-hint" data-i18n="settings_depth_hint">모바일: 12 이하, PC: 16 이하 권장. 높을수록 정확하지만 느려집니다.</span>
                 </div>
 
-                <div class="form-group settings-row">
-                    <div class="settings-row-inner">
-                        <span class="settings-label">Last GitHub push</span>
-                        <span id="lastPushTime" class="settings-hint" style="margin:0;">—</span>
-                    </div>
+                <div class="form-group settings-row settings-row--action">
+                    <button id="settingsFeedbackBtn" class="settings-feedback-btn" data-i18n="home_feedback">피드백</button>
                 </div>
 
                 <div class="form-group settings-row settings-row--action">
                     <button id="logoutBtn" class="settings-logout-btn" data-i18n="settings_logout">로그아웃</button>
+                </div>
+
+                <div class="form-group settings-row settings-row--meta">
+                    <div class="settings-row-inner">
+                        <span class="settings-label">Last GitHub push</span>
+                        <span id="lastPushTime" class="settings-hint settings-hint--inline">—</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -508,7 +514,8 @@
             <div class="moves-overlay-sheet">
                 <div class="moves-overlay-header">
                     <span class="moves-overlay-title" data-i18n="moves">기보</span>
-                    <button id="copyPgnBtn" class="moves-overlay-download"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> <span data-i18n="copyPgn">PGN 복사</span></button>
+                    <button id="movesOverlayReviewBtn" class="moves-overlay-action hidden"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> <span data-i18n="review_view">리뷰 보기</span></button>
+                    <button id="copyPgnBtn" class="moves-overlay-action"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> <span data-i18n="copyPgn">PGN 복사</span></button>
                     <button id="movesOverlayCloseBtn" class="moves-overlay-close">✕</button>
                 </div>
                 <div class="moves-container">
