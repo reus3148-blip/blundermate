@@ -272,6 +272,69 @@ export function parseAndLoadPgn(chessInstance, pgnText) {
     return { success: false };
 }
 
+// ──────────────────────────────────────────────────────────────────
+// Clock annotations from chess.com PGN
+// ──────────────────────────────────────────────────────────────────
+// chess.com의 PGN은 각 수 뒤에 {[%clk H:MM:SS.s]}로 그 수를 둔 직후의 본인 잔여 시계를 기록한다.
+// 사고 시간(timeSpent) = prev(같은 색)Clock - clockAfter + increment.
+// 첫 수의 prev는 TimeControl 헤더의 base time.
+// 클럭 주석 자체가 없는 게임(daily/correspondence 등)은 null 반환 — 통계에서 스킵.
+
+// PGN 본문에서 모든 클럭을 ply 순서대로 초 단위 배열로 반환.
+export function extractClocks(pgn) {
+    if (!pgn) return [];
+    const clocks = [];
+    const regex = /\{\[%clk\s+(\d+):(\d+):(\d+(?:\.\d+)?)\]\}/g;
+    let m;
+    while ((m = regex.exec(pgn)) !== null) {
+        clocks.push(parseInt(m[1], 10) * 3600 + parseInt(m[2], 10) * 60 + parseFloat(m[3]));
+    }
+    return clocks;
+}
+
+// "600+5" / "300" / "1/259200" (correspondence) 등에서 base 초 추출.
+// correspondence(1/...)나 0이면 null — 통계 의미 없음.
+export function parseInitialTime(tc) {
+    if (!tc) return null;
+    const str = String(tc);
+    if (str.includes('/')) return null; // daily/correspondence
+    const base = Number(str.split('+')[0]);
+    return Number.isFinite(base) && base > 0 ? base : null;
+}
+
+// "600+5" → 5, "300" → 0
+export function parseIncrement(tc) {
+    if (!tc) return 0;
+    const m = String(tc).match(/\+(\d+(?:\.\d+)?)/);
+    return m ? Number(m[1]) || 0 : 0;
+}
+
+// 사용자 색의 모든 수에 대해 { userMoveNumber, clockBefore, clockAfter, timeSpent } 반환.
+// 클럭 주석/타임컨트롤 없으면 null. timeSpent는 음수면 0으로 클램프(프리무브 등).
+export function extractMoveTimesForUser(pgn, isUserWhite) {
+    const clocks = extractClocks(pgn);
+    if (clocks.length === 0) return null;
+    const tcMatch = pgn && pgn.match(/\[TimeControl\s+"([^"]+)"\]/);
+    if (!tcMatch) return null;
+    const initialTime = parseInitialTime(tcMatch[1]);
+    if (initialTime == null) return null;
+    const increment = parseIncrement(tcMatch[1]);
+    const out = [];
+    const startPly = isUserWhite ? 0 : 1;
+    for (let i = startPly; i < clocks.length; i += 2) {
+        const clockAfter = clocks[i];
+        const clockBefore = i >= 2 ? clocks[i - 2] : initialTime;
+        const timeSpent = Math.max(0, clockBefore - clockAfter + increment);
+        out.push({
+            userMoveNumber: Math.floor(i / 2) + 1,
+            clockBefore,
+            clockAfter,
+            timeSpent,
+        });
+    }
+    return out;
+}
+
 export function formatTimeControl(tc) {
     const str = String(tc);
     if (str.includes('+')) {
@@ -300,7 +363,7 @@ export function formatRelativeDate(dateStr, strings) {
     return d.toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' });
 }
 
-const TIERS = [
+export const TIERS = [
     { key: 'pawn',    min: 0,    glyph: '\u265F' },
     { key: 'knight',  min: 400,  glyph: '\u265E' },
     { key: 'bishop',  min: 700,  glyph: '\u265D' },

@@ -90,7 +90,7 @@
                         <div class="home-profile-info">
                             <div id="profileName" class="home-profile-name"></div>
                             <div class="home-profile-meta">
-                                <span class="home-profile-tier" id="profileTier"></span>
+                                <button type="button" class="home-profile-tier" id="profileTier" aria-label="랭크 시스템 보기"></button>
                                 <span class="home-profile-rapid" id="profileRapid">—</span>
                             </div>
                         </div>
@@ -116,8 +116,6 @@
                     </div>
                     <div id="homeRecentList" class="recent-games-scroll"></div>
                 </div>
-
-                <div class="home-ad-space"></div>
             </div>
         </div>
 
@@ -357,6 +355,18 @@
                         <button id="fetchBtn" class="home-submit-btn" title="게임 불러오기">→</button>
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <!-- Tier Info Modal -->
+        <div id="tierModal" class="modal-overlay hidden">
+            <div class="modal-content modal-content--narrow">
+                <div class="modal-header">
+                    <h2 data-i18n="tier_modal_title">랭크 시스템</h2>
+                    <button id="closeTierModalBtn" class="modal-close-btn">✕</button>
+                </div>
+                <p class="tier-modal-intro" data-i18n="tier_modal_intro">Blundermate에서 사용하는 랭크 체계예요. Chess.com 래피드 레이팅 기준입니다.</p>
+                <ul class="tier-list" id="tierList"></ul>
             </div>
         </div>
 

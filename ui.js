@@ -479,33 +479,11 @@ export function renderStatsCardHtml(analysisQueue, isUserWhite = true) {
  *
  * 구조 (위→아래):
  *   1. 게임 헤더 카드 (오프닝 / vs / 메타+결과)
- *   2. Hero 정확도 카드 (큰 숫자 + 상대 비교)
- *   3. 차트 카드 (수별 평가 그래프)
- *   4. 통계 표 카드 (수 분류 — renderStatsCardHtml 활용)
- *   5. CTA 버튼 (#reviewStartBtn — 핸들러는 호출자가 와이어링)
+ *   2. 차트 카드 (수별 평가 그래프)
+ *   3. 통계 표 카드 (정확도 + 수 분류 — renderStatsCardHtml 활용)
+ *   4. CTA 버튼 (#reviewStartBtn — 핸들러는 호출자가 와이어링)
  */
 export function renderReviewReport({ analysisQueue, isUserWhite, gameInfo }) {
-    const userAcc = computePlayerAccuracy(analysisQueue, isUserWhite);
-    const oppAcc = computePlayerAccuracy(analysisQueue, !isUserWhite);
-    const fmtAcc = (a) => a === null ? '—' : a.toFixed(1) + '%';
-
-    // 정확도 색 매핑 (90+ best, 70~89 기본, 50~69 inaccuracy, <50 blunder)
-    let accColor = 'var(--tx)';
-    if (userAcc !== null) {
-        if (userAcc >= 90) accColor = 'var(--best)';
-        else if (userAcc >= 50 && userAcc < 70) accColor = 'var(--inaccuracy)';
-        else if (userAcc < 50) accColor = 'var(--blunder)';
-    }
-
-    // 상대 대비 차이 (양수=내가 더 잘함, 음수=상대가 더 잘함)
-    let deltaHtml = '';
-    if (userAcc !== null && oppAcc !== null) {
-        const diff = userAcc - oppAcc;
-        const icon = diff >= 0 ? '▲' : '▼';
-        const cls = diff >= 0 ? 'is-up' : 'is-down';
-        deltaHtml = `<span class="review-hero-delta ${cls}">${icon}</span>`;
-    }
-
     const graphSvg = buildSummaryGraphSvgHtml(analysisQueue, isUserWhite)
         || `<div class="summary-empty">${escapeHtml(t('report_empty'))}</div>`;
 
@@ -528,16 +506,6 @@ export function renderReviewReport({ analysisQueue, isUserWhite, gameInfo }) {
                 ${openingLine}
                 ${gameInfo.title ? `<div class="review-header-title">${escapeHtml(gameInfo.title)}</div>` : ''}
                 ${metaWithResult ? `<div class="review-header-meta ${resultClass}">${escapeHtml(metaWithResult)}</div>` : ''}
-            </div>
-
-            <div class="review-card review-hero-card">
-                <div class="review-card-title">${escapeHtml(t('review_accuracy_yours'))}</div>
-                <div class="review-hero-value" style="color:${accColor};">${fmtAcc(userAcc)}</div>
-                <div class="review-hero-compare">
-                    <span class="review-hero-compare-label">${escapeHtml(t('review_accuracy_opponent'))}</span>
-                    <span class="review-hero-compare-value">${fmtAcc(oppAcc)}</span>
-                    ${deltaHtml}
-                </div>
             </div>
 
             <div class="review-card review-chart-card">
