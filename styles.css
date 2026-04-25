@@ -258,36 +258,6 @@ body {
 
 .home-submit-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
-/* ==========================================
-   Home View: Secondary Links
-   ========================================== */
-.home-secondary-links {
-    display: flex;
-    flex-direction: row;
-    justify-content: center;
-    align-items: center;
-    flex-wrap: wrap;
-    flex-shrink: 0;
-    gap: 8px 14px;
-    margin-top: 14px;
-    padding: 0 16px;
-}
-
-.home-link-btn {
-    background: none;
-    border: none;
-    font-size: 12px;
-    color: var(--tx3);
-    text-decoration: underline;
-    text-underline-offset: 3px;
-    cursor: pointer;
-    padding: 8px 4px;
-    font-family: inherit;
-    transition: color 0.15s ease;
-}
-
-.home-link-btn:hover { color: var(--tx2); }
-
 .home-ad-space {
     height: 60px;
     flex-shrink: 0;
@@ -1361,6 +1331,11 @@ th {
     flex-shrink: 0;
 }
 
+/* 홈 시간대 필터: homeRecentSection이 이미 좌우 16px 패딩을 가지므로 좌우 0. */
+.pill-filter-bar--home {
+    padding: 4px 0 10px;
+}
+
 .pill-btn {
     flex-shrink: 0;
     height: 32px;
@@ -1744,34 +1719,60 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
 
 .settings-row {
     border-bottom: 1px solid var(--brd);
-    margin-top: 1rem;
+    margin-top: 0.75rem;
 }
 
 .settings-row-inner {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    height: 52px;
+    height: 44px;
 }
 
 .settings-label {
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 500;
     color: var(--tx);
 }
 
 .settings-hint {
-    font-size: 12px;
+    font-size: 11px;
     color: var(--tx2);
     margin-top: 2px;
     display: block;
-    line-height: 1.4;
+    line-height: 1.5;
     padding-bottom: 8px;
+}
+/* 인라인 hint (예: Last GitHub push 시간) — 행 안에서 우측 정렬, 별도 padding 없이 */
+.settings-hint--inline {
+    margin: 0;
+    padding-bottom: 0;
+    display: inline;
+    color: var(--tx3);
+    font-family: 'IBM Plex Mono', 'SF Mono', monospace;
 }
 
 .settings-row--action {
     border-bottom: none;
+    margin-top: 1.25rem;
+}
+.settings-row--action + .settings-row--action {
+    margin-top: 0.5rem;
+}
+
+/* 메타 행: 액션 버튼 아래 작은 정보(예: Last GitHub push). 시각적 구분 위해 위쪽 보더만. */
+.settings-row--meta {
     margin-top: 1.5rem;
+    border-bottom: none;
+    border-top: 1px solid var(--brd);
+}
+.settings-row--meta .settings-row-inner {
+    height: 36px;
+}
+.settings-row--meta .settings-label {
+    font-size: 11px;
+    color: var(--tx3);
+    font-weight: 500;
 }
 
 .settings-logout-btn {
@@ -1779,8 +1780,8 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     background: transparent;
     border: 1px solid var(--brd);
     color: var(--blunder);
-    padding: 12px;
-    font-size: 14px;
+    padding: 10px;
+    font-size: 13px;
     font-weight: 500;
     border-radius: 8px;
     cursor: pointer;
@@ -1788,6 +1789,22 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
 }
 .settings-logout-btn:hover {
     background: rgba(154, 58, 42, 0.08);
+}
+
+.settings-feedback-btn {
+    width: 100%;
+    background: transparent;
+    border: 1px solid var(--brd);
+    color: var(--tx);
+    padding: 10px;
+    font-size: 13px;
+    font-weight: 500;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+.settings-feedback-btn:hover {
+    background: var(--bg-elevated);
 }
 
 .lang-toggle {
@@ -2038,7 +2055,7 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
 }
 .moves-overlay-close:hover { color: var(--tx); }
 
-.moves-overlay-download {
+.moves-overlay-action {
     background: none;
     border: none;
     color: var(--ac);
@@ -2046,10 +2063,13 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     font-weight: 600;
     cursor: pointer;
     padding: 0.25rem 0.5rem;
-    margin-left: auto;
     font-family: inherit;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
 }
-.moves-overlay-download:hover { opacity: 0.75; }
+.moves-overlay-action:first-of-type { margin-left: auto; }
+.moves-overlay-action:hover { opacity: 0.75; }
 
 .moves-overlay .moves-container {
     overflow-y: auto;
@@ -2133,7 +2153,7 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
 
 /* Profile Card (Apple/Notion soft surface — no border, large radius) */
 .home-profile-card {
-    margin: 4px 16px 16px;
+    margin: 4px 16px 22px;
     padding: 18px 20px 16px;
     background: var(--bg-surface);
     border-radius: 18px;
@@ -2575,33 +2595,38 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
 .vault-detail-delete-btn:active { opacity: 0.7; }
 
 /* ==========================================
-   Analysis Summary View (0수 = 시작 포지션)
-   체스보드 자리를 그래프 + 통계 표로 교체. 패널엔 미리보기 카드 표시.
+   Analysis Review View — 분석 완료 후 리포트 화면
+   - 5단계 카드 (헤더 / Hero 정확도 / 차트 / 통계 / CTA) 자연 흐름
+   - 보드 자리(board-wrapper) 전체를 리포트 영역으로 사용. 중간바/패널/상태바 숨김
+   - 보드 위치 이동 시 자동 이탈
    ========================================== */
 #summaryGraph {
     display: none;
 }
 
-/* 요약 모드: 보드 자리에 분석 콘텐츠 (그래프 + 통계 표), 패널은 미리보기 화면처럼 카드 보이기. */
-#analysisView.view-summary #boardContainer { display: none; }
-#analysisView.view-summary #summaryGraph { display: flex; }
-/* 그래프를 가로 풀너비로 (board-wrapper의 좌우 패딩이 막고 있어서 풀너비가 안 됨). */
-#analysisView.view-summary .board-wrapper {
-    padding-left: 0;
-    padding-right: 0;
+#analysisView.view-review #boardContainer,
+#analysisView.view-review .unified-controls,
+#analysisView.view-review .panel-content,
+#analysisView.view-review .status-bar {
+    display: none;
 }
 
-/* 0수 상태에서 "현재 수" 관련 UI 숨김 (‹, ›, 수 분류, 승률, 저장, Engine⇄AI 토글).
-   visibility를 쓰는 이유: 레이아웃(바 높이/간격)이 튀지 않게 하기 위해. */
-#analysisView.view-summary #prevMoveBtn,
-#analysisView.view-summary #nextMoveBtn,
-#analysisView.view-summary #saveMoveBtn,
-#analysisView.view-summary #tabToggleBtn,
-#analysisView.view-summary #moveClassLabel,
-#analysisView.view-summary #winChanceDisplay,
-#analysisView.view-summary .ctrl-center .bar-separator {
-    visibility: hidden;
-    pointer-events: none;
+/* 리포트 영역 = board-wrapper 전체. 카드가 길면 자연 스크롤.
+   bottom-nav(56px)와 safe-area를 가리지 않도록 padding-bottom 확보. */
+#analysisView.view-review .board-wrapper {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+    padding: 0 0 calc(56px + env(safe-area-inset-bottom));
+    align-items: stretch;
+    justify-content: flex-start;
+}
+
+#analysisView.view-review #summaryGraph {
+    display: flex;
+    width: 100%;
 }
 
 /* 분석 로딩 상태: 중간 바에 "로딩중입니다..." 노출, 보드 위 영역은 빈 보드만,
@@ -2626,59 +2651,158 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     pointer-events: none;
 }
 
-/* 보드 자리: 그래프 + 통계 표 컨테이너.
-   max-width와 aspect-ratio를 board-container와 동일하게 잡아 중간 바 위치가 미리보기/분석 화면과 일치하도록 한다. */
+/* 리포트 컨테이너 — 5단계 카드를 세로로 쌓는다. 좌우 12px gutter로 모바일 호흡. */
 .summary-graph {
     width: 100%;
-    max-width: calc(100dvh - 259px);
-    aspect-ratio: 1 / 1;
     flex-shrink: 0;
-    padding: 0;
     box-sizing: border-box;
     flex-direction: column;
-    gap: 8px;
 }
-/* 그래프 SVG: 체스닷컴 모바일 리뷰 그래프처럼 매우 납작. 가로 풀너비. */
+
+.review-report {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 12px 12px 24px;
+    box-sizing: border-box;
+}
+
+/* 카드 공통 — Notion/Vercel 톤의 절제된 카드. 4개 카드 모두 통일. */
+.review-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--brd);
+    border-radius: 10px;
+    padding: 16px 18px;
+    box-sizing: border-box;
+}
+.review-card-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--tx3);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 10px;
+}
+
+/* 1. 헤더 카드 */
+.review-header-card {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 14px 18px;
+}
+.review-header-opening {
+    font-size: 13px;
+    color: var(--tx2);
+    font-weight: 500;
+}
+.review-header-eco {
+    color: var(--tx3);
+    font-family: 'IBM Plex Mono', 'SF Mono', monospace;
+    font-size: 12px;
+}
+.review-header-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--tx);
+    line-height: 1.3;
+    word-break: break-word;
+}
+.review-header-meta {
+    font-size: 12px;
+    color: var(--tx3);
+    margin-top: 2px;
+}
+.review-header-meta.is-win  { color: var(--best); }
+.review-header-meta.is-loss { color: var(--blunder); }
+.review-header-meta.is-draw { color: var(--tx2); }
+
+/* 2. Hero 정확도 카드 */
+.review-hero-card {
+    padding: 18px 18px 16px;
+}
+.review-hero-value {
+    font-size: 56px;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    margin-top: 4px;
+    margin-bottom: 12px;
+}
+.review-hero-compare {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--tx2);
+}
+.review-hero-compare-label {
+    color: var(--tx3);
+}
+.review-hero-compare-value {
+    color: var(--tx);
+    font-weight: 600;
+    font-family: 'IBM Plex Mono', 'SF Mono', monospace;
+}
+.review-hero-delta {
+    font-size: 11px;
+    margin-left: 2px;
+}
+.review-hero-delta.is-up   { color: var(--best); }
+.review-hero-delta.is-down { color: var(--blunder); }
+
+/* 3. 차트 카드 */
+.review-chart-card {
+    padding: 14px 14px 10px;
+}
+.review-chart-svg-wrap {
+    width: 100%;
+}
+
+/* 그래프 SVG (기존 클래스 — 카드 안에서 사용). 카드 안이라 background 제거. */
 .summary-graph-svg {
     width: 100%;
-    aspect-ratio: 16 / 3;
+    aspect-ratio: 16 / 4;
     display: block;
-    background: var(--bg-surface);
-    border-bottom: 1px solid var(--brd);
     flex-shrink: 0;
 }
 .summary-graph-tick {
     font-family: 'IBM Plex Mono', 'SF Mono', monospace;
-    font-size: 7px;
+    font-size: 8px;
     fill: var(--tx3);
-}
-
-/* 통계 표는 양옆 여백을 살짝 줘서 그래프 풀너비와 시각적 대비 */
-.summary-graph .review-stats-card {
-    margin: 0 12px;
 }
 .summary-empty {
     display: flex;
     align-items: center;
     justify-content: center;
     width: 100%;
-    height: 100%;
-    background: var(--bg-surface);
-    border: 1px solid var(--brd);
-    border-radius: 8px;
+    min-height: 80px;
     color: var(--tx3);
     font-size: 12px;
 }
 
-/* 통합 카드: 정확도 + 수 분류가 하나의 표로. 백/흑 축 공유. */
+/* 4. 통계 카드 — 기존 review-stats-card는 review-card 베이스를 따라간다. */
 .review-stats-card {
-    background: var(--bg-surface);
-    border: 1px solid var(--brd);
-    border-radius: 8px;
-    padding: 6px 12px;
-    max-width: 100%;
-    box-sizing: border-box;
+    /* review-card 공통 스타일 사용 — 별도 background/border 정의 제거 */
 }
+
+/* 5. CTA — 풀너비 앰버 버튼. 카드 아래 마지막 자리. */
+.review-cta-btn {
+    width: 100%;
+    height: 48px;
+    border: none;
+    border-radius: 10px;
+    background: var(--ac);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    margin-top: 4px;
+    transition: opacity 0.15s ease;
+}
+.review-cta-btn:active { opacity: 0.85; }
+.review-cta-btn:hover { opacity: 0.92; }
 .review-stats-table {
     width: 100%;
     border-collapse: collapse;
@@ -2686,10 +2810,14 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
 }
 .review-stats-table th,
 .review-stats-table td {
-    padding: 3px 0;
-    font-size: 12px;
+    padding: 8px 8px;
+    font-size: 13px;
     color: var(--tx);
     vertical-align: middle;
+}
+.review-stats-table th:first-child,
+.review-stats-table td:first-child {
+    padding-left: 0;
 }
 .review-stats-table thead th {
     font-weight: 700;
@@ -2697,32 +2825,58 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     color: var(--tx3);
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    text-align: right;
-    padding-bottom: 3px;
+    text-align: center;
+    padding-bottom: 8px;
     border-bottom: 1px solid var(--brd);
 }
 .review-stats-table thead th:first-child {
     text-align: left;
 }
+/* 백/흑 헤더: "백 (나)" 식으로 한 줄에 배지까지. */
+.review-stats-side {
+    display: table-cell;
+}
+.review-stats-side-name {
+    display: inline-block;
+    vertical-align: middle;
+}
+.review-stats-you {
+    display: inline-block;
+    margin-left: 5px;
+    padding: 1px 5px;
+    background: var(--ac-lo);
+    color: var(--ac);
+    border-radius: 3px;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    vertical-align: middle;
+    line-height: 1.4;
+}
 
-/* 정확도 행: 숫자를 약간 키워서 강조. */
+/* 본인 진영 컬럼: 헤더 텍스트 색 + (나) 배지로만 표시.
+   셀 배경은 칠하지 않는다 — 셀 padding(좌 16px)까지 색이 들어가 label 컬럼과
+   사이에 어색한 색 띠가 생기고 행마다 두께가 들쭉날쭉해 보였던 문제 회피. */
+.review-stats-table th.is-you .review-stats-side-name { color: var(--ac); }
+
+/* 정확도 행: 숫자를 약간 키워서 강조. 패딩은 td 공통 좌측 16px를 유지하면서 상하만 키운다. */
 .review-stats-accuracy td {
-    padding: 5px 0;
+    padding-top: 11px;
+    padding-bottom: 11px;
     font-weight: 700;
 }
 .review-stats-num-strong {
     font-family: 'IBM Plex Mono', 'SF Mono', monospace;
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 700;
     color: var(--tx);
-    text-align: right;
-    width: 64px;
+    text-align: center;
 }
 
-/* 정확도와 수 분류 첫 행 사이 구분선. */
+/* 정확도와 수 분류 첫 행 사이 구분선 — Hero 영향과 같이 1px 분리. */
 .review-stats-class-first td {
     border-top: 1px solid var(--brd);
-    padding-top: 5px;
+    padding-top: 11px;
 }
 
 .review-stats-label {
@@ -2733,19 +2887,18 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     white-space: nowrap;
 }
 .review-stats-dot {
-    width: 8px;
-    height: 8px;
+    width: 11px;
+    height: 11px;
     border-radius: 50%;
     display: inline-block;
     flex-shrink: 0;
 }
 .review-stats-num {
     font-family: 'IBM Plex Mono', 'SF Mono', monospace;
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 500;
     color: var(--tx);
-    text-align: right;
-    width: 64px;
+    text-align: center;
 }
 
 /* ── Insights (통계) ─────────────────────────────────────────── */

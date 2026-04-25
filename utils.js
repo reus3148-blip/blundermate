@@ -321,11 +321,18 @@ export function classifyGameResult(game, userLower) {
     return 'draw';
 }
 
-// PGN의 수 번호를 정확히 계산. 시계 주석({[%clk 0:09:59.9]})의 소수점이
-// /\d+\./에 잘못 매치되어 blitz/bullet 게임 길이가 부풀려지는 것을 방지하기 위해
-// {} 주석을 먼저 제거한다.
+// PGN의 full move number(백+흑 한 쌍을 1수)를 chess.js로 정확히 계산한다.
+// 정규식 방식은 PGN 헤더의 날짜 점([Date "2024.10.07"] 등)이나 흑 수 표기(1... e5)에
+// 잘못 매치돼 카운트가 부풀려지는 문제가 있어, chess.js 파싱으로 통일했다.
+// 잘못된 PGN이면 0을 반환한다.
 export function countMovesFromPgn(pgn) {
     if (!pgn) return 0;
-    const cleaned = pgn.replace(/\{[^}]*\}/g, '');
-    return (cleaned.match(/\d+\./g) || []).length;
+    try {
+        const c = new Chess();
+        if (!c.load_pgn(pgn)) return 0;
+        const ply = c.history().length;
+        return Math.ceil(ply / 2);
+    } catch {
+        return 0;
+    }
 }

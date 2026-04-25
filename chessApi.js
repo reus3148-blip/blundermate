@@ -1,6 +1,9 @@
-const RECENT_GAMES_LIMIT = 30;
+const RECENT_GAMES_LIMIT = 100;
 let cachedProfile = null;
 let cachedProfileUser = null;
+// 게임 목록 캐시. 홈(필터별)과 insights(통계)가 같은 데이터 공유.
+let cachedGames = null;
+let cachedGamesUser = null;
 
 const FETCH_OPTS = { method: 'GET', mode: 'cors', headers: { 'Accept': 'application/json' } };
 
@@ -43,6 +46,12 @@ export async function fetchPlayerProfile(username) {
  */
 export async function fetchRecentGames(username, limit = RECENT_GAMES_LIMIT) {
     if (!username) throw new Error('Username is required.');
+
+    // 캐시 hit: 같은 유저 + 충분한 양 보유 시 재사용 (홈 필터링과 insights 양쪽 활용).
+    const lowerUser = username.trim().toLowerCase();
+    if (cachedGamesUser === lowerUser && cachedGames && cachedGames.length >= limit) {
+        return cachedGames.slice(0, limit);
+    }
 
     // 공백 및 특수문자로 인한 URL 파싱 오류(Load failed) 방지
     const safeUsername = encodeURIComponent(username.trim());
@@ -91,7 +100,10 @@ export async function fetchRecentGames(username, limit = RECENT_GAMES_LIMIT) {
         }
 
         games.sort((a, b) => (b.end_time || 0) - (a.end_time || 0));
-        return games.slice(0, limit);
+        const sliced = games.slice(0, limit);
+        cachedGames = sliced;
+        cachedGamesUser = lowerUser;
+        return sliced;
     } catch (error) {
         console.error("Chess.com API Fetch Error:", error);
         // 네트워크 에러(Load failed)인지 API 에러인지 명확히 구분하여 사용자 친화적으로 반환
