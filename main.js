@@ -1,10 +1,10 @@
 import { Chessground } from 'https://cdnjs.cloudflare.com/ajax/libs/chessground/9.0.0/chessground.min.js';
 import { fetchRecentGames, fetchPlayerProfile } from './chessApi.js';
 import {
-    initAnalysis, getEngine, isEngineReady, getDepth, setDepth,
-    analysisQueue, currentAnalysisIndex, setQueue, setCurrentIndex, advanceCurrentIndex,
-    isRunning, isAwaitingRestart, scheduleRestart, consumePendingRestart,
-    processNext, markIdle, stopAndClear,
+    initAnalysis, getEngine, getDepth, setDepth,
+    analysisQueue, setQueue,
+    isRunning, isAwaitingRestart, scheduleRestart,
+    runBatch, stopAndClear,
     buildQueueFromPgn, buildSinglePositionQueue,
 } from './analysis.js';
 import {
@@ -17,7 +17,7 @@ import {
     setAppMode, setIsPreviewMode, setIsReviewMode, clearExplorationEngineLines, setExplorationLineAt,
     setSimulationQueue, pushSimulationQueueItem, setSimulationIndex,
 } from './modes.js';
-import { parseEvalData, getDests, convertPvToSan, classifyMove, parseAndLoadPgn, isValidFen, escapeHtml, parseOpeningFromPgn, formatTimeControl, formatRelativeDate, getTier, TIERS, isWhitePlayer, classifyGameResult, countMovesFromPgn } from './utils.js';
+import { parseEvalData, getDests, convertPvToSan, parseAndLoadPgn, isValidFen, escapeHtml, parseOpeningFromPgn, formatTimeControl, formatRelativeDate, getTier, TIERS, isWhitePlayer, classifyGameResult, countMovesFromPgn } from './utils.js';
 import { renderMovesTable, updateUIWithEval, highlightActiveMove, renderEngineLines, updateTopEvalDisplay, renderReviewReport, buildPreviewCardHtml } from './ui.js';
 import { addVaultItem, getSavedGames, setMyUserId, getMyUserId, ONBOARDING_KEY, COORDS_KEY, EVAL_MODE_KEY } from './storage.js';
 import { initVault, initHomeVaultBadge, isVaultDetailActive, getVaultDetailIndex, setVaultDetailIndex, flipVaultBoard, setVaultCoords, redrawVaultBoard, loadVaultData } from './vault.js';
@@ -28,6 +28,7 @@ import {
     getIsGeminiEnabled, setIsGeminiEnabled, abortPendingGemini,
 } from './gemini.js';
 import { t, setLocale, getLocale } from './strings.js';
+import { pickQuote, quotesReady } from './quotes.js';
 
 // ==========================================
 // 1. DOM Elements
@@ -110,6 +111,12 @@ const inputNextMoveBtn = document.getElementById('inputNextMoveBtn');
 const previewStartBtn = document.getElementById('previewStartBtn');
 const ctrlCenter = document.querySelector('.ctrl-center');
 const analysisLoadingText = document.getElementById('analysisLoadingText');
+const analysisLoadingCard = document.getElementById('analysisLoadingCard');
+const loadingQuoteText = document.getElementById('loadingQuoteText');
+const loadingQuoteAuthor = document.getElementById('loadingQuoteAuthor');
+const loadingQuoteWrap = loadingQuoteText ? loadingQuoteText.parentElement : null;
+const loadingProgressFill = document.getElementById('loadingProgressFill');
+const loadingProgressText = document.getElementById('loadingProgressText');
 
 // Modal Elements
 const saveModal = document.getElementById('saveModal');
@@ -159,8 +166,7 @@ const closeUserSearchBtn = document.getElementById('closeUserSearchBtn');
 // 2. Application State
 // ==========================================
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
-// stockfish, isEngineReady, ANALYSIS_DEPTH, analysisQueue, currentAnalysisIndex,
-// isAnalyzing, isWaitingForStop, pendingQueue, pendingTargetIndex 는 analysis.js로 이전.
+// 엔진/풀 상태(stockfish, _pool, analysisQueue, 배치 라이프사이클)는 analysis.js 모듈에서 관리.
 // chess, cg, currentlyViewedIndex, isUserWhite, persistentShapes 는 board.js로 이전.
 // appMode, explorationChess, explorationEngineLines, simulationQueue, simulationIndex, isPreviewMode 는 modes.js로 이전.
 let currentEval = '';
@@ -234,6 +240,8 @@ function cleanupAnalysis() {
     }
     if (isAnalysisLoading) exitAnalysisLoading();
     stopAndClear();
+    // 분석 중 화면을 떠난 경우 onComplete가 fire되지 않으므로 버튼 상태를 직접 복구.
+    analyzeBtn.disabled = false;
 }
 
 function renderScreen(screen) {
@@ -880,6 +888,15 @@ document.addEventListener('keydown', (e) => {
 if (feedbackBtn) {
     feedbackBtn.addEventListener('click', () => {
         settingsModal.classList.add('hidden');
+        feedbackInput.value = '';
+        feedbackStatusText.textContent = '';
+        feedbackModal.classList.remove('hidden');
+    });
+}
+// 홈 전용 피드백 FAB — 설정 모달을 거치지 않고 바로 피드백 모달을 연다.
+const homeFeedbackFab = document.getElementById('homeFeedbackFab');
+if (homeFeedbackFab) {
+    homeFeedbackFab.addEventListener('click', () => {
         feedbackInput.value = '';
         feedbackStatusText.textContent = '';
         feedbackModal.classList.remove('hidden');
@@ -1589,13 +1606,9 @@ function exitExplorationMode() {
     clearExplorationEngineLines();
     setSimulationQueue([]);
 
-    // 메인 라인 전체 기보 분석이 중단된 상태였다면 재개
-    if (isEngineReady() && currentAnalysisIndex < analysisQueue.length) {
-        processNextInQueue();
-    } else {
-        analysisStatus.className = 'tag engine-ready hidden';
-        analysisStatus.textContent = '';
-    }
+    // 풀 기반 배치는 단일 엔진과 독립적으로 진행되므로 별도 재개 불필요.
+    analysisStatus.className = 'tag engine-ready hidden';
+    analysisStatus.textContent = '';
 }
 
 // ==========================================
@@ -1621,94 +1634,35 @@ async function handleApiFetch() {
 // ==========================================
 // 6. Engine Initialization
 // ==========================================
+// 단일 엔진 콜백 — 탐색(explore) 모드 전용. 배치 분석은 풀(promise 기반)이 별도 처리.
 const engineCallbacks = {
     onError: (e) => {
         console.error("Failed to load Stockfish worker:", e);
     },
-    onReady: () => {
-        if (analysisQueue.length > 0 && !isRunning()) {
-            processNextInQueue();
-        }
-    },
     onEval: (evalData) => {
-        if (appMode === 'explore') {
-            const isBlackToMove = explorationChess.turn() === 'b';
-            const { scoreStr, scoreNum } = parseEvalData(evalData, isBlackToMove);
-
-            const lineIndex = evalData.multipv - 1;
-            const sanPv = convertPvToSan(evalData.pv, explorationChess.fen());
-            const firstUci = evalData.pv ? evalData.pv.split(' ')[0] : '';
-            setExplorationLineAt(lineIndex, { scoreStr, scoreNum, pv: sanPv, uci: firstUci });
-
-            const now = Date.now();
-            if (explorationEngineLines[0] && now - lastEvalRenderTime > EVAL_RENDER_THROTTLE) {
-                lastEvalRenderTime = now;
-                requestAnimationFrame(() => {
-                    renderEngineLines(engineLinesContainer, explorationEngineLines.filter(Boolean), drawEngineArrow, clearEngineArrow, handleEngineLineClick);
-                    updateTopEvalDisplay(explorationEngineLines[0].scoreStr, 'Exploring', isUserWhite);
-                });
-            }
-            return;
-        }
-
-        const isBlackToMove = analysisQueue[currentAnalysisIndex].fen.includes(' b ');
-        const currentMove = analysisQueue[currentAnalysisIndex];
-        if (!currentMove) return; // 비동기 콜백 안전장치
-
+        if (appMode !== 'explore') return;
+        const isBlackToMove = explorationChess.turn() === 'b';
         const { scoreStr, scoreNum } = parseEvalData(evalData, isBlackToMove);
-        
+
         const lineIndex = evalData.multipv - 1;
-        const sanPv = convertPvToSan(evalData.pv, currentMove.fen);
+        const sanPv = convertPvToSan(evalData.pv, explorationChess.fen());
         const firstUci = evalData.pv ? evalData.pv.split(' ')[0] : '';
-        currentMove.engineLines[lineIndex] = { scoreStr, scoreNum, pv: sanPv, uci: firstUci };
-        
-        // Update Main Evaluation from Top Line (MultiPV 1)
-        if (currentMove.engineLines[0]) {
-            currentEval = currentMove.engineLines[0].scoreStr;
-            // 현재 보고 있는 화면이 엔진이 분석 중인 수와 같을 때만 UI 실시간 스로틀링 업데이트
-            const now = Date.now();
-            if (currentlyViewedIndex === currentAnalysisIndex && now - lastEvalRenderTime > EVAL_RENDER_THROTTLE) {
-                lastEvalRenderTime = now;
-                requestAnimationFrame(() => {
-                    renderEngineLines(engineLinesContainer, currentMove.engineLines.filter(Boolean), drawEngineArrow, clearEngineArrow, handleEngineLineClick);
-                    updateTopEvalDisplay(currentEval, currentMove.classification, isUserWhite);
-                });
-            }
+        setExplorationLineAt(lineIndex, { scoreStr, scoreNum, pv: sanPv, uci: firstUci });
+
+        const now = Date.now();
+        if (explorationEngineLines[0] && now - lastEvalRenderTime > EVAL_RENDER_THROTTLE) {
+            lastEvalRenderTime = now;
+            requestAnimationFrame(() => {
+                renderEngineLines(engineLinesContainer, explorationEngineLines.filter(Boolean), drawEngineArrow, clearEngineArrow, handleEngineLineClick);
+                updateTopEvalDisplay(explorationEngineLines[0].scoreStr, 'Exploring', isUserWhite);
+            });
         }
     },
     onBestMove: () => {
-        // 대기 상태인 경우: 이전 분석이 완전히 종료되었음을 확인하고 새 분석 시작
-        if (isAwaitingRestart()) {
-            const restart = consumePendingRestart();
-            if (restart) startNewAnalysis(restart.queue, restart.targetIndex);
-            return;
-        }
-
         if (appMode === 'explore') {
             analysisStatus.className = 'tag engine-ready hidden';
             analysisStatus.textContent = '';
-            return;
         }
-
-        if (!analysisQueue || currentAnalysisIndex >= analysisQueue.length) {
-            markIdle();
-            return;
-        }
-
-        // 기보 분석 판별 로직 호출
-        const classification = classifyMove(currentAnalysisIndex, analysisQueue, isUserWhite);
-        analysisQueue[currentAnalysisIndex].classification = classification;
-
-        updateUIWithEval(currentAnalysisIndex, currentEval, classification);
-        if (currentlyViewedIndex === currentAnalysisIndex) {
-            // 스로틀링으로 인해 생략되었을 수 있는 최종 평가 라인을 확실하게 다시 렌더링
-            renderEngineLines(engineLinesContainer, analysisQueue[currentAnalysisIndex].engineLines.filter(Boolean), drawEngineArrow, clearEngineArrow, handleEngineLineClick);
-            updateTopEvalDisplay(currentEval, classification, isUserWhite);
-            showPieceBadge(currentlyViewedIndex);
-        }
-        advanceCurrentIndex();
-        markIdle();
-        processNextInQueue();
     }
 };
 
@@ -1748,11 +1702,9 @@ function handlePgnReviewStart(e = null, isWhiteGame = null, targetIndex = null, 
         return;
     }
 
-    // Safe Engine Restart Logic — stop은 비동기, 완료 시점은 onBestMove에서 처리.
+    // 안전 재시작: 진행 중 배치를 abort하고, 정리 끝나면 새 배치 시작.
     if (isRunning() || isAwaitingRestart()) {
-        analysisStatus.className = 'tag engine-loading';
-        analysisStatus.textContent = t('analysis_stopping');
-        scheduleRestart(newQueue, targetIndex);
+        scheduleRestart(() => startNewAnalysis(newQueue, targetIndex));
         return;
     }
 
@@ -1774,9 +1726,7 @@ function handleFenReviewStart(fenText, isWhiteGame) {
     const newQueue = buildSinglePositionQueue(fenText);
 
     if (isRunning() || isAwaitingRestart()) {
-        analysisStatus.className = 'tag engine-loading';
-        analysisStatus.textContent = t('analysis_stopping');
-        scheduleRestart(newQueue, 0);
+        scheduleRestart(() => startNewAnalysis(newQueue, 0));
         return;
     }
     startNewAnalysis(newQueue, 0);
@@ -1812,8 +1762,6 @@ function startNewAnalysis(newQueue, targetIndex = null, previewOnly = false) {
         closeMovesOverlay();
     });
 
-    setCurrentIndex(0);
-
     if (analysisQueue.length > 0) {
         clearPersistentShapes();
         const initialFen = chess.header().FEN || 'start';
@@ -1839,9 +1787,8 @@ function startNewAnalysis(newQueue, targetIndex = null, previewOnly = false) {
         updateBoardPosition(targetIndex, analysisQueue[targetIndex].fen);
     }
 
-    if (isEngineReady()) {
-        processNextInQueue();
-    }
+    // runBatch 내부에서 풀 ready를 await하므로 단일 엔진 readiness 체크는 불필요.
+    processNextInQueue();
 }
 
 // ==========================================
@@ -1898,17 +1845,66 @@ function removePreviewControls() {
     previewStartBtn.classList.add('hidden');
 }
 
-// 분석 로딩 상태: 중간 바 중앙에 "로딩중입니다..."만, 그 아래는 전부 숨김.
+// 분석 로딩 상태: 보드 자리에 명언 카드 + 진행 바, 패널/네비/상태바 숨김.
 // view-review와 공존하지 않음 — 완료 시점에 리뷰 뷰가 켜진다.
+const QUOTE_ROTATION_MS = 4500;
+let _quoteRotationTimer = null;
+let _completedCount = 0;
+let _totalCount = 0;
+
+function showCurrentQuote() {
+    const q = pickQuote();
+    if (!q || !loadingQuoteText) return;
+    if (loadingQuoteWrap) loadingQuoteWrap.classList.remove('fading');
+    loadingQuoteText.textContent = q.quote;
+    loadingQuoteAuthor.textContent = q.author;
+}
+
+function rotateQuoteWithFade() {
+    if (!loadingQuoteWrap) return;
+    loadingQuoteWrap.classList.add('fading');
+    setTimeout(() => {
+        showCurrentQuote();
+    }, 380); // CSS transition duration(400ms)와 거의 일치
+}
+
+function setLoadingProgress(completed, total) {
+    if (!loadingProgressFill || !loadingProgressText) return;
+    const pct = total > 0 ? Math.min(100, Math.round((completed / total) * 100)) : 0;
+    loadingProgressFill.style.width = pct + '%';
+    loadingProgressText.textContent = `${pct}%`;
+}
+
 function enterAnalysisLoading() {
     isAnalysisLoading = true;
     analysisView.classList.remove('view-review');
     analysisView.classList.add('analyzing-loading');
+
+    // preview와 동일한 컨트롤 상태 — 중앙 그룹은 숨기되 패널은 게임 헤더 카드로 채움.
     moveClassLabel.classList.add('hidden');
     winChanceDisplay.classList.add('hidden');
     if (ctrlCenterSeparator) ctrlCenterSeparator.classList.add('hidden');
-    analysisLoadingText.classList.remove('hidden');
+    if (ctrlCenter) ctrlCenter.classList.add('hidden');
+    tabToggleBtn.classList.add('hidden');
     analysisStatus.classList.add('hidden');
+
+    // 패널 영역에 게임 헤더(오프닝/이름/날짜) 카드 — preview와 동일한 정보 카드.
+    renderPreviewCard();
+
+    // 카드 진행률 초기화 — 진짜 총 수는 startNewAnalysis가 setQueue 직후 결정.
+    _completedCount = 0;
+    _totalCount = analysisQueue.length;
+    setLoadingProgress(0, _totalCount);
+
+    // 명언 — 데이터 로드가 늦으면 첫 표시는 비어있고 곧 채워짐.
+    if (loadingQuoteWrap) loadingQuoteWrap.classList.remove('fading');
+    quotesReady().then(() => {
+        if (!isAnalysisLoading) return;
+        showCurrentQuote();
+    });
+
+    if (_quoteRotationTimer) clearInterval(_quoteRotationTimer);
+    _quoteRotationTimer = setInterval(rotateQuoteWithFade, QUOTE_ROTATION_MS);
 }
 
 function exitAnalysisLoading() {
@@ -1918,26 +1914,45 @@ function exitAnalysisLoading() {
     moveClassLabel.classList.remove('hidden');
     winChanceDisplay.classList.remove('hidden');
     if (ctrlCenterSeparator) ctrlCenterSeparator.classList.remove('hidden');
-    analysisLoadingText.classList.add('hidden');
+    if (ctrlCenter) ctrlCenter.classList.remove('hidden');
+    tabToggleBtn.classList.remove('hidden');
+
+    if (_quoteRotationTimer) {
+        clearInterval(_quoteRotationTimer);
+        _quoteRotationTimer = null;
+    }
 }
 
 function startAnalysisFromPreview() {
     setIsPreviewMode(false);
     removePreviewControls();
     enterAnalysisLoading();
-
-    if (isEngineReady()) {
-        processNextInQueue();
-    }
+    processNextInQueue();
 }
 
-// analysis.processNext 위임. 큐 라이프사이클은 모듈이 가지고, UI 측 상태 갱신만 콜백으로 받는다.
+// 풀 기반 배치 분석 실행. 진행률은 로딩 카드의 진행 바로 표시.
+// onProgress는 인덱스 순서가 아닌 완료 순서로 호출되므로 단순 카운트만 사용.
 function processNextInQueue() {
-    processNext({
-        onQueueDone: () => {
-            analysisStatus.textContent = '';
-            analysisStatus.className = 'tag hidden';
+    runBatch({
+        isUserWhite,
+        onProgress: () => {
+            _completedCount++;
+            setLoadingProgress(_completedCount, _totalCount);
+        },
+        onError: (err) => {
+            console.error('Engine pool init failed:', err);
             analyzeBtn.disabled = false;
+            exitAnalysisLoading();
+        },
+        onComplete: () => {
+            analyzeBtn.disabled = false;
+            // 모든 포지션 engineLines/classification이 채워진 상태 — 분석 화면 행/UI 일괄 갱신
+            for (let i = 0; i < analysisQueue.length; i++) {
+                const move = analysisQueue[i];
+                if (!move.classification) continue;
+                const topScore = move.engineLines && move.engineLines[0] ? move.engineLines[0].scoreStr : '';
+                updateUIWithEval(i, topScore, move.classification);
+            }
             exitAnalysisLoading();
             // FEN 단일 포지션 분석은 리뷰 화면이 없으므로 그 자리에 머문다
             const isFenOnly = analysisQueue.length === 1 && analysisQueue[0]?.isFenOnly;
@@ -1947,15 +1962,15 @@ function processNextInQueue() {
                 updateBoardPosition(-1, chess.header().FEN || 'start');
                 setIsReviewMode(true);
                 applyReviewView();
+            } else if (analysisQueue[0]) {
+                // FEN 단일: 보드는 그 포지션에 고정, 평가/라인을 패널에 즉시 반영
+                const move = analysisQueue[0];
+                const topScore = move.engineLines && move.engineLines[0] ? move.engineLines[0].scoreStr : '';
+                updateTopEvalDisplay(topScore, move.classification, isUserWhite);
+                if (move.engineLines && move.engineLines.length > 0) {
+                    renderEngineLines(engineLinesContainer, move.engineLines.filter(Boolean), drawEngineArrow, clearEngineArrow, handleEngineLineClick);
+                }
             }
-        },
-        onPositionStart: (idx, pos) => {
-            currentEval = '';
-            analysisStatus.textContent = t('analysis_progress').replace('{current}', idx + 1).replace('{total}', analysisQueue.length);
-            updateBoardPosition(idx, pos.fen);
-        },
-        onWaitingEngine: () => {
-            analysisStatus.textContent = t('analysis_waiting_engine');
         },
     });
 }

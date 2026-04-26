@@ -117,6 +117,12 @@
                     <div id="homeRecentList" class="recent-games-scroll"></div>
                 </div>
             </div>
+            <!-- 피드백 FAB — 홈 전용. 클릭 시 기존 #feedbackModal 재사용. -->
+            <button id="homeFeedbackFab" class="fab-feedback" aria-label="피드백" data-i18n-aria="home_feedback">
+                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                </svg>
+            </button>
         </div>
 
         <!-- Input View -->
@@ -174,6 +180,16 @@
             <div class="board-wrapper">
                 <div id="boardContainer" class="board-container"></div>
                 <div id="summaryGraph" class="summary-graph" aria-hidden="true"></div>
+                <div id="analysisLoadingCard" class="loading-card" aria-hidden="true">
+                    <div class="loading-card-quote-wrap">
+                        <p id="loadingQuoteText" class="loading-card-quote"></p>
+                        <p id="loadingQuoteAuthor" class="loading-card-author"></p>
+                    </div>
+                    <div class="loading-card-progress">
+                        <div class="loading-progress-bar"><div id="loadingProgressFill" class="loading-progress-fill"></div></div>
+                        <span id="loadingProgressText" class="loading-progress-text">0%</span>
+                    </div>
+                </div>
             </div>
 
             <!-- Unified Controls Bar -->
