@@ -150,6 +150,62 @@
   - "King's Indian Defense Advance" → "King's Indian Defense"
 - `styles.css` 빈 룰셋 제거 + 섹션 헤더 정돈
 
+## Phase 19 — 닉네임 로깅 & lowercase 정규화 (`0e7c464`, `5918500`)
+
+- **`api/log-username.js`** — 새 Edge Function. `username_logs` 테이블로 fire-and-forget INSERT (source: onboarding/search/cached, 64자 cap)
+- `main.js`에 `logUsernameToServer` 헬퍼 — localStorage 기반 source+username dedup, 실패 무시. 온보딩 제출 / 유저 검색 / 캐시된 기존 사용자(첫 방문 1회) 3개 지점에서 호출
+- `supabase-username-logs.md`: 테이블 생성 SQL + RLS(anon INSERT only) + 조회 쿼리
+- 기존 `CLAUDE.md`/`README.md`/`CHANGELOG-2026-04-19.md`/`supabase schema reference.md`/`instructionsnow.md` 5개 문서 → `worklog.md` 단일 파일로 통합
+- **잠수함 패치 — 닉네임 lowercase 정규화:** Chess.com이 대소문자 구분하지 않으므로 클라이언트/서버 양쪽 경계에서 lowercase 통일. 같은 유저가 케이스 바꿔 입력해도 vault/saved_games/username_logs가 분산되지 않음
+  - `storage.js` setMyUserId/getMyUserId 양쪽 lowercase, read 시점 자동 정규화 (마이그레이션 불필요)
+  - `api/db.js` select/insert/delete 진입 시점에서 user_id 정규화 (구버전 클라이언트 호환)
+  - `chessApi.js`가 chess.com의 캐노니컬 케이스(`player.username`)를 displayName으로 반환 — 홈 프로필은 lowercase로 잠시 보였다가 displayName으로 갱신
+  - `supabase-username-logs.md`에 일회성 lowercase 마이그레이션 SQL 추가
+
+## Phase 20 — 통계 시간 카드 + 리포트 4단계 + 티어 모달 (`0dbf2fe`)
+
+- **`utils.js` 클럭 파싱 헬퍼** — `extractClocks` / `parseInitialTime` / `parseIncrement` / `extractMoveTimesForUser`. chess.com PGN의 `{[%clk]}` 주석 기반. correspondence/clock 없는 게임은 자동 스킵
+- **통계 시간 카드 4종** (insights.js): 평균 사고 시간 / 단계별(오프닝·미들·엔드) / 시간 압박(잔여 ≤10초 비율) / 즉답 비율(<3초 비율). 분석 화면은 정보 밀도 부담으로 통계에서만 노출
+- **분석 리포트 5 → 4단계 축소:** Hero 정확도 카드 제거 (표에 정확도 행이 이미 있어 중복). 헤더/차트/통계표/CTA만 남김. 관련 i18n 키(`review_accuracy_yours/opponent`), CSS(`.review-hero-*`) 모두 정리
+- 홈 `home-ad-space` placeholder(60px) 제거 → 게임 카드 1개 더 노출
+- **티어 라벨 → 버튼 + 랭크 모달:** 탭 시 TIERS 데이터로 동적 생성, 현재 티어 행은 앰버 배경 강조
+
+## Phase 21 — Stockfish 워커 풀 병렬화 + 로딩 명언 + 피드백 FAB (`1cea959`)
+
+- **`engine.js`에 `EnginePool` 추가** — N개 독립 워커 인스턴스, Hash 32MB 옵션, `parseEvalLine` 공유. 배치 분석을 진짜 병렬로 처리
+- **`analysis.js` 배치 경로 재작성** — 풀 promise 기반으로 전환. `currentAnalysisIndex`/`processNext` 제거, scheduleRestart는 explore 전용으로 축소
+- `main.js`: `engineCallbacks`를 explore 전용으로 축소, 배치 dead writes 청소, `cleanupAnalysis`에 analyzeBtn 활성화 보강
+- **로딩 카드** — 명언 100선(`quotes.js` + `quote.json`) + 진행률 % 바. 0수/preview 골격 유지하며 보드만 카드로 교체
+- **피드백 FAB** — 홈 우측 하단, 기존 피드백 모달 재사용
+
+## Phase 22 — 수 분류 알고리즘 freechess 포팅 + WDL win% 도입
+
+기존 CPL 기반 4-tier(Best/Excellent/Good/Inaccuracy/Mistake/Blunder)를 폐기하고 chess.com review 라벨 체계 미러링 — [WintrCat/freechess](https://github.com/WintrCat/freechess)의 알고리즘 1:1 포팅.
+
+**왜 포팅:** 자체 휴리스틱(WCL 임계 + 1-ply SEE)으로 Brilliant/Great를 만들어보다가 false positive 잡으려고 가드를 5+ 추가한 끝에 whack-a-mole 패턴이 됨. freechess는 chess.com 클론 목표로 reverse-engineered되어 같은 라벨 체계(8 + Forced)에 검증된 임계값을 갖고 있음.
+
+- **`engine.js`** — `setoption UCI_ShowWDL true` + `parseEvalLine`이 `wdl <w> <d> <l>` 토큰 파싱. SF의 NN이 직접 출력하는 W/D/L permille (STM 시점)
+- **`analysis.js`** — engineLine에 `whiteWinPct` 채움 (WDL → 백 시점 win%; 미지원시 cp 시그모이드 fallback). `buildQueueFromPgn`이 `promotion` 필드 캐시(1순위 일치 비교 UCI에 필요)
+- **`utils.js` board 헬퍼 (freechess board.ts 포팅):**
+  - `pieceValues` (king=Infinity, m=0)
+  - `getAttackers(fen, square)` — STM 뒤집어서 캡처 합법수 enumerate + 인접 적 킹 처리(legal capture or 다른 공격자 존재 시 포함)
+  - `getDefenders(fen, square)` — testAttacker 시뮬레이션 후 그 자리 attacker 재검색
+  - `isPieceHanging(lastFen, fen, square)` — 등가 트레이드/룩-마이너 유리 트레이드/폰 디펜더 케이스 모두 처리
+  - 모듈 레벨 chess.js 인스턴스 7개 재사용 — Brilliant 검사가 64칸 × N회 도는 hot path라 alloc 절감
+- **`utils.js` classifyMove (freechess analysis.ts loop body 포팅):**
+  - 1순위 일치 → Best
+  - 미일치 + cp→cp → quadratic CPL 임계 (`getEvaluationLossThreshold`): `0.0002 × prev² + 0.36 × prev + 108` 식. prevEval 클수록 임계 ↑ → 이미 +5 우세 포지션에서 100cp 손실은 거의 페널티 없음 (시그모이드 saturation과 동등)
+  - mate↔cp 4가지 케이스(cp→mate / mate→cp / mate→mate / 같은 mate) 명시적 분기
+  - **Brilliant** — 1순위 일치 + winning AND not winningAnyways(2nd가 700+cp 또는 둘 다 mate면 제외) + 비프로모션 + 체크 안 받는 상태 + 마이너 이상 우리 행잉 기물 존재 + 그 기물이 viably capturable (공격자 핀 없음, 룩 미만이면 mate-in-1 안 만들어짐)
+  - **Great** — 1순위 일치 + 직전 상대 수가 Blunder + 1-2 ≥ 150cp + 둔 자리 안 행잉
+  - **Forced** — 합법수 1개 (engine이 secondLine 못 채움)
+  - **Blunder 디그레이드** — `|absEval| ≥ 600`이면 Good (이미 결판났거나 여전히 winning)
+- **8 + Forced 라벨 체계:** Brilliant(!!) / Great(!) / Best(✦) / Excellent(✓) / Good / Inaccuracy(?!) / Mistake(?) / Blunder(??) / Forced(□)
+  - `--excellent` 컬러 토큰 추가(#6B8C3A)
+  - `BADGE_MAP`에 Excellent ✓ + Forced □ 심볼
+  - i18n KO/EN 키 모두 추가
+- **WDL은 분류엔 안 씀 — 중간 바 win% 표시용으로만.** 정확도 점수도 동일 소스(`getWhiteWinPct` 헬퍼)로 통일해서 표시 ↔ 라벨 모순 제거
+
 ---
 
 ## 핵심 아키텍처 메모
@@ -159,50 +215,65 @@
 | 파일 | 역할 |
 |------|------|
 | `main.js` | 앱 컨트롤러 — 이벤트 와이어링, 뷰 네비(`renderScreen`이 모든 view 표시/숨김 단독 관리), 분석 큐 오케스트레이션 |
-| `analysis.js` | 엔진 + 큐 라이프사이클 (stockfish, analysisQueue, scheduleRestart/consumePendingRestart) |
+| `analysis.js` | 엔진 + 큐 라이프사이클. 배치는 EnginePool 기반 병렬, scheduleRestart는 explore 전용 |
 | `board.js` | 보드 뷰 상태 (chess, cg, currentlyViewedIndex, isUserWhite, persistentShapes) |
 | `modes.js` | 동작 모드 (appMode, exploration, simulation, preview) |
 | `vault.js` | 복기 — 데이터 로드(`loadVaultData`) |
 | `savedGames.js` | 저장 게임 — 데이터 로드 |
 | `insights.js` | 통계 — 색깔/시간제어/오프닝 등 집계 |
 | `ui.js` | DOM 렌더링 (상태 변경 없음) |
-| `utils.js` | 순수 로직 — eval 파싱, 수 분류, FEN/PGN, `rootOpeningName` |
-| `engine.js` | `StockfishEngine` — Web Worker 래퍼, UCI 파싱 |
+| `utils.js` | 순수 로직 — eval 파싱, 수 분류(freechess 포팅), FEN/PGN, `rootOpeningName`, 클럭 파싱, board 헬퍼(getAttackers/getDefenders/isPieceHanging) |
+| `engine.js` | `StockfishEngine` (단일) + `EnginePool` (N워커 병렬), UCI 파싱 |
 | `gemini.js` | `/api/analyze` SSE, 결과 캐시, 자체 상태 |
-| `chessApi.js` | Chess.com REST (캐시 공유) |
-| `storage.js` | localStorage CRUD — **데이터 계층**. Supabase 전환 시 이 파일만 교체 |
+| `chessApi.js` | Chess.com REST (캐시 공유). 캐노니컬 username을 displayName으로 반환 |
+| `storage.js` | localStorage CRUD — **데이터 계층**. user_id는 read/write 양쪽 lowercase 정규화. Supabase 전환 시 이 파일만 교체 |
+| `quotes.js` | 로딩 화면 명언 카드 데이터(100선, `quote.json`) |
 | `api/analyze.js` | Gemini 프록시 (Vercel Edge) |
 | `api/feedback.js` | Supabase PostgREST 피드백 저장 |
-| `api/db.js` | Supabase 데이터 액세스 (user_id 검증) |
+| `api/db.js` | Supabase 데이터 액세스 (user_id lowercase + 검증) |
+| `api/log-username.js` | username_logs fire-and-forget INSERT (anon RLS) |
 
 ### 데이터 흐름
 
 ```
 Input (PGN/Chess.com/board)
   → Chess.js parse → analysisQueue[]
-  → FEN → Stockfish Worker (MultiPV=3, depth=12)
-  → UCI → classifyMove() (Lichess CPL)
+  → FEN → EnginePool 워커 N개 병렬 (MultiPV=3, depth=12, Hash=32MB, UCI_ShowWDL on)
+  → cp/mate/wdl → engineLines (whiteWinPct 채움)
+  → classifyMove() (freechess 포팅 — quadratic CPL + 8 라벨 + Forced)
   → ui.js 렌더
   → 실수 시 /api/analyze SSE → Gemini 해설
   → 해설은 analysisQueue[i].geminiExplanation에 캐시
   → vault/saved games는 localStorage 영속
 ```
 
-### 수 분류 (Lichess CPL)
+### 수 분류 (freechess 포팅 — chess.com review 미러)
 
-Best (엔진 1수) / Excellent (≤10) / Good (≤50) / Inaccuracy (≤100) / Mistake (≤200) / Blunder (>200). eval은 항상 현재 차례 관점, `parseEvalData()`가 부호 전환.
+8 + Forced 라벨: **Brilliant(!!) / Great(!) / Best(✦) / Excellent(✓) / Good / Inaccuracy(?!) / Mistake(?) / Blunder(??) / Forced(□)**.
+
+**핵심 흐름** (`utils.js classifyMove`):
+1. **1순위 일치** → Best 후 Brilliant/Great 후보 검사
+2. **미일치 + cp→cp** → `getEvaluationLossThreshold(class, |prevEval|)` quadratic 임계 비교, 첫 통과하는 분류 부여 (Best/Excellent/Good/Inaccuracy/Mistake/Blunder)
+3. **mate↔cp 전환** 4가지 케이스 명시적 분기
+4. **Brilliant** — winning + not-winning-anyways + 비프로모션 + 체크 안 받는 상태 + 마이너 이상 우리 기물 행잉 + viably capturable
+5. **Great** — 직전 상대 수가 Blunder + 1-2 ≥ 150cp + 둔 자리 안 행잉
+6. **Forced** — 합법수 1개
+7. **Blunder 디그레이드** — `|absEval| ≥ 600` 또는 prev ≤ -600이면 Good
+
+**WDL win%**(`whiteWinPct` 필드)는 분류엔 안 쓰고 중간 바 표시 + accuracy 산출용.
 
 ### 분석 화면 핵심 바
 
 - **상단 바** (`.analysis-top-bar`) — 뒤로가기, 타이틀, 기보(☰)
 - **중간 바** (`.unified-controls` / `#panelTabs`) — 이전/다음, Engine⇄AI 토글, 분류 라벨, 승률/eval, 저장
-- **리뷰 모드** — `isReviewMode = true` (인덱스 -1) = 전체화면 5단계 리포트
+- **리뷰 모드** — `isReviewMode = true` (인덱스 -1) = 전체화면 4단계 리포트 (헤더/차트/통계표/CTA)
 
 ### Supabase 스키마
 
 - `vault_items`: id(uuid), user_id(text), move, classification, notes, position_fen, pgn, created_at — 추가 필드: move_index, move_number, best_move, game_title 등
 - `saved_games`: id, user_id, title, category(my_game/otb/opening/pro), pgn, notes, created_at
-- `user_id`는 localStorage `blundermate_user_id` (Chess.com ID 또는 커스텀 ID, 인증 없음)
+- `username_logs`: id, username, source(onboarding/search/cached), user_agent, created_at — anon INSERT only RLS
+- `user_id`는 localStorage `blundermate_user_id` (Chess.com ID 또는 커스텀 ID, 인증 없음). **항상 lowercase로 저장/쿼리** — 클라이언트(`storage.js`)와 서버(`api/db.js`) 양쪽에서 진입 시점 정규화
 - 모든 쿼리는 user_id 필터, try/catch 필수, 실패 시 localStorage 폴백
 
 ### 디자인 시스템 (Warm Paper, 라이트 전용)
@@ -210,7 +281,7 @@ Best (엔진 1수) / Excellent (≤10) / Good (≤50) / Inaccuracy (≤100) / Mi
 - 배경 `#F5F2EA` / `#FAF8F2` / `#EDE8DB`
 - 텍스트 `#2C2824` / `#6B6358` / `#A89F90`
 - 포인트 앰버 `#8B6F2A` (로고/극소수 강조)
-- 분류색: blunder `#9A3A2A` / mistake `#B5612A` / inaccuracy `#8B6F2A` / best `#5A7A3A` / brilliant `#3A8560`
+- 분류색: blunder `#9A3A2A` / mistake `#B5612A` / inaccuracy `#8B6F2A` / excellent `#6B8C3A` / best `#5A7A3A` / great `#2D6E55` / brilliant `#3A8560` / forced (`--tx2`)
 - 보드 `#E8DCBF` / `#8C6840`
 - **금지:** 파랑/인디고, 하드코딩 색, 다크 모드 토글, 흰 오버레이
 

@@ -31,6 +31,44 @@ export function parseEvalData(evalData, isBlackToMove) {
 }
 
 /**
+ * Stockfish WDL(STM 기준 permille, 합 1000)을 백 기준 win% (0~100)로 변환.
+ * STM이 흑이면 W/L를 스왑해 백 시점으로 정규화. 점수기댓값 기반: (W + D/2) / 1000.
+ *
+ * @param {{w: number, d: number, l: number} | null} wdl
+ * @param {boolean} isBlackToMove  WDL이 보고된 포지션의 STM이 흑이면 true
+ * @returns {number | null}
+ */
+export function wdlToWhiteWinPct(wdl, isBlackToMove) {
+    if (!wdl) return null;
+    const { w, d, l } = wdl;
+    if (!Number.isFinite(w) || !Number.isFinite(d) || !Number.isFinite(l)) return null;
+    const whiteWin = isBlackToMove ? l : w;
+    return (whiteWin + d / 2) / 10; // permille → percent
+}
+
+/**
+ * cp(폰 단위) 평가를 백 기준 win%로 (Lichess 시그모이드).
+ * WDL 미지원 빌드 fallback. mate scoreNum(±999)도 자연스럽게 ~0/100 으로 수렴.
+ *
+ * @param {number} scoreNum  백 기준 폰 단위 평가
+ * @returns {number | null}
+ */
+export function cpToWhiteWinPct(scoreNum) {
+    if (scoreNum === undefined || scoreNum === null || Number.isNaN(scoreNum)) return null;
+    const cp = Math.max(-99900, Math.min(99900, scoreNum * 100));
+    return 50 + 50 * (2 / (1 + Math.exp(-0.00368208 * cp)) - 1);
+}
+
+/**
+ * engineLine에서 백 기준 win%를 추출 — wdl 우선, scoreNum sigmoid fallback.
+ */
+export function getWhiteWinPct(engineLine) {
+    if (!engineLine) return null;
+    if (typeof engineLine.whiteWinPct === 'number') return engineLine.whiteWinPct;
+    return cpToWhiteWinPct(engineLine.scoreNum);
+}
+
+/**
  * 체스판 위에서 합법적으로 움직일 수 있는 칸(Dests)을 계산합니다.
  */
 export function getDests(tempChess) {
@@ -72,85 +110,418 @@ export function convertPvToSan(pv, fen) {
     return sanMoves.join(' ');
 }
 
+// ============================================================
+// freechess(WintrCat/freechess) board + classification 헬퍼 포팅.
+// 원본 TypeScript를 거의 1:1로 옮긴 자바스크립트 버전.
+//
+// 호출 패턴이 재진입 없으므로(getDefenders가 getAttackers 호출 후 결과만 사용),
+// 각 함수 전용 chess.js 인스턴스를 모듈 레벨에 두고 load/move로 재사용해 alloc 비용을 줄인다.
+// Brilliant 검사가 64칸 × N회 돌아서 hot path.
+// ============================================================
+
 /**
- * Lichess CPL(Centipawn Loss) 방식으로 수를 평가합니다.
+ * 기물 가치 — 폰 1, 마이너 3, 룩 5, 퀸 9, 킹 Infinity (절대 잡히지 않음).
+ * 'm' = "missing"(빈칸 placeholder, 0).
+ */
+export const pieceValues = {
+    p: 1, n: 3, b: 3, r: 5, q: 9, k: Infinity, m: 0,
+};
+
+const promotions = [undefined, 'b', 'n', 'r', 'q'];
+
+// 모듈 레벨 재사용 인스턴스 — 함수별로 독립.
+const _atkChess     = new window.Chess();
+const _defChess     = new window.Chess();
+const _hangA        = new window.Chess();
+const _hangB        = new window.Chess();
+const _classifyA    = new window.Chess(); // classifyMove의 prev 보드
+const _classifyB    = new window.Chess(); // classifyMove의 curr 보드
+const _captureChess = new window.Chess(); // Brilliant 검사 capture 시뮬레이터
+
+function flipStmInFen(fen, color) {
+    return fen
+        .replace(/(?<= )(?:w|b)(?= )/g, color)
+        .replace(/ [a-h][1-8] /g, ' - ');
+}
+
+function getBoardCoords(square) {
+    return { x: 'abcdefgh'.indexOf(square[0]), y: parseInt(square[1], 10) - 1 };
+}
+
+function coordsToSquare(c) {
+    return 'abcdefgh'.charAt(c.x) + (c.y + 1).toString();
+}
+
+/**
+ * `square`를 공격하는 상대 기물들을 enumerate. 인접한 적 킹도 (legal capture or 다른 공격자 존재 시) 포함.
+ * 동작: FEN의 STM 필드를 적 색으로 뒤집어 chess.js로 합법수 enumerate, to===square인 캡처들을 모은다.
+ */
+export function getAttackers(fen, square) {
+    const attackers = [];
+    if (!_atkChess.load(fen)) return attackers;
+    const piece = _atkChess.get(square);
+    if (!piece) return attackers;
+
+    if (!_atkChess.load(flipStmInFen(fen, piece.color === 'w' ? 'b' : 'w'))) return attackers;
+
+    for (const m of _atkChess.moves({ verbose: true })) {
+        if (m.to === square) attackers.push({ square: m.from, color: m.color, type: m.piece });
+    }
+
+    // 인접 적 킹 처리 — 다른 공격자 있거나 킹 캡처가 합법이면 attacker로 추가
+    const oppColor = piece.color === 'w' ? 'b' : 'w';
+    const c = getBoardCoords(square);
+    let oppKing = null;
+    outer: for (let xOff = -1; xOff <= 1; xOff++) {
+        for (let yOff = -1; yOff <= 1; yOff++) {
+            if (xOff === 0 && yOff === 0) continue;
+            const sq = coordsToSquare({
+                x: Math.min(Math.max(c.x + xOff, 0), 7),
+                y: Math.min(Math.max(c.y + yOff, 0), 7),
+            });
+            const p = _atkChess.get(sq);
+            if (p && p.color === oppColor && p.type === 'k') {
+                oppKing = { color: p.color, square: sq, type: 'k' };
+                break outer;
+            }
+        }
+    }
+    if (!oppKing) return attackers;
+
+    let kingCaptureLegal = false;
+    try {
+        if (_atkChess.move({ from: oppKing.square, to: square })) kingCaptureLegal = true;
+    } catch {}
+
+    if (attackers.length > 0 || kingCaptureLegal) attackers.push(oppKing);
+    return attackers;
+}
+
+/**
+ * `square`를 보호하는 우리 기물들을 enumerate.
+ * 트릭: 한 명의 attacker가 캡처했다고 가정한 상태에서, 그 자리의 attacker를 다시 잡을 수 있는 우리 기물을 찾음.
+ * attacker가 없으면 placeholder로 적 퀸을 그 칸에 두고 attacker 검색.
+ */
+export function getDefenders(fen, square) {
+    if (!_defChess.load(fen)) return [];
+    const piece = _defChess.get(square);
+    if (!piece) return [];
+
+    const testAtt = getAttackers(fen, square)[0];
+    if (testAtt) {
+        if (!_defChess.load(flipStmInFen(fen, testAtt.color))) return [];
+        for (const promo of promotions) {
+            try {
+                if (_defChess.move({ from: testAtt.square, to: square, promotion: promo })) {
+                    return getAttackers(_defChess.fen(), square);
+                }
+            } catch {}
+        }
+    } else {
+        if (!_defChess.load(flipStmInFen(fen, piece.color))) return [];
+        try {
+            _defChess.put({ color: piece.color === 'w' ? 'b' : 'w', type: 'q' }, square);
+        } catch { return []; }
+        return getAttackers(_defChess.fen(), square);
+    }
+    return [];
+}
+
+/**
+ * `square` 위 기물이 행잉인지 판정. freechess의 핵심 검사.
+ * 등가 트레이드, 룩-마이너 유리 트레이드, 폰 디펜더 케이스를 모두 처리.
+ */
+export function isPieceHanging(lastFen, fen, square) {
+    if (!_hangA.load(lastFen) || !_hangB.load(fen)) return false;
+
+    const lastPiece = _hangA.get(square);
+    const piece = _hangB.get(square);
+    if (!piece) return false;
+
+    const attackers = getAttackers(fen, square);
+    const defenders = getDefenders(fen, square);
+
+    // 등가 또는 더 좋은 거래 후 = 행잉 아님
+    if (lastPiece && pieceValues[lastPiece.type] >= pieceValues[piece.type] && lastPiece.color !== piece.color) {
+        return false;
+    }
+    // 룩이 디펜더 1명짜리 마이너를 잡은 케이스 — 유리 트레이드
+    if (
+        piece.type === 'r'
+        && lastPiece && pieceValues[lastPiece.type] === 3
+        && attackers.length === 1
+        && attackers.every(a => pieceValues[a.type] === 3)
+    ) return false;
+
+    // 더 싼 공격자 → 행잉
+    if (attackers.some(a => pieceValues[a.type] < pieceValues[piece.type])) return true;
+
+    if (attackers.length > defenders.length) {
+        let minAtk = Infinity;
+        for (const a of attackers) minAtk = Math.min(pieceValues[a.type], minAtk);
+
+        // 잡으러 들어가는 게 자체 sac이고 우리 디펜더가 더 싸면 행잉 아님
+        if (
+            pieceValues[piece.type] < minAtk
+            && defenders.some(d => pieceValues[d.type] < minAtk)
+        ) return false;
+
+        // 폰 디펜더 = 사실상 폰만 잃는 거래 → 행잉 아님
+        if (defenders.some(d => pieceValues[d.type] === 1)) return false;
+
+        return true;
+    }
+    return false;
+}
+
+// freechess 분류 임계 — Best/Excellent/Good/Inaccuracy/Mistake 순으로 평가하면서
+// 첫 번째 통과하는 임계의 분류를 부여. 임계 미달은 fallthrough → Blunder.
+const CENTIPAWN_CLASSES = ['Best', 'Excellent', 'Good', 'Inaccuracy', 'Mistake'];
+
+/**
+ * freechess의 quadratic CPL 임계 — prevEval(절댓값, cp 단위)이 클수록 임계도 커진다.
+ * 이미 +5 우세인 포지션에서 100cp 손실은 평균적 결과에 거의 영향 없음 → Best 통과 가능.
+ */
+function getEvaluationLossThreshold(classif, prevEval) {
+    prevEval = Math.abs(prevEval);
+    let t = 0;
+    switch (classif) {
+        case 'Best':       t = 0.0001 * prevEval ** 2 + 0.0236 * prevEval - 3.7143; break;
+        case 'Excellent':  t = 0.0002 * prevEval ** 2 + 0.1231 * prevEval + 27.5455; break;
+        case 'Good':       t = 0.0002 * prevEval ** 2 + 0.2643 * prevEval + 60.5455; break;
+        case 'Inaccuracy': t = 0.0002 * prevEval ** 2 + 0.3624 * prevEval + 108.0909; break;
+        case 'Mistake':    t = 0.0003 * prevEval ** 2 + 0.4027 * prevEval + 225.8182; break;
+        default:           t = Infinity;
+    }
+    return Math.max(t, 0);
+}
+
+/**
+ * 우리 engineLine({scoreStr, scoreNum, ...})을 freechess의 evaluation({type, value}) 포맷으로 변환.
+ *   type: 'cp' | 'mate'
+ *   value: cp는 백 기준 정수 cp, mate는 부호 있는 mate 수 (+ = 백 mate)
+ */
+function lineToEval(line) {
+    if (!line) return null;
+    const s = line.scoreStr || '';
+    if (s.includes('M')) {
+        const sign = s.startsWith('-') ? -1 : 1;
+        const n = parseInt(s.replace(/[^\d]/g, ''), 10);
+        return { type: 'mate', value: sign * (Number.isFinite(n) ? n : 0) };
+    }
+    return { type: 'cp', value: Math.round((line.scoreNum || 0) * 100) };
+}
+
+/**
+ * 수 평가 — freechess(WintrCat/freechess) 알고리즘 포팅.
+ * 체스닷컴의 review 라벨 체계(Brilliant/Great/Best/Excellent/Good/Inaccuracy/Mistake/Blunder + Forced)를
+ * 가장 가깝게 흉내내도록 reverse-engineered된 휴리스틱.
  *
- * CPL = 이전 포지션 평가 − 현재 포지션 평가 (수를 둔 플레이어 시점, centipawn 단위)
- *
- * 분류 기준:
- *   Best       엔진 1순위 수와 일치
- *   Excellent  CPL ≤ 10  (1순위 아님)
- *   Good       CPL ≤ 50
- *   Inaccuracy CPL ≤ 100
- *   Mistake    CPL ≤ 200
- *   Blunder    CPL > 200
+ * 흐름:
+ *   1) 1순위 일치 → Best (그 다음 Brilliant/Great 후보 검사)
+ *   2) 미일치:
+ *      - cp→cp: getEvaluationLossThreshold로 CPL 임계 비교
+ *      - cp→mate: blundered into mate, absoluteEvaluation 으로 분류
+ *      - mate→cp: missed mate, absoluteEvaluation 으로 분류
+ *      - mate→mate: prevAbs/curr 비교
+ *   3) 후보가 1개뿐(secondMove 없음) → Forced
+ *   4) Best일 때 Brilliant 검사: winning + 비프로모션 + 체크 아닌 상태에서, 마이너 이상 행잉 기물 존재
+ *      + 그 기물이 "viably capturable"(공격자 핀 없음, 마이너 이하면 mate-in-1 안 만들어짐)
+ *   5) Best일 때 Great 검사: 직전 상대 수가 Blunder + 1-2 ≥ 150cp + 둔 자리 안 행잉
+ *   6) Blunder 디그레이드: |currEval| ≥ 600 이면 Good (winning 유지) / prev ≤ -600 이면 Good (이미 lost)
  */
 export function classifyMove(index, analysisQueue, isUserWhite) {
     if (index < 0) return '';
     const move = analysisQueue[index];
     if (!move) return '';
-    // FEN 단일 포지션 분석은 이전 수 비교 대상이 없으므로 분류 생략
     if (move.isFenOnly) return '';
-    if (!move.engineLines || !move.engineLines[0]) return '';
+
+    // 종국 처리: engine eval 없으면 mate/스테일메이트 가능성 — 체크메이트면 Best
+    if (!move.engineLines || !move.engineLines[0]) {
+        try {
+            if (_classifyA.load(move.fen) && _classifyA.isCheckmate()) return 'Best';
+        } catch {}
+        return '';
+    }
 
     const isWhite = move.isWhite;
-    const currEval = move.engineLines[0];
+    const moverColor = isWhite ? 'w' : 'b';
+    const moverSign = isWhite ? 1 : -1;
 
-    let prevEval = { scoreNum: 0.2, scoreStr: '+0.20' };
-    let prevLines = [];
+    // 현재 포지션 평가
+    let evaluation = lineToEval(move.engineLines[0]);
+
+    // 이전 포지션 평가 + top/second 정보
+    let previousEvaluation, prevTopMoveUci, prevSecondMoveEval, prevFen, prevMoveData;
     if (index > 0) {
-        const prevMove = analysisQueue[index - 1];
-        if (!prevMove.engineLines || !prevMove.engineLines[0]) return '';
-        prevEval = prevMove.engineLines[0];
-        prevLines = prevMove.engineLines;
-    }
-
-    // scoreNum/scoreStr는 백 기준 → 수를 둔 쪽 기준으로 변환
-    const perspectiveMultiplier = isWhite ? 1 : -1;
-
-    // --- 메이트 표기 파싱 ---
-    const getMate = (str) => {
-        if (!str) return null;
-        if (str.startsWith('+M')) return parseInt(str.substring(2));
-        if (str.startsWith('-M')) return -parseInt(str.substring(2));
-        return null;
-    };
-
-    const prevMate = getMate(prevEval.scoreStr) !== null ? getMate(prevEval.scoreStr) * perspectiveMultiplier : null;
-    const currMate = getMate(currEval.scoreStr) !== null ? getMate(currEval.scoreStr) * perspectiveMultiplier : null;
-
-    // --- 메이트 엣지 케이스 ---
-    // mate 0 = 체크메이트 완료 — 수를 둔 쪽이 메이트를 완성한 것이므로 항상 Best
-    if (currMate !== null && currMate === 0) return 'Best';
-
-    if (prevMate !== null) {
-        if (prevMate > 0) {
-            if (currMate !== null && currMate > 0) return currMate <= prevMate ? 'Best' : 'Good';
-            return 'Blunder';
-        } else {
-            if (currMate !== null && currMate < 0) return currMate > prevMate ? 'Blunder' : 'Best';
-            return 'Best';
-        }
+        prevMoveData = analysisQueue[index - 1];
+        if (!prevMoveData.engineLines || !prevMoveData.engineLines[0]) return '';
+        previousEvaluation = lineToEval(prevMoveData.engineLines[0]);
+        prevTopMoveUci = prevMoveData.engineLines[0].uci || '';
+        if (prevMoveData.engineLines[1]) prevSecondMoveEval = lineToEval(prevMoveData.engineLines[1]);
+        prevFen = prevMoveData.fen;
     } else {
-        if (currMate !== null && currMate < 0) return 'Blunder';
-        if (currMate !== null && currMate > 0) return 'Best';
+        // 시작 포지션 — 표준 +0.20 baseline. top/second 정보 없음 → Brilliant/Great 자동 스킵.
+        previousEvaluation = { type: 'cp', value: 20 };
+        prevTopMoveUci = '';
+        prevSecondMoveEval = null;
+        prevFen = '';
+    }
+    if (!previousEvaluation || !evaluation) return '';
+
+    const absoluteEvaluation = evaluation.value * moverSign;
+    const previousAbsoluteEvaluation = previousEvaluation.value * moverSign;
+    const absoluteSecondEvaluation = (prevSecondMoveEval ? prevSecondMoveEval.value : 0) * moverSign;
+
+    // --- Forced: 합법수가 1개뿐 (engine이 secondLine 못 채움)
+    if (!prevSecondMoveEval && index > 0) return 'Forced';
+
+    // 둔 수의 UCI (포팅 시 1순위 일치 비교용)
+    const playedUci = move.from && move.to ? `${move.from}${move.to}${move.promotion || ''}` : '';
+    const playedTopMove = prevTopMoveUci && playedUci && playedUci === prevTopMoveUci;
+
+    const noMate = previousEvaluation.type === 'cp' && evaluation.type === 'cp';
+    let classification = null;
+
+    if (playedTopMove) {
+        classification = 'Best';
+    } else if (noMate) {
+        const evalLoss = isWhite
+            ? previousEvaluation.value - evaluation.value
+            : evaluation.value - previousEvaluation.value;
+        for (const cls of CENTIPAWN_CLASSES) {
+            if (evalLoss <= getEvaluationLossThreshold(cls, previousEvaluation.value)) {
+                classification = cls;
+                break;
+            }
+        }
+        if (!classification) classification = 'Blunder';
+    } else if (previousEvaluation.type === 'cp' && evaluation.type === 'mate') {
+        // cp → mate: 메이트로 끌려갔거나, 내가 메이트를 만든 케이스
+        if (absoluteEvaluation > 0)       classification = 'Best';
+        else if (absoluteEvaluation >= -2) classification = 'Blunder';
+        else if (absoluteEvaluation >= -5) classification = 'Mistake';
+        else                              classification = 'Inaccuracy';
+    } else if (previousEvaluation.type === 'mate' && evaluation.type === 'cp') {
+        // mate → cp: 메이트 라인을 놓쳤음
+        if (previousAbsoluteEvaluation < 0 && absoluteEvaluation < 0) classification = 'Best';
+        else if (absoluteEvaluation >= 400)  classification = 'Good';
+        else if (absoluteEvaluation >= 150)  classification = 'Inaccuracy';
+        else if (absoluteEvaluation >= -100) classification = 'Mistake';
+        else                                 classification = 'Blunder';
+    } else {
+        // mate → mate
+        if (previousAbsoluteEvaluation > 0) {
+            if (absoluteEvaluation <= -4)                              classification = 'Mistake';
+            else if (absoluteEvaluation < 0)                           classification = 'Blunder';
+            else if (absoluteEvaluation < previousAbsoluteEvaluation)  classification = 'Best';
+            else if (absoluteEvaluation <= previousAbsoluteEvaluation + 2) classification = 'Excellent';
+            else                                                       classification = 'Good';
+        } else {
+            classification = (absoluteEvaluation === previousAbsoluteEvaluation) ? 'Best' : 'Good';
+        }
     }
 
-    // --- CPL 계산 ---
-    const prevCp = prevEval.scoreNum * perspectiveMultiplier * 100;
-    const currCp = currEval.scoreNum * perspectiveMultiplier * 100;
-    const cpl = Math.max(0, prevCp - currCp);
+    // --- Brilliant 검사: 현재 분류가 Best일 때만 ---
+    if (classification === 'Best' && prevFen) {
+        const winningAnyways = (
+            (absoluteSecondEvaluation >= 700 && previousEvaluation.type === 'cp')
+            || (previousEvaluation.type === 'mate' && prevSecondMoveEval && prevSecondMoveEval.type === 'mate')
+        );
 
-    // 엔진 1순위 수 일치 여부
-    const engineTopSan = prevLines[0]?.pv?.split(' ')[0];
-    if (engineTopSan && engineTopSan === move.san) return 'Best';
+        if (absoluteEvaluation >= 0 && !winningAnyways && !move.san?.includes('=')) {
+            try {
+                if (_classifyA.load(prevFen) && _classifyB.load(move.fen) && !_classifyA.isCheck()) {
+                    const lastPiece = _classifyA.get(move.to) || { type: 'm' };
+                    const sacrificedPieces = [];
 
-    // --- Lichess CPL 기준 분류 ---
-    if (cpl > 200) return 'Blunder';
-    if (cpl > 100) return 'Mistake';
-    if (cpl >  50) return 'Inaccuracy';
-    if (cpl <= 10) return 'Excellent';
-    return 'Good';
+                    for (const row of _classifyB.board()) {
+                        for (const piece of row) {
+                            if (!piece) continue;
+                            if (piece.color !== moverColor) continue;
+                            if (piece.type === 'k' || piece.type === 'p') continue;
+                            // 잡은 기물 ≥ 우리 기물이면 등가 트레이드 — 행잉 후보 아님
+                            if (pieceValues[lastPiece.type] >= pieceValues[piece.type]) continue;
+                            if (isPieceHanging(prevFen, move.fen, piece.square)) sacrificedPieces.push(piece);
+                        }
+                    }
+
+                    if (sacrificedPieces.length > 0) {
+                        const maxSackedValue = Math.max(...sacrificedPieces.map(p => pieceValues[p.type]));
+                        let viablyCapturable = false;
+
+                        outer: for (const sacked of sacrificedPieces) {
+                            const attackers = getAttackers(move.fen, sacked.square);
+                            for (const attacker of attackers) {
+                                for (const promo of promotions) {
+                                    if (!_captureChess.load(move.fen)) continue;
+                                    let moved;
+                                    try {
+                                        moved = _captureChess.move({
+                                            from: attacker.square,
+                                            to: sacked.square,
+                                            promotion: promo,
+                                        });
+                                    } catch { moved = null; }
+                                    if (!moved) continue;
+
+                                    // attacker가 핀이라 잡은 후 ≥ maxSacked 가치의 기물이 행잉이면 invalid
+                                    let attackerPinned = false;
+                                    pinScan: for (const row of _captureChess.board()) {
+                                        for (const enemy of row) {
+                                            if (!enemy) continue;
+                                            if (enemy.color === _captureChess.turn()) continue;
+                                            if (enemy.type === 'k' || enemy.type === 'p') continue;
+                                            if (
+                                                isPieceHanging(move.fen, _captureChess.fen(), enemy.square)
+                                                && pieceValues[enemy.type] >= maxSackedValue
+                                            ) { attackerPinned = true; break pinScan; }
+                                        }
+                                    }
+
+                                    if (pieceValues[sacked.type] >= 5) {
+                                        // 룩 이상 sac은 mate-in-1 검사 면제
+                                        if (!attackerPinned) { viablyCapturable = true; break outer; }
+                                    } else if (
+                                        !attackerPinned
+                                        && !_captureChess.moves().some(m => m.endsWith('#'))
+                                    ) {
+                                        viablyCapturable = true;
+                                        break outer;
+                                    }
+                                }
+                            }
+                        }
+
+                        if (viablyCapturable) classification = 'Brilliant';
+                    }
+                }
+            } catch {}
+        }
+    }
+
+    // --- Great 검사: 현재 분류가 Best이고 Brilliant 안 됐을 때 ---
+    if (classification === 'Best' && prevMoveData && prevFen && prevSecondMoveEval) {
+        try {
+            if (
+                noMate
+                && prevMoveData.classification === 'Blunder'
+                && Math.abs(previousEvaluation.value - prevSecondMoveEval.value) >= 150
+                && !isPieceHanging(prevFen, move.fen, move.to)
+            ) classification = 'Great';
+        } catch {}
+    }
+
+    // --- Blunder 디그레이드: 여전히 winning이거나 이미 결판난 lost면 Good
+    if (classification === 'Blunder' && absoluteEvaluation >= 600) classification = 'Good';
+    if (
+        classification === 'Blunder'
+        && previousAbsoluteEvaluation <= -600
+        && previousEvaluation.type === 'cp'
+        && evaluation.type === 'cp'
+    ) classification = 'Good';
+
+    return classification || 'Best';
 }
 
 /**

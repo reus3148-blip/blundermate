@@ -1,11 +1,12 @@
 /**
  * Stockfish UCI info 라인 파서. indexOf/substring 기반으로 정규식보다 빠르게 동작.
- * `{ type: 'cp'|'mate', value, multipv, pv }` 형태를 반환한다. score 라인이 아니면 null.
+ * `{ type: 'cp'|'mate', value, multipv, pv, wdl }` 형태를 반환한다. score 라인이 아니면 null.
+ * wdl은 STM(side-to-move) 시점의 {w, d, l} permille (합 1000). UCI_ShowWDL이 켜진 SF에서만 채워지며 mate score엔 보통 없음.
  */
 function parseEvalLine(line) {
     if (!line.includes('score ')) return null;
 
-    let type, value, multipv = 1, pv = '';
+    let type, value, multipv = 1, pv = '', wdl = null;
 
     const multipvIdx = line.indexOf('multipv ');
     if (multipvIdx !== -1) {
@@ -25,10 +26,24 @@ function parseEvalLine(line) {
         return null;
     }
 
+    const wdlIdx = line.indexOf(' wdl ');
+    if (wdlIdx !== -1) {
+        const rest = line.substring(wdlIdx + 5);
+        const parts = rest.split(' ', 3);
+        if (parts.length === 3) {
+            const w = parseInt(parts[0], 10);
+            const d = parseInt(parts[1], 10);
+            const l = parseInt(parts[2], 10);
+            if (Number.isFinite(w) && Number.isFinite(d) && Number.isFinite(l)) {
+                wdl = { w, d, l };
+            }
+        }
+    }
+
     const pvIdx = line.indexOf(' pv ');
     if (pvIdx !== -1) pv = line.substring(pvIdx + 4);
 
-    return { type, value, multipv, pv };
+    return { type, value, multipv, pv, wdl };
 }
 
 // Hash와 MultiPV 기본값 — 풀과 단일 엔진 모두에서 동일하게 적용.
@@ -63,6 +78,9 @@ export class StockfishEngine {
             if (this.callbacks.onUciOk) this.callbacks.onUciOk();
             this.worker.postMessage(`setoption name MultiPV value ${DEFAULT_MULTIPV}`);
             this.worker.postMessage(`setoption name Hash value ${DEFAULT_HASH_MB}`);
+            // WDL 출력 활성화 — info 라인에 wdl <w> <d> <l> 토큰을 포함시킨다 (SF 12+).
+            // 미지원 빌드는 옵션을 무시하므로 안전.
+            this.worker.postMessage('setoption name UCI_ShowWDL value true');
             this.worker.postMessage('isready');
         } else if (line === 'readyok') {
             if (this.callbacks.onReady) this.callbacks.onReady();
@@ -154,6 +172,7 @@ class PooledEngine {
         if (line === 'uciok') {
             this.worker.postMessage(`setoption name MultiPV value ${this.multiPv}`);
             this.worker.postMessage(`setoption name Hash value ${this.hash}`);
+            this.worker.postMessage('setoption name UCI_ShowWDL value true');
             this.worker.postMessage('isready');
         } else if (line === 'readyok') {
             if (this._readyResolve) {

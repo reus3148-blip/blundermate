@@ -1,5 +1,5 @@
 import { StockfishEngine, EnginePool, getDefaultPoolSize } from './engine.js';
-import { parseEvalData, convertPvToSan, classifyMove } from './utils.js';
+import { parseEvalData, convertPvToSan, classifyMove, wdlToWhiteWinPct, cpToWhiteWinPct } from './utils.js';
 
 // ==========================================
 // Module state
@@ -81,7 +81,11 @@ export function runBatch({ onProgress, onComplete, onError, isUserWhite }) {
                         const { scoreStr, scoreNum } = parseEvalData(data, isBlackToMove);
                         const sanPv = convertPvToSan(data.pv, pos.fen);
                         const firstUci = data.pv ? data.pv.split(' ')[0] : '';
-                        return { scoreStr, scoreNum, pv: sanPv, uci: firstUci };
+                        // 백 기준 win% — wdl 우선(SF NN 자체 분포), 미지원시 cp 시그모이드 fallback.
+                        const whiteWinPct = data.wdl
+                            ? wdlToWhiteWinPct(data.wdl, isBlackToMove)
+                            : cpToWhiteWinPct(scoreNum);
+                        return { scoreStr, scoreNum, pv: sanPv, uci: firstUci, whiteWinPct };
                     });
                     if (onProgress) onProgress(idx);
                 })
@@ -149,6 +153,7 @@ export function buildQueueFromPgn(chessInstance) {
             san: move.san,
             from: move.from,
             to: move.to,
+            promotion: move.promotion || undefined, // 1순위 일치 검사 UCI 비교용
             turn: tempChess.turn() === 'w' ? 'b' : 'w',
             moveNumber: Math.floor(index / 2) + 1,
             isWhite: index % 2 === 0,

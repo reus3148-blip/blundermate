@@ -22,7 +22,9 @@
   --blunder:    #9A3A2A;
   --mistake:    #B5612A;
   --inaccuracy: #8B6F2A;
+  --excellent:  #6B8C3A;  /* Best보다 약간 밝은 녹 — 1순위 미일치인데 거의 best급 */
   --best:       #5A7A3A;
+  --great:      #2D6E55;  /* Best보다 한 단계 깊은 청녹 — "유일 정답" 강조 */
   --brilliant:  #3A8560;
 
   /* 체스 보드 — 따뜻한 톤 유지 */
