@@ -1,0 +1,1102 @@
+[
+  {
+    "id": 1,
+    "quote": {
+      "ko": "체스는 인생 그 자체이다.",
+      "en": "Chess is life."
+    },
+    "author": {
+      "ko": "바비 피셔",
+      "en": "Bobby Fischer"
+    }
+  },
+  {
+    "id": 2,
+    "quote": {
+      "ko": "나는 심리학을 믿지 않는다. 오직 좋은 수만을 믿을 뿐이다.",
+      "en": "I don't believe in psychology. I believe in good moves."
+    },
+    "author": {
+      "ko": "바비 피셔",
+      "en": "Bobby Fischer"
+    }
+  },
+  {
+    "id": 3,
+    "quote": {
+      "ko": "전술은 더 나은 포지션에서 자연스럽게 흘러나온다.",
+      "en": "Tactics flow from a superior position."
+    },
+    "author": {
+      "ko": "바비 피셔",
+      "en": "Bobby Fischer"
+    }
+  },
+  {
+    "id": 4,
+    "quote": {
+      "ko": "좋은 선수가 되려면 탁월한 상상력이 필요하다.",
+      "en": "To get good, you have to have a great imagination."
+    },
+    "author": {
+      "ko": "바비 피셔",
+      "en": "Bobby Fischer"
+    }
+  },
+  {
+    "id": 5,
+    "quote": {
+      "ko": "체스는 보드 위에서 벌어지는 전쟁이다. 목표는 상대의 정신을 붕괴시키는 것이다.",
+      "en": "Chess is war over the board. The object is to crush the opponent's mind."
+    },
+    "author": {
+      "ko": "바비 피셔",
+      "en": "Bobby Fischer"
+    }
+  },
+  {
+    "id": 6,
+    "quote": {
+      "ko": "체스는 정신적인 고문이다.",
+      "en": "Chess is mental torture."
+    },
+    "author": {
+      "ko": "가리 카스파로프",
+      "en": "Garry Kasparov"
+    }
+  },
+  {
+    "id": 7,
+    "quote": {
+      "ko": "최고의 체스 플레이어는 상대로 하여금 자신이 무엇을 할 수 있는지 보여주지 못하게 한다.",
+      "en": "The highest art of the chess player lies in not allowing your opponent to show you what he can do."
+    },
+    "author": {
+      "ko": "가리 카스파로프",
+      "en": "Garry Kasparov"
+    }
+  },
+  {
+    "id": 8,
+    "quote": {
+      "ko": "패배에서 배우지 못하는 자는 승리할 자격이 없다.",
+      "en": "He who does not learn from defeat cannot truly win."
+    },
+    "author": {
+      "ko": "가리 카스파로프",
+      "en": "Garry Kasparov"
+    }
+  },
+  {
+    "id": 9,
+    "quote": {
+      "ko": "체스판 위에서는 오직 진실만이 존재할 뿐이다.",
+      "en": "On the chessboard, only truth exists."
+    },
+    "author": {
+      "ko": "가리 카스파로프",
+      "en": "Garry Kasparov"
+    }
+  },
+  {
+    "id": 10,
+    "quote": {
+      "ko": "공격은 체스에서 가장 훌륭한 방어다.",
+      "en": "Attack is the best defense in chess."
+    },
+    "author": {
+      "ko": "가리 카스파로프",
+      "en": "Garry Kasparov"
+    }
+  },
+  {
+    "id": 11,
+    "quote": {
+      "ko": "상대를 2+2=5가 되는 깊고 어두운 숲으로 끌고 가라. 그곳을 빠져나오는 길은 단 한 명만 지나갈 수 있을 만큼 좁다.",
+      "en": "You must take your opponent into a deep dark forest where 2+2=5, and the path leading out is only wide enough for one."
+    },
+    "author": {
+      "ko": "미하일 탈",
+      "en": "Mikhail Tal"
+    }
+  },
+  {
+    "id": 12,
+    "quote": {
+      "ko": "희생에는 두 가지 종류가 있다. 올바른 희생과, 나의 희생이다.",
+      "en": "There are two types of sacrifices: correct ones, and mine."
+    },
+    "author": {
+      "ko": "미하일 탈",
+      "en": "Mikhail Tal"
+    }
+  },
+  {
+    "id": 13,
+    "quote": {
+      "ko": "나는 조용한 포지션보다 폭풍우가 몰아치는 포지션이 훨씬 편하다.",
+      "en": "I feel much more comfortable in a stormy position than in a quiet one."
+    },
+    "author": {
+      "ko": "미하일 탈",
+      "en": "Mikhail Tal"
+    }
+  },
+  {
+    "id": 14,
+    "quote": {
+      "ko": "기물이 제자리를 찾으면 전술은 자연스럽게 따라온다.",
+      "en": "When the pieces find their right places, tactics naturally follow."
+    },
+    "author": {
+      "ko": "미하일 탈",
+      "en": "Mikhail Tal"
+    }
+  },
+  {
+    "id": 15,
+    "quote": {
+      "ko": "위험을 감수하지 않는다면 절대 승리할 수 없다.",
+      "en": "You cannot win without taking risks."
+    },
+    "author": {
+      "ko": "미하일 탈",
+      "en": "Mikhail Tal"
+    }
+  },
+  {
+    "id": 16,
+    "quote": {
+      "ko": "체스는 당신의 모든 것을 요구한다. 하지만 그만큼 많은 것을 돌려준다.",
+      "en": "Chess demands everything of you, but it gives back just as much."
+    },
+    "author": {
+      "ko": "아나톨리 카르포프",
+      "en": "Anatoly Karpov"
+    }
+  },
+  {
+    "id": 17,
+    "quote": {
+      "ko": "포지션 플레이는 예술이며, 이는 결코 수치로 계산될 수 없다.",
+      "en": "Position play is an art, and it can never be calculated with numbers."
+    },
+    "author": {
+      "ko": "아나톨리 카르포프",
+      "en": "Anatoly Karpov"
+    }
+  },
+  {
+    "id": 18,
+    "quote": {
+      "ko": "나의 스타일은 상대를 천천히 질식시키는 것이다.",
+      "en": "My style is to slowly suffocate the opponent."
+    },
+    "author": {
+      "ko": "아나톨리 카르포프",
+      "en": "Anatoly Karpov"
+    }
+  },
+  {
+    "id": 19,
+    "quote": {
+      "ko": "때로는 한 번의 나쁜 수가 마흔 번의 훌륭한 수를 망쳐버린다.",
+      "en": "Sometimes one bad move ruins forty good ones."
+    },
+    "author": {
+      "ko": "아나톨리 카르포프",
+      "en": "Anatoly Karpov"
+    }
+  },
+  {
+    "id": 20,
+    "quote": {
+      "ko": "나의 플레이는 철저한 논리에 기반한다.",
+      "en": "My play is based on strict logic."
+    },
+    "author": {
+      "ko": "아나톨리 카르포프",
+      "en": "Anatoly Karpov"
+    }
+  },
+  {
+    "id": 21,
+    "quote": {
+      "ko": "이긴 경기보다 진 경기에서 훨씬 더 많은 것을 배울 수 있다.",
+      "en": "You may learn much more from a game you lose than from a game you win."
+    },
+    "author": {
+      "ko": "호세 라울 카파블랑카",
+      "en": "José Raúl Capablanca"
+    }
+  },
+  {
+    "id": 22,
+    "quote": {
+      "ko": "훌륭한 플레이어에게는 항상 행운이 따른다.",
+      "en": "A good player is always lucky."
+    },
+    "author": {
+      "ko": "호세 라울 카파블랑카",
+      "en": "José Raúl Capablanca"
+    }
+  },
+  {
+    "id": 23,
+    "quote": {
+      "ko": "당신은 체스를 이기기 위해 두는 것이 아니라, 상대를 이기기 위해 두는 것이다.",
+      "en": "You don't play to win at chess, you play to beat the opponent."
+    },
+    "author": {
+      "ko": "호세 라울 카파블랑카",
+      "en": "José Raúl Capablanca"
+    }
+  },
+  {
+    "id": 24,
+    "quote": {
+      "ko": "체스 규칙을 배우는 것은 하루면 충분하지만, 체스를 마스터하는 것은 평생이 걸린다.",
+      "en": "It takes a day to learn the rules of chess, and a lifetime to master it."
+    },
+    "author": {
+      "ko": "호세 라울 카파블랑카",
+      "en": "José Raúl Capablanca"
+    }
+  },
+  {
+    "id": 25,
+    "quote": {
+      "ko": "체스에서 완벽함이란 존재하지 않는다.",
+      "en": "Perfection does not exist in chess."
+    },
+    "author": {
+      "ko": "호세 라울 카파블랑카",
+      "en": "José Raúl Capablanca"
+    }
+  },
+  {
+    "id": 26,
+    "quote": {
+      "ko": "나에게 체스는 게임이 아니라 예술이다.",
+      "en": "For me, chess is not a game, but an art."
+    },
+    "author": {
+      "ko": "알렉산더 알레힌",
+      "en": "Alexander Alekhine"
+    }
+  },
+  {
+    "id": 27,
+    "quote": {
+      "ko": "승리하려면 우선 자기 자신을 이겨야 한다.",
+      "en": "To win, one must first overcome oneself."
+    },
+    "author": {
+      "ko": "알렉산더 알레힌",
+      "en": "Alexander Alekhine"
+    }
+  },
+  {
+    "id": 28,
+    "quote": {
+      "ko": "승리의 가장 큰 비결은 상대를 놀라게 하는 것이다.",
+      "en": "The greatest secret of winning is to surprise the opponent."
+    },
+    "author": {
+      "ko": "알렉산더 알레힌",
+      "en": "Alexander Alekhine"
+    }
+  },
+  {
+    "id": 29,
+    "quote": {
+      "ko": "나는 체스를 통해 나의 성격을 다듬어왔다.",
+      "en": "Through chess I have formed my character."
+    },
+    "author": {
+      "ko": "알렉산더 알레힌",
+      "en": "Alexander Alekhine"
+    }
+  },
+  {
+    "id": 30,
+    "quote": {
+      "ko": "단 하나의 나쁜 계획이 모든 좋은 계획을 무너뜨린다.",
+      "en": "A single bad plan ruins all the good ones."
+    },
+    "author": {
+      "ko": "알렉산더 알레힌",
+      "en": "Alexander Alekhine"
+    }
+  },
+  {
+    "id": 31,
+    "quote": {
+      "ko": "좋은 수를 보았다면, 더 좋은 수가 있는지 찾아라.",
+      "en": "When you see a good move, look for a better one."
+    },
+    "author": {
+      "ko": "에마누엘 라스커",
+      "en": "Emanuel Lasker"
+    }
+  },
+  {
+    "id": 32,
+    "quote": {
+      "ko": "가장 이기기 힘든 경기는 이미 이긴 경기이다.",
+      "en": "The hardest game to win is a won game."
+    },
+    "author": {
+      "ko": "에마누엘 라스커",
+      "en": "Emanuel Lasker"
+    }
+  },
+  {
+    "id": 33,
+    "quote": {
+      "ko": "체스판 위에서는 거짓말과 위선이 오래가지 못한다.",
+      "en": "On the chessboard lies and hypocrisy do not survive long."
+    },
+    "author": {
+      "ko": "에마누엘 라스커",
+      "en": "Emanuel Lasker"
+    }
+  },
+  {
+    "id": 34,
+    "quote": {
+      "ko": "계획이 없는 것보다는 나쁜 계획이라도 있는 것이 낫다.",
+      "en": "It is better to have a bad plan than no plan at all."
+    },
+    "author": {
+      "ko": "에마누엘 라스커",
+      "en": "Emanuel Lasker"
+    }
+  },
+  {
+    "id": 35,
+    "quote": {
+      "ko": "감정의 지배를 받는 플레이어는 결코 체스의 본질을 이해할 수 없다.",
+      "en": "A player guided by emotion can never understand the essence of chess."
+    },
+    "author": {
+      "ko": "에마누엘 라스커",
+      "en": "Emanuel Lasker"
+    }
+  },
+  {
+    "id": 36,
+    "quote": {
+      "ko": "체스는 100% 철학이다.",
+      "en": "Chess is 100% philosophy."
+    },
+    "author": {
+      "ko": "빌헬름 슈타이니츠",
+      "en": "Wilhelm Steinitz"
+    }
+  },
+  {
+    "id": 37,
+    "quote": {
+      "ko": "킹은 스스로를 방어할 수 있는 강력한 기물이다.",
+      "en": "The King is a strong piece that can defend itself."
+    },
+    "author": {
+      "ko": "빌헬름 슈타이니츠",
+      "en": "Wilhelm Steinitz"
+    }
+  },
+  {
+    "id": 38,
+    "quote": {
+      "ko": "우위를 점했을 때 공격하지 않으면, 그 우위는 사라져 버린다.",
+      "en": "He who has an advantage must attack, or lose it."
+    },
+    "author": {
+      "ko": "빌헬름 슈타이니츠",
+      "en": "Wilhelm Steinitz"
+    }
+  },
+  {
+    "id": 39,
+    "quote": {
+      "ko": "폰은 체스판 위의 작은 영웅들이다.",
+      "en": "Pawns are the little heroes of the chessboard."
+    },
+    "author": {
+      "ko": "빌헬름 슈타이니츠",
+      "en": "Wilhelm Steinitz"
+    }
+  },
+  {
+    "id": 40,
+    "quote": {
+      "ko": "체스의 궁극적인 목표는 상대의 계획을 완전히 파괴하는 것이다.",
+      "en": "The ultimate goal in chess is to completely destroy the opponent's plan."
+    },
+    "author": {
+      "ko": "빌헬름 슈타이니츠",
+      "en": "Wilhelm Steinitz"
+    }
+  },
+  {
+    "id": 41,
+    "quote": {
+      "ko": "즐거움의 요소가 없다면 결코 최고가 될 수 없다.",
+      "en": "Without the element of enjoyment, it is not worth trying to excel at anything."
+    },
+    "author": {
+      "ko": "망누스 칼센",
+      "en": "Magnus Carlsen"
+    }
+  },
+  {
+    "id": 42,
+    "quote": {
+      "ko": "어떤 이들은 내가 더 멀리 내다본다고 생각하지만, 나는 그저 더 나은 수를 볼 뿐이다.",
+      "en": "Some people think I look further ahead, but I just see better moves."
+    },
+    "author": {
+      "ko": "망누스 칼센",
+      "en": "Magnus Carlsen"
+    }
+  },
+  {
+    "id": 43,
+    "quote": {
+      "ko": "직관은 수많은 경험이 축적되어 만들어진 결과물이다.",
+      "en": "Intuition is the accumulation of numerous experiences."
+    },
+    "author": {
+      "ko": "망누스 칼센",
+      "en": "Magnus Carlsen"
+    }
+  },
+  {
+    "id": 44,
+    "quote": {
+      "ko": "체스는 직관과 정밀한 계산의 완벽한 균형이다.",
+      "en": "Chess is a perfect balance of intuition and precise calculation."
+    },
+    "author": {
+      "ko": "망누스 칼센",
+      "en": "Magnus Carlsen"
+    }
+  },
+  {
+    "id": 45,
+    "quote": {
+      "ko": "엔드게임은 체스의 진정한 아름다움이 드러나는 곳이다.",
+      "en": "The endgame is where the true beauty of chess is revealed."
+    },
+    "author": {
+      "ko": "망누스 칼센",
+      "en": "Magnus Carlsen"
+    }
+  },
+  {
+    "id": 46,
+    "quote": {
+      "ko": "체스는 평생을 바칠 가치가 있는 하나의 거대한 우주다.",
+      "en": "Chess is a vast universe worth dedicating a lifetime to."
+    },
+    "author": {
+      "ko": "비스와나탄 아난드",
+      "en": "Viswanathan Anand"
+    }
+  },
+  {
+    "id": 47,
+    "quote": {
+      "ko": "자신감은 체스에서 이미 절반의 승리를 의미한다.",
+      "en": "Confidence means you have already won half the battle in chess."
+    },
+    "author": {
+      "ko": "비스와나탄 아난드",
+      "en": "Viswanathan Anand"
+    }
+  },
+  {
+    "id": 48,
+    "quote": {
+      "ko": "오직 체스만이 당신의 한계를 온전히 시험할 수 있다.",
+      "en": "Only chess can fully test your limits."
+    },
+    "author": {
+      "ko": "비스와나탄 아난드",
+      "en": "Viswanathan Anand"
+    }
+  },
+  {
+    "id": 49,
+    "quote": {
+      "ko": "가장 어려운 것은 체스판 위에서 상대의 마음을 읽는 것이다.",
+      "en": "The most difficult thing is reading your opponent's mind over the board."
+    },
+    "author": {
+      "ko": "비스와나탄 아난드",
+      "en": "Viswanathan Anand"
+    }
+  },
+  {
+    "id": 50,
+    "quote": {
+      "ko": "패배 후 얼마나 빨리 회복하느냐가 진정한 챔피언을 결정한다.",
+      "en": "How fast you recover from a defeat determines a true champion."
+    },
+    "author": {
+      "ko": "비스와나탄 아난드",
+      "en": "Viswanathan Anand"
+    }
+  },
+  {
+    "id": 51,
+    "quote": {
+      "ko": "체스판 위에는 실수가 이미 존재하고 있으며, 단지 당신이 그것을 범하기를 기다리고 있을 뿐이다.",
+      "en": "The mistakes are all there on the board, waiting to be made."
+    },
+    "author": {
+      "ko": "사비엘리 타르타코버",
+      "en": "Savielly Tartakower"
+    }
+  },
+  {
+    "id": 52,
+    "quote": {
+      "ko": "전술은 할 일이 있을 때 무엇을 해야 할지 아는 것이고, 전략은 할 일이 없을 때 무엇을 해야 할지 아는 것이다.",
+      "en": "Tactics is knowing what to do when there is something to do; strategy is knowing what to do when there is nothing to do."
+    },
+    "author": {
+      "ko": "사비엘리 타르타코버",
+      "en": "Savielly Tartakower"
+    }
+  },
+  {
+    "id": 53,
+    "quote": {
+      "ko": "기권해서 이긴 경기는 역사상 단 한 번도 없었다.",
+      "en": "No one ever won a game by resigning."
+    },
+    "author": {
+      "ko": "사비엘리 타르타코버",
+      "en": "Savielly Tartakower"
+    }
+  },
+  {
+    "id": 54,
+    "quote": {
+      "ko": "승자는 끝에서 두 번째 실수를 한 사람이다.",
+      "en": "The winner of the game is the player who makes the next-to-last mistake."
+    },
+    "author": {
+      "ko": "사비엘리 타르타코버",
+      "en": "Savielly Tartakower"
+    }
+  },
+  {
+    "id": 55,
+    "quote": {
+      "ko": "기물 하나를 잃는 것은 슬픈 일이지만, 템포(Tempo)를 잃는 것은 치명적이다.",
+      "en": "It is sad to lose a piece, but it is fatal to lose a tempo."
+    },
+    "author": {
+      "ko": "사비엘리 타르타코버",
+      "en": "Savielly Tartakower"
+    }
+  },
+  {
+    "id": 56,
+    "quote": {
+      "ko": "위협은 실행보다 강하다.",
+      "en": "The threat is stronger than the execution."
+    },
+    "author": {
+      "ko": "아론 님조비치",
+      "en": "Aron Nimzowitsch"
+    }
+  },
+  {
+    "id": 57,
+    "quote": {
+      "ko": "블로케이드(봉쇄)는 포지션 체스의 가장 기본적인 원칙이다.",
+      "en": "The blockade is the most fundamental principle of positional chess."
+    },
+    "author": {
+      "ko": "아론 님조비치",
+      "en": "Aron Nimzowitsch"
+    }
+  },
+  {
+    "id": 58,
+    "quote": {
+      "ko": "패스 폰(Passed Pawn)은 영혼을 가지고 있다. 그것을 존중하라.",
+      "en": "The passed pawn has a soul. Respect it."
+    },
+    "author": {
+      "ko": "아론 님조비치",
+      "en": "Aron Nimzowitsch"
+    }
+  },
+  {
+    "id": 59,
+    "quote": {
+      "ko": "과방어(Overprotection)는 포지션의 핵심을 강력하게 지켜준다.",
+      "en": "Overprotection strongly secures the core of the position."
+    },
+    "author": {
+      "ko": "아론 님조비치",
+      "en": "Aron Nimzowitsch"
+    }
+  },
+  {
+    "id": 60,
+    "quote": {
+      "ko": "체스는 너무나 복잡해서 한 사람의 마음으로는 다 담을 수 없다.",
+      "en": "Chess is too complex to be fully comprehended by one human mind."
+    },
+    "author": {
+      "ko": "아론 님조비치",
+      "en": "Aron Nimzowitsch"
+    }
+  },
+  {
+    "id": 61,
+    "quote": {
+      "ko": "기물들이 당신을 돕게 하려면 당신이 먼저 기물들을 도와야 한다.",
+      "en": "Help your pieces so they can help you."
+    },
+    "author": {
+      "ko": "폴 모피",
+      "en": "Paul Morphy"
+    }
+  },
+  {
+    "id": 62,
+    "quote": {
+      "ko": "오픈 파일과 중앙 대각선을 장악하는 자가 승리한다.",
+      "en": "The player who controls the open files and central diagonals wins."
+    },
+    "author": {
+      "ko": "폴 모피",
+      "en": "Paul Morphy"
+    }
+  },
+  {
+    "id": 63,
+    "quote": {
+      "ko": "템포는 체스판 위에서 가장 소중한 자산이다.",
+      "en": "Tempo is the most precious asset on the chessboard."
+    },
+    "author": {
+      "ko": "폴 모피",
+      "en": "Paul Morphy"
+    }
+  },
+  {
+    "id": 64,
+    "quote": {
+      "ko": "기물 전개는 공격의 가장 첫 번째 단계이다.",
+      "en": "Developing pieces is the very first step of the attack."
+    },
+    "author": {
+      "ko": "폴 모피",
+      "en": "Paul Morphy"
+    }
+  },
+  {
+    "id": 65,
+    "quote": {
+      "ko": "공격받고 있을 때 가장 훌륭한 방어는 반격이다.",
+      "en": "The best defense when under attack is a counter-attack."
+    },
+    "author": {
+      "ko": "폴 모피",
+      "en": "Paul Morphy"
+    }
+  },
+  {
+    "id": 66,
+    "quote": {
+      "ko": "체스는 사랑이나 음악처럼 인간을 행복하게 만들 수 있는 마법 같은 힘이 있다.",
+      "en": "Chess, like love, like music, has the power to make men happy."
+    },
+    "author": {
+      "ko": "지크베르트 타라시",
+      "en": "Siegbert Tarrasch"
+    }
+  },
+  {
+    "id": 67,
+    "quote": {
+      "ko": "나쁜 비숍은 패배로 가는 가장 빠른 지름길이다.",
+      "en": "A bad bishop is the fastest shortcut to defeat."
+    },
+    "author": {
+      "ko": "지크베르트 타라시",
+      "en": "Siegbert Tarrasch"
+    }
+  },
+  {
+    "id": 68,
+    "quote": {
+      "ko": "당신이 체스의 원칙을 지킨다면, 체스가 당신을 지켜줄 것이다.",
+      "en": "If you respect the principles of chess, chess will respect you."
+    },
+    "author": {
+      "ko": "지크베르트 타라시",
+      "en": "Siegbert Tarrasch"
+    }
+  },
+  {
+    "id": 69,
+    "quote": {
+      "ko": "폰은 결코 뒤로 물러설 수 없다. 따라서 폰을 움직이는 매 순간은 신중해야 한다.",
+      "en": "Pawns can never go backward. Therefore, every pawn move must be made with caution."
+    },
+    "author": {
+      "ko": "지크베르트 타라시",
+      "en": "Siegbert Tarrasch"
+    }
+  },
+  {
+    "id": 70,
+    "quote": {
+      "ko": "강한 압박은 실수라는 다이아몬드를 만들어낸다.",
+      "en": "Intense pressure creates the diamond of errors."
+    },
+    "author": {
+      "ko": "지크베르트 타라시",
+      "en": "Siegbert Tarrasch"
+    }
+  },
+  {
+    "id": 71,
+    "quote": {
+      "ko": "체스에는 오직 한 가지 비밀이 있다. 그것은 끊임없는 노력이다.",
+      "en": "There is only one secret in chess: constant hard work."
+    },
+    "author": {
+      "ko": "보리스 스파스키",
+      "en": "Boris Spassky"
+    }
+  },
+  {
+    "id": 72,
+    "quote": {
+      "ko": "가장 좋은 수는 항상 보드 위에 존재한다. 당신이 그것을 찾아야 할 뿐이다.",
+      "en": "The best move is always on the board. You just have to find it."
+    },
+    "author": {
+      "ko": "보리스 스파스키",
+      "en": "Boris Spassky"
+    }
+  },
+  {
+    "id": 73,
+    "quote": {
+      "ko": "자신의 플레이 스타일을 명확히 이해하는 것이 발전의 첫걸음이다.",
+      "en": "Clearly understanding your own playing style is the first step to improvement."
+    },
+    "author": {
+      "ko": "보리스 스파스키",
+      "en": "Boris Spassky"
+    }
+  },
+  {
+    "id": 74,
+    "quote": {
+      "ko": "체스는 끊임없는 질문과 대답의 연속이다.",
+      "en": "Chess is a continuous series of questions and answers."
+    },
+    "author": {
+      "ko": "보리스 스파스키",
+      "en": "Boris Spassky"
+    }
+  },
+  {
+    "id": 75,
+    "quote": {
+      "ko": "체스는 스포츠이자, 예술이며, 과학이다.",
+      "en": "Chess is a sport, an art, and a science."
+    },
+    "author": {
+      "ko": "보리스 스파스키",
+      "en": "Boris Spassky"
+    }
+  },
+  {
+    "id": 76,
+    "quote": {
+      "ko": "나는 나쁜 포지션을 방어하는 것을 좋아한다. 거기에는 깊은 철학이 숨어있다.",
+      "en": "I like defending a bad position. There is a deep philosophy hidden there."
+    },
+    "author": {
+      "ko": "티그란 페트로시안",
+      "en": "Tigran Petrosian"
+    }
+  },
+  {
+    "id": 77,
+    "quote": {
+      "ko": "체스에서 가장 위험하고 통제하기 힘든 상대는 바로 나 자신이다.",
+      "en": "The most dangerous and uncontrollable opponent in chess is myself."
+    },
+    "author": {
+      "ko": "티그란 페트로시안",
+      "en": "Tigran Petrosian"
+    }
+  },
+  {
+    "id": 78,
+    "quote": {
+      "ko": "안전이 철저하게 보장되지 않은 공격은 자살 행위와 같다.",
+      "en": "An attack without guaranteed safety is suicide."
+    },
+    "author": {
+      "ko": "티그란 페트로시안",
+      "en": "Tigran Petrosian"
+    }
+  },
+  {
+    "id": 79,
+    "quote": {
+      "ko": "상대의 계획을 미리 파괴해버리는 것이 나의 스타일이다.",
+      "en": "Destroying the opponent's plans in advance is my style."
+    },
+    "author": {
+      "ko": "티그란 페트로시안",
+      "en": "Tigran Petrosian"
+    }
+  },
+  {
+    "id": 80,
+    "quote": {
+      "ko": "보이지 않는 위협이 가장 무서운 법이다.",
+      "en": "An unseen threat is the most terrifying."
+    },
+    "author": {
+      "ko": "티그란 페트로시안",
+      "en": "Tigran Petrosian"
+    }
+  },
+  {
+    "id": 81,
+    "quote": {
+      "ko": "폰은 체스의 영혼이다.",
+      "en": "Pawns are the soul of chess."
+    },
+    "author": {
+      "ko": "프랑수아 안드레 필리도어",
+      "en": "François-André Philidor"
+    }
+  },
+  {
+    "id": 82,
+    "quote": {
+      "ko": "두 개의 폰이 나란히 연결되어 있을 때 그 힘은 배가 된다.",
+      "en": "When two pawns are connected side by side, their power is doubled."
+    },
+    "author": {
+      "ko": "프랑수아 안드레 필리도어",
+      "en": "François-André Philidor"
+    }
+  },
+  {
+    "id": 83,
+    "quote": {
+      "ko": "체스에서 인생과 마찬가지로 자신을 가장 위협하는 것은 바로 자신이다.",
+      "en": "In chess, as in life, your greatest threat is yourself."
+    },
+    "author": {
+      "ko": "리하르트 레티",
+      "en": "Richard Réti"
+    }
+  },
+  {
+    "id": 84,
+    "quote": {
+      "ko": "오프닝에서 승리하는 것은 포지션에 대한 깊은 이해에 달려 있다.",
+      "en": "Winning the opening depends on a deep understanding of the position."
+    },
+    "author": {
+      "ko": "리하르트 레티",
+      "en": "Richard Réti"
+    }
+  },
+  {
+    "id": 85,
+    "quote": {
+      "ko": "체스 보드 위에는 현실의 경계가 존재하지 않는다.",
+      "en": "The boundaries of reality do not exist on the chessboard."
+    },
+    "author": {
+      "ko": "블라디미르 크람닉",
+      "en": "Vladimir Kramnik"
+    }
+  },
+  {
+    "id": 86,
+    "quote": {
+      "ko": "승리하려면 상대의 계산을 완전히 무너뜨리는 직관이 필요하다.",
+      "en": "To win, you need the intuition to completely destroy your opponent's calculations."
+    },
+    "author": {
+      "ko": "블라디미르 크람닉",
+      "en": "Vladimir Kramnik"
+    }
+  },
+  {
+    "id": 87,
+    "quote": {
+      "ko": "체스 마스터가 되는 길은 험난하지만 그 가치는 충분하다.",
+      "en": "The path to becoming a chess master is rough, but it is worth it."
+    },
+    "author": {
+      "ko": "막스 에우베",
+      "en": "Max Euwe"
+    }
+  },
+  {
+    "id": 88,
+    "quote": {
+      "ko": "전략은 당신에게 방향을 제시하고, 전술은 그 길을 열어준다.",
+      "en": "Strategy shows you the direction, and tactics open the way."
+    },
+    "author": {
+      "ko": "막스 에우베",
+      "en": "Max Euwe"
+    }
+  },
+  {
+    "id": 89,
+    "quote": {
+      "ko": "가장 강력한 무기는 다음 수를 전혀 예상할 수 없게 만드는 것이다.",
+      "en": "The most powerful weapon is to make your next move completely unpredictable."
+    },
+    "author": {
+      "ko": "데이비드 브론스타인",
+      "en": "David Bronstein"
+    }
+  },
+  {
+    "id": 90,
+    "quote": {
+      "ko": "체스는 64칸의 보드 위에서 이루어지는 상상력의 춤이다.",
+      "en": "Chess is a dance of imagination on a 64-square board."
+    },
+    "author": {
+      "ko": "데이비드 브론스타인",
+      "en": "David Bronstein"
+    }
+  },
+  {
+    "id": 91,
+    "quote": {
+      "ko": "오프닝은 책처럼, 미들게임은 마법사처럼, 엔드게임은 기계처럼 플레이하라.",
+      "en": "Play the opening like a book, the middlegame like a magician, and the endgame like a machine."
+    },
+    "author": {
+      "ko": "루돌프 슈필만",
+      "en": "Rudolf Spielmann"
+    }
+  },
+  {
+    "id": 92,
+    "quote": {
+      "ko": "핀(Pin)은 체스판 위의 칼보다 강하다.",
+      "en": "The pin is mightier than the sword."
+    },
+    "author": {
+      "ko": "프레드 라인펠드",
+      "en": "Fred Reinfeld"
+    }
+  },
+  {
+    "id": 93,
+    "quote": {
+      "ko": "모든 위대한 체스 마스터들도 한때는 초보자였다.",
+      "en": "Every chess master was once a beginner."
+    },
+    "author": {
+      "ko": "어빙 셰르네프",
+      "en": "Irving Chernev"
+    }
+  },
+  {
+    "id": 94,
+    "quote": {
+      "ko": "체스를 두는 것은 삶에서 필요한 신중함과 예지력을 기르는 훌륭한 방법이다.",
+      "en": "Playing chess is an excellent way to develop the prudence and foresight necessary in life."
+    },
+    "author": {
+      "ko": "벤자민 프랭클린",
+      "en": "Benjamin Franklin"
+    }
+  },
+  {
+    "id": 95,
+    "quote": {
+      "ko": "체스판은 64칸으로 이루어진 무한한 가능성의 공간이다.",
+      "en": "The chessboard is a space of infinite possibilities made of 64 squares."
+    },
+    "author": {
+      "ko": "요한 볼프강 폰 괴테",
+      "en": "Johann Wolfgang von Goethe"
+    }
+  },
+  {
+    "id": 96,
+    "quote": {
+      "ko": "체스는 인간 정신을 단련하는 최고의 체육관이다.",
+      "en": "Chess is the gymnasium of the mind."
+    },
+    "author": {
+      "ko": "블레즈 파스칼",
+      "en": "Blaise Pascal"
+    }
+  },
+  {
+    "id": 97,
+    "quote": {
+      "ko": "인생은 한 판의 체스 게임과 같다.",
+      "en": "Life is a kind of chess."
+    },
+    "author": {
+      "ko": "미겔 데 세르반테스",
+      "en": "Miguel de Cervantes"
+    }
+  },
+  {
+    "id": 98,
+    "quote": {
+      "ko": "체스는 인간이 만든 게임 중 운이나 우연이 개입하지 않는 유일한 게임이다.",
+      "en": "Chess is the only game devised by man in which luck or chance plays no part."
+    },
+    "author": {
+      "ko": "볼테르",
+      "en": "Voltaire"
+    }
+  },
+  {
+    "id": 99,
+    "quote": {
+      "ko": "체스를 두는 것은 침묵 속에서 아름다운 음악을 듣는 것과 같다.",
+      "en": "Playing chess is like listening to beautiful music in silence."
+    },
+    "author": {
+      "ko": "레프 톨스토이",
+      "en": "Leo Tolstoy"
+    }
+  },
+  {
+    "id": 100,
+    "quote": {
+      "ko": "체스는 마음의 바다이다. 모기는 그 표면을 걷고, 코끼리는 그 안에서 수영할 수 있다.",
+      "en": "Chess is a sea in which a gnat may drink and an elephant may bathe."
+    },
+    "author": {
+      "ko": "인도 속담",
+      "en": "Indian Proverb"
+    }
+  }
+]

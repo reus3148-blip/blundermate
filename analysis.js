@@ -1,43 +1,39 @@
-import { StockfishEngine } from './engine.js';
+import { StockfishEngine, EnginePool, getDefaultPoolSize } from './engine.js';
+import { parseEvalData, convertPvToSan, classifyMove } from './utils.js';
 
 // ==========================================
 // Module state
 // ==========================================
-// 분석 큐와 인덱스: live binding으로 main.js에서 직접 읽을 수 있게 export let.
-// 변경은 반드시 setQueue/setCurrentIndex/advanceCurrentIndex로만 — 다른 모듈이 재할당 시도 시 ESM이 막아준다.
+// 분석 큐: live binding으로 main.js에서 직접 읽을 수 있게 export let.
+// 변경은 setQueue로만.
 export let analysisQueue = [];
-export let currentAnalysisIndex = 0;
 
-// 엔진 상태 + 큐 재시작 상태 머신: 외부 노출은 함수만.
+// 단일 엔진(_stockfish): 탐색(explore) 모드 전용 — 점진적 eval 스트림을 콜백으로 노출.
+// 풀(_pool): 배치 게임 분석용 — 워커 N개에 포지션을 분산시켜 promise로 결과 수집.
+// 두 경로는 서로 독립이며, 동일 wasm 워커 파일을 공유한다.
 let _stockfish = null;
-let _isEngineReady = false;
+let _pool = null;
 let _depth = parseInt(localStorage.getItem('blundermate_depth')) || 12;
-let _isAnalyzing = false;
-let _isWaitingForStop = false;
-let _pendingQueue = null;
-let _pendingTargetIndex = null;
+
+// 배치 라이프사이클: 동시에 1개만 활성. 새 분석 요청 시 기존 배치를 abort하고 완료 대기.
+// _activeBatch.completed가 settle되면 _activeBatch는 null이 되고, 보류된 restart runner가 호출된다.
+let _activeBatch = null;       // { abort: () => void, completed: Promise<void> }
+let _pendingRestart = null;    // { runner: () => void }
 
 // ==========================================
 // Initialization
 // ==========================================
 // main.js가 엔진 콜백 전부를 정의하고 여기로 넘긴다 (UI/모드 분기는 main.js의 책임).
-// initAnalysis는 StockfishEngine 인스턴스를 만들고 isEngineReady 추적만 가로챈다.
+// 단일 엔진은 콜백 기반(탐색 모드의 라이브 eval), 풀은 promise 기반(배치).
 export function initAnalysis({ enginePath, callbacks }) {
-    const wrappedCallbacks = {
-        ...callbacks,
-        onUciOk: () => {
-            _isEngineReady = true;
-            if (callbacks?.onUciOk) callbacks.onUciOk();
-        },
-    };
-    _stockfish = new StockfishEngine(enginePath, wrappedCallbacks);
+    _stockfish = new StockfishEngine(enginePath, callbacks);
+    _pool = new EnginePool(enginePath, getDefaultPoolSize());
 }
 
 // ==========================================
 // Engine accessors
 // ==========================================
 export function getEngine() { return _stockfish; }
-export function isEngineReady() { return _isEngineReady; }
 
 export function getDepth() { return _depth; }
 export function setDepth(d) {
@@ -49,71 +45,89 @@ export function setDepth(d) {
 // Queue accessors
 // ==========================================
 export function setQueue(newQueue) { analysisQueue = newQueue; }
-export function setCurrentIndex(i) { currentAnalysisIndex = i; }
-export function advanceCurrentIndex() { currentAnalysisIndex++; }
 
-export function isRunning() { return _isAnalyzing; }
-export function isAwaitingRestart() { return _isWaitingForStop; }
-
-// 분석 중에 사용자가 새 게임을 시작하면 즉시 stop 보내고 onBestMove 콜백에서 재시작.
-// stop 응답은 비동기라 pendingQueue에 보류 후 isWaitingForStop 플래그를 set.
-export function scheduleRestart(newQueue, targetIndex) {
-    _pendingQueue = newQueue;
-    _pendingTargetIndex = targetIndex;
-    _isWaitingForStop = true;
-    _isAnalyzing = false;
-    _stockfish.stop();
-}
-
-// onBestMove 콜백이 stop 완료를 감지했을 때 호출. 보류된 큐를 반환하고 상태를 클리어.
-// 반환값이 null이면 일반 완료(다음 수로 진행), 객체면 main.js가 startNewAnalysis를 다시 호출해야 함.
-export function consumePendingRestart() {
-    if (!_isWaitingForStop) return null;
-    _isWaitingForStop = false;
-    if (!_pendingQueue) return null;
-    const result = { queue: _pendingQueue, targetIndex: _pendingTargetIndex };
-    _pendingQueue = null;
-    _pendingTargetIndex = null;
-    return result;
-}
-
-// 큐의 다음 위치를 엔진에 보내거나, 큐가 끝났으면 콜백을 호출.
-// onQueueDone: 큐 완료 (UI: 분석 상태 hide, 보드 시작 위치로 등)
-// onPositionStart: 다음 분석 시작 (UI: 진행률 표시, 보드 업데이트)
-// onWaitingEngine: 엔진이 아직 준비 안 됐을 때 — 보통 곧 onReady 콜백에서 자동 재개
-export function processNext({ onQueueDone, onPositionStart, onWaitingEngine }) {
-    if (currentAnalysisIndex >= analysisQueue.length) {
-        if (onQueueDone) onQueueDone();
-        return;
-    }
-    _isAnalyzing = true;
-    const pos = analysisQueue[currentAnalysisIndex];
-    if (onPositionStart) onPositionStart(currentAnalysisIndex, pos);
-    if (!_isEngineReady) {
-        _isAnalyzing = false;
-        if (onWaitingEngine) onWaitingEngine();
-        return;
-    }
-    _stockfish.analyzeFen(pos.fen, _depth);
-}
-
-// 분석을 시작하지는 않고 상태만 idle로 — 큐 끝에서 onBestMove가 호출되었을 때 등.
-export function markIdle() {
-    _isAnalyzing = false;
-}
+export function isRunning() { return !!_activeBatch; }
+export function isAwaitingRestart() { return !!_pendingRestart; }
 
 // ==========================================
-// Cleanup
+// Batch analysis
 // ==========================================
-// 분석 화면을 떠날 때 (cleanupAnalysis) 호출. 엔진 멈추고 모든 상태 초기화.
+// 풀에 큐 전체를 병렬 dispatch. 각 포지션 완료 시 engineLines를 채우고 onProgress 호출.
+// 모든 포지션 완료 시 인덱스 순서로 classifyMove 일괄 적용 후 onComplete 호출.
+//
+// 호출 전에 isRunning() === false 여야 한다 (배치 1개씩만 활성).
+// 진행 중 abort되면 onComplete 호출되지 않는다 — restart 경로가 새 배치를 시작.
+// 풀 초기화 실패 등 치명적 에러는 onError로 전달 (없으면 console.error로 기록).
+export function runBatch({ onProgress, onComplete, onError, isUserWhite }) {
+    if (_activeBatch) return;
+
+    _pool.reset();
+    let aborted = false;
+
+    const completed = (async () => {
+        try {
+            await _pool.ready();
+        } catch (e) {
+            if (onError) onError(e); else console.error('Engine pool failed to initialize:', e);
+            return;
+        }
+        const tasks = analysisQueue.map((pos, idx) => {
+            return _pool.analyze(pos.fen, _depth)
+                .then((result) => {
+                    if (aborted) return;
+                    const isBlackToMove = pos.fen.includes(' b ');
+                    pos.engineLines = result.lines.map((data) => {
+                        if (!data) return null;
+                        const { scoreStr, scoreNum } = parseEvalData(data, isBlackToMove);
+                        const sanPv = convertPvToSan(data.pv, pos.fen);
+                        const firstUci = data.pv ? data.pv.split(' ')[0] : '';
+                        return { scoreStr, scoreNum, pv: sanPv, uci: firstUci };
+                    });
+                    if (onProgress) onProgress(idx);
+                })
+                .catch(() => { /* cancelled task — 정상 abort 경로 */ });
+        });
+        await Promise.all(tasks);
+
+        if (aborted) return;
+        // 분류는 모든 engineLines가 채워진 후 인덱스 순서대로. classifyMove(i)는 i-1의 engineLines가 필요.
+        for (let i = 0; i < analysisQueue.length; i++) {
+            analysisQueue[i].classification = classifyMove(i, analysisQueue, isUserWhite);
+        }
+        if (onComplete) onComplete();
+    })();
+
+    _activeBatch = {
+        abort: () => {
+            if (aborted) return;
+            aborted = true;
+            _pool.cancelAll();
+        },
+        completed,
+    };
+
+    completed.finally(() => {
+        _activeBatch = null;
+        if (_pendingRestart) {
+            const r = _pendingRestart;
+            _pendingRestart = null;
+            r.runner();
+        }
+    });
+}
+
+// 분석 중에 사용자가 새 게임을 시작하면 즉시 abort. 기존 배치가 정리되면 runner를 실행.
+// runner는 보통 main.js의 startNewAnalysis(newQueue, targetIndex) 클로저.
+export function scheduleRestart(runner) {
+    _pendingRestart = { runner };
+    if (_activeBatch) _activeBatch.abort();
+}
+
+// 분석 화면을 떠날 때 호출. 활성 배치 abort + 보류 상태 클리어 + 큐 비움.
 export function stopAndClear() {
-    if (_stockfish) _stockfish.stop();
-    _isAnalyzing = false;
-    _isWaitingForStop = false;
-    _pendingQueue = null;
-    _pendingTargetIndex = null;
+    if (_activeBatch) _activeBatch.abort();
+    _pendingRestart = null;
     analysisQueue = [];
-    currentAnalysisIndex = 0;
 }
 
 // ==========================================
