@@ -24,6 +24,12 @@ export class StockfishEngine {
             this.isReady = true;
             if (this.callbacks.onUciOk) this.callbacks.onUciOk();
             this.worker.postMessage('setoption name MultiPV value 3');
+            this.worker.postMessage('setoption name Hash value 64');
+            // 멀티스레드 빌드 + cross-origin isolation일 때만 Threads 활성. 미지원 환경은 single 빌드라 옵션 무시됨.
+            if (typeof SharedArrayBuffer !== 'undefined') {
+                const threads = Math.min(navigator.hardwareConcurrency || 2, 4);
+                this.worker.postMessage(`setoption name Threads value ${threads}`);
+            }
             this.worker.postMessage('isready');
         } else if (line === 'readyok') {
             if (this.callbacks.onReady) this.callbacks.onReady();

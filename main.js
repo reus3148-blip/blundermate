@@ -1712,7 +1712,11 @@ const engineCallbacks = {
     }
 };
 
-initAnalysis({ enginePath: './engine/stockfish-18-lite-single.js', callbacks: engineCallbacks });
+// SharedArrayBuffer 지원 시 멀티스레드 빌드, 아니면 싱글 폴백 (cross-origin isolation 헤더가 빠진 환경 포함).
+const enginePath = (typeof SharedArrayBuffer !== 'undefined' && self.crossOriginIsolated)
+    ? './engine/stockfish-18-lite.js'
+    : './engine/stockfish-18-lite-single.js';
+initAnalysis({ enginePath, callbacks: engineCallbacks });
 
 // ==========================================
 // 7. Analysis Workflow

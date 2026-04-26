@@ -27,6 +27,8 @@ const APP_SHELL = [
     '/savedGames.js',
     '/engine/stockfish-18-lite-single.js',
     '/engine/stockfish-18-lite-single.wasm',
+    '/engine/stockfish-18-lite.js',
+    '/engine/stockfish-18-lite.wasm',
     '/logo.png',
     '/manifest.webmanifest',
 ];
