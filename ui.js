@@ -1,4 +1,4 @@
-import { escapeHtml } from './utils.js';
+import { escapeHtml, getWhiteWinPct } from './utils.js';
 import { t } from './strings.js';
 
 /**
@@ -217,27 +217,21 @@ function formatScoreMode(scoreStr) {
 }
 
 const CLASS_COLOR = {
+    'Brilliant':  'var(--brilliant)',
+    'Great':      'var(--great)',
     'Best':       'var(--best)',
-    'Excellent':  'var(--best)',
+    'Excellent':  'var(--excellent)',
     'Good':       'var(--tx2)',
     'Inaccuracy': 'var(--inaccuracy)',
     'Mistake':    'var(--mistake)',
     'Blunder':    'var(--blunder)',
+    'Forced':     'var(--tx2)',
 };
-
-/**
- * 백 기준 pawn eval → 백 기준 승률(%). 0~100 범위.
- * scoreNum은 이미 백 기준(+ = 백 유리)이므로 변환 없이 sigmoid 적용.
- */
-function scoreToWhiteWinPct(scoreNum) {
-    if (scoreNum === undefined || scoreNum === null || Number.isNaN(scoreNum)) return null;
-    const cp = Math.max(-99900, Math.min(99900, scoreNum * 100));
-    return 50 + 50 * (2 / (1 + Math.exp(-0.00368208 * cp)) - 1);
-}
 
 /**
  * Lichess Accuracy per move: 103.1668 * exp(-0.04354 * winPctLoss) - 3.1669
  * forWhitePlayer가 true면 백의 평균 정확도, false면 흑의 평균 정확도.
+ * win%는 WDL 우선, cp 시그모이드 fallback (getWhiteWinPct).
  */
 function computePlayerAccuracy(analysisQueue, forWhitePlayer) {
     const accuracies = [];
@@ -246,7 +240,7 @@ function computePlayerAccuracy(analysisQueue, forWhitePlayer) {
         if (move.isWhite !== forWhitePlayer) continue;
         if (!move.engineLines || !move.engineLines[0]) continue;
 
-        const currWhiteWinPct = scoreToWhiteWinPct(move.engineLines[0].scoreNum);
+        const currWhiteWinPct = getWhiteWinPct(move.engineLines[0]);
         if (currWhiteWinPct === null) continue;
 
         let prevWhiteWinPct;
@@ -255,7 +249,7 @@ function computePlayerAccuracy(analysisQueue, forWhitePlayer) {
         } else {
             const prev = analysisQueue[i - 1];
             if (!prev.engineLines || !prev.engineLines[0]) continue;
-            prevWhiteWinPct = scoreToWhiteWinPct(prev.engineLines[0].scoreNum);
+            prevWhiteWinPct = getWhiteWinPct(prev.engineLines[0]);
             if (prevWhiteWinPct === null) continue;
         }
 
@@ -274,6 +268,9 @@ function computePlayerAccuracy(analysisQueue, forWhitePlayer) {
 }
 
 const MARKER_COLOR = {
+    'Brilliant':  'var(--brilliant)',
+    'Great':      'var(--great)',
+    'Excellent':  'var(--excellent)',
     'Blunder':    'var(--blunder)',
     'Mistake':    'var(--mistake)',
     'Inaccuracy': 'var(--inaccuracy)',
@@ -302,7 +299,7 @@ export function buildSummaryGraphSvgHtml(analysisQueue, isUserWhite) {
     for (let i = 0; i < total; i++) {
         const move = analysisQueue[i];
         if (!move.engineLines || !move.engineLines[0]) continue;
-        const whitePct = scoreToWhiteWinPct(move.engineLines[0].scoreNum);
+        const whitePct = getWhiteWinPct(move.engineLines[0]);
         if (whitePct === null) continue;
         const pct = isUserWhite ? whitePct : 100 - whitePct;
         points.push({ moveNum: i + 1, pct, classification: move.classification });
@@ -361,22 +358,28 @@ export function renderSummaryGraph(container, analysisQueue, isUserWhite) {
     container.innerHTML = svg;
 }
 
-const CLASS_ORDER = ['Best', 'Excellent', 'Good', 'Inaccuracy', 'Mistake', 'Blunder'];
+const CLASS_ORDER = ['Brilliant', 'Great', 'Best', 'Excellent', 'Good', 'Inaccuracy', 'Mistake', 'Blunder', 'Forced'];
 const CLASS_I18N = {
+    'Brilliant':  'class_brilliant',
+    'Great':      'class_great',
     'Best':       'class_best',
     'Excellent':  'class_excellent',
     'Good':       'class_good',
     'Inaccuracy': 'class_inaccuracy',
     'Mistake':    'class_mistake',
     'Blunder':    'class_blunder',
+    'Forced':     'class_forced',
 };
 const CLASS_DOT_COLOR = {
+    'Brilliant':  'var(--brilliant)',
+    'Great':      'var(--great)',
     'Best':       'var(--best)',
-    'Excellent':  'var(--best)',
+    'Excellent':  'var(--excellent)',
     'Good':       'var(--tx)',
     'Inaccuracy': 'var(--inaccuracy)',
     'Mistake':    'var(--mistake)',
     'Blunder':    'var(--blunder)',
+    'Forced':     'var(--tx2)',
 };
 
 /**
@@ -522,19 +525,28 @@ export function renderReviewReport({ analysisQueue, isUserWhite, gameInfo }) {
 
 /**
  * Updates win chance and move classification label in the bottom bar.
+ * whiteWinPctOverride: WDL 기반 백 시점 승률(0~100). 있으면 이걸 우선 — 분류 알고리즘과 동일한 소스.
+ *   없으면 scoreStr → 시그모이드 fallback.
  */
-export function updateTopEvalDisplay(scoreStr, classification = '', isUserWhite = true) {
+export function updateTopEvalDisplay(scoreStr, classification = '', isUserWhite = true, whiteWinPctOverride = null) {
     const el = document.getElementById('winChanceDisplay');
     const labelEl = document.getElementById('moveClassLabel');
     if (!el) return;
 
     el.dataset.scoreStr = scoreStr || '';
     el.dataset.classification = classification || '';
+    if (whiteWinPctOverride !== null && Number.isFinite(whiteWinPctOverride)) {
+        el.dataset.whiteWinPct = String(whiteWinPctOverride);
+    } else {
+        delete el.dataset.whiteWinPct;
+    }
 
     const mode = localStorage.getItem('evalDisplayMode') || 'percent';
-    // evalToWinChance는 백 기준 승률 반환 → 유저 관점으로 변환
-    const whitePct = evalToWinChance(scoreStr);
-    const pct = whitePct === null ? null : isUserWhite ? whitePct : 100 - whitePct;
+    const whitePct = whiteWinPctOverride !== null && Number.isFinite(whiteWinPctOverride)
+        ? whiteWinPctOverride
+        : evalToWinChance(scoreStr);
+    const rawPct = whitePct === null ? null : isUserWhite ? whitePct : 100 - whitePct;
+    const pct = rawPct === null ? null : Math.round(rawPct);
     const color = pct === null ? 'var(--tx2)' : pct >= 50 ? 'var(--best)' : pct < 40 ? 'var(--blunder)' : 'var(--tx2)';
 
     if (mode === 'score') {

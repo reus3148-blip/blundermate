@@ -17,7 +17,7 @@ import {
     setAppMode, setIsPreviewMode, setIsReviewMode, clearExplorationEngineLines, setExplorationLineAt,
     setSimulationQueue, pushSimulationQueueItem, setSimulationIndex,
 } from './modes.js';
-import { parseEvalData, getDests, convertPvToSan, parseAndLoadPgn, isValidFen, escapeHtml, parseOpeningFromPgn, formatTimeControl, formatRelativeDate, getTier, TIERS, isWhitePlayer, classifyGameResult, countMovesFromPgn } from './utils.js';
+import { parseEvalData, getDests, convertPvToSan, parseAndLoadPgn, isValidFen, escapeHtml, parseOpeningFromPgn, formatTimeControl, formatRelativeDate, getTier, TIERS, isWhitePlayer, classifyGameResult, countMovesFromPgn, wdlToWhiteWinPct, cpToWhiteWinPct } from './utils.js';
 import { renderMovesTable, updateUIWithEval, highlightActiveMove, renderEngineLines, updateTopEvalDisplay, renderReviewReport, buildPreviewCardHtml } from './ui.js';
 import { addVaultItem, getSavedGames, setMyUserId, getMyUserId, ONBOARDING_KEY, COORDS_KEY, EVAL_MODE_KEY } from './storage.js';
 import { initVault, initHomeVaultBadge, isVaultDetailActive, getVaultDetailIndex, setVaultDetailIndex, flipVaultBoard, setVaultCoords, redrawVaultBoard, loadVaultData } from './vault.js';
@@ -1307,7 +1307,9 @@ document.getElementById('winChanceDisplay').addEventListener('click', () => {
     localStorage.setItem(EVAL_MODE_KEY, next);
     el.style.opacity = '0';
     setTimeout(() => {
-        updateTopEvalDisplay(el.dataset.scoreStr || '', el.dataset.classification || '', isUserWhite);
+        const cached = el.dataset.whiteWinPct ? parseFloat(el.dataset.whiteWinPct) : null;
+        updateTopEvalDisplay(el.dataset.scoreStr || '', el.dataset.classification || '', isUserWhite,
+                             Number.isFinite(cached) ? cached : null);
         el.style.opacity = '1';
     }, 150);
 });
@@ -1647,14 +1649,17 @@ const engineCallbacks = {
         const lineIndex = evalData.multipv - 1;
         const sanPv = convertPvToSan(evalData.pv, explorationChess.fen());
         const firstUci = evalData.pv ? evalData.pv.split(' ')[0] : '';
-        setExplorationLineAt(lineIndex, { scoreStr, scoreNum, pv: sanPv, uci: firstUci });
+        const whiteWinPct = evalData.wdl
+            ? wdlToWhiteWinPct(evalData.wdl, isBlackToMove)
+            : cpToWhiteWinPct(scoreNum);
+        setExplorationLineAt(lineIndex, { scoreStr, scoreNum, pv: sanPv, uci: firstUci, whiteWinPct });
 
         const now = Date.now();
         if (explorationEngineLines[0] && now - lastEvalRenderTime > EVAL_RENDER_THROTTLE) {
             lastEvalRenderTime = now;
             requestAnimationFrame(() => {
                 renderEngineLines(engineLinesContainer, explorationEngineLines.filter(Boolean), drawEngineArrow, clearEngineArrow, handleEngineLineClick);
-                updateTopEvalDisplay(explorationEngineLines[0].scoreStr, 'Exploring', isUserWhite);
+                updateTopEvalDisplay(explorationEngineLines[0].scoreStr, 'Exploring', isUserWhite, explorationEngineLines[0].whiteWinPct ?? null);
             });
         }
     },
@@ -1965,8 +1970,8 @@ function processNextInQueue() {
             } else if (analysisQueue[0]) {
                 // FEN 단일: 보드는 그 포지션에 고정, 평가/라인을 패널에 즉시 반영
                 const move = analysisQueue[0];
-                const topScore = move.engineLines && move.engineLines[0] ? move.engineLines[0].scoreStr : '';
-                updateTopEvalDisplay(topScore, move.classification, isUserWhite);
+                const topLine = move.engineLines && move.engineLines[0] ? move.engineLines[0] : null;
+                updateTopEvalDisplay(topLine?.scoreStr || '', move.classification, isUserWhite, topLine?.whiteWinPct ?? null);
                 if (move.engineLines && move.engineLines.length > 0) {
                     renderEngineLines(engineLinesContainer, move.engineLines.filter(Boolean), drawEngineArrow, clearEngineArrow, handleEngineLineClick);
                 }
@@ -2088,8 +2093,9 @@ function updateBoardPosition(index, fen) {
 
     // 화면이 바뀔 때, 해당 수에 저장된 엔진 추천 라인이 있다면 화면에 다시 렌더링
     if (analysisQueue[index] && analysisQueue[index].engineLines && analysisQueue[index].engineLines.length > 0) {
+        const topLine = analysisQueue[index].engineLines[0];
         renderEngineLines(engineLinesContainer, analysisQueue[index].engineLines.filter(Boolean), drawEngineArrow, clearEngineArrow, handleEngineLineClick);
-        updateTopEvalDisplay(analysisQueue[index].engineLines[0].scoreStr, analysisQueue[index].classification, isUserWhite);
+        updateTopEvalDisplay(topLine.scoreStr, analysisQueue[index].classification, isUserWhite, topLine.whiteWinPct ?? null);
     } else if (index === -1 && analysisQueue.length > 0) {
         // 분석 후 0수(시작 포지션) — 게임 목록에서 누른 직후 모습과 동일하게 미리보기 카드 표시
         engineLinesContainer.innerHTML = buildPreviewCardHtml(buildGameHeaderInfo());
@@ -2107,11 +2113,14 @@ function updateBoardPosition(index, fen) {
 // ==========================================
 
 const BADGE_MAP = {
+    'Brilliant':  { symbol: '!!', fontSize: '9px',  fontWeight: '900', color: '#fff',    bg: '#3A8560', borderColor: '#26614A' },
+    'Great':      { symbol: '!',  fontSize: '13px', fontWeight: '900', color: '#fff',    bg: '#2D6E55', borderColor: '#1F5240' },
     'Best':       { symbol: '✦', fontSize: '10px', fontWeight: '700', color: '#2C2824', bg: '#FAF8F2', borderColor: '#D8CDB5' },
-    'Excellent':  { symbol: '!',  fontSize: '13px', fontWeight: '900', color: '#fff',    bg: '#5A7A3A', borderColor: '#3E5A25' },
+    'Excellent':  { symbol: '✓', fontSize: '11px', fontWeight: '900', color: '#fff',    bg: '#6B8C3A', borderColor: '#4F6A28' },
     'Inaccuracy': { symbol: '?!', fontSize: '8px',  fontWeight: '700', color: '#fff',    bg: '#8B6F2A', borderColor: '#6B551C' },
     'Mistake':    { symbol: '?',  fontSize: '13px', fontWeight: '900', color: '#fff',    bg: '#B5612A', borderColor: '#8F4A1E' },
     'Blunder':    { symbol: '??', fontSize: '9px',  fontWeight: '700', color: '#fff',    bg: '#9A3A2A', borderColor: '#75281C' },
+    'Forced':     { symbol: '□',  fontSize: '11px', fontWeight: '700', color: '#fff',    bg: '#6B6358', borderColor: '#4A453E' },
 };
 
 function showPieceBadge(index) {
