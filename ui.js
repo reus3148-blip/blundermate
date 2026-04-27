@@ -1,4 +1,4 @@
-import { escapeHtml, getWhiteWinPct } from './utils.js';
+import { escapeHtml, getWhiteWinPct, cpToWhiteWinPct } from './utils.js';
 import { t } from './strings.js';
 
 /**
@@ -60,13 +60,13 @@ export function renderMovesTable(container, queue, onMoveClick) {
 export function updateUIWithEval(index, scoreStr, classification = '') {
     const cell = document.getElementById(`move-${index}`);
     if (!cell) return;
-    
+
     // 기보 테이블 내부에서는 오직 평가 점수(eval-badge) 숫자만 업데이트합니다.
-    
+
     const badge = cell.querySelector('.eval-badge');
     if (badge && scoreStr) { // scoreStr이 undefined일 경우 예외 발생(TypeError) 방어
         badge.textContent = scoreStr;
-        
+
         badge.classList.remove('positive', 'negative');
         const numVal = parseFloat(scoreStr);
         if (!isNaN(numVal)) {
@@ -189,8 +189,8 @@ function setupEngineLinesDelegation(container) {
 }
 
 /**
- * Converts a user-perspective eval score (in pawns) to win chance % using Lichess formula.
- * scoreStr is already from the user's POV (positive = user winning).
+ * Converts a white-frame eval scoreStr (pawns) to white win chance %.
+ * cpToWhiteWinPct에 위임하여 점수 ↔ 승률 단일 소스 보장.
  */
 function evalToWinChance(scoreStr) {
     if (!scoreStr || scoreStr === '-' || scoreStr === '—') return null;
@@ -198,7 +198,8 @@ function evalToWinChance(scoreStr) {
     if (scoreStr.startsWith('-M')) return 1;
     const n = parseFloat(scoreStr);
     if (isNaN(n)) return null;
-    return Math.round(50 + 50 * (2 / (1 + Math.exp(-0.00368 * n * 100)) - 1));
+    const pct = cpToWhiteWinPct(n);
+    return pct === null ? null : Math.round(pct);
 }
 
 /**
@@ -525,26 +526,18 @@ export function renderReviewReport({ analysisQueue, isUserWhite, gameInfo }) {
 
 /**
  * Updates win chance and move classification label in the bottom bar.
- * whiteWinPctOverride: WDL 기반 백 시점 승률(0~100). 있으면 이걸 우선 — 분류 알고리즘과 동일한 소스.
- *   없으면 scoreStr → 시그모이드 fallback.
+ * scoreStr → win% (Lichess 시그모이드, cpToWhiteWinPct) — 표시 cp ↔ 표시 win% 단일 소스.
  */
-export function updateTopEvalDisplay(scoreStr, classification = '', isUserWhite = true, whiteWinPctOverride = null) {
+export function updateTopEvalDisplay(scoreStr, classification = '', isUserWhite = true) {
     const el = document.getElementById('winChanceDisplay');
     const labelEl = document.getElementById('moveClassLabel');
     if (!el) return;
 
     el.dataset.scoreStr = scoreStr || '';
     el.dataset.classification = classification || '';
-    if (whiteWinPctOverride !== null && Number.isFinite(whiteWinPctOverride)) {
-        el.dataset.whiteWinPct = String(whiteWinPctOverride);
-    } else {
-        delete el.dataset.whiteWinPct;
-    }
 
     const mode = localStorage.getItem('evalDisplayMode') || 'percent';
-    const whitePct = whiteWinPctOverride !== null && Number.isFinite(whiteWinPctOverride)
-        ? whiteWinPctOverride
-        : evalToWinChance(scoreStr);
+    const whitePct = evalToWinChance(scoreStr);
     const rawPct = whitePct === null ? null : isUserWhite ? whitePct : 100 - whitePct;
     const pct = rawPct === null ? null : Math.round(rawPct);
     const color = pct === null ? 'var(--tx2)' : pct >= 50 ? 'var(--best)' : pct < 40 ? 'var(--blunder)' : 'var(--tx2)';

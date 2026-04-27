@@ -31,24 +31,12 @@ export function parseEvalData(evalData, isBlackToMove) {
 }
 
 /**
- * Stockfish WDL(STM 기준 permille, 합 1000)을 백 기준 win% (0~100)로 변환.
- * STM이 흑이면 W/L를 스왑해 백 시점으로 정규화. 점수기댓값 기반: (W + D/2) / 1000.
+ * cp(폰 단위) 평가를 백 기준 win% (0~100)로 변환 — freechess와 동일한 Lichess 시그모이드.
+ * 표시되는 cp ↔ 표시되는 win%가 항상 같은 함수에서 파생되도록 단일 소스로 사용.
+ * mate scoreNum(±999)도 자연스럽게 ~0/100 으로 수렴.
  *
- * @param {{w: number, d: number, l: number} | null} wdl
- * @param {boolean} isBlackToMove  WDL이 보고된 포지션의 STM이 흑이면 true
- * @returns {number | null}
- */
-export function wdlToWhiteWinPct(wdl, isBlackToMove) {
-    if (!wdl) return null;
-    const { w, d, l } = wdl;
-    if (!Number.isFinite(w) || !Number.isFinite(d) || !Number.isFinite(l)) return null;
-    const whiteWin = isBlackToMove ? l : w;
-    return (whiteWin + d / 2) / 10; // permille → percent
-}
-
-/**
- * cp(폰 단위) 평가를 백 기준 win%로 (Lichess 시그모이드).
- * WDL 미지원 빌드 fallback. mate scoreNum(±999)도 자연스럽게 ~0/100 으로 수렴.
+ * 표시 cp는 SF의 raw cp 그대로(엔진 그대로의 정직한 값), win%는 그 cp를 시그모이드로 변환.
+ * SF18 NN의 WDL 분포는 cp와 다른 모델이라 둘을 섞으면 표시 모순이 발생해서 사용하지 않음.
  *
  * @param {number} scoreNum  백 기준 폰 단위 평가
  * @returns {number | null}
@@ -60,11 +48,10 @@ export function cpToWhiteWinPct(scoreNum) {
 }
 
 /**
- * engineLine에서 백 기준 win%를 추출 — wdl 우선, scoreNum sigmoid fallback.
+ * engineLine에서 백 기준 win%를 추출 — scoreNum 기반 단일 시그모이드.
  */
 export function getWhiteWinPct(engineLine) {
     if (!engineLine) return null;
-    if (typeof engineLine.whiteWinPct === 'number') return engineLine.whiteWinPct;
     return cpToWhiteWinPct(engineLine.scoreNum);
 }
 
