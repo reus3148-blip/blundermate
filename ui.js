@@ -541,7 +541,7 @@ export function updateTopEvalDisplay(scoreStr, classification = '', isUserWhite 
     const whitePct = evalToWinChance(scoreStr);
     const rawPct = whitePct === null ? null : isUserWhite ? whitePct : 100 - whitePct;
     const pct = rawPct === null ? null : Math.round(rawPct);
-    const color = pct === null ? 'var(--tx2)' : pct >= 50 ? 'var(--best)' : pct < 40 ? 'var(--blunder)' : 'var(--tx2)';
+    const color = pct === null ? 'var(--tx2)' : pct >= 50 ? 'var(--win)' : pct < 40 ? 'var(--loss)' : 'var(--tx2)';
 
     if (mode === 'score') {
         el.textContent = formatScoreMode(scoreStr);
