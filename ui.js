@@ -1,4 +1,5 @@
 import { escapeHtml, getWhiteWinPct, cpToWhiteWinPct } from './utils.js';
+import { EVAL_MODE_KEY } from './storage.js';
 import { t } from './strings.js';
 
 /**
@@ -189,8 +190,8 @@ function setupEngineLinesDelegation(container) {
 }
 
 /**
- * Converts a white-frame eval scoreStr (pawns) to white win chance %.
- * cpToWhiteWinPct에 위임하여 점수 ↔ 승률 단일 소스 보장.
+ * scoreStr(백 기준, "+1.50" / "+M5" / "-M3" / "-" 등) → 백 win% (0~100, 정수).
+ * cp는 cpToWhiteWinPct에 위임, mate는 ±99로 클램프.
  */
 function evalToWinChance(scoreStr) {
     if (!scoreStr || scoreStr === '-' || scoreStr === '—') return null;
@@ -232,7 +233,7 @@ const CLASS_COLOR = {
 /**
  * Lichess Accuracy per move: 103.1668 * exp(-0.04354 * winPctLoss) - 3.1669
  * forWhitePlayer가 true면 백의 평균 정확도, false면 흑의 평균 정확도.
- * win%는 WDL 우선, cp 시그모이드 fallback (getWhiteWinPct).
+ * 같은 win% source(getWhiteWinPct → cpToWhiteWinPct)를 써서 표시 일관성 유지.
  */
 function computePlayerAccuracy(analysisQueue, forWhitePlayer) {
     const accuracies = [];
@@ -525,8 +526,8 @@ export function renderReviewReport({ analysisQueue, isUserWhite, gameInfo }) {
 }
 
 /**
- * Updates win chance and move classification label in the bottom bar.
- * scoreStr → win% (Lichess 시그모이드, cpToWhiteWinPct) — 표시 cp ↔ 표시 win% 단일 소스.
+ * 분석 화면 하단 바의 win%/score + 분류 라벨 갱신.
+ * scoreStr → win% (cpToWhiteWinPct) — 표시 cp ↔ 표시 win% 같은 함수에서 파생.
  */
 export function updateTopEvalDisplay(scoreStr, classification = '', isUserWhite = true) {
     const el = document.getElementById('winChanceDisplay');
@@ -536,7 +537,7 @@ export function updateTopEvalDisplay(scoreStr, classification = '', isUserWhite 
     el.dataset.scoreStr = scoreStr || '';
     el.dataset.classification = classification || '';
 
-    const mode = localStorage.getItem('evalDisplayMode') || 'percent';
+    const mode = localStorage.getItem(EVAL_MODE_KEY) || 'percent';
     const whitePct = evalToWinChance(scoreStr);
     const rawPct = whitePct === null ? null : isUserWhite ? whitePct : 100 - whitePct;
     const pct = rawPct === null ? null : Math.round(rawPct);

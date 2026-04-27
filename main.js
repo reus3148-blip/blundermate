@@ -1934,7 +1934,6 @@ function startAnalysisFromPreview() {
 // onProgress는 인덱스 순서가 아닌 완료 순서로 호출되므로 단순 카운트만 사용.
 function processNextInQueue() {
     runBatch({
-        isUserWhite,
         onProgress: () => {
             _completedCount++;
             setLoadingProgress(_completedCount, _totalCount);

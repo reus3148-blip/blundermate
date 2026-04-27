@@ -31,15 +31,8 @@ export function parseEvalData(evalData, isBlackToMove) {
 }
 
 /**
- * cp(폰 단위) 평가를 백 기준 win% (0~100)로 변환 — freechess와 동일한 Lichess 시그모이드.
- * 표시되는 cp ↔ 표시되는 win%가 항상 같은 함수에서 파생되도록 단일 소스로 사용.
- * mate scoreNum(±999)도 자연스럽게 ~0/100 으로 수렴.
- *
- * 표시 cp는 SF의 raw cp 그대로(엔진 그대로의 정직한 값), win%는 그 cp를 시그모이드로 변환.
- * SF18 NN의 WDL 분포는 cp와 다른 모델이라 둘을 섞으면 표시 모순이 발생해서 사용하지 않음.
- *
- * @param {number} scoreNum  백 기준 폰 단위 평가
- * @returns {number | null}
+ * cp(폰 단위, 백 기준) → 백 win% (0~100). Lichess 시그모이드 (freechess와 동일).
+ * mate scoreNum(±999)도 자연스럽게 ~0/100으로 수렴.
  */
 export function cpToWhiteWinPct(scoreNum) {
     if (scoreNum === undefined || scoreNum === null || Number.isNaN(scoreNum)) return null;
@@ -47,9 +40,7 @@ export function cpToWhiteWinPct(scoreNum) {
     return 50 + 50 * (2 / (1 + Math.exp(-0.00368208 * cp)) - 1);
 }
 
-/**
- * engineLine에서 백 기준 win%를 추출 — scoreNum 기반 단일 시그모이드.
- */
+/** engineLine → 백 win%. cpToWhiteWinPct를 line.scoreNum에 적용. */
 export function getWhiteWinPct(engineLine) {
     if (!engineLine) return null;
     return cpToWhiteWinPct(engineLine.scoreNum);
@@ -317,7 +308,7 @@ function lineToEval(line) {
  *   5) Best일 때 Great 검사: 직전 상대 수가 Blunder + 1-2 ≥ 150cp + 둔 자리 안 행잉
  *   6) Blunder 디그레이드: |currEval| ≥ 600 이면 Good (winning 유지) / prev ≤ -600 이면 Good (이미 lost)
  */
-export function classifyMove(index, analysisQueue, isUserWhite) {
+export function classifyMove(index, analysisQueue) {
     if (index < 0) return '';
     const move = analysisQueue[index];
     if (!move) return '';
