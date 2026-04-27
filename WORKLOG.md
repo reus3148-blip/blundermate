@@ -178,6 +178,27 @@
 - **로딩 카드** — 명언 100선(`quotes.js` + `quote.json`) + 진행률 % 바. 0수/preview 골격 유지하며 보드만 카드로 교체
 - **피드백 FAB** — 홈 우측 하단, 기존 피드백 모달 재사용
 
+## Phase 23 — cp ↔ win% 단일 소스 (freechess 본가 방식 회귀)
+
+Phase 22에서 도입한 SF18 WDL 기반 win%가 표시 cp(정규화)와 모순되는 문제 해결.
+
+**문제:** SF18은 NNUE의 WDL을 직접 출력하면서, cp 출력은 정규화된 값(100cp ≈ 50% 승률)으로 압축. WDL은 NN 분포 직접 / cp는 압축된 다른 모델이라 같은 포지션이 두 모델로 평가되어 "+1.5인데 99%?" 같은 모순 발생.
+
+**중간 시도 폐기:** WDL을 살리고 표시 cp를 역시그모이드로 파생하는 방식도 시도했지만, 그 경우 표시 cp가 SF의 실제 평가가 아닌 Lichess 곡선 위의 가짜값이 되고 분류용 cp(raw)와도 달라져서 폐기.
+
+**최종 해결:** **freechess 본가와 동일하게 raw cp + Lichess 시그모이드 단일 소스**. SF NN의 WDL은 사용하지 않음.
+
+- 표시 cp = SF raw cp ("+1.5") — 엔진 그대로 정직한 값
+- 표시 win% = `cpToWhiteWinPct(scoreNum)` ("63%") — 같은 cp의 시그모이드 변환
+- 정확도 / 그래프 / 분류 모두 동일한 raw cp 기반 → 완전 일관
+
+**트레이드오프:** SF NN의 진짜 확신도(결정적 엔드게임에서 99%)는 잃음. 정직성과 일관성을 우선시한 결정.
+
+- `utils.js` — `cpToWhiteWinPct` 단일 헬퍼. `wdlToWhiteWinPct`/`getDisplayScore`/`whiteWinPctToDisplayPawns` 모두 제거
+- `analysis.js` / `main.js` — engineLine에서 `whiteWinPct` 필드 제거. WDL 분기 삭제
+- `ui.js` — `updateTopEvalDisplay(scoreStr, ...)` scoreStr만 받음. `evalToWinChance`는 `cpToWhiteWinPct`에 위임
+- `engine.js` — `setoption UCI_ShowWDL value true` 송신 제거 + `parseEvalLine`의 wdl 토큰 파싱 제거
+
 ## Phase 22 — 수 분류 알고리즘 freechess 포팅 + WDL win% 도입
 
 기존 CPL 기반 4-tier(Best/Excellent/Good/Inaccuracy/Mistake/Blunder)를 폐기하고 chess.com review 라벨 체계 미러링 — [WintrCat/freechess](https://github.com/WintrCat/freechess)의 알고리즘 1:1 포팅.
@@ -223,7 +244,7 @@
 | `insights.js` | 통계 — 색깔/시간제어/오프닝 등 집계 |
 | `ui.js` | DOM 렌더링 (상태 변경 없음) |
 | `utils.js` | 순수 로직 — eval 파싱, 수 분류(freechess 포팅), FEN/PGN, `rootOpeningName`, 클럭 파싱, board 헬퍼(getAttackers/getDefenders/isPieceHanging) |
-| `engine.js` | `StockfishEngine` (단일) + `EnginePool` (N워커 병렬), UCI 파싱 |
+| `engine.js` | `StockfishEngine` (단일) + `EnginePool` (N워커 병렬), UCI 파싱 (cp/mate) |
 | `gemini.js` | `/api/analyze` SSE, 결과 캐시, 자체 상태 |
 | `chessApi.js` | Chess.com REST (캐시 공유). 캐노니컬 username을 displayName으로 반환 |
 | `storage.js` | localStorage CRUD — **데이터 계층**. user_id는 read/write 양쪽 lowercase 정규화. Supabase 전환 시 이 파일만 교체 |
@@ -238,9 +259,10 @@
 ```
 Input (PGN/Chess.com/board)
   → Chess.js parse → analysisQueue[]
-  → FEN → EnginePool 워커 N개 병렬 (MultiPV=3, depth=12, Hash=32MB, UCI_ShowWDL on)
-  → cp/mate/wdl → engineLines (whiteWinPct 채움)
+  → FEN → EnginePool 워커 N개 병렬 (MultiPV=3, depth=12, Hash=32MB)
+  → cp/mate → engineLines (scoreStr/scoreNum)
   → classifyMove() (freechess 포팅 — quadratic CPL + 8 라벨 + Forced)
+  → cpToWhiteWinPct (Lichess 시그모이드 단일 소스 → win% 표시 / 정확도)
   → ui.js 렌더
   → 실수 시 /api/analyze SSE → Gemini 해설
   → 해설은 analysisQueue[i].geminiExplanation에 캐시
@@ -260,7 +282,7 @@ Input (PGN/Chess.com/board)
 6. **Forced** — 합법수 1개
 7. **Blunder 디그레이드** — `|absEval| ≥ 600` 또는 prev ≤ -600이면 Good
 
-**WDL win%**(`whiteWinPct` 필드)는 분류엔 안 쓰고 중간 바 표시 + accuracy 산출용.
+**Win% 표시 / accuracy**: `cpToWhiteWinPct(scoreNum)` 단일 소스 (Lichess 시그모이드, `0.00368208 * cp`). 표시 cp는 SF raw 그대로(엔진 그대로), win%는 그 cp의 시그모이드. 두 표시 항상 일치. SF18 WDL은 cp와 다른 모델이라 사용하지 않음 (Phase 23에서 freechess 본가 방식으로 회귀).
 
 ### 분석 화면 핵심 바
 

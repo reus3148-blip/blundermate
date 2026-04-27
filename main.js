@@ -17,7 +17,7 @@ import {
     setAppMode, setIsPreviewMode, setIsReviewMode, clearExplorationEngineLines, setExplorationLineAt,
     setSimulationQueue, pushSimulationQueueItem, setSimulationIndex,
 } from './modes.js';
-import { parseEvalData, getDests, convertPvToSan, parseAndLoadPgn, isValidFen, escapeHtml, parseOpeningFromPgn, formatTimeControl, formatRelativeDate, getTier, TIERS, isWhitePlayer, classifyGameResult, countMovesFromPgn, wdlToWhiteWinPct, cpToWhiteWinPct } from './utils.js';
+import { parseEvalData, getDests, convertPvToSan, parseAndLoadPgn, isValidFen, escapeHtml, parseOpeningFromPgn, formatTimeControl, formatRelativeDate, getTier, TIERS, isWhitePlayer, classifyGameResult, countMovesFromPgn } from './utils.js';
 import { renderMovesTable, updateUIWithEval, highlightActiveMove, renderEngineLines, updateTopEvalDisplay, renderReviewReport, buildPreviewCardHtml } from './ui.js';
 import { addVaultItem, getSavedGames, setMyUserId, getMyUserId, ONBOARDING_KEY, COORDS_KEY, EVAL_MODE_KEY } from './storage.js';
 import { initVault, initHomeVaultBadge, isVaultDetailActive, getVaultDetailIndex, setVaultDetailIndex, flipVaultBoard, setVaultCoords, redrawVaultBoard, loadVaultData } from './vault.js';
@@ -1307,9 +1307,7 @@ document.getElementById('winChanceDisplay').addEventListener('click', () => {
     localStorage.setItem(EVAL_MODE_KEY, next);
     el.style.opacity = '0';
     setTimeout(() => {
-        const cached = el.dataset.whiteWinPct ? parseFloat(el.dataset.whiteWinPct) : null;
-        updateTopEvalDisplay(el.dataset.scoreStr || '', el.dataset.classification || '', isUserWhite,
-                             Number.isFinite(cached) ? cached : null);
+        updateTopEvalDisplay(el.dataset.scoreStr || '', el.dataset.classification || '', isUserWhite);
         el.style.opacity = '1';
     }, 150);
 });
@@ -1649,17 +1647,14 @@ const engineCallbacks = {
         const lineIndex = evalData.multipv - 1;
         const sanPv = convertPvToSan(evalData.pv, explorationChess.fen());
         const firstUci = evalData.pv ? evalData.pv.split(' ')[0] : '';
-        const whiteWinPct = evalData.wdl
-            ? wdlToWhiteWinPct(evalData.wdl, isBlackToMove)
-            : cpToWhiteWinPct(scoreNum);
-        setExplorationLineAt(lineIndex, { scoreStr, scoreNum, pv: sanPv, uci: firstUci, whiteWinPct });
+        setExplorationLineAt(lineIndex, { scoreStr, scoreNum, pv: sanPv, uci: firstUci });
 
         const now = Date.now();
         if (explorationEngineLines[0] && now - lastEvalRenderTime > EVAL_RENDER_THROTTLE) {
             lastEvalRenderTime = now;
             requestAnimationFrame(() => {
                 renderEngineLines(engineLinesContainer, explorationEngineLines.filter(Boolean), drawEngineArrow, clearEngineArrow, handleEngineLineClick);
-                updateTopEvalDisplay(explorationEngineLines[0].scoreStr, 'Exploring', isUserWhite, explorationEngineLines[0].whiteWinPct ?? null);
+                updateTopEvalDisplay(explorationEngineLines[0].scoreStr, 'Exploring', isUserWhite);
             });
         }
     },
@@ -1971,7 +1966,7 @@ function processNextInQueue() {
                 // FEN 단일: 보드는 그 포지션에 고정, 평가/라인을 패널에 즉시 반영
                 const move = analysisQueue[0];
                 const topLine = move.engineLines && move.engineLines[0] ? move.engineLines[0] : null;
-                updateTopEvalDisplay(topLine?.scoreStr || '', move.classification, isUserWhite, topLine?.whiteWinPct ?? null);
+                updateTopEvalDisplay(topLine?.scoreStr || '', move.classification, isUserWhite);
                 if (move.engineLines && move.engineLines.length > 0) {
                     renderEngineLines(engineLinesContainer, move.engineLines.filter(Boolean), drawEngineArrow, clearEngineArrow, handleEngineLineClick);
                 }
@@ -2095,7 +2090,7 @@ function updateBoardPosition(index, fen) {
     if (analysisQueue[index] && analysisQueue[index].engineLines && analysisQueue[index].engineLines.length > 0) {
         const topLine = analysisQueue[index].engineLines[0];
         renderEngineLines(engineLinesContainer, analysisQueue[index].engineLines.filter(Boolean), drawEngineArrow, clearEngineArrow, handleEngineLineClick);
-        updateTopEvalDisplay(topLine.scoreStr, analysisQueue[index].classification, isUserWhite, topLine.whiteWinPct ?? null);
+        updateTopEvalDisplay(topLine.scoreStr, analysisQueue[index].classification, isUserWhite);
     } else if (index === -1 && analysisQueue.length > 0) {
         // 분석 후 0수(시작 포지션) — 게임 목록에서 누른 직후 모습과 동일하게 미리보기 카드 표시
         engineLinesContainer.innerHTML = buildPreviewCardHtml(buildGameHeaderInfo());
