@@ -1,33 +1,37 @@
 :root {
-  /* 배경 — 웜 페이퍼 톤 */
-  --bg-base:     #F5F2EA;
-  --bg-surface:  #FAF8F2;
-  --bg-elevated: #EDE8DB;
+  /* 배경 — 중성 페이퍼 톤 */
+  --bg-base:     #F7F7F8;
+  --bg-surface:  #FFFFFF;
+  --bg-elevated: #EFEFF1;
 
-  /* 텍스트 — 소프트 블랙 계열 */
-  --tx:   #2C2824;
-  --tx2:  #6B6358;
-  --tx3:  #A89F90;
+  /* 텍스트 — 그래파이트 계열 */
+  --tx:   #1C1D1F;
+  --tx2:  #62646A;
+  --tx3:  #9A9CA3;
 
-  /* 포인트 — 톤다운된 앰버 (로고/극소수 강조 전용) */
-  --ac:    #8B6F2A;
-  --ac-lo: rgba(139, 111, 42, 0.10);
-  --ac-br: rgba(139, 111, 42, 0.25);
+  /* 포인트 — 잉크 블루 (단일 액센트) */
+  --ac:    #2B5BD7;
+  --ac-lo: rgba(43, 91, 215, 0.10);
+  --ac-br: rgba(43, 91, 215, 0.25);
 
   /* 테두리 */
-  --brd:  rgba(44, 40, 36, 0.10);
-  --brd2: rgba(44, 40, 36, 0.18);
+  --brd:  rgba(28, 29, 31, 0.08);
+  --brd2: rgba(28, 29, 31, 0.16);
 
-  /* 수 분류 — 라이트 배경용 어두운 톤 */
-  --blunder:    #9A3A2A;
-  --mistake:    #B5612A;
-  --inaccuracy: #8B6F2A;
+  /* 수 분류 — 라이트 배경용 어두운 톤 (갈색 계열 정리) */
+  --blunder:    #D03832;  /* 클리어 레드 (was 적갈) */
+  --mistake:    #D97706;  /* 클리어 오렌지 (was 갈오렌지) */
+  --inaccuracy: #C99B2D;  /* 클리어 앰버 (was 액센트와 동일했음) */
   --excellent:  #6B8C3A;  /* Best보다 약간 밝은 녹 — 1순위 미일치인데 거의 best급 */
   --best:       #5A7A3A;
   --great:      #2D6E55;  /* Best보다 한 단계 깊은 청녹 — "유일 정답" 강조 */
   --brilliant:  #3A8560;
 
-  /* 체스 보드 — 따뜻한 톤 유지 */
+  /* 승/패 — 통계 표시용 (분류색과 분리, 큰 면적에서도 차분하게) */
+  --win:  #1F7A4D;  /* 딥 에메랄드 */
+  --loss: #B23A3A;  /* 가넷 (와인톤 레드) */
+
+  /* 체스 보드 — 따뜻한 톤 유지 (체스다움 보존) */
   --board-light: #E8DCBF;
   --board-dark:  #8C6840;
 
@@ -65,14 +69,14 @@ img, video {
 
 body {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    background-color: #2C2824; /* PC 배경: 웜 페이퍼 앱 컨테이너와 구분되는 소프트 블랙 */
+    background-color: #1C1D1F; /* PC 배경: 중성 페이퍼 앱 컨테이너와 구분되는 그래파이트 */
     color: var(--tx);
     height: 100vh; /* 하위 브라우저용 Fallback */
     height: 100dvh; /* 모바일 브라우저 주소창(동적 뷰포트) 높이 완벽 대응 */
     overflow: hidden; /* 페이지 밖으로 삐져나가는 전체 스크롤 및 하단 빈 공간 노출 차단 */
     max-width: 100vw;
-    background-image: radial-gradient(circle at 15% 50%, rgba(139, 111, 42, 0.04), transparent 25%),
-                      radial-gradient(circle at 85% 30%, rgba(139, 111, 42, 0.03), transparent 25%);
+    background-image: radial-gradient(circle at 15% 50%, rgba(43, 91, 215, 0.04), transparent 25%),
+                      radial-gradient(circle at 85% 30%, rgba(43, 91, 215, 0.03), transparent 25%);
     display: flex;
     justify-content: center;
     align-items: flex-start;
@@ -138,12 +142,15 @@ body {
     margin: 0;
 }
 
+/* 워드마크 모노톤: 색은 통일, 무게로 위계 (Notion 결) */
 .brand-blunder {
     color: var(--tx);
+    font-weight: 700;
 }
 
 .brand-mate {
-    color: var(--ac);
+    color: var(--tx);
+    font-weight: 400;
 }
 
 /* ==========================================
@@ -167,23 +174,24 @@ body {
    Home View: State A — Hero
    ========================================== */
 .home-hero {
-    padding: 18px 16px 0;
+    padding: 28px 18px 4px;
     flex-shrink: 0;
 }
 
 .hero-title {
-    font-size: 22px;
-    font-weight: 700;
+    font-size: 26px;
+    font-weight: 600;
     color: var(--tx);
-    letter-spacing: -0.02em;
+    letter-spacing: -0.025em;
     line-height: 1.2;
 }
 
 .hero-subtitle {
-    font-size: 13px;
+    font-size: 14px;
     color: var(--tx2);
     margin-top: 6px;
-    margin-bottom: 20px;
+    margin-bottom: 24px;
+    letter-spacing: -0.01em;
 }
 
 /* ==========================================
@@ -289,14 +297,17 @@ body {
     position: absolute;
     right: 16px;
     bottom: calc(56px + env(safe-area-inset-bottom) + 16px);
-    width: 48px;
-    height: 48px;
+    width: 46px;
+    height: 46px;
     padding: 0;
     border-radius: 50%;
     background: var(--bg-surface);
-    border: 1px solid var(--brd2);
+    border: none;
     color: var(--tx2);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    box-shadow:
+        0 1px 2px rgba(28, 29, 31, 0.06),
+        0 6px 18px rgba(28, 29, 31, 0.10),
+        0 0 0 1px rgba(28, 29, 31, 0.04);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -307,13 +318,18 @@ body {
 
 .fab-feedback:hover {
     color: var(--tx);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+    box-shadow:
+        0 1px 2px rgba(28, 29, 31, 0.08),
+        0 8px 22px rgba(28, 29, 31, 0.14),
+        0 0 0 1px rgba(28, 29, 31, 0.06);
     transform: translateY(-1px);
 }
 
 .fab-feedback:active {
     transform: translateY(0);
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+    box-shadow:
+        0 1px 2px rgba(28, 29, 31, 0.06),
+        0 0 0 1px rgba(28, 29, 31, 0.04);
 }
 
 .bottom-nav-tab {
@@ -463,7 +479,7 @@ body.moves-overlay-open .input-pgn-area {
 .text-input:focus {
     background: var(--bg-surface);
     border-color: var(--ac);
-    box-shadow: 0 0 0 3px rgba(139, 111, 42, 0.18);
+    box-shadow: 0 0 0 3px rgba(43, 91, 215, 0.18);
 }
 
 .games-list {
@@ -564,7 +580,7 @@ body.moves-overlay-open .input-pgn-area {
     padding: 0 0.75rem;
     height: var(--topbar-height);
     background: var(--bg-surface);
-    border-bottom: 3px solid var(--brd);
+    border-bottom: 1px solid var(--brd);
     flex-shrink: 0;
 }
 
@@ -651,7 +667,7 @@ textarea {
 textarea:focus {
     outline: none;
     border-color: var(--ac);
-    box-shadow: 0 0 0 2px rgba(139, 111, 42, 0.18);
+    box-shadow: 0 0 0 2px rgba(43, 91, 215, 0.18);
 }
 
 .primary-btn {
@@ -665,7 +681,7 @@ textarea:focus {
     font-weight: 600;
     cursor: pointer;
     transition: background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
-    box-shadow: 0 4px 12px rgba(139, 111, 42, 0.18);
+    box-shadow: 0 4px 12px rgba(43, 91, 215, 0.18);
     position: relative;
     z-index: var(--z-sticky);
 }
@@ -719,7 +735,7 @@ textarea:focus {
 }
 
 .tag.engine-ready { background: rgba(90, 122, 58, 0.10); border-color: rgba(90, 122, 58, 0.30); color: var(--best); }
-.tag.engine-loading { background: rgba(139, 111, 42, 0.10); border-color: rgba(139, 111, 42, 0.30); color: var(--inaccuracy); }
+.tag.engine-loading { background: rgba(43, 91, 215, 0.10); border-color: rgba(43, 91, 215, 0.30); color: var(--inaccuracy); }
 .tag.hidden { display: none; }
 
 .board-container {
@@ -900,7 +916,7 @@ textarea:focus {
 }
 
 .engine-line--best {
-    border-left: 2px solid rgba(139, 111, 42, 0.45);
+    border-left: 2px solid rgba(43, 91, 215, 0.45);
 }
 
 .el-rank {
@@ -1134,8 +1150,8 @@ th {
     width: calc(100% - 1.5rem);
     height: 44px;
     margin: 0.75rem;
-    background: rgba(139, 111, 42, 0.10);
-    border: 1px solid rgba(139, 111, 42, 0.25);
+    background: rgba(43, 91, 215, 0.10);
+    border: 1px solid rgba(43, 91, 215, 0.25);
     border-radius: 8px;
     color: var(--ac);
     font-size: 0.875rem;
@@ -1146,8 +1162,8 @@ th {
 }
 
 .ai-analyze-btn:hover {
-    background: rgba(139, 111, 42, 0.18);
-    border-color: rgba(139, 111, 42, 0.45);
+    background: rgba(43, 91, 215, 0.18);
+    border-color: rgba(43, 91, 215, 0.45);
 }
 
 .ai-analyze-btn:disabled {
@@ -1368,42 +1384,47 @@ th {
     flex-shrink: 0;
 }
 
-/* 홈 시간대 필터: 부모(#homeRecentSection)가 이미 좌우 16px 패딩 → 좌우 0 */
+/* 홈 시간대 필터: home-recent-header 안에 inline 배치 — 자체 패딩 제거 */
 .pill-filter-bar--home {
-    padding: 4px 0 10px;
+    padding: 0;
 }
 
-/* 통계 화면 필터 바 (타임 컨트롤 + 흑백 두 줄). 위아래 padding 줄여 두 바 사이 간격 단정하게. */
+/* 통계 화면 필터: 라벨 + pill inline 패턴 (홈과 동일). 자체 padding 제거 — 부모 row가 관리 */
 .pill-filter-bar--insights {
-    padding: 4px 16px;
-}
-.pill-filter-bar--insights:first-of-type {
-    padding-top: 8px;
-}
-.pill-filter-bar--insights:last-of-type {
-    padding-bottom: 10px;
+    padding: 0;
 }
 
 .pill-btn {
     flex-shrink: 0;
-    height: 32px;
-    padding: 0 12px;
-    border-radius: 20px;
+    height: 30px;
+    padding: 0 14px;
+    border-radius: 999px;
     font-size: 12px;
     font-weight: 500;
     cursor: pointer;
     white-space: nowrap;
-    transition: all 0.15s ease;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
     background: transparent;
-    border: 1px solid var(--brd2);
+    border: 1px solid var(--brd);
     color: var(--tx2);
+    letter-spacing: -0.005em;
+}
+
+.pill-btn:hover {
+    color: var(--tx);
+    border-color: var(--brd2);
 }
 
 .pill-btn.selected {
     background: var(--ac-lo);
-    border-color: var(--ac-br, var(--ac));
+    border-color: transparent;
     color: var(--ac);
     font-weight: 600;
+}
+
+.pill-btn.selected:hover {
+    color: var(--ac);
+    border-color: transparent;
 }
 
 /* ==========================================
@@ -1578,9 +1599,9 @@ th {
 
 .sim-move--active {
     color: var(--tx);
-    background: rgba(139, 111, 42, 0.18);
+    background: rgba(43, 91, 215, 0.18);
     border-color: var(--ac);
-    box-shadow: 0 0 0 2px rgba(139, 111, 42, 0.15);
+    box-shadow: 0 0 0 2px rgba(43, 91, 215, 0.15);
 }
 
 .sim-move--upcoming {
@@ -1597,7 +1618,7 @@ th {
 
 /* Row highlighting for active move */
 .active-move {
-    background: rgba(139, 111, 42, 0.10);
+    background: rgba(43, 91, 215, 0.10);
     border-left: 3px solid var(--ac);
 }
 .active-move .move-cell {
@@ -1741,7 +1762,7 @@ th {
 }
 .slider.round { border-radius: 24px; }
 .slider.round:before { border-radius: 50%; }
-input:checked + .slider { background: rgba(139, 111, 42, 0.30); border-color: var(--ac); }
+input:checked + .slider { background: rgba(43, 91, 215, 0.30); border-color: var(--ac); }
 input:checked + .slider:before { transform: translateX(20px); background: var(--ac); }
 
 /* ==========================================
@@ -2185,7 +2206,7 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
 }
 
 .moves-overlay .active-move-row td {
-    background: rgba(139, 111, 42, 0.10);
+    background: rgba(43, 91, 215, 0.10);
     color: var(--ac);
 }
 
@@ -2250,15 +2271,18 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
 .home-hero--user .hero-subtitle { display: none; }
 .home-hero--user { padding-bottom: 0; }
 
-/* Profile Card (Apple/Notion soft surface — no border, large radius) */
+/* Profile Card (Apple/Notion soft surface — layered shadow ring, no hard border) */
 .home-profile-card {
-    margin: 4px 16px 22px;
-    padding: 18px 20px 16px;
+    margin: 8px 16px 20px;
+    padding: 18px 18px 14px;
     background: var(--bg-surface);
-    border-radius: 18px;
+    border-radius: 16px;
+    box-shadow:
+        0 1px 2px rgba(28, 29, 31, 0.04),
+        0 0 0 1px rgba(28, 29, 31, 0.04);
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 12px;
     flex-shrink: 0;
 }
 .home-profile-card.hidden { display: none; }
@@ -2302,10 +2326,10 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
 
 .home-profile-name {
     font-size: 22px;
-    font-weight: 700;
+    font-weight: 600;
     color: var(--tx);
-    letter-spacing: -0.01em;
-    line-height: 1.1;
+    letter-spacing: -0.018em;
+    line-height: 1.15;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -2359,18 +2383,20 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     margin-right: 2px;
 }
 
-/* Last 15 record line */
+/* Last 15 record line — separated by hairline so it reads as quiet metadata */
 .home-profile-record {
     display: flex;
     align-items: baseline;
     gap: 10px;
-    padding: 0 8px;
+    padding: 12px 4px 2px;
+    border-top: 1px solid var(--brd);
 }
 .profile-record-label {
     font-size: 11px;
     color: var(--tx3);
     font-weight: 500;
-    letter-spacing: 0.02em;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
 }
 .profile-record-value {
     font-size: 13px;
@@ -2408,18 +2434,19 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
 
 .home-section-label {
     font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.06em;
+    font-weight: 600;
+    letter-spacing: 0.08em;
     color: var(--tx3);
-    margin-bottom: 6px;
     text-transform: uppercase;
+    line-height: 1;
 }
 
 .home-recent-header {
     display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 9px;
+    padding: 6px 2px 10px;
 }
 
 .home-recent-back {
@@ -2431,8 +2458,8 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     text-decoration: underline;
     text-underline-offset: 3px;
     cursor: pointer;
-    padding: 4px 0;
-    margin-bottom: 8px;
+    padding: 0;
+    margin-left: auto;
 }
 
 .home-recent-back:hover { color: var(--tx2); }
@@ -2481,13 +2508,16 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     border-radius: 2px;
 }
 
-/* 홈 카드와 Vault 카드가 동일한 컨테이너/좌측 바 시각을 공유 (app-card 공통 스타일). */
+/* 홈 카드와 Vault 카드 — 부드러운 elevation + 좌측 status stripe (Apple Mail 풍) */
 .home-recent-card,
 .vault-card {
     padding: 0 14px 0 18px;
     background: var(--bg-surface);
-    border: 1px solid var(--brd);
-    border-radius: 8px;
+    border: none;
+    border-radius: 10px;
+    box-shadow:
+        0 1px 2px rgba(28, 29, 31, 0.04),
+        0 0 0 1px rgba(28, 29, 31, 0.04);
     display: flex;
     align-items: center;
     gap: 12px;
@@ -2495,40 +2525,43 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     -webkit-tap-highlight-color: transparent;
     position: relative;
     overflow: hidden;
+    transition: box-shadow 0.15s ease, transform 0.15s ease;
 }
 
 .home-recent-card::before,
 .vault-card::before {
     content: '';
     position: absolute;
-    top: 0;
+    top: 10px;
     left: 0;
-    bottom: 0;
-    width: 4px;
+    bottom: 10px;
+    width: 3px;
+    border-radius: 0 2px 2px 0;
+}
+
+.home-recent-card:hover,
+.vault-card:hover {
+    box-shadow:
+        0 2px 6px rgba(28, 29, 31, 0.06),
+        0 0 0 1px rgba(28, 29, 31, 0.08);
 }
 
 .home-recent-card:active,
 .vault-card:active {
-    opacity: 0.7;
+    transform: scale(0.997);
+    box-shadow:
+        0 1px 2px rgba(28, 29, 31, 0.04),
+        0 0 0 1px rgba(43, 91, 215, 0.18);
 }
 
 .home-recent-card {
     height: var(--game-card-height);
-    padding: 0 18px 0 14px;
     gap: 10px;
 }
-.home-recent-card::before { display: none; }
-.home-recent-card::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    width: 5px;
-}
-.home-recent-card.result-win::after  { background: var(--best); }
-.home-recent-card.result-loss::after { background: var(--blunder); }
-.home-recent-card.result-draw::after { background: var(--tx3); }
+.home-recent-card::before { background: var(--brd2); }
+.home-recent-card.result-win::before  { background: var(--win); }
+.home-recent-card.result-loss::before { background: var(--loss); }
+.home-recent-card.result-draw::before { background: var(--brd2); }
 
 .home-recent-rows {
     flex: 1;
@@ -2591,10 +2624,11 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     align-items: flex-end;
     justify-content: center;
     gap: 4px;
-    font-size: 10px;
+    font-size: 11px;
     color: var(--tx3);
     line-height: 1.2;
     font-variant-numeric: tabular-nums;
+    letter-spacing: -0.005em;
 }
 .home-recent-meta-line {
     white-space: nowrap;
@@ -2610,9 +2644,11 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
 
 .home-recent-skeleton-card {
     height: var(--game-card-height);
-    border-radius: 8px;
+    border-radius: 10px;
     background: var(--bg-surface);
-    opacity: 0.5;
+    box-shadow:
+        0 1px 2px rgba(28, 29, 31, 0.03),
+        0 0 0 1px rgba(28, 29, 31, 0.03);
 }
 
 /* ── Vault Card (홈 카드와 시각 통일, 2~3줄) ─────────────────────── */
@@ -2919,8 +2955,8 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     color: var(--tx3);
     margin-top: 2px;
 }
-.review-header-meta.is-win  { color: var(--best); }
-.review-header-meta.is-loss { color: var(--blunder); }
+.review-header-meta.is-win  { color: var(--win); }
+.review-header-meta.is-loss { color: var(--loss); }
 .review-header-meta.is-draw { color: var(--tx2); }
 
 /* 2. 차트 카드 */
@@ -3063,58 +3099,100 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
 .review-cta-btn:active { opacity: 0.85; }
 .review-cta-btn:hover { opacity: 0.92; }
 
-/* ── Insights (통계) ─────────────────────────────────────────── */
+/* ── Insights (통계) — 홈 디자인 언어와 통일 ───────────────────── */
 .insights-subtitle {
     flex-shrink: 0;
-    padding: 0 16px 8px;
-    font-size: 12px;
+    padding: 6px 16px 10px;
+    font-size: 11px;
     color: var(--tx3);
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
 }
+.insights-subtitle:empty { display: none; }
+
+/* 필터 row: 라벨 + pill inline (홈 .home-recent-header와 동일 패턴) */
+.insights-filter-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 9px;
+    padding: 0 16px;
+    flex-shrink: 0;
+}
+.insights-filter-row + .insights-filter-row {
+    padding-top: 6px;
+}
+/* subtitle이 비어 display:none일 때 첫 row가 top bar에 너무 붙지 않게 */
+.insights-subtitle:empty + .insights-filter-row {
+    padding-top: 8px;
+}
+.insights-filter-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    color: var(--tx3);
+    text-transform: uppercase;
+    line-height: 1;
+    min-width: 70px;
+}
+
 .insights-body {
     flex: 1;
     min-height: 0;
     overflow-y: auto;
-    padding: 0 16px 24px;
+    padding: 14px 16px 24px;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 10px;
     -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
 }
+
+/* 카드: 홈 카드와 동일한 soft elevation + ring */
 .insight-card {
     background: var(--bg-surface);
-    border: 1px solid var(--brd);
-    border-radius: 8px;
-    padding: 14px 16px;
+    border: none;
+    border-radius: 10px;
+    padding: 16px 16px 14px;
+    box-shadow:
+        0 1px 2px rgba(28, 29, 31, 0.04),
+        0 0 0 1px rgba(28, 29, 31, 0.04);
 }
 .insight-card-title {
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--tx);
-    letter-spacing: 0.02em;
-    margin-bottom: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--tx3);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 14px;
+    line-height: 1;
 }
 .insight-card-body {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 12px;
 }
 .insight-empty,
 .insight-empty-state {
     font-size: 13px;
     color: var(--tx3);
     text-align: center;
-    padding: 24px 0;
+    padding: 20px 0;
 }
 
-/* Hero card (overall summary) */
+/* Hero card (overall summary) — 더 가볍게 */
 .insight-card--hero {
-    padding: 18px 16px 14px;
+    padding: 20px 18px 16px;
 }
+.insight-card--hero .insight-card-title { display: none; }
 .insight-hero-top {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 14px;
+    margin-bottom: 16px;
     gap: 16px;
 }
 .insight-hero-metric {
@@ -3123,22 +3201,24 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     align-items: flex-start;
 }
 .insight-hero-value {
-    font-size: 36px;
-    font-weight: 800;
+    font-size: 34px;
+    font-weight: 700;
     color: var(--tx);
     line-height: 1;
-    letter-spacing: -0.02em;
+    letter-spacing: -0.025em;
+    font-variant-numeric: tabular-nums;
 }
 .insight-hero-label {
     font-size: 11px;
     color: var(--tx3);
-    margin-top: 4px;
-    letter-spacing: 0.04em;
+    font-weight: 500;
+    margin-top: 6px;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
 }
 .insight-hero-counts {
     display: flex;
-    gap: 14px;
+    gap: 18px;
     text-align: right;
 }
 .insight-hero-counts > div {
@@ -3149,56 +3229,64 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
 }
 .hero-count {
     font-size: 18px;
-    font-weight: 700;
+    font-weight: 600;
     line-height: 1.2;
+    font-variant-numeric: tabular-nums;
 }
-.hero-count--win  { color: var(--best); }
-.hero-count--draw { color: var(--tx3); }
-.hero-count--loss { color: var(--blunder); }
+.hero-count--win  { color: var(--win); }
+.hero-count--draw { color: var(--tx2); }
+.hero-count--loss { color: var(--loss); }
 .hero-count-label {
     font-size: 10px;
     color: var(--tx3);
-    margin-top: 2px;
-    letter-spacing: 0.02em;
+    font-weight: 500;
+    margin-top: 3px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
 }
 .insight-hero-total {
     font-size: 11px;
     color: var(--tx3);
-    margin-top: 10px;
+    font-weight: 500;
+    margin-top: 12px;
     text-align: center;
+    letter-spacing: 0.02em;
+    font-variant-numeric: tabular-nums;
 }
 
 /* WDL bar (segmented win/draw/loss) */
 .wdl-bar {
     display: flex;
     width: 100%;
-    height: 8px;
-    border-radius: 4px;
+    height: 6px;
+    border-radius: 3px;
     overflow: hidden;
     background: var(--bg-elevated);
 }
 .wdl-bar--empty { opacity: 0.4; }
-.wdl-seg--win   { background: var(--best); }
+.wdl-seg--win   { background: var(--win); }
 .wdl-seg--draw  { background: var(--tx3); }
-.wdl-seg--loss  { background: var(--blunder); }
+.wdl-seg--loss  { background: var(--loss); }
 .wdl-summary {
     display: block;
-    margin-top: 4px;
+    margin-top: 6px;
     font-size: 11px;
     color: var(--tx2);
-    letter-spacing: 0.01em;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
 }
 
 /* Generic row (color/timeclass/openings/length/time-of-day) */
 .insight-row {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 5px;
 }
 .insight-row-label {
     font-size: 12px;
     color: var(--tx);
     font-weight: 500;
+    letter-spacing: -0.005em;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -3208,7 +3296,7 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     flex-direction: column;
 }
 
-/* Termination card (single-bar fills) */
+/* Termination/Phase row (single-bar fills) */
 .insight-term-row {
     display: flex;
     align-items: center;
@@ -3217,14 +3305,20 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
 .insight-term-label {
     font-size: 12px;
     color: var(--tx);
+    font-weight: 500;
     flex-shrink: 0;
-    width: 72px;
+    min-width: 64px;
+    max-width: 96px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 .insight-term-bar-wrap {
     flex: 1;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
+    min-width: 0;
 }
 .insight-term-bar {
     flex: 1;
@@ -3236,18 +3330,22 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
 .insight-term-bar-fill {
     height: 100%;
     background: var(--ac);
-    opacity: 0.7;
+    opacity: 0.55;
+    border-radius: 3px;
 }
 .insight-term-count {
     font-size: 11px;
     color: var(--tx2);
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
     min-width: 56px;
     text-align: right;
+    flex-shrink: 0;
 }
 
 /* Single-metric card (avg think / time pressure / instant moves) */
 .insight-card-body--single {
-    gap: 8px;
+    gap: 10px;
 }
 .insight-big-metric {
     display: flex;
@@ -3256,29 +3354,34 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     gap: 12px;
 }
 .insight-big-value {
-    font-size: 28px;
+    font-size: 26px;
     font-weight: 700;
     color: var(--tx);
-    letter-spacing: -0.02em;
+    letter-spacing: -0.025em;
     line-height: 1;
+    font-variant-numeric: tabular-nums;
 }
 .insight-big-sub {
     font-size: 11px;
     color: var(--tx3);
+    font-weight: 500;
     text-align: right;
+    line-height: 1.35;
 }
 
-/* Skeleton placeholders */
+/* Skeleton placeholders — 카드와 동일한 soft elevation */
 .insight-skeleton {
     background: var(--bg-surface);
-    border: 1px solid var(--brd);
-    border-radius: 8px;
+    border: none;
+    border-radius: 10px;
+    box-shadow:
+        0 1px 2px rgba(28, 29, 31, 0.03),
+        0 0 0 1px rgba(28, 29, 31, 0.03);
     height: 100px;
-    opacity: 0.5;
     animation: insight-skeleton-pulse 1.4s ease-in-out infinite;
 }
 .insight-skeleton:nth-child(1) { height: 140px; }
 @keyframes insight-skeleton-pulse {
-    0%, 100% { opacity: 0.4; }
-    50% { opacity: 0.7; }
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 0.85; }
 }

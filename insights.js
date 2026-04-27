@@ -425,23 +425,26 @@ function renderInsights(insights, opts = {}) {
         insightsBody.innerHTML = `<div class="insight-empty-state">${t('insights_no_games')}</div>`;
         return;
     }
+    // 그룹 순서:
+    //   A. 정체 (overall → 색 → 타임클래스): "나는 누구인가"
+    //   B. 스타일 (오프닝 → 게임 길이 → 종료 방식): "나는 어떻게 두는가"
+    //   C. 시계 관리 (평균 → 단계 → 압박 → 즉답): "나는 시간을 어떻게 쓰는가"
+    //   D. 습관 (시간대): "나는 언제 두는가"
     const cards = [renderOverallCard(insights.overall)];
-    // 흑백 카드: 흑백 필터가 'all'일 때만 의미 있음 (필터 적용 시 한쪽만 표시되어 redundant).
     if (opts.showColorCard !== false) {
         cards.push(renderColorCard(insights.byColor));
     }
-    // 타임 컨트롤 카드: 마찬가지로 'all'일 때만.
     if (opts.showTimeClassCard !== false) {
         cards.push(renderTimeClassCard(insights.byTimeClass));
     }
     cards.push(
         renderOpeningsCard(insights.topOpenings),
+        renderMoveLengthCard(insights.moveBuckets),
+        renderTerminationCard(insights.termination, insights.overall.games),
         renderAvgThinkCard(insights.timeStats),
         renderPhaseTimeCard(insights.timeStats),
         renderTimePressureCard(insights.timeStats),
         renderInstantMovesCard(insights.timeStats),
-        renderMoveLengthCard(insights.moveBuckets),
-        renderTerminationCard(insights.termination, insights.overall.games),
         renderTimeOfDayCard(insights.timeBuckets),
     );
     insightsBody.innerHTML = cards.join('');

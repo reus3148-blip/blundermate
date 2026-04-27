@@ -398,8 +398,9 @@ function updateHomeRecentHeader(overrideUsername) {
         homeRecentLabel.classList.remove('hidden');
         backToMyGamesBtn.classList.remove('hidden');
     } else {
-        homeRecentLabel.textContent = '';
-        homeRecentLabel.classList.add('hidden');
+        homeRecentLabel.textContent = t('home_recent_games');
+        homeRecentLabel.removeAttribute('data-i18n');
+        homeRecentLabel.classList.remove('hidden');
         backToMyGamesBtn.classList.add('hidden');
     }
 }
@@ -2109,12 +2110,12 @@ function updateBoardPosition(index, fen) {
 const BADGE_MAP = {
     'Brilliant':  { symbol: '!!', fontSize: '9px',  fontWeight: '900', color: '#fff',    bg: '#3A8560', borderColor: '#26614A' },
     'Great':      { symbol: '!',  fontSize: '13px', fontWeight: '900', color: '#fff',    bg: '#2D6E55', borderColor: '#1F5240' },
-    'Best':       { symbol: '✦', fontSize: '10px', fontWeight: '700', color: '#2C2824', bg: '#FAF8F2', borderColor: '#D8CDB5' },
+    'Best':       { symbol: '✦', fontSize: '10px', fontWeight: '700', color: '#1C1D1F', bg: '#FFFFFF', borderColor: '#D8DADE' },
     'Excellent':  { symbol: '✓', fontSize: '11px', fontWeight: '900', color: '#fff',    bg: '#6B8C3A', borderColor: '#4F6A28' },
-    'Inaccuracy': { symbol: '?!', fontSize: '8px',  fontWeight: '700', color: '#fff',    bg: '#8B6F2A', borderColor: '#6B551C' },
-    'Mistake':    { symbol: '?',  fontSize: '13px', fontWeight: '900', color: '#fff',    bg: '#B5612A', borderColor: '#8F4A1E' },
-    'Blunder':    { symbol: '??', fontSize: '9px',  fontWeight: '700', color: '#fff',    bg: '#9A3A2A', borderColor: '#75281C' },
-    'Forced':     { symbol: '□',  fontSize: '11px', fontWeight: '700', color: '#fff',    bg: '#6B6358', borderColor: '#4A453E' },
+    'Inaccuracy': { symbol: '?!', fontSize: '8px',  fontWeight: '700', color: '#fff',    bg: '#C99B2D', borderColor: '#9A7621' },
+    'Mistake':    { symbol: '?',  fontSize: '13px', fontWeight: '900', color: '#fff',    bg: '#D97706', borderColor: '#A85A05' },
+    'Blunder':    { symbol: '??', fontSize: '9px',  fontWeight: '700', color: '#fff',    bg: '#D03832', borderColor: '#A02828' },
+    'Forced':     { symbol: '□',  fontSize: '11px', fontWeight: '700', color: '#fff',    bg: '#62646A', borderColor: '#43454B' },
 };
 
 function showPieceBadge(index) {
