@@ -58,7 +58,7 @@ export function isAwaitingRestart() { return !!_pendingRestart; }
 // 호출 전에 isRunning() === false 여야 한다 (배치 1개씩만 활성).
 // 진행 중 abort되면 onComplete 호출되지 않는다 — restart 경로가 새 배치를 시작.
 // 풀 초기화 실패 등 치명적 에러는 onError로 전달 (없으면 console.error로 기록).
-export function runBatch({ onProgress, onComplete, onError, isUserWhite }) {
+export function runBatch({ onProgress, onComplete, onError }) {
     if (_activeBatch) return;
 
     _pool.reset();
@@ -92,7 +92,7 @@ export function runBatch({ onProgress, onComplete, onError, isUserWhite }) {
         if (aborted) return;
         // 분류는 모든 engineLines가 채워진 후 인덱스 순서대로. classifyMove(i)는 i-1의 engineLines가 필요.
         for (let i = 0; i < analysisQueue.length; i++) {
-            analysisQueue[i].classification = classifyMove(i, analysisQueue, isUserWhite);
+            analysisQueue[i].classification = classifyMove(i, analysisQueue);
         }
         if (onComplete) onComplete();
     })();
