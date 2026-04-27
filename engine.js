@@ -32,7 +32,7 @@ function parseEvalLine(line) {
 }
 
 // Hash와 MultiPV 기본값 — 풀과 단일 엔진 모두에서 동일하게 적용.
-// Hash 32MB: depth 12 분석엔 충분하고 모바일 RAM 부담 작음. MultiPV 3은 기존 값 유지.
+// Hash 32MB: depth 14~16 배치 분석에 충분하고 모바일 RAM 부담 작음. MultiPV 3은 기존 값 유지.
 const DEFAULT_HASH_MB = 32;
 const DEFAULT_MULTIPV = 3;
 
@@ -76,7 +76,7 @@ export class StockfishEngine {
         }
     }
 
-    analyzeFen(fen, depth = 12) {
+    analyzeFen(fen, depth = 14) {
         this.worker.postMessage(`position fen ${fen}`);
         this.worker.postMessage(`go depth ${depth}`);
     }
