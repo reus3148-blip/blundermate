@@ -21,7 +21,7 @@ import { parseEvalData, getDests, convertPvToSan, parseAndLoadPgn, isValidFen, e
 import { renderMovesTable, updateUIWithEval, highlightActiveMove, renderEngineLines, updateTopEvalDisplay, renderReviewReport, buildPreviewCardHtml } from './ui.js';
 import { addVaultItem, getSavedGames, setMyUserId, getMyUserId, ONBOARDING_KEY, COORDS_KEY, EVAL_MODE_KEY } from './storage.js';
 import { collectAutoBlunders } from './autoBlunders.js';
-import { initVault, initHomeVaultBadge, isVaultDetailActive, getVaultDetailIndex, setVaultDetailIndex, flipVaultBoard, setVaultCoords, redrawVaultBoard, loadVaultData, loadBlunderListData, redrawVaultPuzzleBoard } from './vault.js';
+import { initVault, initHomeVaultBadge, isVaultDetailActive, isVaultPuzzleActive, getVaultDetailIndex, setVaultDetailIndex, flipVaultBoard, setVaultCoords, redrawVaultBoard, loadVaultData, loadBlunderListData, redrawVaultPuzzleBoard } from './vault.js';
 import { initSavedGames, openSaveGameModalForPgn, loadSavedGamesData } from './savedGames.js';
 import { initInsights, loadInsightsData } from './insights.js';
 import {
@@ -1240,6 +1240,9 @@ function handleNextMove() {
 document.addEventListener('keydown', (e) => {
     // Ignore keyboard shortcuts if user is typing
     if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
+
+    // 보기 모드(puzzle)는 vault.js가 자체 핸들러로 처리 — 여기선 스킵
+    if (isVaultPuzzleActive()) return;
 
     const inVaultDetail = isVaultDetailActive();
 

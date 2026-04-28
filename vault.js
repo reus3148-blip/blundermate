@@ -37,6 +37,8 @@ const vaultBlunderList = document.getElementById('vaultBlunderList');
 const vaultBlunderListBackBtn = document.getElementById('vaultBlunderListBackBtn');
 const vaultPuzzleFilterTabs = document.getElementById('vaultPuzzleFilterTabs');
 const vaultBlunderFilterTabs = document.getElementById('vaultBlunderFilterTabs');
+const vaultPuzzleIndicator = document.getElementById('vaultPuzzleIndicator');
+const vaultPuzzleTapZones = document.getElementById('vaultPuzzleTapZones');
 
 // Puzzle DOM
 const vaultPuzzleStage = document.getElementById('vaultPuzzleStage');
@@ -87,6 +89,22 @@ let _puzzleEngineReady = null;
 // 현재 mate 퍼즐 컨텍스트
 let puzzleIsMate = false;
 let puzzleMoverIsWhite = false;
+
+// Deck별 진행 history — 인스타 stories처럼 실수/메이트 deck이 각자 위치 유지.
+// history: 본 puzzle id 순서. position: 그 안에서 현재 보고 있는 인덱스 (0-indexed).
+// 끝에 있으면 다음=새 random pick. 중간이면 다음=history[++pos], 이전=history[--pos].
+const deckState = {
+    mistake: { history: [], position: -1 },
+    mate: { history: [], position: -1 },
+};
+
+// 자동 다음 타이머 — 풀이 종료 후 일정 시간 뒤 자동 진행.
+let _autoNextTimer = null;
+const AUTO_NEXT_DELAY = {
+    correctMate: 1200,    // 메이트 완성 — 약간 즐길 시간
+    correctSimple: 900,   // mistake/blunder 정답
+    incorrect: 1600,      // 오답 — best move 학습 시간
+};
 
 // Dependencies injected via initVault()
 let _showMovesOverlay = null;
@@ -401,20 +419,97 @@ function setVaultMode(mode) {
 // ==========================================
 // Puzzle (보기 모드) controller
 // ==========================================
-function pickRandomPuzzle() {
-    if (!puzzlePool || puzzlePool.length === 0) return null;
-    const idx = Math.floor(Math.random() * puzzlePool.length);
-    return puzzlePool[idx];
+function getActiveDeck() {
+    return deckState[puzzleFilter] || deckState.mistake;
 }
 
-function startPuzzleSession() {
+function findItemById(id) {
+    return _autoItemsCache.find(it => it.id === id) || null;
+}
+
+// 같은 puzzle 연속 출제 회피: deck history에 없는 항목 우선.
+function pickRandomFromPool() {
+    if (!puzzlePool || puzzlePool.length === 0) return null;
+    const seen = new Set(getActiveDeck().history);
+    const unseen = puzzlePool.filter(p => !seen.has(p.id));
+    if (unseen.length > 0) return unseen[Math.floor(Math.random() * unseen.length)];
+    return puzzlePool[Math.floor(Math.random() * puzzlePool.length)];
+}
+
+// 풀이 깨졌거나 PGN 없는 항목을 풀과 양쪽 deck history에서 한 번에 제거.
+function removeItemEverywhere(id) {
+    puzzlePool = puzzlePool.filter(p => p.id !== id);
+    _autoItemsCache = _autoItemsCache.filter(it => it.id !== id);
+    for (const key of Object.keys(deckState)) {
+        const d = deckState[key];
+        const before = d.history.length;
+        d.history = d.history.filter(hid => hid !== id);
+        if (d.position >= d.history.length) d.position = d.history.length - 1;
+        else if (d.history.length < before) {
+            // 제거된 항목이 현재 위치 이전이면 위치 조정 — 단순화: position 재계산은 안 하고 boundary만 보정
+        }
+    }
+}
+
+function cancelAutoNext() {
+    if (_autoNextTimer) {
+        clearTimeout(_autoNextTimer);
+        _autoNextTimer = null;
+    }
+}
+
+function scheduleAutoNext(delayMs) {
+    cancelAutoNext();
+    _autoNextTimer = setTimeout(() => {
+        _autoNextTimer = null;
+        loadNextPuzzle();
+    }, delayMs);
+}
+
+// 인스타 stories 상단 bar — 풀 크기만큼 segment, 현재 deck 위치까지 채움.
+function renderIndicator() {
+    if (!vaultPuzzleIndicator) return;
+    const total = puzzlePool.length;
+    if (total === 0) {
+        vaultPuzzleIndicator.innerHTML = '';
+        return;
+    }
+    const deck = getActiveDeck();
+    const filled = Math.min(deck.position + 1, total);
+    let html = '';
+    for (let i = 0; i < total; i++) {
+        html += `<div class="puzzle-seg${i < filled ? ' filled' : ''}"></div>`;
+    }
+    vaultPuzzleIndicator.innerHTML = html;
+}
+
+// terminal 상태일 때만 좌/우 탭존 활성 — 풀이 중엔 보드 드래그 보장.
+function setTapZonesActive(active) {
+    if (!vaultPuzzleTapZones) return;
+    vaultPuzzleTapZones.classList.toggle('active', !!active);
+}
+
+async function startPuzzleSession() {
     applyPuzzleFilter();
     if (!puzzlePool || puzzlePool.length === 0) {
         showPuzzleEmpty(true);
         return;
     }
     showPuzzleEmpty(false);
-    loadNextPuzzle();
+    cancelAutoNext();
+
+    // deck 진행 위치가 유효하면 그 자리 복원, 아니면 새 random pick.
+    const deck = getActiveDeck();
+    if (deck.position >= 0 && deck.position < deck.history.length) {
+        const item = findItemById(deck.history[deck.position]);
+        if (item) {
+            await renderPuzzle(item);
+            return;
+        }
+        deck.history = [];
+        deck.position = -1;
+    }
+    await loadNextPuzzle();
 }
 
 function showPuzzleEmpty(empty) {
@@ -435,8 +530,53 @@ function updatePuzzleFilterTabsUI() {
     });
 }
 
+// 진행: deck history 끝이면 새 random pick + push, 중간이면 한 칸 앞으로.
 async function loadNextPuzzle() {
-    const item = pickRandomPuzzle();
+    cancelAutoNext();
+    const deck = getActiveDeck();
+
+    let item = null;
+    if (deck.position < deck.history.length - 1) {
+        deck.position++;
+        item = findItemById(deck.history[deck.position]);
+        // 캐시에서 사라진 항목이면 제거하고 같은 위치 재시도
+        while (!item && deck.position < deck.history.length) {
+            deck.history.splice(deck.position, 1);
+            item = deck.position < deck.history.length ? findItemById(deck.history[deck.position]) : null;
+        }
+    }
+
+    if (!item) {
+        item = pickRandomFromPool();
+        if (!item) {
+            showPuzzleEmpty(true);
+            return;
+        }
+        deck.history.push(item.id);
+        deck.position = deck.history.length - 1;
+    }
+
+    await renderPuzzle(item);
+}
+
+// 후퇴: history 시작이면 무시.
+async function loadPrevPuzzle() {
+    cancelAutoNext();
+    const deck = getActiveDeck();
+    if (deck.position <= 0) return;
+    deck.position--;
+    let item = findItemById(deck.history[deck.position]);
+    while (!item && deck.position >= 0) {
+        deck.history.splice(deck.position, 1);
+        deck.position--;
+        item = deck.position >= 0 ? findItemById(deck.history[deck.position]) : null;
+    }
+    if (!item) return;
+    await renderPuzzle(item);
+}
+
+// 한 puzzle item을 화면에 그리는 본체 — nav가 부르는 공통 진입점.
+async function renderPuzzle(item) {
     if (!item) {
         showPuzzleEmpty(true);
         return;
@@ -444,19 +584,21 @@ async function loadNextPuzzle() {
     puzzleItem = item;
     puzzleSolved = false;
     puzzleProcessing = false;
+    setTapZonesActive(false);
+    renderIndicator();
 
     // 직전 포지션을 얻기 위해 PGN을 로드해서 move_index까지 replay
     const game = await getAnalyzedGameById(item.analyzedGameId);
     if (!game?.pgn) {
-        // 풀에서 제외하고 다음 출제
-        puzzlePool = puzzlePool.filter(p => p.id !== item.id);
+        // 풀과 deck history에서 제외하고 다음 출제
+        removeItemEverywhere(item.id);
         return loadNextPuzzle();
     }
 
     const tempChess = new Chess();
     const result = parseAndLoadPgn(tempChess, game.pgn);
     if (!result.success) {
-        puzzlePool = puzzlePool.filter(p => p.id !== item.id);
+        removeItemEverywhere(item.id);
         return loadNextPuzzle();
     }
 
@@ -665,6 +807,13 @@ function renderPuzzleFeedback({ correct, played, mateDelivered }) {
         ${lines.join('')}
         ${meta ? `<div class="puzzle-fb-meta">${escapeHtml(meta)}</div>` : ''}
     `;
+
+    // terminal 상태 — 좌/우 탭존 활성, 자동 다음 예약
+    setTapZonesActive(true);
+    const delay = mateDelivered
+        ? AUTO_NEXT_DELAY.correctMate
+        : (correct ? AUTO_NEXT_DELAY.correctSimple : AUTO_NEXT_DELAY.incorrect);
+    scheduleAutoNext(delay);
 }
 
 export function redrawVaultPuzzleBoard() {
@@ -678,6 +827,11 @@ export function redrawVaultPuzzleBoard() {
 // ==========================================
 export function isVaultDetailActive() {
     return vaultDetailView && !vaultDetailView.classList.contains('hidden');
+}
+
+export function isVaultPuzzleActive() {
+    return vaultPuzzlePane && !vaultPuzzlePane.classList.contains('hidden')
+        && vaultView && !vaultView.classList.contains('hidden');
 }
 
 export function getVaultDetailIndex() {
@@ -772,6 +926,29 @@ export function initVault({ showMovesOverlay, closeMovesOverlay, navigateTo }) {
             loadNextPuzzle();
         });
     }
+
+    // 좌/우 탭존 — terminal 상태일 때만 active. 좌=이전, 우=다음.
+    if (vaultPuzzleTapZones) {
+        vaultPuzzleTapZones.addEventListener('click', (e) => {
+            const zone = e.target.closest('.puzzle-tap-zone');
+            if (!zone) return;
+            if (zone.dataset.action === 'prev') loadPrevPuzzle();
+            else loadNextPuzzle();
+        });
+    }
+
+    // 키보드 화살표 — 보기 모드 활성 + terminal 상태일 때만 동작.
+    document.addEventListener('keydown', (e) => {
+        if (!vaultPuzzlePane || vaultPuzzlePane.classList.contains('hidden')) return;
+        if (!puzzleSolved) return; // 풀이 중에는 무시
+        if (e.key === 'ArrowRight') {
+            e.preventDefault();
+            loadNextPuzzle();
+        } else if (e.key === 'ArrowLeft') {
+            e.preventDefault();
+            loadPrevPuzzle();
+        }
+    });
 
     vaultDetailPrevBtn.addEventListener('click', () => setVaultDetailIndex(vaultDetailIndex - 1));
     vaultDetailNextBtn.addEventListener('click', () => setVaultDetailIndex(vaultDetailIndex + 1));

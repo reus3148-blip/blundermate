@@ -2955,6 +2955,47 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
 
 .vault-puzzle-board-wrap {
     flex-shrink: 0;
+    position: relative; /* 좌/우 탭존 absolute 기준 */
+}
+
+/* 인스타 stories 상단 segment bar — 풀 크기만큼 채움, 현재 deck 위치까지 fill. */
+.vault-puzzle-indicator {
+    display: flex;
+    gap: 4px;
+    padding: 8px 16px 4px;
+    align-items: center;
+    min-height: 10px;
+}
+
+.puzzle-seg {
+    flex: 1;
+    min-width: 4px;
+    height: 2px;
+    background: var(--bg-elevated, #EDE8DB);
+    border-radius: 1px;
+    transition: background 0.2s ease;
+}
+
+.puzzle-seg.filled {
+    background: var(--tx, #2C2824);
+}
+
+/* 좌/우 탭존 — terminal 상태일 때만 활성. 풀이 중엔 보드 드래그 보장. */
+.puzzle-tap-zones {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    pointer-events: none;
+    z-index: 5;
+}
+
+.puzzle-tap-zones.active {
+    pointer-events: auto;
+}
+
+.puzzle-tap-zone {
+    flex: 1;
+    cursor: pointer;
 }
 
 .vault-puzzle-feedback {
