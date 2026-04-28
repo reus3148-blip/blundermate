@@ -249,6 +249,37 @@ WDL 도입/회귀 와리가리하면서 남은 잔재 정리, 그리고 Phase 21
 - `api/db.js` 화이트리스트에 `analyzed_games` 추가 — 허용 컬럼은 `pgn_hash` / `id`만 (SQL 분리 차단)
 - `storage.js`에 `computePgnHash` / `upsertAnalyzedGame` / `addVaultItemsBatch` / `getAnalyzedGameById` 추가, `ANALYZED_GAMES_KEY` localStorage 폴백
 
+## Phase 27 — Vault 재구조화: 분류축 전환 + 자동 다음 제거 (`d311f81`)
+
+직접/자동(source)을 1차로 두던 분류를 실수/메이트/기타(category)로 갈아끼우고, 풀이 진행을 사용자가 직접 넘기도록 한 단계 큰 정리.
+
+**왜 바꿨나:** vault 진입 시 사용자 머릿속 첫 질문은 "어떻게 들어왔는지"가 아니라 "뭘 풀까". 풀이 UX도 cp 실수(한 수 비교)와 메이트(엔진 응수까지 따라감)가 갈라지는 게 본질이라 그쪽이 1차 분류로 자연스러움. 직접 저장은 사용량이 적어 보조로 내려도 손실 작음.
+
+**분류축 전환:**
+- `categorize(item)` — `mistake`/`blunder` → 실수, `missed_mate` → 메이트, 그 외(`positional` 등) → 기타. source 무관.
+- `_autoItemsCache` → `_itemsCache`로 이름 변경, manual+auto 통합. `getVaultItems({source})` 필터 호출 제거.
+- `deckState` 3개(mistake/mate/other), 각자 stories history 위치 독립 유지.
+- '**기타**' deck — 정답 없는 감상용. 보드 인터랙션 잠금, 노트+수 표시, 진입 즉시 좌/우 탭존 활성. positional 직접 저장이 들어갈 자리.
+
+**자동 다음 제거:**
+- `_autoNextTimer` / `AUTO_NEXT_DELAY` / `scheduleAutoNext` / `cancelAutoNext` 전부 삭제. 풀이 deck도 정답/오답 후 사용자가 직접 좌/우/화살표/다음 버튼으로 넘김.
+- 풀이 deck은 풀이 완료 후, 'other' deck은 진입 즉시 탭존/화살표 활성.
+
+**진입 즉시 stories:**
+- 옛 `vaultModeTabs`(목록/보기) 제거 — 진입하면 바로 stories pane.
+- 보조 리스트는 우상단 ☰(`vaultListLink`)로 진입. 게임 날짜(`played_date`) desc, NULL이면 `created_at` 폴백 정렬.
+
+**`played_date` 컬럼 추가:**
+- 자동/수동 두 출처가 같은 정렬 키를 공유하도록 `vault_items.played_date` 신설. autoBlunders는 PGN `UTCDate||Date`에서, 수동 저장은 `chess.header()`에서 추출. `storage.js`의 normalize 2곳(Supabase row / localStorage) + insert 매핑 일관 처리.
+- 옛 자동 항목은 `analyzed_games.played_date`로 1회 백필 SQL 제공. 옛 수동 항목은 PGN을 SQL로 못 파싱하니 NULL 유지(폴백으로 자연 처리).
+
+**`navigateTo` 일원화 (부수 수정):**
+- `vault.js`가 `_navigateTo('vault_blunder_list')`만 호출하던 ☰/detail 진입로가 `history.pushState`만 되고 `renderScreen`이 안 돌아 화면이 안 바뀌어 사용자 시각엔 무반응. main.js `navigateTo`가 `pushState + renderScreen`을 한 호출에 처리하도록 일원화.
+- bottom nav 4곳의 `navigateTo + renderScreen` 중복 호출도 정리 — 옛날엔 `loadVaultData` 등 데이터 로드가 nav 한 번에 두 번 돌던 부작용도 사라짐.
+
+**UI 안전망:**
+- vault stories 세로 부족 시 다음 버튼이 viewport 밖으로 밀리던 이슈: `vault-puzzle-stage`에 `overflow-y: auto`, 분석 화면 기준이던 board `max-width`를 vault 전용으로 빡빡하게(`calc(100dvh - 340px)`).
+
 ## Phase 22 — 수 분류 알고리즘 freechess 포팅 + WDL win% 도입
 
 기존 CPL 기반 4-tier(Best/Excellent/Good/Inaccuracy/Mistake/Blunder)를 폐기하고 chess.com review 라벨 체계 미러링 — [WintrCat/freechess](https://github.com/WintrCat/freechess)의 알고리즘 1:1 포팅.
@@ -289,7 +320,7 @@ WDL 도입/회귀 와리가리하면서 남은 잔재 정리, 그리고 Phase 21
 | `analysis.js` | 엔진 + 큐 라이프사이클. 배치는 EnginePool 기반 병렬, scheduleRestart는 explore 전용 |
 | `board.js` | 보드 뷰 상태 (chess, cg, currentlyViewedIndex, isUserWhite, persistentShapes) |
 | `modes.js` | 동작 모드 (appMode, exploration, simulation, preview) |
-| `vault.js` | 복기 — 목록/보기 탭, 자동 풀 무작위 출제(퍼즐), 데이터 로드(`loadVaultData`) |
+| `vault.js` | 복기 — 실수/메이트/기타 카테고리 stories deck, 보조 리스트 뷰, 데이터 로드(`loadVaultData`) |
 | `autoBlunders.js` | 분석 완료 직후 워스트 2 + missed_mate(≤4) 자동 수집, position_fen dedup, fire-and-forget |
 | `savedGames.js` | 저장 게임 — 데이터 로드 |
 | `insights.js` | 통계 — 색깔/시간제어/오프닝 등 집계 |
@@ -344,7 +375,7 @@ Input (PGN/Chess.com/board)
 
 ### Supabase 스키마
 
-- `vault_items`: id(uuid), user_id(text), move, classification, notes, position_fen, pgn, created_at — 추가 필드: move_index, move_number, best_move, game_title, source('manual'|'auto'), analyzed_game_id, cp_loss
+- `vault_items`: id(uuid), user_id(text), move, classification, notes, position_fen, pgn, created_at — 추가 필드: move_index, move_number, best_move, game_title, source('manual'|'auto'), analyzed_game_id, cp_loss, mate_in, played_date(자동·수동 공통 정렬 키)
 - `analyzed_games`: id(uuid), user_id, pgn_hash(SHA-256, upsert 키), pgn, headers_json, played_date, created_at — 한 게임당 1행, vault_items(source='auto')가 analyzed_game_id로 참조
 - `saved_games`: id, user_id, title, category(my_game/otb/opening/pro), pgn, notes, created_at
 - `username_logs`: id, username, source(onboarding/search/cached), user_agent, created_at — anon INSERT only RLS
