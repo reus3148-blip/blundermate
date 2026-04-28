@@ -62,6 +62,7 @@ function normalizeVaultItem(row) {
         analyzedGameId: row.analyzed_game_id || null,
         cpLoss: row.cp_loss ?? null,
         mateIn: row.mate_in ?? null,
+        playedDate: row.played_date || null,
     };
     if (typeof row.move_index === 'number') item.moveIndex = row.move_index;
     if (typeof row.move_number === 'number') {
@@ -79,6 +80,7 @@ function normalizeLocalVaultItem(it) {
         analyzedGameId: it.analyzedGameId || null,
         cpLoss: it.cpLoss ?? null,
         mateIn: it.mateIn ?? null,
+        playedDate: it.playedDate || null,
     };
 }
 
@@ -134,6 +136,7 @@ export function addVaultItem(item) {
             analyzed_game_id: item.analyzedGameId || null,
             cp_loss: item.cpLoss ?? null,
             mate_in: item.mateIn ?? null,
+            played_date: item.playedDate || null,
         }
     }).catch(e => console.log('Supabase vault save failed, using localStorage', e));
 }

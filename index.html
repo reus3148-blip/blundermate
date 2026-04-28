@@ -287,7 +287,7 @@
         </div>
     </div>
 
-    <!-- Vault View -->
+    <!-- Vault View — 진입 즉시 stories 보드 -->
     <div id="vaultView" class="view-container hidden">
         <div class="analysis-top-bar">
             <button id="vaultBackBtn" class="back-btn">
@@ -295,28 +295,16 @@
                 <span data-i18n="back">Back</span>
             </button>
             <span class="top-bar-title" data-i18n="vault_title">복기</span>
-            <div class="top-bar-spacer"></div>
+            <button id="vaultListLink" class="topbar-icon-btn" type="button" title="목록" data-i18n-title="vault_list_link" aria-label="목록">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg>
+            </button>
         </div>
 
-        <!-- 모드 텍스트 탭 — Apple/Notion 결, pill 대체 -->
-        <div id="vaultModeTabs" class="vault-mode-tabs">
-            <button type="button" class="vault-mode-tab selected" data-mode="list" data-i18n="vault_mode_list">목록</button>
-            <button type="button" class="vault-mode-tab" data-mode="puzzle" data-i18n="vault_mode_puzzle">보기</button>
-        </div>
-
-        <!-- 목록 모드 -->
-        <div id="vaultListPane" class="vault-pane">
-            <div class="vault-sub-row">
-                <button id="vaultBlunderListLink" class="vault-sub-link" type="button" data-i18n="vault_blunder_list_link">블런더 목록 →</button>
-            </div>
-            <div id="vaultList" class="games-list view-list"></div>
-        </div>
-
-        <!-- 보기 모드 (퍼즐) -->
-        <div id="vaultPuzzlePane" class="vault-pane hidden">
+        <div id="vaultPuzzlePane" class="vault-pane">
             <div id="vaultPuzzleFilterTabs" class="vault-filter-tabs">
                 <button type="button" class="vault-filter-tab selected" data-filter="mistake" data-i18n="vault_filter_mistake">실수</button>
-                <button type="button" class="vault-filter-tab" data-filter="mate" data-i18n="vault_filter_mate">메이트 놓침</button>
+                <button type="button" class="vault-filter-tab" data-filter="mate" data-i18n="vault_filter_mate">메이트</button>
+                <button type="button" class="vault-filter-tab" data-filter="other" data-i18n="vault_filter_other">기타</button>
             </div>
             <div id="vaultPuzzleEmpty" class="vault-puzzle-empty hidden">
                 <div class="vault-puzzle-empty-text" data-i18n="vault_puzzle_empty">분석을 돌리면 자동으로 모여요</div>
@@ -342,19 +330,20 @@
         </div>
     </div>
 
-    <!-- Vault — Blunder List 서브뷰 (자동 수집 풀) -->
+    <!-- Vault — 리스트 보조 뷰 (게임 날짜순) -->
     <div id="vaultBlunderListView" class="view-container hidden">
         <div class="analysis-top-bar">
             <button id="vaultBlunderListBackBtn" class="back-btn">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
                 <span data-i18n="back">Back</span>
             </button>
-            <span class="top-bar-title" data-i18n="vault_blunder_list_title">블런더 목록</span>
+            <span class="top-bar-title" data-i18n="vault_list_title">목록</span>
             <div class="top-bar-spacer"></div>
         </div>
         <div id="vaultBlunderFilterTabs" class="vault-filter-tabs">
             <button type="button" class="vault-filter-tab selected" data-filter="mistake" data-i18n="vault_filter_mistake">실수</button>
-            <button type="button" class="vault-filter-tab" data-filter="mate" data-i18n="vault_filter_mate">메이트 놓침</button>
+            <button type="button" class="vault-filter-tab" data-filter="mate" data-i18n="vault_filter_mate">메이트</button>
+            <button type="button" class="vault-filter-tab" data-filter="other" data-i18n="vault_filter_other">기타</button>
         </div>
         <div id="vaultBlunderList" class="games-list view-list"></div>
     </div>

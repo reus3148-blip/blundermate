@@ -79,3 +79,29 @@ alter table public.vault_items add column if not exists mate_in integer;
 ```
 
 옛 자동 항목은 `mate_in`이 NULL이라 헤더 표시·budget 검증 모두 스킵됨 (graceful degradation). 새 분석부터 채워짐.
+
+---
+
+# vault_items.played_date 컬럼 추가 (vault 리스트 게임 날짜 정렬용)
+
+자동/수동 두 출처 모두 같은 정렬 키를 갖도록 vault_items에 직접 보관. 자동 항목은 분석 시 PGN 헤더의 UTCDate/Date에서 채우고, 수동 항목은 저장 시점에 chess.header()에서 추출.
+
+```sql
+alter table public.vault_items add column if not exists played_date text;
+create index if not exists vault_items_played_date_idx on public.vault_items (user_id, played_date desc);
+```
+
+옛 항목은 `played_date`가 NULL — 정렬 시 `created_at`으로 폴백 (graceful).
+
+옛 자동 항목은 `analyzed_games.played_date`로 1회 백필 가능:
+
+```sql
+update public.vault_items v
+set played_date = ag.played_date
+from public.analyzed_games ag
+where v.analyzed_game_id = ag.id
+  and v.played_date is null
+  and ag.played_date is not null;
+```
+
+옛 수동 항목(PGN 헤더에 날짜 있음)은 SQL로 못 뽑으니 NULL 유지 — 새 저장부터만 채워짐.

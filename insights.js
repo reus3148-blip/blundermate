@@ -98,7 +98,10 @@ function addResult(bucket, r) {
 }
 function winPct(b) { return b.games === 0 ? 0 : Math.round((b.win / b.games) * 100); }
 
-function computeInsights(games, userLower) {
+// opts.skipTimeStats=true면 PGN 시계 파싱 생략. 비교용 recent/prior 집계에서 사용
+// (시계 통계는 full insights에만 표시되고 delta에 쓰이지 않으므로 100회 파싱 절감).
+function computeInsights(games, userLower, opts = {}) {
+    const { skipTimeStats = false } = opts;
     const overall = emptyWDL();
     const byColor = { white: emptyWDL(), black: emptyWDL() };
     const byTimeClass = {};
@@ -144,20 +147,22 @@ function computeInsights(games, userLower) {
         const hb = hourBucket(game.end_time);
         if (hb) addResult(timeBuckets[hb], r);
 
-        const moveTimes = extractMoveTimesForUser(game.pgn || '', isWhite);
-        if (moveTimes && moveTimes.length > 0) {
-            timeStats.gamesWithClocks++;
-            for (const m of moveTimes) {
-                timeStats.totalMoves++;
-                timeStats.totalTimeSpent += m.timeSpent;
-                let phase;
-                if (m.userMoveNumber <= 10) phase = timeStats.opening;
-                else if (m.userMoveNumber <= 30) phase = timeStats.middle;
-                else phase = timeStats.end;
-                phase.moves++;
-                phase.time += m.timeSpent;
-                if (m.clockBefore <= 10) timeStats.timePressureMoves++;
-                if (m.timeSpent < 3) timeStats.instantMoves++;
+        if (!skipTimeStats) {
+            const moveTimes = extractMoveTimesForUser(game.pgn || '', isWhite);
+            if (moveTimes && moveTimes.length > 0) {
+                timeStats.gamesWithClocks++;
+                for (const m of moveTimes) {
+                    timeStats.totalMoves++;
+                    timeStats.totalTimeSpent += m.timeSpent;
+                    let phase;
+                    if (m.userMoveNumber <= 10) phase = timeStats.opening;
+                    else if (m.userMoveNumber <= 30) phase = timeStats.middle;
+                    else phase = timeStats.end;
+                    phase.moves++;
+                    phase.time += m.timeSpent;
+                    if (m.clockBefore <= 10) timeStats.timePressureMoves++;
+                    if (m.timeSpent < 3) timeStats.instantMoves++;
+                }
             }
         }
     }
@@ -167,7 +172,136 @@ function computeInsights(games, userLower) {
         .sort((a, b) => b.games - a.games)
         .slice(0, 5);
 
-    return { overall, byColor, byTimeClass, topOpenings, termination, moveBuckets, timeBuckets, timeStats };
+    return { overall, byColor, byTimeClass, topOpenings, openings, termination, moveBuckets, timeBuckets, timeStats };
+}
+
+// 비교용 게임 분할: 최근 절반 vs 그 전 절반.
+// games는 end_time desc 정렬(가장 최근이 [0])이라 앞쪽이 recent.
+// 의미 있는 비교를 위해 각 절반 ≥10게임이 되어야 한다.
+function splitForComparison(filtered) {
+    if (filtered.length < 20) return null;
+    const half = Math.floor(filtered.length / 2);
+    return {
+        recent: filtered.slice(0, half),
+        prior: filtered.slice(half, half * 2), // 홀수면 가운데 1개 버림
+    };
+}
+
+// 연승/연패 + 최장 기록. games는 end_time desc 정렬.
+// 현재 streak: 가장 최근 결과가 무승부면 null. 2 이상부터 의미 있다고 보고 표시.
+function computeStreaks(games, userLower) {
+    if (games.length === 0) return null;
+    const results = games.map(g => classifyGameResult(g, userLower));
+    let current = null;
+    if (results[0] !== 'draw') {
+        let len = 1;
+        while (len < results.length && results[len] === results[0]) len++;
+        if (len >= 2) current = { kind: results[0], len };
+    }
+    let longestWin = 0, longestLoss = 0;
+    let runKind = null, runLen = 0;
+    for (const r of results) {
+        if (r === runKind) runLen++;
+        else { runKind = r; runLen = 1; }
+        if (r === 'win'  && runLen > longestWin)  longestWin  = runLen;
+        if (r === 'loss' && runLen > longestLoss) longestLoss = runLen;
+    }
+    return { current, longestWin, longestLoss };
+}
+
+// 결과 흐름(streakiness) — "이번 결과가 직전 결과와 같은 비율"을 무작위 기대값과 비교.
+// 무작위 가정 P(같음) = pW² + pD² + pL². 실제 비율이 +8%p 이상이면 연승/연패형, −8%p 이하면 교차형.
+// 의미 있는 분류를 위해 30판 이상에서만 활성화.
+function computeStreakiness(games, userLower) {
+    if (games.length < 30) return null;
+    const results = games.map(g => classifyGameResult(g, userLower));
+    const N = results.length;
+
+    let continuations = 0;
+    for (let i = 1; i < N; i++) {
+        if (results[i] === results[i - 1]) continuations++;
+    }
+    const actual = continuations / (N - 1);
+
+    const counts = { win: 0, draw: 0, loss: 0 };
+    for (const r of results) counts[r]++;
+    const pW = counts.win / N, pD = counts.draw / N, pL = counts.loss / N;
+    const expected = pW * pW + pD * pD + pL * pL;
+
+    const delta = actual - expected;
+    let style;
+    if (delta >= 0.08) style = 'streaky';
+    else if (delta <= -0.08) style = 'alternating';
+    else style = 'neutral';
+
+    return { actual, expected, delta, style };
+}
+
+// 가장 눈에 띄는 한 줄. 후보 중 |편차| 기반 점수가 가장 높은 것 하나만 출력.
+// 후보가 모두 임계 미달이면 null — 노이즈가 narrative로 둔갑하는 걸 방지.
+function computeNarrative(insights, recent, prior) {
+    const cands = [];
+    // 1. 최근 폼 트렌드 — recent 절반 vs 그 전 절반 (양쪽 ≥10게임)
+    if (recent && prior && recent.overall.games >= 10 && prior.overall.games >= 10) {
+        const d = winPct(recent.overall) - winPct(prior.overall);
+        if (Math.abs(d) >= 8) {
+            const n = recent.overall.games;
+            cands.push({
+                score: Math.abs(d) * 1.4, // 트렌드는 narrative로 가장 의미 있어 가중
+                text: d > 0
+                    ? t('insights_narr_trend_up').replace(/\{n\}/g, n).replace('{d}', `${d}`)
+                    : t('insights_narr_trend_down').replace(/\{n\}/g, n).replace('{d}', `${-d}`),
+            });
+        }
+    }
+    // 2. 색깔 비대칭 (양쪽 ≥10게임)
+    const wc = insights.byColor.white, bk = insights.byColor.black;
+    if (wc.games >= 10 && bk.games >= 10) {
+        const d = winPct(wc) - winPct(bk);
+        if (Math.abs(d) >= 10) {
+            cands.push({
+                score: Math.abs(d),
+                text: d > 0
+                    ? t('insights_narr_white_strong').replace('{d}', `${d}`)
+                    : t('insights_narr_black_strong').replace('{d}', `${-d}`),
+            });
+        }
+    }
+    // 3. 시계 — 시간 압박 / 즉답
+    const ts = insights.timeStats;
+    if (ts.totalMoves >= 100) {
+        const tp = (ts.timePressureMoves / ts.totalMoves) * 100;
+        if (tp >= 20) cands.push({
+            score: tp - 8,
+            text: t('insights_narr_time_pressure').replace('{pct}', tp.toFixed(0)),
+        });
+        const im = (ts.instantMoves / ts.totalMoves) * 100;
+        if (im >= 40) cands.push({
+            score: (im - 30) * 0.6,
+            text: t('insights_narr_instant').replace('{pct}', im.toFixed(0)),
+        });
+    }
+    // 4. 종료 사유 — 시간패 비중
+    const termTotal = Object.values(insights.termination).reduce((sum, n) => sum + n, 0);
+    if (termTotal >= 20) {
+        const toPct = (insights.termination.timeout / termTotal) * 100;
+        if (toPct >= 25) cands.push({
+            score: toPct - 12,
+            text: t('insights_narr_timeout').replace('{pct}', toPct.toFixed(0)),
+        });
+    }
+    if (cands.length === 0) return null;
+    cands.sort((a, b) => b.score - a.score);
+    return cands[0].text;
+}
+
+// 최근 절반 vs 그 전 절반 승률 차이를 muted 텍스트로. 표시는 ≥3%p에서만.
+function deltaSpan(recent, prior, minSample = 5, threshold = 3) {
+    if (!recent || !prior || recent.games < minSample || prior.games < minSample) return '';
+    const d = winPct(recent) - winPct(prior);
+    if (Math.abs(d) < threshold) return '';
+    const sign = d > 0 ? '+' : '−'; // unicode minus
+    return ` <span class="wdl-delta">${sign}${Math.abs(d)}${t('insights_delta_unit')}</span>`;
 }
 
 // ==========================================
@@ -186,16 +320,79 @@ function renderWDLBar(b) {
         </div>`;
 }
 
-function renderWDLSummary(b) {
-    return `<span class="wdl-summary">${b.win}${t('insights_w')} ${b.draw}${t('insights_d')} ${b.loss}${t('insights_l')} · ${winPct(b)}%</span>`;
+function renderWDLSummary(b, recent, prior) {
+    const delta = deltaSpan(recent, prior);
+    return `<span class="wdl-summary">${b.win}${t('insights_w')} ${b.draw}${t('insights_d')} ${b.loss}${t('insights_l')} · ${winPct(b)}%${delta}</span>`;
 }
 
-function renderOverallCard(overall) {
+// hero용 streak 한 줄: 현재 연승/연패 우선.
+// 결과 흐름 카드가 보일 때(=샘플 ≥30)는 최장 연승 fallback 생략 — 새 카드와 중복 방지.
+function formatStreakLine(streaks, hideExtremes) {
+    if (!streaks) return null;
+    if (streaks.current) {
+        return streaks.current.kind === 'win'
+            ? t('insights_streak_current_w').replace('{n}', streaks.current.len)
+            : t('insights_streak_current_l').replace('{n}', streaks.current.len);
+    }
+    if (!hideExtremes && streaks.longestWin >= 3) {
+        return t('insights_streak_best_w').replace('{n}', streaks.longestWin);
+    }
+    return null;
+}
+
+// 결과 흐름 카드 — streakiness 라벨 + actual vs expected + 최장 연승/연패.
+function renderResultFlowCard(streakiness, streaks) {
+    if (!streakiness) return ''; // 30판 미만이면 카드 자체 숨김
+    const labelKey = streakiness.style === 'streaky'
+        ? 'insights_flow_streaky'
+        : streakiness.style === 'alternating'
+            ? 'insights_flow_alternating'
+            : 'insights_flow_neutral';
+    const sub = t('insights_flow_sub')
+        .replace('{actual}', Math.round(streakiness.actual * 100))
+        .replace('{expected}', Math.round(streakiness.expected * 100));
+    let extremesHtml = '';
+    if (streaks) {
+        const w = streaks.longestWin, l = streaks.longestLoss;
+        let txt = '';
+        if (w >= 2 && l >= 2) txt = t('insights_flow_extremes').replace('{w}', w).replace('{l}', l);
+        else if (w >= 2)      txt = t('insights_flow_extremes_w_only').replace('{w}', w);
+        else if (l >= 2)      txt = t('insights_flow_extremes_l_only').replace('{l}', l);
+        if (txt) extremesHtml = `<div class="insight-flow-extremes">${escapeHtml(txt)}</div>`;
+    }
+    return `
+        <div class="insight-card">
+            <div class="insight-card-title">${t('insights_flow_title')}</div>
+            <div class="insight-card-body insight-card-body--single">
+                <div class="insight-big-metric">
+                    <span class="insight-big-value">${escapeHtml(t(labelKey))}</span>
+                    <span class="insight-big-sub">${escapeHtml(sub)}</span>
+                </div>
+                ${extremesHtml}
+            </div>
+        </div>`;
+}
+
+function renderOverallCard(overall, opts = {}) {
+    const { recent, prior, streaks, narrative, streakiness } = opts;
+    const heroDelta = (() => {
+        if (!recent || !prior || recent.overall.games < 5 || prior.overall.games < 5) return '';
+        const d = winPct(recent.overall) - winPct(prior.overall);
+        if (Math.abs(d) < 3) return '';
+        const sign = d > 0 ? '+' : '−';
+        return `<span class="insight-hero-delta">${sign}${Math.abs(d)}${t('insights_delta_unit')}</span>`;
+    })();
+    const streakLine = formatStreakLine(streaks, !!streakiness);
+    const totalText = t('insights_total_n').replace('{n}', overall.games)
+        + (streakLine ? ` · ${streakLine}` : '');
     return `
         <div class="insight-card insight-card--hero">
             <div class="insight-hero-top">
                 <div class="insight-hero-metric">
-                    <span class="insight-hero-value">${winPct(overall)}%</span>
+                    <div class="insight-hero-value-row">
+                        <span class="insight-hero-value">${winPct(overall)}%</span>
+                        ${heroDelta}
+                    </div>
                     <span class="insight-hero-label">${t('insights_winrate')}</span>
                 </div>
                 <div class="insight-hero-counts">
@@ -205,7 +402,8 @@ function renderOverallCard(overall) {
                 </div>
             </div>
             ${renderWDLBar(overall)}
-            <div class="insight-hero-total">${t('insights_total_n').replace('{n}', overall.games)}</div>
+            <div class="insight-hero-total">${totalText}</div>
+            ${narrative ? `<div class="insight-hero-narrative">${escapeHtml(narrative)}</div>` : ''}
         </div>`;
 }
 
@@ -215,7 +413,7 @@ function renderRowCard(title, rows) {
             <div class="insight-row-label">${escapeHtml(r.label)}</div>
             <div class="insight-row-bar-wrap">
                 ${renderWDLBar(r.stats)}
-                ${renderWDLSummary(r.stats)}
+                ${renderWDLSummary(r.stats, r.recentStats, r.priorStats)}
             </div>
         </div>
     `).join('');
@@ -226,29 +424,40 @@ function renderRowCard(title, rows) {
         </div>`;
 }
 
-function renderColorCard(byColor) {
+function renderColorCard(byColor, recent, prior) {
     return renderRowCard(t('insights_by_color'), [
-        { label: t('insights_white'), stats: byColor.white },
-        { label: t('insights_black'), stats: byColor.black },
+        {
+            label: t('insights_white'), stats: byColor.white,
+            recentStats: recent?.byColor?.white, priorStats: prior?.byColor?.white,
+        },
+        {
+            label: t('insights_black'), stats: byColor.black,
+            recentStats: recent?.byColor?.black, priorStats: prior?.byColor?.black,
+        },
     ].filter(r => r.stats.games > 0));
 }
 
-function renderTimeClassCard(byTimeClass) {
+function renderTimeClassCard(byTimeClass, recent, prior) {
     const order = ['rapid', 'blitz', 'bullet', 'daily'];
     const labelMap = { rapid: 'Rapid', blitz: 'Blitz', bullet: 'Bullet', daily: 'Daily' };
+    const buildRow = (tc, label) => ({
+        label,
+        stats: byTimeClass[tc],
+        recentStats: recent?.byTimeClass?.[tc],
+        priorStats: prior?.byTimeClass?.[tc],
+    });
     const rows = order
         .filter(tc => byTimeClass[tc] && byTimeClass[tc].games > 0)
-        .map(tc => ({ label: labelMap[tc], stats: byTimeClass[tc] }));
-    // Add any other time classes
+        .map(tc => buildRow(tc, labelMap[tc]));
     Object.keys(byTimeClass).forEach(tc => {
         if (!order.includes(tc) && byTimeClass[tc].games > 0) {
-            rows.push({ label: tc, stats: byTimeClass[tc] });
+            rows.push(buildRow(tc, tc));
         }
     });
     return renderRowCard(t('insights_by_tc'), rows);
 }
 
-function renderOpeningsCard(topOpenings) {
+function renderOpeningsCard(topOpenings, recent, prior) {
     if (topOpenings.length === 0) {
         return `
             <div class="insight-card">
@@ -259,6 +468,8 @@ function renderOpeningsCard(topOpenings) {
     const rows = topOpenings.map(op => ({
         label: op.eco ? `${op.key} · ${op.eco}` : op.key,
         stats: op,
+        recentStats: recent?.openings?.get(op.key),
+        priorStats: prior?.openings?.get(op.key),
     }));
     return renderRowCard(t('insights_top_openings'), rows);
 }
@@ -297,7 +508,7 @@ function renderTerminationCard(termination, total) {
         </div>`;
 }
 
-function renderMoveLengthCard(moveBuckets) {
+function renderMoveLengthCard(moveBuckets, recent, prior) {
     const order = ['short', 'medium', 'long', 'marathon'];
     const labelMap = {
         short: t('insights_len_short'),
@@ -307,7 +518,10 @@ function renderMoveLengthCard(moveBuckets) {
     };
     const rows = order
         .filter(k => moveBuckets[k].games > 0)
-        .map(k => ({ label: labelMap[k], stats: moveBuckets[k] }));
+        .map(k => ({
+            label: labelMap[k], stats: moveBuckets[k],
+            recentStats: recent?.moveBuckets?.[k], priorStats: prior?.moveBuckets?.[k],
+        }));
     return renderRowCard(t('insights_game_length'), rows);
 }
 
@@ -406,7 +620,7 @@ function renderInstantMovesCard(timeStats) {
         </div>`;
 }
 
-function renderTimeOfDayCard(timeBuckets) {
+function renderTimeOfDayCard(timeBuckets, recent, prior) {
     const order = ['morning', 'afternoon', 'evening', 'night'];
     const labelMap = {
         morning: t('insights_tod_morning'),
@@ -416,7 +630,10 @@ function renderTimeOfDayCard(timeBuckets) {
     };
     const rows = order
         .filter(k => timeBuckets[k].games > 0)
-        .map(k => ({ label: labelMap[k], stats: timeBuckets[k] }));
+        .map(k => ({
+            label: labelMap[k], stats: timeBuckets[k],
+            recentStats: recent?.timeBuckets?.[k], priorStats: prior?.timeBuckets?.[k],
+        }));
     return renderRowCard(t('insights_time_of_day'), rows);
 }
 
@@ -425,27 +642,30 @@ function renderInsights(insights, opts = {}) {
         insightsBody.innerHTML = `<div class="insight-empty-state">${t('insights_no_games')}</div>`;
         return;
     }
+    const { recent, prior, streaks, narrative, streakiness } = opts;
     // 그룹 순서:
-    //   A. 정체 (overall → 색 → 타임클래스): "나는 누구인가"
+    //   A. 정체 (overall → 결과 흐름 → 색 → 타임클래스): "나는 누구인가"
     //   B. 스타일 (오프닝 → 게임 길이 → 종료 방식): "나는 어떻게 두는가"
     //   C. 시계 관리 (평균 → 단계 → 압박 → 즉답): "나는 시간을 어떻게 쓰는가"
     //   D. 습관 (시간대): "나는 언제 두는가"
-    const cards = [renderOverallCard(insights.overall)];
+    const cards = [renderOverallCard(insights.overall, { recent, prior, streaks, narrative, streakiness })];
+    const flowCardHtml = renderResultFlowCard(streakiness, streaks);
+    if (flowCardHtml) cards.push(flowCardHtml);
     if (opts.showColorCard !== false) {
-        cards.push(renderColorCard(insights.byColor));
+        cards.push(renderColorCard(insights.byColor, recent, prior));
     }
     if (opts.showTimeClassCard !== false) {
-        cards.push(renderTimeClassCard(insights.byTimeClass));
+        cards.push(renderTimeClassCard(insights.byTimeClass, recent, prior));
     }
     cards.push(
-        renderOpeningsCard(insights.topOpenings),
-        renderMoveLengthCard(insights.moveBuckets),
+        renderOpeningsCard(insights.topOpenings, recent, prior),
+        renderMoveLengthCard(insights.moveBuckets, recent, prior),
         renderTerminationCard(insights.termination, insights.overall.games),
         renderAvgThinkCard(insights.timeStats),
         renderPhaseTimeCard(insights.timeStats),
         renderTimePressureCard(insights.timeStats),
         renderInstantMovesCard(insights.timeStats),
-        renderTimeOfDayCard(insights.timeBuckets),
+        renderTimeOfDayCard(insights.timeBuckets, recent, prior),
     );
     insightsBody.innerHTML = cards.join('');
 }
@@ -479,11 +699,20 @@ function recomputeAndRender() {
     }
 
     const insights = computeInsights(filtered, lastInsightsUser);
+    // 비교 델타용 — 필터된 게임을 두 절반으로 쪼개 각각 집계.
+    const split = splitForComparison(filtered);
+    // 비교용 절반 집계는 시계 통계 불필요 — 명시적으로 끔.
+    const recent = split ? computeInsights(split.recent, lastInsightsUser, { skipTimeStats: true }) : null;
+    const prior  = split ? computeInsights(split.prior,  lastInsightsUser, { skipTimeStats: true }) : null;
+    const streaks = computeStreaks(filtered, lastInsightsUser);
+    const streakiness = computeStreakiness(filtered, lastInsightsUser);
+    const narrative = computeNarrative(insights, recent, prior);
     renderInsights(insights, {
         // 타임 컨트롤 카드: 필터가 'all'일 때만 의미 있음 (한 종류만 표시되어 redundant)
         showTimeClassCard: tc === 'all',
         // 흑백 카드: 마찬가지
         showColorCard: color === 'all',
+        recent, prior, streaks, streakiness, narrative,
     });
     updateInsightsSubtitle(lastInsightsGames.length, filtered.length);
 }

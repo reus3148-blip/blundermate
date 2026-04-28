@@ -118,7 +118,7 @@ export function extractAutoCandidates(queue, isUserWhite) {
 }
 
 // 후보를 vault_item 레코드로 변환. analyzed_game_id가 들어가야 하므로 호출측에서 합성.
-function buildVaultRow({ candidate, queue, gameTitle, isUserWhite, analyzedGameId, classification }) {
+function buildVaultRow({ candidate, queue, gameTitle, isUserWhite, analyzedGameId, classification, playedDate }) {
     const i = candidate.moveIndex;
     const m = queue[i];
     return {
@@ -140,6 +140,7 @@ function buildVaultRow({ candidate, queue, gameTitle, isUserWhite, analyzedGameI
         analyzedGameId,
         cpLoss: candidate.cpLoss ?? null,
         mateIn: candidate.mateIn ?? null, // missed_mate에 한해 plies 단위로 채워짐 (1~4)
+        playedDate: playedDate || null,
     };
 }
 
@@ -188,6 +189,7 @@ export async function collectAutoBlunders({ pgn, queue, isUserWhite, headers }) 
                 isUserWhite,
                 analyzedGameId,
                 classification: 'missed_mate',
+                playedDate,
             }));
         }
         for (const c of worstTwo) {
@@ -198,6 +200,7 @@ export async function collectAutoBlunders({ pgn, queue, isUserWhite, headers }) 
                 isUserWhite,
                 analyzedGameId,
                 classification: c.classification,
+                playedDate,
             }));
         }
 

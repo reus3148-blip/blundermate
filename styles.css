@@ -2916,9 +2916,17 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     flex-direction: column;
     flex: 1;
     min-height: 0;
+    overflow-y: auto; /* 세로 부족 시 스크롤 — 다음 버튼이 viewport 밖으로 밀리지 않게 */
 }
 
 .vault-puzzle-stage.hidden { display: none; }
+
+/* 분석 화면 기준의 board 크기는 vault stories에서 너무 큼 — top bar + 필터/indicator/prompt
+   + feedback + actions + bottom-nav 합치면 더 빠듯해서 보드 max-height를 줄여 일반 케이스에선
+   스크롤 없이도 다음 버튼까지 다 보이게 한다. */
+#vaultPuzzlePane .board-container {
+    max-width: calc(100dvh - 340px);
+}
 
 .vault-puzzle-empty {
     display: flex;
@@ -3517,6 +3525,11 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     flex-direction: column;
     align-items: flex-start;
 }
+.insight-hero-value-row {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+}
 .insight-hero-value {
     font-size: 34px;
     font-weight: 700;
@@ -3524,6 +3537,14 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     line-height: 1;
     letter-spacing: -0.025em;
     font-variant-numeric: tabular-nums;
+}
+.insight-hero-delta {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--tx3);
+    letter-spacing: -0.01em;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
 }
 .insight-hero-label {
     font-size: 11px;
@@ -3570,6 +3591,16 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     letter-spacing: 0.02em;
     font-variant-numeric: tabular-nums;
 }
+/* Hero narrative: total보다 살짝 더 prominent한 한 줄 (typography 위계만으로 강조) */
+.insight-hero-narrative {
+    font-size: 13px;
+    color: var(--tx2);
+    font-weight: 500;
+    margin-top: 10px;
+    text-align: center;
+    letter-spacing: -0.005em;
+    line-height: 1.4;
+}
 
 /* WDL bar (segmented win/draw/loss) */
 .wdl-bar {
@@ -3589,6 +3620,13 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     margin-top: 6px;
     font-size: 11px;
     color: var(--tx2);
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+}
+/* 최근 절반 vs 그 전 절반 승률 델타 — 평가성 색 안 쓰고 muted gray로만 */
+.wdl-delta {
+    margin-left: 6px;
+    color: var(--tx3);
     font-weight: 500;
     font-variant-numeric: tabular-nums;
 }
@@ -3684,6 +3722,14 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     font-weight: 500;
     text-align: right;
     line-height: 1.35;
+}
+/* 결과 흐름 카드의 최장 연승/연패 한 줄 */
+.insight-flow-extremes {
+    font-size: 12px;
+    color: var(--tx3);
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.005em;
 }
 
 /* Skeleton placeholders — 카드와 동일한 soft elevation */

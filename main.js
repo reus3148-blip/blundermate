@@ -214,11 +214,13 @@ const vaultDetailViewNav = document.getElementById('vaultDetailView');
 const savedGamesViewNav = document.getElementById('savedGamesView');
 const insightsViewNav = document.getElementById('insightsView');
 
+// push + render 일원화. 호출자는 navigateTo만 호출하면 history와 화면 갱신이 함께 일어남 —
+// renderScreen이 hideAllViews + 해당 view 노출 + syncBottomNav를 모두 처리하므로
+// 부분 호출(예: history만 push)로 화면이 일관성을 잃을 일 없음.
 function navigateTo(screen, state = {}) {
     console.log('[Nav] push:', screen, state);
-    _currentScreen = screen;
     history.pushState({ screen, ...state }, '', `#${screen}`);
-    syncBottomNav(screen);
+    renderScreen(screen);
 }
 
 function hideAllViews() {
@@ -313,23 +315,19 @@ function syncBottomNav(screen) {
 navHomeBtn.addEventListener('click', () => {
     if (_currentScreen === SCREENS.HOME) return;
     navigateTo(SCREENS.HOME);
-    renderScreen(SCREENS.HOME);
 });
 navVaultBtn.addEventListener('click', () => {
     if (_currentScreen === SCREENS.VAULT_LIST) return;
     navigateTo(SCREENS.VAULT_LIST);
-    renderScreen(SCREENS.VAULT_LIST);
 });
 navSavedBtn.addEventListener('click', () => {
     if (_currentScreen === SCREENS.SAVED_GAMES) return;
     navigateTo(SCREENS.SAVED_GAMES);
-    renderScreen(SCREENS.SAVED_GAMES);
 });
 if (navInsightsBtn) {
     navInsightsBtn.addEventListener('click', () => {
         if (_currentScreen === SCREENS.INSIGHTS) return;
         navigateTo(SCREENS.INSIGHTS);
-        renderScreen(SCREENS.INSIGHTS);
     });
 }
 
@@ -1521,9 +1519,13 @@ confirmSaveBtn.addEventListener('click', () => {
     console.log('[Vault save]', { moveIndex: snap.moveIndex, fen: snap.fen, san: snap.san });
 
     let gameTitle = '';
+    let playedDate = null;
     const h = chess?.header?.();
-    if (h && h.White && h.Black && h.White !== '?' && h.Black !== '?') {
-        gameTitle = `${h.White} vs ${h.Black}`;
+    if (h) {
+        if (h.White && h.Black && h.White !== '?' && h.Black !== '?') {
+            gameTitle = `${h.White} vs ${h.Black}`;
+        }
+        playedDate = h.UTCDate || h.Date || null;
     }
 
     const vaultItem = {
@@ -1541,7 +1543,8 @@ confirmSaveBtn.addEventListener('click', () => {
         isWhite: snap.isWhite,
         category: saveCategory.value,
         notes: saveNotes.value.trim(),
-        engineLines: snap.engineLines
+        engineLines: snap.engineLines,
+        playedDate,
     };
 
     addVaultItem(vaultItem);
