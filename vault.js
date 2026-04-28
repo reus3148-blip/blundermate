@@ -3,6 +3,7 @@ import { parseAndLoadPgn, escapeHtml, getDests } from './utils.js';
 import { getVaultItems, removeVaultItem, getAnalyzedGameById, COORDS_KEY } from './storage.js';
 import { renderMovesTable } from './ui.js';
 import { t } from './strings.js';
+import { EnginePool } from './engine.js';
 
 // ==========================================
 // DOM Elements
@@ -34,6 +35,8 @@ const vaultBlunderListLink = document.getElementById('vaultBlunderListLink');
 const vaultBlunderListView = document.getElementById('vaultBlunderListView');
 const vaultBlunderList = document.getElementById('vaultBlunderList');
 const vaultBlunderListBackBtn = document.getElementById('vaultBlunderListBackBtn');
+const vaultPuzzleFilterTabs = document.getElementById('vaultPuzzleFilterTabs');
+const vaultBlunderFilterTabs = document.getElementById('vaultBlunderFilterTabs');
 
 // Puzzle DOM
 const vaultPuzzleStage = document.getElementById('vaultPuzzleStage');
@@ -63,9 +66,27 @@ let vaultMode = 'list';
 let puzzleCg = null;
 let puzzleChess = null;
 let puzzleItem = null;       // 현재 출제된 vault_item (source='auto')
-let puzzlePool = [];         // 캐시된 자동 풀
-let puzzleSolved = false;    // 사용자가 한 수를 입력했는가
+let puzzlePool = [];         // 현재 필터로 추려진 출제 풀
+let puzzleSolved = false;    // 종료 상태 (정답/오답 확정, 더 입력 안 받음)
+let puzzleProcessing = false; // 엔진 검증 중 — 추가 입력 차단
 let puzzlePrevFen = null;    // 직전 포지션 FEN (사용자가 둘 자리)
+
+// 자동 풀 카테고리 필터: 'mistake' (mistake+blunder) | 'mate' (missed_mate)
+// 보기 모드와 블런더 목록 뷰가 독립적으로 보유 — 한쪽 전환이 다른쪽에 영향 안 줌.
+let puzzleFilter = 'mistake';
+let blunderListFilter = 'mistake';
+// source='auto' 항목 전체 캐시 — 두 뷰가 공유, 탭 전환 시 재 fetch 안 함.
+let _autoItemsCache = [];
+
+// 메이트 퍼즐 라이브 검증용 엔진 — 첫 mate 퍼즐 로드 시 lazy init.
+// 분석 화면의 풀과 분리 (한 워커, 독립 라이프사이클).
+const PUZZLE_ENGINE_PATH = './engine/stockfish-18-lite-single.js';
+const PUZZLE_VALIDATION_DEPTH = 14;
+let _puzzleEngine = null;
+let _puzzleEngineReady = null;
+// 현재 mate 퍼즐 컨텍스트
+let puzzleIsMate = false;
+let puzzleMoverIsWhite = false;
 
 // Dependencies injected via initVault()
 let _showMovesOverlay = null;
@@ -160,11 +181,12 @@ export async function initHomeVaultBadge() {
 
 // 데이터 로드만 담당. 뷰 가시성은 main.js의 renderScreen이 단독 관리.
 // 모드 진입 시 항상 list로 리셋 (puzzle 진입 후 다시 vault_list 들어왔을 때 자연스러움).
+// 자동 풀 캐시는 진입 1회만 fetch — 보기 탭 클릭 시엔 in-memory 필터만 재적용.
 export async function loadVaultData() {
     setVaultMode('list');
     await updateVaultView();
-    // 보기 모드 풀은 미리 캐시 (탭 전환 시 즉시 렌더)
-    await refreshPuzzlePool();
+    await refreshAutoItemsCache();
+    applyPuzzleFilter();
 }
 
 async function updateVaultView() {
@@ -174,18 +196,84 @@ async function updateVaultView() {
 
 // 자동 풀 (블런더 목록 / 보기 모드 공통). 별도 화면 진입 시 호출.
 export async function loadBlunderListData() {
-    const items = await getVaultItems({ source: 'auto' });
+    await refreshAutoItemsCache();
+    renderBlunderListPane();
+}
+
+function renderBlunderListPane() {
+    const items = filterAutoItems(blunderListFilter);
     renderVaultList(vaultBlunderList, items, openVaultItem, {
-        emptyText: t('vault_blunder_list_empty'),
+        emptyText: getBlunderListEmptyText(),
+    });
+    if (vaultBlunderFilterTabs) {
+        vaultBlunderFilterTabs.querySelectorAll('.vault-filter-tab').forEach(btn => {
+            btn.classList.toggle('selected', btn.dataset.filter === blunderListFilter);
+        });
+    }
+}
+
+async function refreshAutoItemsCache() {
+    try {
+        _autoItemsCache = await getVaultItems({ source: 'auto' });
+    } catch (e) {
+        _autoItemsCache = [];
+    }
+}
+
+function filterAutoItems(filter) {
+    if (filter === 'mate') {
+        return _autoItemsCache.filter(it => (it.category || '').toLowerCase() === 'missed_mate');
+    }
+    // 'mistake' = mistake + blunder (cp 기반 실수)
+    return _autoItemsCache.filter(it => {
+        const c = (it.category || '').toLowerCase();
+        return c === 'mistake' || c === 'blunder';
     });
 }
 
-async function refreshPuzzlePool() {
-    try {
-        puzzlePool = await getVaultItems({ source: 'auto' });
-    } catch (e) {
-        puzzlePool = [];
+// 빈 상태 메시지: 풀 자체가 비었으면 일반 안내, 풀은 있는데 필터 매칭이 0이면 필터 전용 메시지.
+function getPuzzleEmptyText() {
+    if (_autoItemsCache.length === 0) return t('vault_puzzle_empty');
+    return t(puzzleFilter === 'mate' ? 'vault_puzzle_empty_mate' : 'vault_puzzle_empty_mistake');
+}
+
+function getBlunderListEmptyText() {
+    if (_autoItemsCache.length === 0) return t('vault_blunder_list_empty');
+    return t(blunderListFilter === 'mate' ? 'vault_blunder_list_empty_mate' : 'vault_blunder_list_empty_mistake');
+}
+
+// 캐시는 vault 진입 시 1회만 채워짐 — 여기선 fetch 없이 현재 필터만 재적용.
+function applyPuzzleFilter() {
+    puzzlePool = filterAutoItems(puzzleFilter);
+}
+
+// 메이트 퍼즐 검증 엔진 — 1워커 풀 lazy. 한 번 init되면 페이지 수명 동안 유지.
+async function ensurePuzzleEngine() {
+    if (!_puzzleEngine) {
+        _puzzleEngine = new EnginePool(PUZZLE_ENGINE_PATH, 1);
+        _puzzleEngineReady = _puzzleEngine.ready();
     }
+    await _puzzleEngineReady;
+    return _puzzleEngine;
+}
+
+// 주어진 fen을 분석해 top line 반환. STM 시점의 cp/mate 값 + UCI PV.
+async function analyzeForMate(fen) {
+    try {
+        const engine = await ensurePuzzleEngine();
+        const result = await engine.analyze(fen, PUZZLE_VALIDATION_DEPTH);
+        return result?.lines?.[0] || null;
+    } catch (e) {
+        console.warn('Puzzle engine analyze failed:', e);
+        return null;
+    }
+}
+
+// 라인이 mover에게 mate인지 판정. line.value는 STM 시점 (양수=STM이 mate).
+// stmIsMover면 양수가 mover-mate, 아니면 음수가 mover-mate.
+function lineSaysMoverMates(line, stmIsMover) {
+    if (!line || line.type !== 'mate') return false;
+    return stmIsMover ? line.value > 0 : line.value < 0;
 }
 
 async function deleteCurrentVaultItem() {
@@ -264,12 +352,6 @@ async function openVaultItem(item) {
     // 3) 최종 폴백
     if (targetIdx < 0) targetIdx = vaultDetailFens.length - 1;
 
-    console.log('[Vault Load]', {
-        itemFen: item.fen, itemMoveIndex: item.moveIndex,
-        matchedIndex: targetIdx, totalMoves: vaultDetailFens.length,
-        boardFen: vaultDetailFens[targetIdx]
-    });
-
     setVaultDetailIndex(targetIdx);
     forceRedraw(vaultDetailCg);
 }
@@ -325,8 +407,8 @@ function pickRandomPuzzle() {
     return puzzlePool[idx];
 }
 
-async function startPuzzleSession() {
-    await refreshPuzzlePool();
+function startPuzzleSession() {
+    applyPuzzleFilter();
     if (!puzzlePool || puzzlePool.length === 0) {
         showPuzzleEmpty(true);
         return;
@@ -336,8 +418,21 @@ async function startPuzzleSession() {
 }
 
 function showPuzzleEmpty(empty) {
-    if (vaultPuzzleEmpty) vaultPuzzleEmpty.classList.toggle('hidden', !empty);
+    if (vaultPuzzleEmpty) {
+        vaultPuzzleEmpty.classList.toggle('hidden', !empty);
+        if (empty) {
+            const txt = vaultPuzzleEmpty.querySelector('.vault-puzzle-empty-text');
+            if (txt) txt.textContent = getPuzzleEmptyText();
+        }
+    }
     if (vaultPuzzleStage) vaultPuzzleStage.classList.toggle('hidden', empty);
+}
+
+function updatePuzzleFilterTabsUI() {
+    if (!vaultPuzzleFilterTabs) return;
+    vaultPuzzleFilterTabs.querySelectorAll('.vault-filter-tab').forEach(btn => {
+        btn.classList.toggle('selected', btn.dataset.filter === puzzleFilter);
+    });
 }
 
 async function loadNextPuzzle() {
@@ -348,6 +443,7 @@ async function loadNextPuzzle() {
     }
     puzzleItem = item;
     puzzleSolved = false;
+    puzzleProcessing = false;
 
     // 직전 포지션을 얻기 위해 PGN을 로드해서 move_index까지 replay
     const game = await getAnalyzedGameById(item.analyzedGameId);
@@ -376,6 +472,11 @@ async function loadNextPuzzle() {
     // 헤더 카피
     const isMate = (item.category || '').toLowerCase() === 'missed_mate';
     const moverIsWhite = !!item.isWhite;
+    // 모듈 상태 동기화 — onPuzzleUserMove가 mate 분기 결정에 사용
+    puzzleIsMate = isMate;
+    puzzleMoverIsWhite = moverIsWhite;
+    // mate 퍼즐이면 엔진을 미리 워밍업 (사용자 첫 수 두기 전에 ready)
+    if (isMate) ensurePuzzleEngine().catch(() => {});
     if (vaultPuzzleHeader) {
         vaultPuzzleHeader.textContent = isMate
             ? t('vault_puzzle_find_mate')
@@ -430,9 +531,8 @@ async function loadNextPuzzle() {
     setTimeout(() => puzzleCg && puzzleCg.redrawAll(), 30);
 }
 
-function onPuzzleUserMove(orig, dest, meta) {
-    if (puzzleSolved) return;
-    puzzleSolved = true;
+async function onPuzzleUserMove(orig, dest, meta) {
+    if (puzzleSolved || puzzleProcessing) return;
 
     // promotion 기본 q (퍼즐에서 자동 승격)
     let played;
@@ -443,33 +543,107 @@ function onPuzzleUserMove(orig, dest, meta) {
     }
     if (!played) return;
 
-    const expectedSan = (puzzleItem.bestMove || '').replace(/[+#]$/, '');
-    const playedSan = played.san.replace(/[+#]$/, '');
-    const correct = expectedSan && playedSan === expectedSan;
-
-    // 보드 상태 잠금
+    // 입력 차단 — 엔진 분석/응수 동안 추가 입력 막음
+    puzzleProcessing = true;
     puzzleCg.set({
         fen: puzzleChess.fen(),
         turnColor: puzzleChess.turn() === 'w' ? 'white' : 'black',
         movable: { color: undefined, dests: new Map() },
     });
 
-    renderPuzzleFeedback({ correct, played });
+    if (puzzleIsMate) {
+        await handleMateMove(played);
+    } else {
+        // Mistake/Blunder: 단발 SAN 비교 (기존 동작 유지)
+        const expectedSan = (puzzleItem.bestMove || '').replace(/[+#]$/, '');
+        const playedSan = played.san.replace(/[+#]$/, '');
+        const correct = !!(expectedSan && playedSan === expectedSan);
+        puzzleSolved = true;
+        renderPuzzleFeedback({ correct, played });
+    }
+    puzzleProcessing = false;
 }
 
-function renderPuzzleFeedback({ correct, played }) {
+// 메이트 퍼즐 다단계 처리: 사용자 수 → 엔진 검증 → 통과 시 엔진 최선 응수 자동 → 다음 사용자 입력 대기.
+// 사용자 수가 mate를 끝내면(체크메이트) 즉시 정답 종료.
+async function handleMateMove(played) {
+    // 1) 사용자가 직접 체크메이트를 줬다 → 풀이 완료
+    if (puzzleChess.isCheckmate()) {
+        puzzleSolved = true;
+        renderPuzzleFeedback({ correct: true, played, mateDelivered: true });
+        return;
+    }
+
+    // 2) 결과 포지션을 엔진에 검증: mover에게 여전히 mate가 있는가
+    const line = await analyzeForMate(puzzleChess.fen());
+    const stmIsMover = (puzzleChess.turn() === 'w') === puzzleMoverIsWhite;
+    if (!lineSaysMoverMates(line, stmIsMover)) {
+        // mate 라인을 떨어뜨림 → 오답
+        puzzleSolved = true;
+        renderPuzzleFeedback({ correct: false, played });
+        return;
+    }
+
+    // 3) mate 유지 — 엔진의 최선 응수(상대)를 자동으로 둠
+    const oppUci = (line.pv || '').split(' ')[0] || '';
+    if (!oppUci || oppUci.length < 4) {
+        // PV 비어있음(이상치) — mate 도달로 간주
+        puzzleSolved = true;
+        renderPuzzleFeedback({ correct: true, played, mateDelivered: true });
+        return;
+    }
+    const oppFrom = oppUci.slice(0, 2);
+    const oppTo = oppUci.slice(2, 4);
+    const oppPromo = oppUci.length > 4 ? oppUci[4] : 'q';
+    let oppPlayed;
+    try {
+        oppPlayed = puzzleChess.move({ from: oppFrom, to: oppTo, promotion: oppPromo });
+    } catch {
+        oppPlayed = null;
+    }
+    if (!oppPlayed) {
+        // 엔진이 unreachable 수를 내놓는 케이스(거의 불가) — 안전하게 종료
+        puzzleSolved = true;
+        renderPuzzleFeedback({ correct: true, played, mateDelivered: true });
+        return;
+    }
+
+    // 4) 사용자 다음 입력 대기 — 보드 재활성
+    const userColor = puzzleMoverIsWhite ? 'white' : 'black';
+    const dests = getDests(puzzleChess);
+    puzzleCg.set({
+        fen: puzzleChess.fen(),
+        turnColor: puzzleChess.turn() === 'w' ? 'white' : 'black',
+        lastMove: [oppFrom, oppTo],
+        movable: {
+            free: false,
+            color: userColor,
+            dests,
+            events: { after: onPuzzleUserMove },
+        },
+    });
+}
+
+function renderPuzzleFeedback({ correct, played, mateDelivered }) {
     if (!vaultPuzzleFeedback || !puzzleItem) return;
     const cls = (puzzleItem.category || '').toLowerCase();
     const isMate = cls === 'missed_mate';
 
-    const headLabel = correct ? t('vault_puzzle_correct') : t('vault_puzzle_incorrect');
-    const headColor = correct ? 'var(--best)' : 'var(--blunder)';
+    let headLabel, headColor;
+    if (mateDelivered) {
+        headLabel = t('vault_puzzle_mate_solved');
+        headColor = 'var(--best)';
+    } else {
+        headLabel = correct ? t('vault_puzzle_correct') : t('vault_puzzle_incorrect');
+        headColor = correct ? 'var(--best)' : 'var(--blunder)';
+    }
 
     const lines = [];
     if (!correct) {
         lines.push(`<div class="puzzle-fb-line"><span class="puzzle-fb-label">${t('vault_puzzle_you_played')}</span> <strong>${escapeHtml(played.san)}</strong></div>`);
         lines.push(`<div class="puzzle-fb-line"><span class="puzzle-fb-label">${t('vault_puzzle_best')}</span> <strong>${escapeHtml(puzzleItem.bestMove || '')}</strong></div>`);
-    } else {
+    } else if (!mateDelivered) {
+        // 메이트 도달은 head만으로 충분 — 별도 정답수 라인은 노이즈
         lines.push(`<div class="puzzle-fb-line"><span class="puzzle-fb-label">${t('vault_puzzle_best')}</span> <strong>${escapeHtml(puzzleItem.bestMove || played.san)}</strong></div>`);
     }
     // 메타: 분류 + cpLoss/mateIn
@@ -556,6 +730,31 @@ export function initVault({ showMovesOverlay, closeMovesOverlay, navigateTo }) {
     if (vaultBlunderListBackBtn) {
         vaultBlunderListBackBtn.addEventListener('click', () => {
             history.back();
+        });
+    }
+
+    // 보기 모드 sub-filter (실수 / 메이트 놓침)
+    if (vaultPuzzleFilterTabs) {
+        vaultPuzzleFilterTabs.addEventListener('click', (e) => {
+            const btn = e.target.closest('.vault-filter-tab');
+            if (!btn) return;
+            const f = btn.dataset.filter;
+            if (!f || f === puzzleFilter) return;
+            puzzleFilter = f;
+            updatePuzzleFilterTabsUI();
+            startPuzzleSession();
+        });
+    }
+
+    // 블런더 목록 sub-filter
+    if (vaultBlunderFilterTabs) {
+        vaultBlunderFilterTabs.addEventListener('click', (e) => {
+            const btn = e.target.closest('.vault-filter-tab');
+            if (!btn) return;
+            const f = btn.dataset.filter;
+            if (!f || f === blunderListFilter) return;
+            blunderListFilter = f;
+            renderBlunderListPane();
         });
     }
 

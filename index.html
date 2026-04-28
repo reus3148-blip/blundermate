@@ -314,6 +314,10 @@
 
         <!-- 보기 모드 (퍼즐) -->
         <div id="vaultPuzzlePane" class="vault-pane hidden">
+            <div id="vaultPuzzleFilterTabs" class="vault-filter-tabs">
+                <button type="button" class="vault-filter-tab selected" data-filter="mistake" data-i18n="vault_filter_mistake">실수</button>
+                <button type="button" class="vault-filter-tab" data-filter="mate" data-i18n="vault_filter_mate">메이트 놓침</button>
+            </div>
             <div id="vaultPuzzleEmpty" class="vault-puzzle-empty hidden">
                 <div class="vault-puzzle-empty-text" data-i18n="vault_puzzle_empty">분석을 돌리면 자동으로 모여요</div>
             </div>
@@ -342,6 +346,10 @@
             </button>
             <span class="top-bar-title" data-i18n="vault_blunder_list_title">블런더 목록</span>
             <div class="top-bar-spacer"></div>
+        </div>
+        <div id="vaultBlunderFilterTabs" class="vault-filter-tabs">
+            <button type="button" class="vault-filter-tab selected" data-filter="mistake" data-i18n="vault_filter_mistake">실수</button>
+            <button type="button" class="vault-filter-tab" data-filter="mate" data-i18n="vault_filter_mate">메이트 놓침</button>
         </div>
         <div id="vaultBlunderList" class="games-list view-list"></div>
     </div>

@@ -1,11 +1,14 @@
 // 자동 블런더 수집기.
 // 분석 onComplete 직후 호출. 사용자 수만 대상으로:
 //   1) classification ∈ {Mistake, Blunder} 워스트 2개 (CPL 내림차순).
-//   2) prev top eval이 mate-in-1~4 였는데 사용자가 그 수를 두지 않은 경우.
-// 같은 move_index가 (1)·(2)에 모두 걸리면 missed_mate 우선.
+//   2) prev top eval이 mate-in-1~4 였는데 사용자가 그 수를 두지 않은 경우(missed_mate).
 //
-// 반환: { game: {pgnHash, headersJson, playedDate}, items: [...vault row partials] }
-// 호출측이 upsertAnalyzedGame → analyzed_game_id 부여 → addVaultItemsBatch.
+// 노이즈 컷:
+//   - 연속된 user 수가 모두 missed_mate면 첫 수만 저장 (M3 놓침 → M4 놓침 도미노 제거).
+//   - 직전·이후 모두 같은 쪽 |cp|≥600 (≈ win% 90/10)이면 cp 후보 스킵 (이미 결판난 포지션의 실수).
+//   - position_fen 기준 dedup — 같은 포지션이 다른 게임에서 재발해도 한 번만.
+//
+// 반환: { worstTwo, missedMates }. collectAutoBlunders가 upsertAnalyzedGame → addVaultItemsBatch로 영속화.
 
 import { computePgnHash, upsertAnalyzedGame, addVaultItemsBatch, getVaultItems } from './storage.js';
 
@@ -40,16 +43,19 @@ export function extractAutoCandidates(queue, isUserWhite) {
     const missedMates = [];
     const cpCandidates = [];
 
+    // 연속된 user 수가 모두 missed_mate면 첫 수만 저장. M3 놓침 → M4 놓침 → ... 도미노 노이즈 제거.
+    let prevWasMissedMate = false;
+
     for (const i of userMoves) {
-        if (i === 0) continue; // 직전 포지션 분석이 필요
+        if (i === 0) { prevWasMissedMate = false; continue; } // 직전 포지션 분석이 필요
         const m = queue[i];
         const prev = queue[i - 1];
-        if (!prev?.engineLines?.[0]) continue;
+        if (!prev?.engineLines?.[0]) { prevWasMissedMate = false; continue; }
 
         const prevTopLine = prev.engineLines[0];
         const prevEval = lineToEval(prevTopLine);
         const postEval = m.engineLines?.[0] ? lineToEval(m.engineLines[0]) : null;
-        if (!prevEval) continue;
+        if (!prevEval) { prevWasMissedMate = false; continue; }
 
         const moverSign = isUserWhite ? 1 : -1;
         const prevTopUci = prevTopLine.uci || '';
@@ -60,20 +66,36 @@ export function extractAutoCandidates(queue, isUserWhite) {
         if (prevEval.type === 'mate' && !playedTopMove) {
             const mateForMover = prevEval.value * moverSign; // 양수 = mover에게 mate
             if (mateForMover > 0 && mateForMover <= 4) {
-                const bestSan = (prevTopLine.pv || '').split(' ')[0] || '';
-                missedMates.push({
-                    moveIndex: i,
-                    bestSan,
-                    bestUci: prevTopUci,
-                    mateIn: mateForMover,
-                });
+                if (!prevWasMissedMate) {
+                    const bestSan = (prevTopLine.pv || '').split(' ')[0] || '';
+                    missedMates.push({
+                        moveIndex: i,
+                        bestSan,
+                        bestUci: prevTopUci,
+                        mateIn: mateForMover,
+                    });
+                }
+                prevWasMissedMate = true;
                 continue; // missed_mate면 cp 후보에 다시 넣지 않음
             }
         }
+        prevWasMissedMate = false;
 
         // 워스트 후보: classification이 Mistake/Blunder만
         const cls = m.classification || '';
         if (cls !== 'Mistake' && cls !== 'Blunder') continue;
+
+        // 이미 결판난 포지션의 실수는 학습 가치 낮음 — 직전·이후 모두 같은 쪽 |cp|≥600 (≈ win% 90/10).
+        // 예: +10 → +7은 스킵. +10 → 0 같은 진짜 역전은 post가 600 아래로 내려와 통과.
+        // missed_mate는 위 분기에서 이미 처리(continue)되므로 영향 없음.
+        if (prevEval.type === 'cp' && postEval?.type === 'cp') {
+            const userPrev = prevEval.value * moverSign;
+            const userPost = postEval.value * moverSign;
+            const bothWinning = userPrev >= 600 && userPost >= 600;
+            const bothLosing = userPrev <= -600 && userPost <= -600;
+            if (bothWinning || bothLosing) continue;
+        }
+
         const cpLoss = computeCpLoss(prevEval, postEval, isUserWhite);
         // cp→mate(메이트로 끌려간 케이스)는 cpLoss 계산 불가 — 큰 가상값으로 정렬 보장
         const sortKey = cpLoss != null ? cpLoss : 9999;

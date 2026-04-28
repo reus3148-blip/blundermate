@@ -2840,6 +2840,47 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
 
 .vault-pane.hidden { display: none; }
 
+/* Vault: 카테고리 sub-filter (실수 / 메이트 놓침) — 보기 모드와 블런더 목록 공통.
+   .vault-mode-tabs보다 약간 작아서 시각적으로 종속 관계임을 표현. */
+.vault-filter-tabs {
+    display: flex;
+    gap: 16px;
+    padding: 4px 16px 4px;
+    align-items: center;
+}
+
+.vault-filter-tab {
+    position: relative;
+    border: none;
+    background: transparent;
+    padding: 4px 0 6px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--tx3);
+    cursor: pointer;
+    letter-spacing: -0.01em;
+    transition: color 0.15s ease;
+}
+
+.vault-filter-tab:hover { color: var(--tx2); }
+
+.vault-filter-tab.selected {
+    color: var(--tx);
+    font-weight: 600;
+}
+
+.vault-filter-tab.selected::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 2px;
+    background: var(--tx);
+    border-radius: 1px;
+}
+
 /* 블런더 목록 진입로 — 우측 정렬 텍스트 링크 */
 .vault-sub-row {
     display: flex;
