@@ -1385,8 +1385,64 @@ th {
 }
 
 /* 홈 시간대 필터: home-recent-header 안에 inline 배치 — 자체 패딩 제거 */
+/* 우측 정렬 + text-tab 스타일 (pill 대체, Apple Music/Notion 탭 결) */
 .pill-filter-bar--home {
     padding: 0;
+    gap: 16px;
+    margin-left: auto;
+}
+
+.pill-filter-bar--home .pill-btn {
+    height: auto;
+    padding: 4px 0 6px;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    color: var(--tx3);
+    font-weight: 500;
+    font-size: 13px;
+    letter-spacing: -0.01em;
+    position: relative;
+}
+
+.pill-filter-bar--home .pill-btn:hover {
+    color: var(--tx2);
+    border-color: transparent;
+}
+
+.pill-filter-bar--home .pill-btn.selected {
+    background: transparent;
+    border-color: transparent;
+    color: var(--ac);
+    font-weight: 600;
+}
+
+.pill-filter-bar--home .pill-btn.selected::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 2px;
+    background: var(--ac);
+    border-radius: 1px;
+}
+
+.pill-filter-bar--home .pill-btn.selected:hover {
+    color: var(--ac);
+    border-color: transparent;
+}
+
+/* 세로 구분선: 탭들이 한 컨트롤 단위라는 시그널 (어포던스 보강) */
+.pill-filter-bar--home .pill-btn:not(:first-child)::before {
+    content: '';
+    position: absolute;
+    left: -8px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 1px;
+    height: 12px;
+    background: var(--brd2);
 }
 
 /* 통계 화면 필터: 라벨 + pill inline 패턴 (홈과 동일). 자체 padding 제거 — 부모 row가 관리 */
@@ -2269,11 +2325,11 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
 /* ── Home: Logged-in state ─────────────────────────────────────── */
 .home-hero--user .hero-title,
 .home-hero--user .hero-subtitle { display: none; }
-.home-hero--user { padding-bottom: 0; }
+.home-hero--user { padding: 0; }
 
 /* Profile Card (Apple/Notion soft surface — layered shadow ring, no hard border) */
 .home-profile-card {
-    margin: 8px 16px 20px;
+    margin: 20px 16px 8px;
     padding: 18px 18px 14px;
     background: var(--bg-surface);
     border-radius: 16px;
@@ -2446,7 +2502,7 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     align-items: center;
     flex-wrap: wrap;
     gap: 9px;
-    padding: 6px 2px 10px;
+    padding: 4px 14px 10px 10px;
 }
 
 .home-recent-back {
