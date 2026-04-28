@@ -317,7 +317,7 @@ export function classifyMove(index, analysisQueue) {
     // 종국 처리: engine eval 없으면 mate/스테일메이트 가능성 — 체크메이트면 Best
     if (!move.engineLines || !move.engineLines[0]) {
         try {
-            if (_classifyA.load(move.fen) && _classifyA.isCheckmate()) return 'Best';
+            if (_classifyA.load(move.fen) && _classifyA.in_checkmate()) return 'Best';
         } catch {}
         return '';
     }
@@ -409,7 +409,7 @@ export function classifyMove(index, analysisQueue) {
 
         if (absoluteEvaluation >= 0 && !winningAnyways && !move.san?.includes('=')) {
             try {
-                if (_classifyA.load(prevFen) && _classifyB.load(move.fen) && !_classifyA.isCheck()) {
+                if (_classifyA.load(prevFen) && _classifyB.load(move.fen) && !_classifyA.in_check()) {
                     const lastPiece = _classifyA.get(move.to) || { type: 'm' };
                     const sacrificedPieces = [];
 

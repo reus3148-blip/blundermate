@@ -551,39 +551,42 @@ async function onPuzzleUserMove(orig, dest, meta) {
         movable: { color: undefined, dests: new Map() },
     });
 
-    if (puzzleIsMate) {
-        await handleMateMove(played);
-    } else {
-        // Mistake/Blunder: 단발 SAN 비교 (기존 동작 유지)
-        const expectedSan = (puzzleItem.bestMove || '').replace(/[+#]$/, '');
-        const playedSan = played.san.replace(/[+#]$/, '');
-        const correct = !!(expectedSan && playedSan === expectedSan);
-        puzzleSolved = true;
-        renderPuzzleFeedback({ correct, played });
+    try {
+        if (puzzleIsMate) {
+            await handleMateMove(played);
+        } else {
+            // Mistake/Blunder: 단발 SAN 비교 (기존 동작 유지)
+            const expectedSan = (puzzleItem.bestMove || '').replace(/[+#]$/, '');
+            const playedSan = played.san.replace(/[+#]$/, '');
+            const correct = !!(expectedSan && playedSan === expectedSan);
+            puzzleSolved = true;
+            renderPuzzleFeedback({ correct, played });
+        }
+    } catch (e) {
+        // 예상치 못한 에러로 핸들러가 reject되면 플래그가 영구 잠금되는 회귀 방지
+        console.warn('Puzzle handler error:', e);
+    } finally {
+        puzzleProcessing = false;
     }
-    puzzleProcessing = false;
 }
 
 // 메이트 퍼즐 다단계 처리: 사용자 수 → 엔진 검증 → 통과 시 엔진 최선 응수 자동 → 다음 사용자 입력 대기.
 // 사용자 수가 mate를 끝내면(체크메이트) 즉시 정답 종료.
 async function handleMateMove(played) {
-    console.log('[Mate puzzle] user move:', played.san, 'fen after user:', puzzleChess.fen());
-
     // 1) 사용자가 직접 체크메이트를 줬다 → 풀이 완료
-    if (puzzleChess.isCheckmate()) {
-        console.log('[Mate puzzle] checkmate by user → solved');
+    // chess.js 0.10.3은 snake_case API (in_checkmate). camelCase 호출 시 TypeError로 핸들러 reject되며
+    // puzzleProcessing 플래그가 안 풀려 보드 영구 잠금됨.
+    if (puzzleChess.in_checkmate()) {
         puzzleSolved = true;
         renderPuzzleFeedback({ correct: true, played, mateDelivered: true });
         return;
     }
 
     // 2) 결과 포지션을 엔진에 검증: mover에게 여전히 mate가 있는가
-    console.log('[Mate puzzle] analyzing post-user fen at depth', PUZZLE_VALIDATION_DEPTH);
     const line = await analyzeForMate(puzzleChess.fen());
     const stmIsMover = (puzzleChess.turn() === 'w') === puzzleMoverIsWhite;
-    console.log('[Mate puzzle] engine line:', line, 'stmIsMover:', stmIsMover);
     if (!lineSaysMoverMates(line, stmIsMover)) {
-        console.log('[Mate puzzle] mate dropped → wrong');
+        // mate 라인을 떨어뜨림 → 오답
         puzzleSolved = true;
         renderPuzzleFeedback({ correct: false, played });
         return;
@@ -591,7 +594,6 @@ async function handleMateMove(played) {
 
     // 3) mate 유지 — 엔진의 최선 응수(상대)를 자동으로 둠
     const oppUci = (line.pv || '').split(' ')[0] || '';
-    console.log('[Mate puzzle] mate maintained, opp response uci:', oppUci);
     if (!oppUci || oppUci.length < 4) {
         // PV 비어있음(이상치) — mate 도달로 간주
         puzzleSolved = true;
@@ -604,17 +606,15 @@ async function handleMateMove(played) {
     let oppPlayed;
     try {
         oppPlayed = puzzleChess.move({ from: oppFrom, to: oppTo, promotion: oppPromo });
-    } catch (e) {
-        console.warn('[Mate puzzle] opp move threw:', e);
+    } catch {
         oppPlayed = null;
     }
     if (!oppPlayed) {
-        console.log('[Mate puzzle] opp move invalid → solved fallback');
+        // 엔진이 unreachable 수를 내놓는 케이스(거의 불가) — 안전하게 종료
         puzzleSolved = true;
         renderPuzzleFeedback({ correct: true, played, mateDelivered: true });
         return;
     }
-    console.log('[Mate puzzle] opp played:', oppPlayed.san, 'new fen:', puzzleChess.fen());
 
     // 4) 사용자 다음 입력 대기 — 보드 재활성
     const userColor = puzzleMoverIsWhite ? 'white' : 'black';
@@ -630,7 +630,6 @@ async function handleMateMove(played) {
             events: { after: onPuzzleUserMove },
         },
     });
-    console.log('[Mate puzzle] board re-enabled for', userColor, 'dests size:', dests.size);
 }
 
 function renderPuzzleFeedback({ correct, played, mateDelivered }) {
