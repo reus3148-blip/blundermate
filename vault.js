@@ -89,6 +89,9 @@ let _puzzleEngineReady = null;
 // 현재 mate 퍼즐 컨텍스트
 let puzzleIsMate = false;
 let puzzleMoverIsWhite = false;
+// mate 풀이 수 budget — item.mateIn 있으면 그 수 안에 mate 못 주면 실패. null이면 검증 스킵(옛 데이터).
+let puzzleUserMoves = 0;
+let puzzleMateBudget = null;
 
 // Deck별 진행 history — 인스타 stories처럼 실수/메이트 deck이 각자 위치 유지.
 // history: 본 puzzle id 순서. position: 그 안에서 현재 보고 있는 인덱스 (0-indexed).
@@ -617,12 +620,14 @@ async function renderPuzzle(item) {
     // 모듈 상태 동기화 — onPuzzleUserMove가 mate 분기 결정에 사용
     puzzleIsMate = isMate;
     puzzleMoverIsWhite = moverIsWhite;
+    puzzleUserMoves = 0;
+    puzzleMateBudget = (isMate && typeof item.mateIn === 'number' && item.mateIn > 0) ? item.mateIn : null;
     // mate 퍼즐이면 엔진을 미리 워밍업 (사용자 첫 수 두기 전에 ready)
     if (isMate) ensurePuzzleEngine().catch(() => {});
     if (vaultPuzzleHeader) {
-        vaultPuzzleHeader.textContent = isMate
-            ? t('vault_puzzle_find_mate')
-            : t('vault_puzzle_find_best');
+        let txt = isMate ? t('vault_puzzle_find_mate') : t('vault_puzzle_find_best');
+        if (puzzleMateBudget != null) txt += ` · M${puzzleMateBudget}`;
+        vaultPuzzleHeader.textContent = txt;
     }
     if (vaultPuzzleSubhead) {
         const parts = [];
@@ -715,12 +720,21 @@ async function onPuzzleUserMove(orig, dest, meta) {
 // 메이트 퍼즐 다단계 처리: 사용자 수 → 엔진 검증 → 통과 시 엔진 최선 응수 자동 → 다음 사용자 입력 대기.
 // 사용자 수가 mate를 끝내면(체크메이트) 즉시 정답 종료.
 async function handleMateMove(played) {
+    puzzleUserMoves++;
+
     // 1) 사용자가 직접 체크메이트를 줬다 → 풀이 완료
     // chess.js 0.10.3은 snake_case API (in_checkmate). camelCase 호출 시 TypeError로 핸들러 reject되며
     // puzzleProcessing 플래그가 안 풀려 보드 영구 잠금됨.
     if (puzzleChess.in_checkmate()) {
         puzzleSolved = true;
         renderPuzzleFeedback({ correct: true, played, mateDelivered: true });
+        return;
+    }
+
+    // 1a) Budget 소진 — mateIn개 수를 다 둬도 메이트 못 주면 실패 (옛 데이터는 budget=null이라 스킵)
+    if (puzzleMateBudget != null && puzzleUserMoves >= puzzleMateBudget) {
+        puzzleSolved = true;
+        renderPuzzleFeedback({ correct: false, played });
         return;
     }
 

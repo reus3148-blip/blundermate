@@ -139,6 +139,7 @@ function buildVaultRow({ candidate, queue, gameTitle, isUserWhite, analyzedGameI
         source: 'auto',
         analyzedGameId,
         cpLoss: candidate.cpLoss ?? null,
+        mateIn: candidate.mateIn ?? null, // missed_mate에 한해 plies 단위로 채워짐 (1~4)
     };
 }
 

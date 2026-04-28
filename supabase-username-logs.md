@@ -69,3 +69,13 @@ order by last_seen desc;
 ## 환경변수
 
 이미 `feedback.js`가 쓰는 `SUPABASE_URL`, `SUPABASE_ANON_KEY`를 그대로 재사용. 별도 추가 작업 없음.
+
+---
+
+# vault_items.mate_in 컬럼 추가 (missed_mate 퍼즐 N수 표시·검증용)
+
+```sql
+alter table public.vault_items add column if not exists mate_in integer;
+```
+
+옛 자동 항목은 `mate_in`이 NULL이라 헤더 표시·budget 검증 모두 스킵됨 (graceful degradation). 새 분석부터 채워짐.
