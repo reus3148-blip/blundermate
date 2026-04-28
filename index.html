@@ -297,7 +297,53 @@
             <span class="top-bar-title" data-i18n="vault_title">복기</span>
             <div class="top-bar-spacer"></div>
         </div>
-        <div id="vaultList" class="games-list view-list"></div>
+
+        <!-- 모드 텍스트 탭 — Apple/Notion 결, pill 대체 -->
+        <div id="vaultModeTabs" class="vault-mode-tabs">
+            <button type="button" class="vault-mode-tab selected" data-mode="list" data-i18n="vault_mode_list">목록</button>
+            <button type="button" class="vault-mode-tab" data-mode="puzzle" data-i18n="vault_mode_puzzle">보기</button>
+        </div>
+
+        <!-- 목록 모드 -->
+        <div id="vaultListPane" class="vault-pane">
+            <div class="vault-sub-row">
+                <button id="vaultBlunderListLink" class="vault-sub-link" type="button" data-i18n="vault_blunder_list_link">블런더 목록 →</button>
+            </div>
+            <div id="vaultList" class="games-list view-list"></div>
+        </div>
+
+        <!-- 보기 모드 (퍼즐) -->
+        <div id="vaultPuzzlePane" class="vault-pane hidden">
+            <div id="vaultPuzzleEmpty" class="vault-puzzle-empty hidden">
+                <div class="vault-puzzle-empty-text" data-i18n="vault_puzzle_empty">분석을 돌리면 자동으로 모여요</div>
+            </div>
+            <div id="vaultPuzzleStage" class="vault-puzzle-stage">
+                <div class="vault-puzzle-prompt">
+                    <div id="vaultPuzzleHeader" class="vault-puzzle-header"></div>
+                    <div id="vaultPuzzleSubhead" class="vault-puzzle-subhead"></div>
+                </div>
+                <div class="board-wrapper vault-puzzle-board-wrap">
+                    <div id="vaultPuzzleBoard" class="board-container"></div>
+                </div>
+                <div id="vaultPuzzleFeedback" class="vault-puzzle-feedback"></div>
+                <div class="vault-puzzle-actions">
+                    <button id="vaultPuzzleNextBtn" class="vault-puzzle-next" type="button" data-i18n="vault_puzzle_next">다음</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Vault — Blunder List 서브뷰 (자동 수집 풀) -->
+    <div id="vaultBlunderListView" class="view-container hidden">
+        <div class="analysis-top-bar">
+            <button id="vaultBlunderListBackBtn" class="back-btn">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                <span data-i18n="back">Back</span>
+            </button>
+            <span class="top-bar-title" data-i18n="vault_blunder_list_title">블런더 목록</span>
+            <div class="top-bar-spacer"></div>
+        </div>
+        <div id="vaultBlunderList" class="games-list view-list"></div>
     </div>
 
     <!-- Insights View -->

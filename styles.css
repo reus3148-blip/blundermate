@@ -370,6 +370,7 @@ body {
 /* 바텀 네비게이션 표시 시 스크롤 영역 하단 여백 확보 (nav에 가리지 않도록) */
 .app-container:not(.bottom-nav-hidden) .home-state,
 .app-container:not(.bottom-nav-hidden) #vaultView .games-list,
+.app-container:not(.bottom-nav-hidden) #vaultBlunderListView .games-list,
 .app-container:not(.bottom-nav-hidden) #savedGamesView .games-list,
 .app-container:not(.bottom-nav-hidden) #insightsView .insights-body {
     padding-bottom: calc(56px + env(safe-area-inset-bottom));
@@ -2796,6 +2797,184 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     border-color: var(--blunder);
 }
 .vault-detail-delete-btn:active { opacity: 0.7; }
+
+/* ── Vault: 모드 텍스트 탭 (Apple/Notion, pill 대체) ──────────────── */
+.vault-mode-tabs {
+    display: flex;
+    gap: 18px;
+    padding: 6px 16px 4px;
+    align-items: center;
+}
+
+.vault-mode-tab {
+    position: relative;
+    border: none;
+    background: transparent;
+    padding: 6px 0 8px;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--tx3);
+    cursor: pointer;
+    letter-spacing: -0.01em;
+    transition: color 0.15s ease;
+}
+
+.vault-mode-tab:hover { color: var(--tx2); }
+
+.vault-mode-tab.selected {
+    color: var(--tx);
+    font-weight: 600;
+}
+
+.vault-mode-tab.selected::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 2px;
+    background: var(--tx);
+    border-radius: 1px;
+}
+
+.vault-pane.hidden { display: none; }
+
+/* 블런더 목록 진입로 — 우측 정렬 텍스트 링크 */
+.vault-sub-row {
+    display: flex;
+    justify-content: flex-end;
+    padding: 4px 16px 6px;
+}
+
+.vault-sub-link {
+    background: transparent;
+    border: none;
+    padding: 4px 0;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--tx2);
+    cursor: pointer;
+    letter-spacing: -0.005em;
+    transition: color 0.15s ease;
+}
+
+.vault-sub-link:hover { color: var(--tx); }
+
+/* ── Vault Puzzle (보기 모드) ──────────────────────────────────── */
+#vaultPuzzlePane {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+}
+
+.vault-puzzle-stage {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+}
+
+.vault-puzzle-stage.hidden { display: none; }
+
+.vault-puzzle-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    padding: 40px 24px;
+}
+
+.vault-puzzle-empty-text {
+    color: var(--tx2);
+    font-size: 14px;
+    text-align: center;
+}
+
+.vault-puzzle-empty.hidden { display: none; }
+
+.vault-puzzle-prompt {
+    padding: 8px 16px 4px;
+}
+
+.vault-puzzle-header {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--tx);
+    letter-spacing: -0.01em;
+}
+
+.vault-puzzle-subhead {
+    font-size: 12px;
+    color: var(--tx3);
+    margin-top: 2px;
+}
+
+.vault-puzzle-board-wrap {
+    flex-shrink: 0;
+}
+
+.vault-puzzle-feedback {
+    padding: 10px 16px 4px;
+    min-height: 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.puzzle-fb-head {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.puzzle-fb-line {
+    font-size: 13px;
+    color: var(--tx);
+    font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.puzzle-fb-label {
+    color: var(--tx3);
+    margin-right: 4px;
+    font-family: 'Inter', system-ui, sans-serif;
+    font-weight: 500;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.puzzle-fb-meta {
+    font-size: 12px;
+    color: var(--tx2);
+    margin-top: 2px;
+}
+
+.vault-puzzle-actions {
+    display: flex;
+    justify-content: center;
+    padding: 8px 16px 16px;
+}
+
+.vault-puzzle-next {
+    background: var(--tx);
+    color: var(--bg-surface);
+    border: none;
+    border-radius: 8px;
+    padding: 10px 28px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: -0.005em;
+    cursor: pointer;
+    transition: opacity 0.15s ease;
+}
+
+.vault-puzzle-next:hover { opacity: 0.85; }
+.vault-puzzle-next:active { opacity: 0.7; }
 
 /* ==========================================
    Analysis Review View — 분석 완료 후 리포트 화면

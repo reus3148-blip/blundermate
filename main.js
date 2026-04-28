@@ -20,7 +20,8 @@ import {
 import { parseEvalData, getDests, convertPvToSan, parseAndLoadPgn, isValidFen, escapeHtml, parseOpeningFromPgn, formatTimeControl, formatRelativeDate, getTier, TIERS, isWhitePlayer, classifyGameResult, countMovesFromPgn } from './utils.js';
 import { renderMovesTable, updateUIWithEval, highlightActiveMove, renderEngineLines, updateTopEvalDisplay, renderReviewReport, buildPreviewCardHtml } from './ui.js';
 import { addVaultItem, getSavedGames, setMyUserId, getMyUserId, ONBOARDING_KEY, COORDS_KEY, EVAL_MODE_KEY } from './storage.js';
-import { initVault, initHomeVaultBadge, isVaultDetailActive, getVaultDetailIndex, setVaultDetailIndex, flipVaultBoard, setVaultCoords, redrawVaultBoard, loadVaultData } from './vault.js';
+import { collectAutoBlunders } from './autoBlunders.js';
+import { initVault, initHomeVaultBadge, isVaultDetailActive, getVaultDetailIndex, setVaultDetailIndex, flipVaultBoard, setVaultCoords, redrawVaultBoard, loadVaultData, loadBlunderListData, redrawVaultPuzzleBoard } from './vault.js';
 import { initSavedGames, openSaveGameModalForPgn, loadSavedGamesData } from './savedGames.js';
 import { initInsights, loadInsightsData } from './insights.js';
 import {
@@ -199,6 +200,7 @@ const SCREENS = {
     ANALYSIS: 'analysis',
     INPUT: 'input',
     VAULT_LIST: 'vault_list',
+    VAULT_BLUNDER_LIST: 'vault_blunder_list',
     VAULT_DETAIL: 'vault_detail',
     SAVED_GAMES: 'saved_games',
     INSIGHTS: 'insights',
@@ -207,6 +209,7 @@ const SCREENS = {
 let _currentScreen = SCREENS.HOME;
 
 const vaultViewNav = document.getElementById('vaultView');
+const vaultBlunderListViewNav = document.getElementById('vaultBlunderListView');
 const vaultDetailViewNav = document.getElementById('vaultDetailView');
 const savedGamesViewNav = document.getElementById('savedGamesView');
 const insightsViewNav = document.getElementById('insightsView');
@@ -224,6 +227,7 @@ function hideAllViews() {
     analysisView.classList.remove('view-review');
     inputView.classList.add('hidden');
     vaultViewNav.classList.add('hidden');
+    if (vaultBlunderListViewNav) vaultBlunderListViewNav.classList.add('hidden');
     vaultDetailViewNav.classList.add('hidden');
     savedGamesViewNav.classList.add('hidden');
     if (insightsViewNav) insightsViewNav.classList.add('hidden');
@@ -266,6 +270,10 @@ function renderScreen(screen) {
             vaultViewNav.classList.remove('hidden');
             loadVaultData();
             break;
+        case SCREENS.VAULT_BLUNDER_LIST:
+            if (vaultBlunderListViewNav) vaultBlunderListViewNav.classList.remove('hidden');
+            loadBlunderListData();
+            break;
         case SCREENS.VAULT_DETAIL:
             vaultDetailViewNav.classList.remove('hidden');
             break;
@@ -289,7 +297,7 @@ const navHomeBtn = document.getElementById('navHomeBtn');
 const navVaultBtn = document.getElementById('navVaultBtn');
 const navSavedBtn = document.getElementById('navSavedBtn');
 const navInsightsBtn = document.getElementById('navInsightsBtn');
-const NAV_VISIBLE_SCREENS = new Set([SCREENS.HOME, SCREENS.VAULT_LIST, SCREENS.SAVED_GAMES, SCREENS.INSIGHTS]);
+const NAV_VISIBLE_SCREENS = new Set([SCREENS.HOME, SCREENS.VAULT_LIST, SCREENS.VAULT_BLUNDER_LIST, SCREENS.SAVED_GAMES, SCREENS.INSIGHTS]);
 const appContainer = document.querySelector('.app-container');
 
 function syncBottomNav(screen) {
@@ -297,7 +305,7 @@ function syncBottomNav(screen) {
     bottomNav.classList.toggle('hidden', !visible);
     appContainer.classList.toggle('bottom-nav-hidden', !visible);
     navHomeBtn.classList.toggle('active', screen === SCREENS.HOME);
-    navVaultBtn.classList.toggle('active', screen === SCREENS.VAULT_LIST);
+    navVaultBtn.classList.toggle('active', screen === SCREENS.VAULT_LIST || screen === SCREENS.VAULT_BLUNDER_LIST);
     navSavedBtn.classList.toggle('active', screen === SCREENS.SAVED_GAMES);
     if (navInsightsBtn) navInsightsBtn.classList.toggle('active', screen === SCREENS.INSIGHTS);
 }
@@ -1554,6 +1562,7 @@ window.addEventListener('resize', () => {
             inputCg.redrawAll();
         }
         redrawVaultBoard();
+        redrawVaultPuzzleBoard();
     }, 100); // 100ms 디바운스 적용
 });
 
@@ -1957,6 +1966,13 @@ function processNextInQueue() {
             // FEN 단일 포지션 분석은 리뷰 화면이 없으므로 그 자리에 머문다
             const isFenOnly = analysisQueue.length === 1 && analysisQueue[0]?.isFenOnly;
             if (!isFenOnly) {
+                // 자동 블런더 수집 — 풀게임 분석에 한해. 토스트 없이 백그라운드.
+                collectAutoBlunders({
+                    pgn: chess.pgn(),
+                    queue: analysisQueue,
+                    isUserWhite,
+                    headers: chess.header() || {},
+                });
                 // 분석 완료 시 보드는 시작 포지션, 리뷰 화면 자동 진입.
                 // updateBoardPosition이 isReviewMode를 끄므로 그 후에 켠다.
                 updateBoardPosition(-1, chess.header().FEN || 'start');

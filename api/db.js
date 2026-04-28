@@ -38,18 +38,25 @@ export default async function handler(req) {
 
     try {
         const body = await req.json();
-        const { action, table, data, id } = body || {};
+        const { action, table, data, id, filter } = body || {};
         // chess.com 닉네임은 대소문자 구분 X. 서버에서도 lowercase로 정규화해 구버전 클라이언트 호환.
         const user_id = body?.user_id ? String(body.user_id).toLowerCase() : null;
         const normalizedData = data && data.user_id
             ? { ...data, user_id: String(data.user_id).toLowerCase() }
             : data;
 
-        if (!table || !['vault_items', 'saved_games'].includes(table)) {
+        if (!table || !['vault_items', 'saved_games', 'analyzed_games'].includes(table)) {
             return new Response(JSON.stringify({ error: 'Invalid table' }), {
                 status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
             });
         }
+
+        // 허용 컬럼: 임의 컬럼 필터로 SQL 분리 위험을 차단. analyzed_games는 pgn_hash/id로만 조회 가능.
+        const FILTER_ALLOWLIST = {
+            vault_items: ['source'],
+            saved_games: [],
+            analyzed_games: ['pgn_hash', 'id'],
+        };
 
         if (action === 'select') {
             if (!user_id) {
@@ -57,7 +64,16 @@ export default async function handler(req) {
                     status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
                 });
             }
-            const url = `${supabaseUrl}/rest/v1/${table}?user_id=eq.${encodeURIComponent(user_id)}&order=created_at.desc`;
+            let query = `user_id=eq.${encodeURIComponent(user_id)}`;
+            if (filter && typeof filter === 'object') {
+                const allowed = FILTER_ALLOWLIST[table] || [];
+                for (const [col, val] of Object.entries(filter)) {
+                    if (!allowed.includes(col)) continue;
+                    if (val == null) continue;
+                    query += `&${encodeURIComponent(col)}=eq.${encodeURIComponent(val)}`;
+                }
+            }
+            const url = `${supabaseUrl}/rest/v1/${table}?${query}&order=created_at.desc`;
             const res = await fetch(url, { headers: { ...sbHeaders, 'Accept': 'application/json' } });
             const result = await res.json();
             return new Response(JSON.stringify(result), {

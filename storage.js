@@ -1,5 +1,6 @@
 export const VAULT_KEY = 'blundermate_vault';
 export const SAVED_GAMES_KEY = 'blundermate_saved_games';
+export const ANALYZED_GAMES_KEY = 'blundermate_analyzed_games';
 const USER_ID_KEY = 'blundermate_user_id';
 export const ONBOARDING_KEY = 'blundermate_onboarding_done';
 export const COORDS_KEY = 'coordsEnabled';
@@ -57,6 +58,9 @@ function normalizeVaultItem(row) {
         gameTitle: row.game_title || '',
         bestMove: row.best_move || '',
         isUserWhite: row.is_user_white ?? true,
+        source: row.source || 'manual',
+        analyzedGameId: row.analyzed_game_id || null,
+        cpLoss: row.cp_loss ?? null,
     };
     if (typeof row.move_index === 'number') item.moveIndex = row.move_index;
     if (typeof row.move_number === 'number') {
@@ -66,16 +70,32 @@ function normalizeVaultItem(row) {
     return item;
 }
 
-export async function getVaultItems() {
+// 로컬 저장 vault_items 정규화: 구버전 항목엔 source 필드가 없으므로 'manual' 디폴트.
+function normalizeLocalVaultItem(it) {
+    return {
+        ...it,
+        source: it.source || 'manual',
+        analyzedGameId: it.analyzedGameId || null,
+        cpLoss: it.cpLoss ?? null,
+    };
+}
+
+// source 옵션: 'manual' | 'auto' | undefined(전체).
+export async function getVaultItems(options = {}) {
+    const { source } = options;
+    const filterLocal = (arr) => source ? arr.filter(it => (it.source || 'manual') === source) : arr;
+
     const userId = getMyUserId();
-    if (!userId) return _getVaultItemsSync();
+    if (!userId) return filterLocal(_getVaultItemsSync().map(normalizeLocalVaultItem));
     try {
-        const data = await callDB('select', 'vault_items', { user_id: userId });
+        const params = { user_id: userId };
+        if (source) params.filter = { source };
+        const data = await callDB('select', 'vault_items', params);
         if (Array.isArray(data)) return data.map(normalizeVaultItem);
         throw new Error('Invalid response');
     } catch (e) {
         console.log('Supabase vault load failed, using localStorage', e);
-        return _getVaultItemsSync();
+        return filterLocal(_getVaultItemsSync().map(normalizeLocalVaultItem));
     }
 }
 
@@ -108,8 +128,17 @@ export function addVaultItem(item) {
             best_move: item.bestMove || null,
             game_title: item.gameTitle || null,
             is_user_white: item.isUserWhite ?? null,
+            source: item.source || 'manual',
+            analyzed_game_id: item.analyzedGameId || null,
+            cp_loss: item.cpLoss ?? null,
         }
     }).catch(e => console.log('Supabase vault save failed, using localStorage', e));
+}
+
+// 자동 수집용 일괄 추가. 게임 한 판당 0~수 개 호출. addVaultItem을 그대로 재사용.
+export function addVaultItemsBatch(items) {
+    if (!Array.isArray(items)) return;
+    for (const it of items) addVaultItem(it);
 }
 
 export function removeVaultItem(id) {
@@ -212,4 +241,113 @@ export function updateSavedGame(id, updates) {
     } catch (e) {
         console.error('Failed to update saved game:', e);
     }
+}
+
+// ── Analyzed Games (자동 수집된 블런더의 PGN 보관소) ─────────────────
+// vault_items(source='auto')와 분리: 한 게임당 1행, 다수 블런더가 analyzed_game_id로 참조.
+// 같은 PGN(pgn_hash) 재분석 시 dedup — UNIQUE(user_id, pgn_hash).
+
+function _getAnalyzedGamesSync() {
+    try {
+        return JSON.parse(localStorage.getItem(ANALYZED_GAMES_KEY) || '[]');
+    } catch (e) {
+        console.error('Failed to read analyzed_games from localStorage:', e);
+        return [];
+    }
+}
+
+// PGN moves-only 영역만 해싱 (헤더의 시간/사이트는 같은 게임이라도 다를 수 있어 제외).
+export async function computePgnHash(pgn) {
+    if (!pgn) return '';
+    const moves = pgn
+        .split('\n')
+        .filter(l => !l.startsWith('['))
+        .join(' ')
+        .replace(/\{[^}]*\}/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+    const buf = new TextEncoder().encode(moves);
+    const hashBuf = await crypto.subtle.digest('SHA-256', buf);
+    return Array.from(new Uint8Array(hashBuf))
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
+}
+
+// 같은 pgn_hash가 이미 있으면 그 id 재사용. 없으면 새로 생성.
+// localStorage 우선 저장 → Supabase 시도 (실패 시 local 단독). 항상 string id 반환.
+export async function upsertAnalyzedGame({ pgn, pgnHash, headersJson, playedDate }) {
+    const userId = getMyUserId();
+
+    // localStorage 우선 — 비로그인 사용자도 동작
+    const local = _getAnalyzedGamesSync();
+    const existingLocal = local.find(g => g.pgn_hash === pgnHash);
+    if (existingLocal) {
+        // 로그인 상태에서도 local cache hit이면 그 id를 그대로 사용 (Supabase에도 동일 id가 있다고 가정)
+        return existingLocal.id;
+    }
+
+    if (userId) {
+        // Supabase에 이미 있는지 먼저 확인 (다른 디바이스에서 만든 행이 있을 수 있음)
+        try {
+            const existing = await callDB('select', 'analyzed_games', {
+                user_id: userId,
+                filter: { pgn_hash: pgnHash },
+            });
+            if (Array.isArray(existing) && existing.length > 0) {
+                const row = existing[0];
+                local.push(row);
+                try { localStorage.setItem(ANALYZED_GAMES_KEY, JSON.stringify(local)); } catch {}
+                return row.id;
+            }
+        } catch (e) {
+            console.log('Supabase analyzed_games lookup failed', e);
+        }
+    }
+
+    // 신규 행 생성
+    const id = crypto.randomUUID();
+    const row = {
+        id,
+        pgn,
+        pgn_hash: pgnHash,
+        headers_json: headersJson || null,
+        played_date: playedDate || null,
+        created_at: new Date().toISOString(),
+    };
+    local.push(row);
+    try { localStorage.setItem(ANALYZED_GAMES_KEY, JSON.stringify(local)); } catch {}
+
+    if (userId) {
+        callDB('insert', 'analyzed_games', {
+            user_id: userId,
+            data: { ...row, user_id: userId },
+        }).catch(e => console.log('Supabase analyzed_games insert failed', e));
+    }
+    return id;
+}
+
+export async function getAnalyzedGameById(id) {
+    if (!id) return null;
+    const local = _getAnalyzedGamesSync().find(g => g.id === id);
+    const userId = getMyUserId();
+    if (!userId) return local || null;
+
+    // 로컬 캐시가 있으면 우선. 없으면 원격 조회.
+    if (local) return local;
+    try {
+        const data = await callDB('select', 'analyzed_games', {
+            user_id: userId,
+            filter: { id },
+        });
+        if (Array.isArray(data) && data.length > 0) {
+            // 캐시 갱신
+            const cache = _getAnalyzedGamesSync();
+            cache.push(data[0]);
+            try { localStorage.setItem(ANALYZED_GAMES_KEY, JSON.stringify(cache)); } catch {}
+            return data[0];
+        }
+    } catch (e) {
+        console.log('Supabase analyzed_games fetch failed', e);
+    }
+    return null;
 }
