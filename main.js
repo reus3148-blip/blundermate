@@ -615,7 +615,16 @@ function applyProfileRatingForFilter() {
     const tc = homeTimeClassFilter === 'all' ? 'rapid' : homeTimeClassFilter;
     const rating = homeProfileRatings[tc];
     profileRapidEl.textContent = rating || '—';
+    updateProfileRatingLabel(tc);
     renderProfileTier(rating);
+}
+
+function updateProfileRatingLabel(tc) {
+    const labelEl = document.getElementById('profileRatingLabel');
+    if (!labelEl) return;
+    const key = `home_filter_${tc}`;
+    labelEl.setAttribute('data-i18n', key);
+    labelEl.textContent = t(key);
 }
 
 function setProfileAvatar(url, fallbackRapid) {
@@ -655,6 +664,7 @@ function updateHomeHeader() {
         if (userId.length > 16) profileName.classList.add('username-sm');
         else if (userId.length > 10) profileName.classList.add('username-md');
         profileRapid.textContent = '—';
+        updateProfileRatingLabel(homeTimeClassFilter === 'all' ? 'rapid' : homeTimeClassFilter);
         profileAvatar.innerHTML = '';
         profileAvatar.classList.remove('tier-emperor');
         renderProfileTier(null);

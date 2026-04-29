@@ -2472,8 +2472,8 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
 }
 
 .home-profile-avatar {
-    width: 56px;
-    height: 56px;
+    width: 44px;
+    height: 44px;
     border-radius: 50%;
     background: var(--bg-elevated);
     flex-shrink: 0;
@@ -2482,7 +2482,7 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     align-items: center;
     justify-content: center;
     color: var(--tx);
-    font-size: 32px;
+    font-size: 24px;
     line-height: 1;
 }
 .home-profile-avatar img {
@@ -2514,20 +2514,13 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
 .home-profile-name.username-md { font-size: 19px; }
 .home-profile-name.username-sm { font-size: 16px; }
 
-.home-profile-meta {
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-    font-variant-numeric: tabular-nums;
-    min-width: 0;
-}
 .home-profile-tier {
-    font-size: 13px;
+    font-size: 11px;
     font-weight: 600;
     color: var(--tx2);
     display: inline-flex;
     align-items: center;
-    gap: 5px;
+    gap: 4px;
     white-space: nowrap;
     background: none;
     border: none;
@@ -2543,21 +2536,44 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     background: var(--bg-elevated);
 }
 .home-profile-tier-glyph {
-    font-size: 15px;
+    font-size: 13px;
     line-height: 1;
 }
 .home-profile-tier.tier-emperor {
     color: var(--ac);
 }
-.home-profile-rapid {
-    font-size: 13px;
-    color: var(--tx3);
-    font-weight: 500;
+
+/* Right-aligned rating stat block (big number + tier·timeclass meta) */
+.home-profile-rating-block {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+    flex-shrink: 0;
+    align-self: center;
 }
-.home-profile-rapid::before {
-    content: '· ';
+.home-profile-rating {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--tx);
+    letter-spacing: -0.02em;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+}
+.home-profile-rating-meta {
+    display: inline-flex;
+    align-items: baseline;
+    line-height: 1;
+}
+.home-profile-rating-tc {
+    font-size: 11px;
+    color: var(--tx2);
+    font-weight: 600;
+}
+.home-profile-rating-tc::before {
+    content: '·';
     color: var(--tx3);
-    margin-right: 2px;
+    margin: 0 5px;
 }
 
 /* Last 15 record line — separated by hairline so it reads as quiet metadata */
