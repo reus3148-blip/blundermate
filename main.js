@@ -1435,12 +1435,16 @@ const moveClassLabel = document.getElementById('moveClassLabel');
 const winChanceDisplay = document.getElementById('winChanceDisplay');
 const ctrlCenterSeparator = document.querySelector('.ctrl-center .bar-separator');
 
+// 탐색/시뮬레이션 모드에서는 AI 분석을 못 돌리므로 AI 토글 버튼을 숨기고
+// 같은 슬롯에 메인 라인 복귀 버튼을 노출한다. 둘은 항상 배타적.
 function showReturnBtn() {
+    tabToggleBtn.classList.add('hidden');
     returnMainLineBtn.classList.remove('hidden');
 }
 
 function hideReturnBtn() {
     returnMainLineBtn.classList.add('hidden');
+    tabToggleBtn.classList.remove('hidden');
 }
 
 function showButtonSuccess(button, text) {

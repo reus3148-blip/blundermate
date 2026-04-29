@@ -195,9 +195,12 @@
             <div class="unified-controls" id="panelTabs">
                 <div class="unified-controls-inner">
                     <div class="ctrl-group-left">
-                        <button id="tabToggleBtn" class="tab-toggle-btn">AI</button>
                         <button id="saveMoveBtn" class="ctrl-btn ctrl-save" title="Save position">
                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+                        </button>
+                        <button id="tabToggleBtn" class="tab-toggle-btn">AI</button>
+                        <button id="returnMainLineBtn" class="return-main-btn ctrl-btn hidden" data-i18n-title="returnMainLine" title="메인 라인으로 돌아가기">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
                         </button>
                     </div>
                     <div class="ctrl-center">
@@ -205,9 +208,6 @@
                         <div class="bar-separator"></div>
                         <span id="winChanceDisplay" class="win-chance-display">—</span>
                         <span id="analysisLoadingText" class="analysis-loading-text hidden" data-i18n="analysis_loading">로딩중입니다...</span>
-                        <button id="returnMainLineBtn" class="return-main-btn hidden" data-i18n="returnMainLine">
-                            ← Main Line
-                        </button>
                     </div>
                     <button id="previewStartBtn" class="preview-start-btn hidden" data-i18n="analysis_start_btn">분석 시작</button>
                     <div class="ctrl-group-right">
