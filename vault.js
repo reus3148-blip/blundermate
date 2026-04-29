@@ -9,7 +9,6 @@ import { EnginePool } from './engine.js';
 // DOM Elements
 // ==========================================
 const vaultView = document.getElementById('vaultView');
-const vaultBackBtn = document.getElementById('vaultBackBtn');
 const vaultListLink = document.getElementById('vaultListLink');
 const vaultDetailView = document.getElementById('vaultDetailView');
 const vaultDetailBackBtn = document.getElementById('vaultDetailBackBtn');
@@ -128,10 +127,11 @@ function sortByPlayedDate(items) {
 function categoryVisual(rawCategory) {
     const c = (rawCategory || '').toLowerCase();
     const upper = (rawCategory || '').toUpperCase();
-    if (c === 'blunder')                    return { label: upper, color: 'var(--blunder)' };
-    if (c === 'mistake' || c === 'missed')  return { label: upper, color: 'var(--mistake)' };
-    if (c === 'missed_mate')                return { label: 'MISSED MATE', color: 'var(--blunder)' };
-    if (c === 'inaccuracy')                 return { label: upper, color: 'var(--inaccuracy)' };
+    // 사이트 정체성 (블런더+메이트) 우선. 그 외 8-tier 분류는 영어 그대로.
+    if (c === 'blunder')                    return { label: t('vault_filter_mistake'), color: 'var(--blunder)' };
+    if (c === 'mistake' || c === 'missed')  return { label: t('class_mistake'), color: 'var(--mistake)' };
+    if (c === 'missed_mate')                return { label: t('vault_puzzle_mate_label'), color: 'var(--blunder)' };
+    if (c === 'inaccuracy')                 return { label: t('class_inaccuracy'), color: 'var(--inaccuracy)' };
     if (c === 'best' || c === 'excellent')  return { label: upper, color: 'var(--best)' };
     return { label: upper, color: 'var(--tx2)' };
 }
@@ -335,9 +335,12 @@ async function openVaultItem(item) {
     }
 
     vaultDetailTitle.textContent = item.gameTitle || t('vault_title');
-    vaultInfoCategory.textContent = item.category || '';
+    const { label: catLabel, color: catColor } = categoryVisual(item.category);
+    vaultInfoCategory.textContent = catLabel;
+    vaultInfoCategory.style.color = catColor;
     vaultInfoPlayed.textContent = (item.moveNumber ? `${item.moveNumber}${item.isWhite ? '. ' : '... '}` : '') + (item.san || '');
-    vaultInfoBest.textContent = item.bestMove || t('vault_unknown');
+    // bestMove 없으면 빈 string으로 — CSS가 row 통째로 숨김 (.vault-info-row:has(:empty))
+    vaultInfoBest.textContent = item.bestMove || '';
     vaultInfoNotes.textContent = item.notes || '';
 
     if (_navigateTo) _navigateTo('vault_detail');
@@ -411,6 +414,10 @@ function removeItemEverywhere(id) {
     }
 }
 
+// Stories indicator는 풀 사이즈에 비례해 segment를 그리지만, 큰 풀(50+)에선 1px 미만으로 압축돼
+// 가독성이 망가짐. MAX_INDICATOR_SEGS로 cap하고 초과 시 우측에 "현재/total" 카운터로 보강.
+const MAX_INDICATOR_SEGS = 12;
+
 function renderIndicator() {
     if (!vaultPuzzleIndicator) return;
     const total = puzzlePool.length;
@@ -420,11 +427,38 @@ function renderIndicator() {
     }
     const deck = getActiveDeck();
     const filled = Math.min(deck.position + 1, total);
+    const segs = Math.min(total, MAX_INDICATOR_SEGS);
+    const filledSegs = total <= MAX_INDICATOR_SEGS
+        ? filled
+        : Math.ceil((filled / total) * segs);
+
     let html = '';
-    for (let i = 0; i < total; i++) {
-        html += `<div class="puzzle-seg${i < filled ? ' filled' : ''}"></div>`;
+    for (let i = 0; i < segs; i++) {
+        html += `<div class="puzzle-seg${i < filledSegs ? ' filled' : ''}"></div>`;
+    }
+    if (total > MAX_INDICATOR_SEGS) {
+        html += `<span class="puzzle-seg-count">${filled} / ${total}</span>`;
     }
     vaultPuzzleIndicator.innerHTML = html;
+    updatePuzzleNextLabel();
+}
+
+// 다음 버튼 라벨 — 풀 상태에 따라 의미 명확화.
+// 풀 1개: "다시 풀기" — 누르면 같은 문제 재출제
+// 풀 소진(seen >= total): "처음부터" — 다시 사이클 시작
+// 그 외: "다음"
+function updatePuzzleNextLabel() {
+    if (!vaultPuzzleNextBtn) return;
+    const total = puzzlePool.length;
+    if (total === 0) return;
+    const deck = getActiveDeck();
+    const seenCount = new Set(deck.history).size;
+    const allSeen = seenCount >= total;
+
+    let key = 'vault_puzzle_next';
+    if (total === 1) key = 'vault_puzzle_retry';
+    else if (allSeen) key = 'vault_puzzle_restart';
+    vaultPuzzleNextBtn.textContent = t(key);
 }
 
 // 풀이 deck은 풀이 완료 후 활성, 'other' deck은 진입 즉시 활성.
@@ -856,10 +890,6 @@ export function initVault({ showMovesOverlay, closeMovesOverlay, navigateTo }) {
     _showMovesOverlay = showMovesOverlay;
     _closeMovesOverlay = closeMovesOverlay;
     _navigateTo = navigateTo || null;
-
-    vaultBackBtn.addEventListener('click', () => {
-        history.back();
-    });
 
     vaultDetailBackBtn.addEventListener('click', () => {
         history.back();

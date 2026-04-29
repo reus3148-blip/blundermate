@@ -416,9 +416,6 @@ body.moves-overlay-open .input-pgn-area {
     opacity: 0.6;
 }
 
-.input-controls {
-    gap: 8px;
-}
 .input-secondary-btn {
     height: 32px;
     padding: 0 12px;
@@ -1053,7 +1050,7 @@ th {
 
 .empty-state {
     text-align: center;
-    padding: 3rem !important;
+    padding: 3rem;
     color: var(--tx2);
     font-style: italic;
 }
@@ -1355,6 +1352,10 @@ th {
 }
 .vault-info-notes:empty { display: none; }
 
+/* 빈 값(예: bestMove 미상)인 row는 라벨도 함께 숨김 — "Best: " 만 노출되는 어색함 방지 */
+.vault-info-row:has(#vaultInfoPlayed:empty),
+.vault-info-row:has(#vaultInfoBest:empty) { display: none; }
+
 /* 메인 라인 복귀 버튼: 탐색/시뮬레이션 모드에서 AI 버튼 슬롯을 대체. 44×44 아이콘 버튼. */
 .return-main-btn {
     width: 44px;
@@ -1445,9 +1446,39 @@ th {
     background: var(--brd2);
 }
 
-/* 통계 화면 필터: 라벨 + pill inline 패턴 (홈과 동일). 자체 padding 제거 — 부모 row가 관리 */
+/* 통계 화면 필터: iOS 세그먼트 컨트롤 스타일 (Apple Health 패턴).
+   다축 선택 UI에서 scope 필터는 secondary로 압축 — 카테고리 탭이 primary navigation.
+   둥근 컨테이너 안에 셀이 연결되어 "단일 결정" 느낌. 다른 화면(홈/저장)의 pill 스타일과 분리. */
 .pill-filter-bar--insights {
-    padding: 0;
+    padding: 2px;
+    gap: 0;
+    background: var(--bg-elevated);
+    border-radius: 8px;
+    box-shadow: inset 0 0 0 0.5px rgba(28, 29, 31, 0.04);
+}
+.pill-filter-bar--insights .pill-btn {
+    height: 26px;
+    padding: 0 10px;
+    border-radius: 6px;
+    border: none;
+    background: transparent;
+    color: var(--tx2);
+    font-size: 12px;
+    font-weight: 500;
+    transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+.pill-filter-bar--insights .pill-btn:hover {
+    color: var(--tx);
+    border: none;
+}
+.pill-filter-bar--insights .pill-btn.selected {
+    background: var(--bg-surface);
+    color: var(--tx);
+    font-weight: 600;
+    border: none;
+    box-shadow:
+        0 1px 2px rgba(28, 29, 31, 0.08),
+        0 0 0 0.5px rgba(28, 29, 31, 0.04);
 }
 
 .pill-btn {
@@ -2887,57 +2918,21 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
 }
 .vault-detail-delete-btn:active { opacity: 0.7; }
 
-/* ── Vault: 모드 텍스트 탭 (Apple/Notion, pill 대체) ──────────────── */
-.vault-mode-tabs {
-    display: flex;
-    gap: 18px;
-    padding: 6px 16px 4px;
-    align-items: center;
-}
+/* ===== VAULT PUZZLE (Stories) ===========================================
+   보드 y좌표를 1픽셀도 흔들리지 않게 — 보드 위 chrome 모두 height 픽셀로 고정.
+   레이아웃 합산: top-bar 44 + filter-tabs 30 + indicator 26 + prompt 50 = 150px.
+   카테고리 전환·풀 사이즈 변동·폰트 weight 변동에 모두 무관.
+   원칙: min-height 사용 금지(자식이 더 크면 늘어남), height + box-sizing border-box로 못 박음. */
 
-.vault-mode-tab {
-    position: relative;
-    border: none;
-    background: transparent;
-    padding: 6px 0 8px;
-    font-family: inherit;
-    font-size: 14px;
-    font-weight: 500;
-    color: var(--tx3);
-    cursor: pointer;
-    letter-spacing: -0.01em;
-    transition: color 0.15s ease;
-}
-
-.vault-mode-tab:hover { color: var(--tx2); }
-
-.vault-mode-tab.selected {
-    color: var(--tx);
-    font-weight: 600;
-}
-
-.vault-mode-tab.selected::after {
-    content: '';
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    height: 2px;
-    background: var(--tx);
-    border-radius: 1px;
-}
-
-.vault-pane.hidden { display: none; }
-
-/* Vault: 카테고리 sub-filter (실수 / 메이트 놓침) — 보기 모드와 블런더 목록 공통.
-   .vault-mode-tabs보다 약간 작아서 시각적으로 종속 관계임을 표현. */
+/* 카테고리 sub-filter — 블런더 / 메이트 / 기타 */
 .vault-filter-tabs {
     display: flex;
-    gap: 16px;
-    padding: 4px 16px 4px;
     align-items: center;
+    gap: 16px;
+    padding: 4px 16px;
+    height: 30px;
+    box-sizing: border-box;
 }
-
 .vault-filter-tab {
     position: relative;
     border: none;
@@ -2945,78 +2940,52 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     padding: 4px 0 6px;
     font-family: inherit;
     font-size: 13px;
+    line-height: 20px;
     font-weight: 500;
     color: var(--tx3);
-    cursor: pointer;
     letter-spacing: -0.01em;
+    cursor: pointer;
     transition: color 0.15s ease;
 }
-
 .vault-filter-tab:hover { color: var(--tx2); }
-
 .vault-filter-tab.selected {
     color: var(--tx);
     font-weight: 600;
 }
-
 .vault-filter-tab.selected::after {
     content: '';
     position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    inset: auto 0 0;
     height: 2px;
-    background: var(--tx);
     border-radius: 1px;
+    background: var(--tx);
 }
 
-/* 블런더 목록 진입로 — 우측 정렬 텍스트 링크 */
-.vault-sub-row {
-    display: flex;
-    justify-content: flex-end;
-    padding: 4px 16px 6px;
-}
-
-.vault-sub-link {
-    background: transparent;
-    border: none;
-    padding: 4px 0;
-    font-family: inherit;
-    font-size: 12px;
-    font-weight: 500;
-    color: var(--tx2);
-    cursor: pointer;
-    letter-spacing: -0.005em;
-    transition: color 0.15s ease;
-}
-
-.vault-sub-link:hover { color: var(--tx); }
-
-/* ── Vault Puzzle (보기 모드) ──────────────────────────────────── */
+/* Pane / Stage 컨테이너 */
 #vaultPuzzlePane {
     display: flex;
     flex-direction: column;
     flex: 1;
     min-height: 0;
 }
+.vault-pane.hidden { display: none; }
 
 .vault-puzzle-stage {
     display: flex;
     flex-direction: column;
     flex: 1;
     min-height: 0;
-    overflow-y: auto; /* 세로 부족 시 스크롤 — 다음 버튼이 viewport 밖으로 밀리지 않게 */
+    overflow-y: auto; /* 세로 부족 시 스크롤 — actions가 viewport 밖으로 밀리지 않음 */
 }
-
 .vault-puzzle-stage.hidden { display: none; }
 
-/* 분석 화면 기준의 board 크기는 vault stories에서 너무 큼 — top bar + 필터/indicator/prompt
-   + feedback + actions + bottom-nav 합치면 더 빠듯해서 보드 max-height를 줄여 일반 케이스에선
-   스크롤 없이도 다음 버튼까지 다 보이게 한다. */
+/* 보드 max-width — 100dvh에서 다른 chrome(top + filter + indicator + prompt + feedback
+   + actions + bottom-nav) 합산 약 340px를 빼서 일반 케이스에 스크롤 없이 다음 버튼까지 노출. */
 #vaultPuzzlePane .board-container {
     max-width: calc(100dvh - 340px);
 }
 
+/* Empty state */
 .vault-puzzle-empty {
     display: flex;
     align-items: center;
@@ -3024,60 +2993,77 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     flex: 1;
     padding: 40px 24px;
 }
-
+.vault-puzzle-empty.hidden { display: none; }
 .vault-puzzle-empty-text {
-    color: var(--tx2);
     font-size: 14px;
+    color: var(--tx2);
     text-align: center;
 }
 
-.vault-puzzle-empty.hidden { display: none; }
-
-.vault-puzzle-prompt {
-    padding: 8px 16px 4px;
-}
-
-.vault-puzzle-header {
-    font-size: 15px;
-    font-weight: 600;
-    color: var(--tx);
-    letter-spacing: -0.01em;
-}
-
-.vault-puzzle-subhead {
-    font-size: 12px;
-    color: var(--tx3);
-    margin-top: 2px;
-}
-
-.vault-puzzle-board-wrap {
-    flex-shrink: 0;
-    position: relative; /* 좌/우 탭존 absolute 기준 */
-}
-
-/* 인스타 stories 상단 segment bar — 풀 크기만큼 채움, 현재 deck 위치까지 fill. */
+/* Stories indicator — 풀 크기에 비례한 segment bar.
+   풀 ≤12: segment만. 풀 >12: 12 segment + 우측 카운터(현재/total). */
 .vault-puzzle-indicator {
     display: flex;
+    align-items: center;
     gap: 4px;
     padding: 8px 16px 4px;
-    align-items: center;
-    min-height: 10px;
+    height: 26px;
+    box-sizing: border-box;
 }
-
 .puzzle-seg {
     flex: 1;
     min-width: 4px;
     height: 2px;
-    background: var(--bg-elevated, #EDE8DB);
     border-radius: 1px;
+    background: var(--bg-elevated);
     transition: background 0.2s ease;
 }
-
-.puzzle-seg.filled {
-    background: var(--tx, #2C2824);
+.puzzle-seg.filled { background: var(--tx); }
+.puzzle-seg-count {
+    flex-shrink: 0;
+    margin-left: 8px;
+    font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11px;
+    line-height: 14px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    color: var(--tx3);
 }
 
-/* 좌/우 탭존 — terminal 상태일 때만 활성. 풀이 중엔 보드 드래그 보장. */
+/* Prompt = 50px 박스 (padding 12 + header 20 + gap 2 + subhead 16). */
+.vault-puzzle-prompt {
+    padding: 8px 16px 4px;
+    height: 50px;
+    box-sizing: border-box;
+    overflow: hidden;
+}
+.vault-puzzle-header {
+    height: 20px;
+    line-height: 20px;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--tx);
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.vault-puzzle-subhead {
+    height: 16px;
+    line-height: 16px;
+    margin-top: 2px;
+    font-size: 12px;
+    color: var(--tx3);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Board wrapper + 좌/우 tap zones (terminal/other 상태에서만 활성) */
+.vault-puzzle-board-wrap {
+    position: relative; /* tap zones absolute 기준 */
+    flex-shrink: 0;
+}
 .puzzle-tap-zones {
     position: absolute;
     inset: 0;
@@ -3085,65 +3071,58 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     pointer-events: none;
     z-index: 5;
 }
-
-.puzzle-tap-zones.active {
-    pointer-events: auto;
-}
-
+.puzzle-tap-zones.active { pointer-events: auto; }
 .puzzle-tap-zone {
     flex: 1;
     cursor: pointer;
 }
 
+/* Feedback — 정/오답 안내. 'other' 카테고리는 진입 즉시 노트/수 메타 노출. */
 .vault-puzzle-feedback {
-    padding: 10px 16px 4px;
-    min-height: 28px;
     display: flex;
     flex-direction: column;
     gap: 4px;
+    padding: 10px 16px 4px;
+    min-height: 28px;
 }
-
 .puzzle-fb-head {
     font-size: 13px;
     font-weight: 700;
     letter-spacing: 0.04em;
     text-transform: uppercase;
 }
-
 .puzzle-fb-line {
+    font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: 13px;
     color: var(--tx);
-    font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 }
-
 .puzzle-fb-label {
-    color: var(--tx3);
     margin-right: 4px;
     font-family: 'Inter', system-ui, sans-serif;
-    font-weight: 500;
     font-size: 12px;
-    text-transform: uppercase;
+    font-weight: 500;
     letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--tx3);
 }
-
 .puzzle-fb-meta {
+    margin-top: 2px;
     font-size: 12px;
     color: var(--tx2);
-    margin-top: 2px;
 }
 
+/* Actions — 다음/다시 풀기/처음부터 버튼 */
 .vault-puzzle-actions {
     display: flex;
     justify-content: center;
     padding: 8px 16px 16px;
 }
-
 .vault-puzzle-next {
-    background: var(--tx);
-    color: var(--bg-surface);
     border: none;
     border-radius: 8px;
     padding: 10px 28px;
+    background: var(--tx);
+    color: var(--bg-surface);
     font-family: inherit;
     font-size: 13px;
     font-weight: 600;
@@ -3151,7 +3130,6 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     cursor: pointer;
     transition: opacity 0.15s ease;
 }
-
 .vault-puzzle-next:hover { opacity: 0.85; }
 .vault-puzzle-next:active { opacity: 0.7; }
 
@@ -3516,41 +3494,77 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
 /* ── Insights (통계) — 홈 디자인 언어와 통일 ───────────────────── */
 .insights-subtitle {
     flex-shrink: 0;
-    padding: 6px 16px 10px;
+    padding: 8px 16px 6px;
     font-size: 11px;
     color: var(--tx3);
     font-weight: 500;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    line-height: 1;
+    letter-spacing: -0.005em;
+    line-height: 1.3;
     font-variant-numeric: tabular-nums;
 }
 .insights-subtitle:empty { display: none; }
 
-/* 필터 row: 라벨 + pill inline (홈 .home-recent-header와 동일 패턴) */
+/* 필터 row: 시간제어(primary, left) + 진영(secondary, right) 양 끝 정렬.
+   여백이 두 그룹 사이로 가서 시각적 균형 형성. 좁으면 wrap — 각자 자기 줄에서 left-aligned. */
 .insights-filter-row {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     flex-wrap: wrap;
-    gap: 9px;
-    padding: 0 16px;
+    gap: 8px;
+    padding: 4px 16px 6px;
     flex-shrink: 0;
 }
-.insights-filter-row + .insights-filter-row {
-    padding-top: 6px;
-}
-/* subtitle이 비어 display:none일 때 첫 row가 top bar에 너무 붙지 않게 */
 .insights-subtitle:empty + .insights-filter-row {
     padding-top: 8px;
 }
-.insights-filter-label {
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.08em;
+
+/* 카테고리 탭 바 — 통계 본문을 6개 카테고리로 쪼갬.
+   필터 바 아래, 본문 위. justify-content: space-between 으로 양 끝 정렬 + 균등 분포.
+   가로 스크롤 폴백으로 좁은 화면 대응 (overflow-x 시엔 space-between 효과 무력화되고 자연 패킹). */
+.insights-cat-tabs {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 6px 16px 0;
+    margin-top: 4px;
+    border-bottom: 1px solid var(--brd);
+    overflow-x: auto;
+    flex-shrink: 0;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+.insights-cat-tabs::-webkit-scrollbar { display: none; }
+
+.insights-cat-tab {
+    position: relative;
+    border: none;
+    background: transparent;
+    padding: 4px 0 10px;
+    font-family: inherit;
+    font-size: 14px;
+    line-height: 20px;
+    font-weight: 500;
     color: var(--tx3);
-    text-transform: uppercase;
-    line-height: 1;
-    min-width: 70px;
+    letter-spacing: -0.015em;
+    cursor: pointer;
+    transition: color 0.15s ease;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.insights-cat-tab:hover { color: var(--tx2); }
+.insights-cat-tab.selected {
+    color: var(--tx);
+    font-weight: 700;
+}
+.insights-cat-tab.selected::after {
+    content: '';
+    position: absolute;
+    inset: auto 0 -1px;
+    height: 2px;
+    border-radius: 1px;
+    background: var(--tx);
 }
 
 .insights-body {
@@ -3595,6 +3609,83 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     color: var(--tx3);
     text-align: center;
     padding: 20px 0;
+}
+
+/* 2/3-up 페어 — 작은 metric 카드 사이드바이사이드.
+   매우 좁은 화면(<360)에선 1열로 떨어짐. */
+.insight-pair {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+.insight-pair--3 {
+    grid-template-columns: repeat(3, 1fr);
+}
+@media (max-width: 360px) {
+    .insight-pair,
+    .insight-pair--3 { grid-template-columns: 1fr; }
+}
+.insight-pair > .insight-card { padding: 14px 14px 12px; }
+.insight-pair > .insight-card .insight-big-value { font-size: 22px; }
+.insight-pair > .insight-card .insight-big-sub { font-size: 10px; }
+
+/* 컬럼 차트 — 분포 시각화 (요일/시간대/상대레이팅/첫수 등)
+   막대 높이 = 표본 크기, 색 = 승률 (red→gray→green 그라데이션) */
+.insight-cols {
+    display: flex;
+    align-items: stretch;
+    gap: 6px;
+    height: 110px;
+    margin: 4px 0 0;
+}
+.insight-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+}
+.insight-col-value {
+    font-size: 10px;
+    line-height: 1;
+    color: var(--tx);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    height: 11px;
+}
+.insight-col-bar-wrap {
+    flex: 1;
+    width: 100%;
+    display: flex;
+    align-items: flex-end;
+}
+.insight-col-bar {
+    width: 100%;
+    border-radius: 4px 4px 2px 2px;
+    min-height: 2px;
+    transition: height 0.3s ease;
+}
+.insight-col-bar--empty {
+    background: var(--bg-elevated);
+    height: 6px !important;
+    opacity: 0.5;
+}
+.insight-col-label {
+    font-size: 10px;
+    line-height: 1.1;
+    color: var(--tx3);
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+    font-variant-numeric: tabular-nums;
+}
+.insight-col-count {
+    font-size: 9px;
+    color: var(--tx3);
+    line-height: 1;
 }
 
 /* Hero card (overall summary) — 더 가볍게 */
@@ -3704,13 +3795,15 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
 .wdl-seg--win   { background: var(--win); }
 .wdl-seg--draw  { background: var(--tx3); }
 .wdl-seg--loss  { background: var(--loss); }
-.wdl-summary {
+/* 카운트 한 줄 — 바 아래 muted gray, "12W 5D 7L" */
+.wdl-counts {
     display: block;
-    margin-top: 6px;
+    margin-top: 4px;
     font-size: 11px;
-    color: var(--tx2);
+    color: var(--tx3);
     font-weight: 500;
     font-variant-numeric: tabular-nums;
+    letter-spacing: -0.005em;
 }
 /* 최근 절반 vs 그 전 절반 승률 델타 — 평가성 색 안 쓰고 muted gray로만 */
 .wdl-delta {
@@ -3720,24 +3813,36 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     font-variant-numeric: tabular-nums;
 }
 
-/* Generic row (color/timeclass/openings/length/time-of-day) */
+/* WDL row — header(label-left, %-right), 바, 카운트 3단 구조.
+   카드 내 row 간 비교 시 % 가 같은 column에 정렬되어 한눈에 들어옴. */
 .insight-row {
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: 4px;
+}
+.insight-row-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
 }
 .insight-row-label {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     font-size: 12px;
     color: var(--tx);
     font-weight: 500;
     letter-spacing: -0.005em;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
 }
-.insight-row-bar-wrap {
-    display: flex;
-    flex-direction: column;
+.insight-row-pct {
+    flex-shrink: 0;
+    font-size: 12px;
+    color: var(--tx);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.005em;
 }
 
 /* Termination/Phase row (single-bar fills) */
@@ -3812,6 +3917,17 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     text-align: right;
     line-height: 1.35;
 }
+/* 레이팅 변화 카드의 최고/최저 라인 */
+.insight-rating-range {
+    font-size: 11px;
+    color: var(--tx3);
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.005em;
+    margin-top: 4px;
+    text-align: center;
+}
+
 /* 결과 흐름 카드의 최장 연승/연패 한 줄 */
 .insight-flow-extremes {
     font-size: 12px;

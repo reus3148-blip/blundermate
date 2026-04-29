@@ -9,7 +9,6 @@ const BOOKMARK_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height=
 // ==========================================
 const savedGamesView = document.getElementById('savedGamesView');
 const savedGamesList = document.getElementById('savedGamesList');
-const savedGamesBackBtn = document.getElementById('savedGamesBackBtn');
 const savedGamesFilterBar = document.getElementById('savedGamesFilterBar');
 
 const saveGameModal = document.getElementById('saveGameModal');
@@ -156,10 +155,6 @@ export function initSavedGames({ onLoadGame, getChess, showButtonSuccess, saveMo
             saveGameModal.classList.add('hidden');
         });
     }
-
-    savedGamesBackBtn.addEventListener('click', () => {
-        history.back();
-    });
 
     // Category picker (Save Game modal)
     saveGameCategoryPicker.addEventListener('click', (e) => {

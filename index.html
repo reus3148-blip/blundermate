@@ -40,7 +40,7 @@
         <div id="onboardingView" class="view-container hidden">
             <div class="onboarding-top">
                 <h1 class="onboarding-brand"><span class="brand-blunder">blunder</span><span class="brand-mate">mate</span></h1>
-                <p class="onboarding-tagline" data-i18n="onboarding_tagline">당신의 체스 실수를 기억합니다</p>
+                <p class="onboarding-tagline" data-i18n="onboarding_tagline">당신의 블런더와 놓친 메이트를 기억합니다</p>
             </div>
             <div class="onboarding-middle">
                 <label class="onboarding-label" data-i18n="onboarding_label">Chess.com 아이디를 입력하세요</label>
@@ -283,17 +283,14 @@
                 <span id="vaultInfoBest"></span>
             </div>
             <div id="vaultInfoNotes" class="vault-info-notes"></div>
-            <button id="vaultDetailDeleteBtn" class="vault-detail-delete-btn" data-i18n="vault_delete_btn">이 오답 삭제</button>
+            <button id="vaultDetailDeleteBtn" class="vault-detail-delete-btn" data-i18n="vault_delete_btn">삭제</button>
         </div>
     </div>
 
-    <!-- Vault View — 진입 즉시 stories 보드 -->
+    <!-- Vault View — bottom-nav root, back 버튼 없음 (drilldown만 보유) -->
     <div id="vaultView" class="view-container hidden">
         <div class="analysis-top-bar">
-            <button id="vaultBackBtn" class="back-btn">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-                <span data-i18n="back">Back</span>
-            </button>
+            <div class="top-bar-spacer"></div>
             <span class="top-bar-title" data-i18n="vault_title">복기</span>
             <button id="vaultListLink" class="topbar-icon-btn" type="button" title="목록" data-i18n-title="vault_list_link" aria-label="목록">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg>
@@ -302,7 +299,7 @@
 
         <div id="vaultPuzzlePane" class="vault-pane">
             <div id="vaultPuzzleFilterTabs" class="vault-filter-tabs">
-                <button type="button" class="vault-filter-tab selected" data-filter="mistake" data-i18n="vault_filter_mistake">실수</button>
+                <button type="button" class="vault-filter-tab selected" data-filter="mistake" data-i18n="vault_filter_mistake">블런더</button>
                 <button type="button" class="vault-filter-tab" data-filter="mate" data-i18n="vault_filter_mate">메이트</button>
                 <button type="button" class="vault-filter-tab" data-filter="other" data-i18n="vault_filter_other">기타</button>
             </div>
@@ -341,7 +338,7 @@
             <div class="top-bar-spacer"></div>
         </div>
         <div id="vaultBlunderFilterTabs" class="vault-filter-tabs">
-            <button type="button" class="vault-filter-tab selected" data-filter="mistake" data-i18n="vault_filter_mistake">실수</button>
+            <button type="button" class="vault-filter-tab selected" data-filter="mistake" data-i18n="vault_filter_mistake">블런더</button>
             <button type="button" class="vault-filter-tab" data-filter="mate" data-i18n="vault_filter_mate">메이트</button>
             <button type="button" class="vault-filter-tab" data-filter="other" data-i18n="vault_filter_other">기타</button>
         </div>
@@ -351,30 +348,31 @@
     <!-- Insights View -->
     <div id="insightsView" class="view-container hidden">
         <div class="analysis-top-bar">
-            <button id="insightsBackBtn" class="back-btn">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-                <span data-i18n="back">Back</span>
-            </button>
+            <div class="top-bar-spacer"></div>
             <span class="top-bar-title" data-i18n="insights_title">통계</span>
             <div class="top-bar-spacer"></div>
         </div>
         <div id="insightsSubtitle" class="insights-subtitle"></div>
         <div class="insights-filter-row">
-            <span class="insights-filter-label" data-i18n="insights_filter_tc">시간제어</span>
             <div id="insightsTimeFilterBar" class="pill-filter-bar pill-filter-bar--insights">
                 <button type="button" class="pill-btn" data-tc="all" data-i18n="saved_games_filter_all">전체</button>
                 <button type="button" class="pill-btn selected" data-tc="rapid" data-i18n="home_filter_rapid">래피드</button>
                 <button type="button" class="pill-btn" data-tc="blitz" data-i18n="home_filter_blitz">블리츠</button>
                 <button type="button" class="pill-btn" data-tc="bullet" data-i18n="home_filter_bullet">불렛</button>
             </div>
-        </div>
-        <div class="insights-filter-row">
-            <span class="insights-filter-label" data-i18n="insights_filter_color">진영</span>
             <div id="insightsColorFilterBar" class="pill-filter-bar pill-filter-bar--insights">
                 <button type="button" class="pill-btn selected" data-color="all" data-i18n="saved_games_filter_all">전체</button>
                 <button type="button" class="pill-btn" data-color="white" data-i18n="insights_white">백</button>
                 <button type="button" class="pill-btn" data-color="black" data-i18n="insights_black">흑</button>
             </div>
+        </div>
+        <div id="insightsCategoryTabs" class="insights-cat-tabs">
+            <button type="button" class="insights-cat-tab selected" data-cat="summary" data-i18n="insights_cat_summary">요약</button>
+            <button type="button" class="insights-cat-tab" data-cat="opening" data-i18n="insights_cat_opening">오프닝</button>
+            <button type="button" class="insights-cat-tab" data-cat="clock" data-i18n="insights_cat_clock">시계</button>
+            <button type="button" class="insights-cat-tab" data-cat="when" data-i18n="insights_cat_when">시간</button>
+            <button type="button" class="insights-cat-tab" data-cat="people" data-i18n="insights_cat_people">사람</button>
+            <button type="button" class="insights-cat-tab" data-cat="weak" data-i18n="insights_cat_weak">약점</button>
         </div>
         <div id="insightsBody" class="insights-body"></div>
     </div>
@@ -382,10 +380,7 @@
     <!-- Saved Games View -->
     <div id="savedGamesView" class="view-container hidden">
         <div class="analysis-top-bar">
-            <button id="savedGamesBackBtn" class="back-btn">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-                <span data-i18n="back">Back</span>
-            </button>
+            <div class="top-bar-spacer"></div>
             <span class="top-bar-title" data-i18n="savedGames">Saved Games</span>
             <div class="top-bar-spacer"></div>
         </div>

@@ -296,6 +296,60 @@ WDL 도입/회귀 와리가리하면서 남은 잔재 정리, 그리고 Phase 21
 **버튼 크기·간격 정리(`f400daa`):**
 - AI(텍스트, ~24px) vs 저장(아이콘, 36px)의 폭 불균형 + AI에 min-height 없어 터치 타겟 작던 문제. 모든 버튼 44×44로 통일, ctrl-group 내 4px gap, AI에 active 스케일 피드백 추가. 좌·우 그룹 폭 92px로 대칭.
 
+## Phase 29 — vault 표기/레이아웃 일관화 + 통계 8 카드 추가 + 시각 재편
+
+vault 표기·레이아웃 안정화부터 통계 화면 대규모 확장·시각 재편까지 한 세션에 묶음. **모든 통계는 stockfish 없이** chess.com PGN/헤더 + vault 자동 수집 데이터로 도출 (사이트 정체성: 체스닷컴 리뷰 못 돌리는 사람 대상).
+
+**vault 표기 일관 (사이트 정체성 = blunder + mate):**
+- `vault_puzzle_find_mate` "외통" → "메이트"
+- 풀이 모드 카테고리 라벨 "실수" → "블런더" (mistake+blunder cp 손실 통합 카테고리)
+- onboarding tagline "체스 실수" → "블런더와 놓친 메이트"
+- `vaultDetail`의 raw `item.category` 노출 버그 수정 — `categoryVisual()` 의 한국어 라벨 사용
+
+**vault 보드 y좌표 픽셀 락:**
+- filter-tabs(30px), indicator(26px), prompt(50px) 모두 `height` 명시 + `box-sizing: border-box`. min-height 사용 금지.
+- prompt 안 헤더(20px line-height/height) + subhead(16px) 픽셀 박스로 — 한/영/숫자 mix와 폰트 weight 변동에도 동일.
+- 카테고리(블런더/메이트/기타) 전환 시 보드 윗변 1픽셀 흔들림 없음.
+- indicator `MAX_INDICATOR_SEGS=12` cap, 초과 시 우측 카운터(`5/30`)로 보강.
+- 빈 `.vault-info-row` 자동 숨김 (`:has(:empty)`), "다음" 버튼 풀 상태별 라벨 (`다시 풀기` / `처음부터` / `다음`).
+
+**root 탭 back 버튼 제거 (iOS 패턴):**
+- vaultView, savedGamesView, insightsView 의 top-bar 에서 back 버튼 제거 — bottom-nav 가 root 진입점이라 중복.
+- drilldown(vaultDetail, vaultBlunderList) 은 back 유지.
+- top-bar grid `1fr auto 1fr` 슬롯 균형 위해 `<div class="top-bar-spacer">` 보강 (title 중앙 정렬 보존).
+
+**CSS 청소:**
+- 데드 셀렉터 제거 — `.input-controls`, `.vault-mode-tabs`, `.vault-sub-row`, `.vault-sub-link` (Phase 27 에서 구조 제거됐는데 CSS만 남아있던 것)
+- `!important` 1건 (`.empty-state padding`) 제거 — 오버라이드 없는데 박혀있던 잔재
+- 스테일 fallback 색 (Phase 14 워페이퍼 잔재) 제거 — `var(--bg-elevated, #EDE8DB)` 등
+- 데드 i18n 키 제거 — `vault_unknown`, `insights_filter_tc`, `insights_filter_color`
+
+**통계 신규 8 카드:**
+- 상대 레이팅별 성적 (5단 버킷: ≤−200 / −100 / 비슷 / +100 / ≥+200)
+- 첫 수 (백 게임만, e4/d4/c4/Nf3/기타) — 표본 ≥5 일 때만 노출
+- 캐슬링 패턴 (kingside/queenside/none)
+- 거래 활동 (캡쳐 비율 → 소극/균형/활발/공격 라벨, 임계 12/20/28%)
+- 요일별 성적 (월~일)
+- 자주 만난 상대 Top 5 (≥2판)
+- 레이팅 변화 (시작→끝 델타, 최고/최저) — 단일 시간제어 필터에서만
+- 블런더 핫스팟 (vault auto items moveNumber 5수 단위 히스토그램)
+
+**통계 시각 재편:**
+- **컬럼 차트** (`renderColumnChartCard`) — 분포 카드는 7-row WDL 대신 vertical bar chart. 막대 높이 = 표본, 색 = 승률 HSL 보간 (red→gray→green). 적용: 요일/시간대/상대레이팅/첫수/핫스팟.
+- **2/3-up 페어링** (`.insight-pair`, `pairCards()`) — 작은 metric 카드(평균/압박/즉답/거래) 사이드바이사이드. 360px 미만 1열 fallback.
+- **6 카테고리 탭** (요약/오프닝/시계/시간/사람/약점) — `insightsCategoryFilter` state, 본문 분할로 스압 감소. 가로 스크롤 폴백.
+- **iOS 세그먼트 컨트롤** 필터 (`.pill-filter-bar--insights` modifier) — 둥근 컨테이너, 선택 셀만 흰 fill + soft shadow.
+- **좌우 정렬** — 시간제어 left, 진영 right (`justify-content: space-between`). 카테고리 탭도 동일 패턴 (6 탭 균등 분포).
+- **WDL row 헤더 분리** (`.insight-row-header`) — label-left / %-right column 정렬, 카운트 아래 muted gray. row 간 % 비교 시각 쉬움.
+
+**오프닝 root + variant 합성 (`utils.subVariantName` / `compactOpeningLabel`):**
+- `Sicilian Defense Najdorf Variation` / `Sicilian Defense Dragon Variation` 등 같은 root 의 다른 variant 가 별도 버킷으로 분리. root 의 trailing `Defense/Game/Opening` 스트립해 `Sicilian Najdorf` / `Sicilian Dragon` 라벨로 컴팩트.
+- 변종 없을 땐 root 그대로 유지.
+
+**기타:**
+- `getMyUserId()` 미설정 시 vault 핫스팟 `getVaultItems({source:'auto'})` 가 localStorage 폴백으로 동작
+- chess.com 게임 + vault 핫스팟 병렬 `Promise.all` 로 동시 fetch (insights 진입 시간 단축)
+
 ## Phase 22 — 수 분류 알고리즘 freechess 포팅 + WDL win% 도입
 
 기존 CPL 기반 4-tier(Best/Excellent/Good/Inaccuracy/Mistake/Blunder)를 폐기하고 chess.com review 라벨 체계 미러링 — [WintrCat/freechess](https://github.com/WintrCat/freechess)의 알고리즘 1:1 포팅.

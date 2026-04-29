@@ -572,6 +572,53 @@ export function rootOpeningName(fullName) {
 }
 
 /**
+ * 루트 다음에 등장하는 변종(첫 named modifier)을 추출.
+ * "Sicilian Game"과 "Sicilian Gambit"은 rootOpeningName이 분리하지만,
+ * "Sicilian Defense Najdorf"와 "Sicilian Defense Dragon"은 모두 같은 root("Sicilian Defense")로 묶여
+ * 통계상 한 줄로 합쳐짐. 변종마다 사실상 다른 게임이므로 sub-variant 단위로 더 쪼개기 위함.
+ *
+ * 알고리즘:
+ *   1) fullName에서 rootName prefix 제거 후 tail 토큰화.
+ *   2) 다음 변종 키워드(Variation/Attack/System/Defense/Gambit/Opening/Game) 만나기 전까지의 단어들 join.
+ *   3) tail이 비거나 첫 토큰이 키워드면 빈 문자열 반환(= 변종 없음).
+ *
+ * 예: ("Sicilian Defense Najdorf Variation",   "Sicilian Defense") → "Najdorf"
+ *     ("Italian Game Giuoco Piano",            "Italian Game")     → "Giuoco Piano"
+ *     ("Italian Game Two Knights Defense ...", "Italian Game")     → "Two Knights"
+ *     ("Ruy Lopez Berlin Defense",             "Ruy Lopez")        → "Berlin"
+ *     ("Scotch Game",                          "Scotch Game")      → ""
+ */
+const VARIANT_STOP_WORDS = new Set(['Variation', 'Attack', 'System', 'Defense', 'Defence', 'Gambit', 'Opening', 'Game']);
+export function subVariantName(fullName, rootName) {
+    if (!fullName || !rootName) return '';
+    if (!fullName.startsWith(rootName)) return '';
+    const tail = fullName.slice(rootName.length).trim();
+    if (!tail) return '';
+    const variant = [];
+    for (const w of tail.split(/\s+/)) {
+        if (VARIANT_STOP_WORDS.has(w)) break;
+        variant.push(w);
+    }
+    return variant.join(' ');
+}
+
+/**
+ * 통계 카드 표시용 — root + variant 압축 라벨.
+ * 변종 있으면 root에서 trailing "Defense/Game/Opening/Defence" 제거하여
+ * "Sicilian Defense: Najdorf" 같은 중복감 줄임. 변종 없으면 root 그대로.
+ *
+ * 예: ("Sicilian Defense", "Najdorf")   → "Sicilian Najdorf"
+ *     ("Italian Game", "Giuoco Piano")  → "Italian Giuoco Piano"
+ *     ("Scotch Gambit", "Haxo")         → "Scotch Gambit Haxo"  (Gambit는 보존 — 의미 있음)
+ *     ("Caro-Kann Defense", "")         → "Caro-Kann Defense"
+ */
+export function compactOpeningLabel(root, variant) {
+    if (!variant) return root;
+    const compactRoot = root.replace(/\s+(Defense|Defence|Game|Opening)$/, '');
+    return `${compactRoot} ${variant}`;
+}
+
+/**
  * PGN 스트링 또는 단순 텍스트 기보를 Chess 인스턴스에 로드하고 결과와 PGN 텍스트를 반환합니다.
  */
 // chess.js의 validate_fen으로 FEN 문자열의 유효성을 판별한다.
