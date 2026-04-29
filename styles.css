@@ -741,7 +741,7 @@ textarea:focus {
 
 .board-container {
     width: 100%;
-    max-width: calc(100dvh - 259px);
+    max-width: calc(100dvh - 267px);
     aspect-ratio: 1 / 1;
     flex-shrink: 0;
 }
@@ -753,7 +753,7 @@ textarea:focus {
     display: flex;
     align-items: center;
     justify-content: center;
-    height: 44px;
+    height: 52px;
     padding: 0 8px;
     background: var(--bg-surface);
     border-top: 1px solid var(--brd);
@@ -3140,7 +3140,7 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     align-items: center;
     justify-content: center;
     width: 100%;
-    max-width: calc(100dvh - 259px);
+    max-width: calc(100dvh - 267px);
     aspect-ratio: 1 / 1;
     flex-shrink: 0;
     padding: 1.5rem;
