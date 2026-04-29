@@ -280,6 +280,22 @@ WDL 도입/회귀 와리가리하면서 남은 잔재 정리, 그리고 Phase 21
 **UI 안전망:**
 - vault stories 세로 부족 시 다음 버튼이 viewport 밖으로 밀리던 이슈: `vault-puzzle-stage`에 `overflow-y: auto`, 분석 화면 기준이던 board `max-width`를 vault 전용으로 빡빡하게(`calc(100dvh - 340px)`).
 
+## Phase 28 — 분석 화면 컨트롤바 재배치 + 엔진라인 상단 이동 시도 폐기 (`18023a6`, `f400daa`)
+
+분석 화면 정보 계층을 정리해보려 한 일련의 실험. 아이디어로 시작해 일부는 본선 진입, 일부는 폐기.
+
+**시도(폐기됨) — 엔진라인을 보드 위로:**
+- vault stories의 prompt 영역과 같은 리듬으로 PV 2줄 + 평가 row를 보드 위에 상시 노출, 보드 아래는 [AI 물어보기/저장/<>] 단순화. 위(엔진의 시선) ↔ 아래(내 시선) 이분 구조 의도.
+- 두 커밋(`06070db` engineLines 위로 이동, `14742df` PV 2줄 + info row + 컨트롤바 재구성)으로 진행했으나 **분석화면이 vault stories와 너무 닮아 정체성이 흐려짐** — 사용자 피드백으로 두 커밋 모두 force-reset(`741e606`로). 빈 커밋(`d025723`)으로 재배포 트리거.
+- 폐기 이유 기록: 시각언어 일관성 ↑은 매력적이었지만, 분석화면이 "vault 형제"가 되면 화면 자체의 무게감이 떨어짐. 보드 위는 비워두고 정보는 컨트롤바·패널에 모으는 기존 구조가 더 분석적이라는 판단.
+
+**적용된 것 — 컨트롤바 재배치(`18023a6`):**
+- 좌(prev/AI) → (AI/저장), 우(저장/next) → (prev/next). 평가(분류·승률)는 중앙 유지.
+- 바 높이 44 → 52px, 보드 `max-width` 259 → 267px로 보정 (vault detail 포함 글로벌 .board-container 영향).
+
+**버튼 크기·간격 정리(`f400daa`):**
+- AI(텍스트, ~24px) vs 저장(아이콘, 36px)의 폭 불균형 + AI에 min-height 없어 터치 타겟 작던 문제. 모든 버튼 44×44로 통일, ctrl-group 내 4px gap, AI에 active 스케일 피드백 추가. 좌·우 그룹 폭 92px로 대칭.
+
 ## Phase 22 — 수 분류 알고리즘 freechess 포팅 + WDL win% 도입
 
 기존 CPL 기반 4-tier(Best/Excellent/Good/Inaccuracy/Mistake/Blunder)를 폐기하고 chess.com review 라벨 체계 미러링 — [WintrCat/freechess](https://github.com/WintrCat/freechess)의 알고리즘 1:1 포팅.
@@ -370,7 +386,7 @@ Input (PGN/Chess.com/board)
 ### 분석 화면 핵심 바
 
 - **상단 바** (`.analysis-top-bar`) — 뒤로가기, 타이틀, 기보(☰)
-- **중간 바** (`.unified-controls` / `#panelTabs`) — 이전/다음, Engine⇄AI 토글, 분류 라벨, 승률/eval, 저장
+- **중간 바** (`.unified-controls` / `#panelTabs`, height 52px) — 좌(AI 토글, 저장) · 중앙(분류 라벨/승률) · 우(이전, 다음). 모든 버튼 44×44
 - **리뷰 모드** — `isReviewMode = true` (인덱스 -1) = 전체화면 4단계 리포트 (헤더/차트/통계표/CTA)
 
 ### Supabase 스키마
