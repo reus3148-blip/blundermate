@@ -149,6 +149,10 @@ const settingsModal = document.getElementById('settingsModal');
 const coordsToggle = document.getElementById('coordsToggle');
 const geminiToggle = document.getElementById('geminiToggle');
 
+// About Modal Elements
+const aboutModal = document.getElementById('aboutModal');
+const settingsAboutBtn = document.getElementById('settingsAboutBtn');
+
 // Feedback Elements
 const feedbackBtn = document.getElementById('settingsFeedbackBtn');
 const feedbackModal = document.getElementById('feedbackModal');
@@ -855,6 +859,7 @@ if (profileTierBtn && tierModal) {
 
 const modalConfigs = [
     { modal: settingsModal, closeBtn: document.getElementById('closeSettingsBtn') },
+    { modal: aboutModal, closeBtn: document.getElementById('closeAboutBtn') },
     { modal: feedbackModal, closeBtn: cancelFeedbackBtn },
     { modal: feedbackModal, closeBtn: closeFeedbackBtn },
     { modal: userSearchModal, closeBtn: closeUserSearchBtn },
@@ -898,6 +903,14 @@ if (feedbackBtn) {
         feedbackInput.value = '';
         feedbackStatusText.textContent = '';
         feedbackModal.classList.remove('hidden');
+    });
+}
+
+// About 모달 — 설정 → About 진입. 설정 닫고 About 열기.
+if (settingsAboutBtn && aboutModal) {
+    settingsAboutBtn.addEventListener('click', () => {
+        settingsModal.classList.add('hidden');
+        aboutModal.classList.remove('hidden');
     });
 }
 // 홈 전용 피드백 FAB — 설정 모달을 거치지 않고 바로 피드백 모달을 연다.

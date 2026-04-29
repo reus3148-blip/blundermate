@@ -520,6 +520,10 @@
                 </div>
 
                 <div class="form-group settings-row settings-row--action">
+                    <button id="settingsAboutBtn" class="settings-about-btn" data-i18n="settings_about">이 앱에 대해</button>
+                </div>
+
+                <div class="form-group settings-row settings-row--action">
                     <button id="logoutBtn" class="settings-logout-btn" data-i18n="settings_logout">로그아웃</button>
                 </div>
 
@@ -529,6 +533,54 @@
                         <span id="lastPushTime" class="settings-hint settings-hint--inline">—</span>
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <!-- About Modal -->
+        <div id="aboutModal" class="modal-overlay hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 data-i18n="about_title">Blundermate</h2>
+                    <button id="closeAboutBtn" class="modal-close-btn">&times;</button>
+                </div>
+
+                <p class="about-desc" data-i18n="about_desc">체스 게임 리뷰 웹앱. PGN 또는 Chess.com에서 게임을 불러와 Stockfish 분석과 Gemini 한국어 해설을 제공합니다.</p>
+
+                <div class="about-meta-row">
+                    <span class="about-meta-label" data-i18n="about_license_label">라이선스</span>
+                    <span class="about-meta-value" data-i18n="about_license_value">GNU GPL v3.0</span>
+                </div>
+
+                <div class="about-meta-row">
+                    <span class="about-meta-label" data-i18n="about_repo">GitHub</span>
+                    <a class="about-meta-link" href="https://github.com/reus3148-blip/blundermate" target="_blank" rel="noopener noreferrer">reus3148-blip/blundermate</a>
+                </div>
+
+                <h3 class="about-section-title" data-i18n="about_credits">오픈소스</h3>
+                <p class="about-section-intro" data-i18n="about_credits_intro">본 프로젝트는 다음 오픈소스 프로젝트를 기반으로 합니다.</p>
+
+                <ul class="about-credits-list">
+                    <li>
+                        <a href="https://github.com/nmrugg/stockfish.js" target="_blank" rel="noopener noreferrer">Stockfish.js 18</a>
+                        <span class="about-credit-meta">Chess.com · GPL v3</span>
+                    </li>
+                    <li>
+                        <a href="https://github.com/lichess-org/chessground" target="_blank" rel="noopener noreferrer">Chessground</a>
+                        <span class="about-credit-meta">Lichess · GPL v3</span>
+                    </li>
+                    <li>
+                        <a href="https://github.com/jhlywa/chess.js" target="_blank" rel="noopener noreferrer">Chess.js</a>
+                        <span class="about-credit-meta">Jeff Hlywa · BSD-2-Clause</span>
+                    </li>
+                    <li>
+                        <a href="https://github.com/WintrCat/freechess" target="_blank" rel="noopener noreferrer">freechess</a>
+                        <span class="about-credit-meta">WintrCat · CC BY-NC-SA 4.0 · <span data-i18n="about_credit_freechess_note">수 분류 알고리즘 포팅</span></span>
+                    </li>
+                    <li>
+                        <a href="https://github.com/markedjs/marked" target="_blank" rel="noopener noreferrer">marked</a>
+                        <span class="about-credit-meta">MIT</span>
+                    </li>
+                </ul>
             </div>
         </div>
 

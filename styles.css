@@ -1916,7 +1916,8 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     background: rgba(154, 58, 42, 0.08);
 }
 
-.settings-feedback-btn {
+.settings-feedback-btn,
+.settings-about-btn {
     width: 100%;
     background: transparent;
     border: 1px solid var(--brd);
@@ -1928,8 +1929,97 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     cursor: pointer;
     transition: background 0.15s ease;
 }
-.settings-feedback-btn:hover {
+.settings-feedback-btn:hover,
+.settings-about-btn:hover {
     background: var(--bg-elevated);
+}
+
+/* ==========================================
+   About Modal — 프로젝트 소개 + 오픈소스 크레딧
+   ========================================== */
+.about-desc {
+    margin: 0 0 1.25rem 0;
+    color: var(--tx2);
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.about-meta-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--brd);
+    font-size: 13px;
+}
+.about-meta-row:last-of-type {
+    border-bottom: none;
+}
+.about-meta-label {
+    color: var(--tx2);
+    font-weight: 500;
+}
+.about-meta-value {
+    color: var(--tx);
+    font-weight: 600;
+    font-family: 'IBM Plex Mono', 'SF Mono', monospace;
+    font-size: 12px;
+}
+.about-meta-link {
+    color: var(--ac);
+    font-weight: 500;
+    text-decoration: none;
+    font-family: 'IBM Plex Mono', 'SF Mono', monospace;
+    font-size: 12px;
+}
+.about-meta-link:hover {
+    text-decoration: underline;
+}
+
+.about-section-title {
+    margin: 1.5rem 0 0.4rem 0;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--tx3);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+.about-section-intro {
+    margin: 0 0 0.9rem 0;
+    color: var(--tx2);
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.about-credits-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+.about-credits-list li {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--brd);
+}
+.about-credits-list li:last-child {
+    border-bottom: none;
+}
+.about-credits-list li a {
+    color: var(--tx);
+    font-weight: 600;
+    font-size: 13px;
+    text-decoration: none;
+}
+.about-credits-list li a:hover {
+    color: var(--ac);
+    text-decoration: underline;
+}
+.about-credit-meta {
+    color: var(--tx3);
+    font-size: 11px;
+    font-weight: 500;
 }
 
 .lang-toggle {
