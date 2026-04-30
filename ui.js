@@ -145,7 +145,20 @@ export function renderEngineLines(container, lines, onHover, onLeave, onClick) {
         `;
     }).join('');
 
-    container.innerHTML = linesHtml + `<p class="engine-hint">${t('ui_engine_hint')}</p>`;
+    // MultiPV=3 기준 빈 행 패딩 — 메이트/소수 합법수로 라인이 1~2개만 와도 항상 3행 유지.
+    const TARGET_ROWS = 3;
+    let placeholderHtml = '';
+    for (let i = lines.length; i < TARGET_ROWS; i++) {
+        placeholderHtml += `
+            <div class="engine-line engine-line--empty" aria-hidden="true">
+                <span class="el-rank">${i + 1}</span>
+                <span class="el-score">—</span>
+                <span class="el-moves"></span>
+            </div>
+        `;
+    }
+
+    container.innerHTML = linesHtml + placeholderHtml + `<p class="engine-hint">${t('ui_engine_hint')}</p>`;
 }
 
 function setupEngineLinesDelegation(container) {

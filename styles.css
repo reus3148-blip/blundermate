@@ -794,18 +794,23 @@ textarea:focus {
 }
 
 .preview-start-btn {
-    flex: 1;
-    height: 32px;
-    margin: 0 8px;
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    height: 36px;
+    padding: 0 16px;
     border: none;
-    border-radius: 6px;
-    background: var(--ac);
-    color: #fff;
-    font-size: 12px;
-    font-weight: 700;
+    border-radius: 8px;
+    background: var(--ac-lo);
+    color: var(--ac);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
     cursor: pointer;
+    transition: background 120ms ease;
 }
-.preview-start-btn:active { opacity: 0.85; }
+.preview-start-btn:hover { background: var(--ac-br); }
+.preview-start-btn:active { background: var(--ac-br); transform: translateX(-50%) scale(0.97); }
 
 /* Base style for action buttons in library/modals (kept for other views) */
 .control-btn {
@@ -916,6 +921,18 @@ textarea:focus {
 
 .engine-line--best {
     border-left: 2px solid rgba(43, 91, 215, 0.45);
+}
+
+.engine-line--empty {
+    cursor: default;
+    opacity: 0.4;
+}
+.engine-line--empty:hover {
+    background: transparent;
+}
+.engine-line--empty .el-score {
+    color: var(--tx2);
+    font-weight: 500;
 }
 
 .el-rank {
