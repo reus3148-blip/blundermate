@@ -8,7 +8,18 @@
       "WebFetch(domain:www.chess.com)",
       "WebFetch(domain:notjoemartinez.com)",
       "WebFetch(domain:www.chessigma.com)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(git -C /d/Workspace/blundermate status)",
+      "Bash(git -C /d/Workspace/blundermate log --oneline -3)",
+      "Bash(git -C /d/Workspace/blundermate worktree list)",
+      "Bash(git -C /d/Workspace/blundermate diff .claude/settings.local.json)",
+      "Bash(git -C /d/Workspace/blundermate push)",
+      "Bash(curl -s https://raw.githubusercontent.com/WintrCat/freechess/main/LICENSE)",
+      "Bash(curl -sSL --max-time 30 \"https://raw.githubusercontent.com/spdx/license-list-data/main/text/GPL-3.0-only.txt\" -o /d/Workspace/blundermate/LICENSE)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(git worktree *)"
     ]
   }
 }

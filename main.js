@@ -19,7 +19,7 @@ import {
 } from './modes.js';
 import { parseEvalData, getDests, convertPvToSan, parseAndLoadPgn, isValidFen, escapeHtml, parseOpeningFromPgn, formatTimeControl, formatRelativeDate, getTier, TIERS, isWhitePlayer, classifyGameResult, countMovesFromPgn } from './utils.js';
 import { renderMovesTable, updateUIWithEval, highlightActiveMove, renderEngineLines, updateTopEvalDisplay, renderReviewReport, buildPreviewCardHtml } from './ui.js';
-import { addVaultItem, getSavedGames, setMyUserId, getMyUserId, ONBOARDING_KEY, COORDS_KEY, EVAL_MODE_KEY } from './storage.js';
+import { addVaultItem, getSavedGames, setMyUserId, getMyUserId, ONBOARDING_KEY, COORDS_KEY, EVAL_MODE_KEY, computePgnHash, loadAnalysisCache, saveAnalysisCache, isCacheCompatible, ANALYSIS_CACHE_VERSION } from './storage.js';
 import { collectAutoBlunders } from './autoBlunders.js';
 import { initVault, initHomeVaultBadge, isVaultDetailActive, isVaultPuzzleActive, getVaultDetailIndex, setVaultDetailIndex, flipVaultBoard, setVaultCoords, redrawVaultBoard, loadVaultData, loadBlunderListData, redrawVaultPuzzleBoard } from './vault.js';
 import { initSavedGames, openSaveGameModalForPgn, loadSavedGamesData } from './savedGames.js';
@@ -1975,7 +1975,35 @@ function startAnalysisFromPreview() {
 
 // 풀 기반 배치 분석 실행. 진행률은 로딩 카드의 진행 바로 표시.
 // onProgress는 인덱스 순서가 아닌 완료 순서로 호출되므로 단순 카운트만 사용.
-function processNextInQueue() {
+// 진입 시 (user_id, pgn_hash) 캐시 조회 — hit이면 Stockfish 생략하고 hydrate 후 finalize.
+async function processNextInQueue() {
+    // 풀게임 PGN인 경우만 캐시 시도. FEN 단독은 휘발성 분석으로 캐시 안 함.
+    const isFenOnly = analysisQueue.length === 1 && analysisQueue[0]?.isFenOnly;
+    if (!isFenOnly && analysisQueue.length > 0) {
+        const pgn = chess.pgn();
+        if (pgn) {
+            try {
+                const pgnHash = await computePgnHash(pgn);
+                const cache = await loadAnalysisCache(pgnHash);
+                if (cache && isCacheCompatible(cache, getDepth()) && cache.moves.length === analysisQueue.length) {
+                    // 캐시 히트 — engineLines/classification 즉시 hydrate, 진행바 풀로 점프
+                    for (let i = 0; i < analysisQueue.length; i++) {
+                        const cached = cache.moves[i];
+                        if (!cached) continue;
+                        analysisQueue[i].engineLines = cached.engineLines || [];
+                        analysisQueue[i].classification = cached.classification;
+                    }
+                    setLoadingProgress(analysisQueue.length, analysisQueue.length);
+                    _finalizeAnalysisRun({ fromCache: true });
+                    return;
+                }
+            } catch (e) {
+                console.log('Analysis cache lookup failed:', e);
+                // fallthrough: 엔진 분석 정상 진행
+            }
+        }
+    }
+
     runBatch({
         onProgress: () => {
             _completedCount++;
@@ -1986,41 +2014,74 @@ function processNextInQueue() {
             analyzeBtn.disabled = false;
             exitAnalysisLoading();
         },
-        onComplete: () => {
-            analyzeBtn.disabled = false;
-            // 모든 포지션 engineLines/classification이 채워진 상태 — 분석 화면 행/UI 일괄 갱신
-            for (let i = 0; i < analysisQueue.length; i++) {
-                const move = analysisQueue[i];
-                if (!move.classification) continue;
-                const topScore = move.engineLines && move.engineLines[0] ? move.engineLines[0].scoreStr : '';
-                updateUIWithEval(i, topScore, move.classification);
-            }
-            exitAnalysisLoading();
-            // FEN 단일 포지션 분석은 리뷰 화면이 없으므로 그 자리에 머문다
-            const isFenOnly = analysisQueue.length === 1 && analysisQueue[0]?.isFenOnly;
-            if (!isFenOnly) {
-                // 자동 블런더 수집 — 풀게임 분석에 한해. 토스트 없이 백그라운드.
-                collectAutoBlunders({
-                    pgn: chess.pgn(),
-                    queue: analysisQueue,
-                    isUserWhite,
-                    headers: chess.header() || {},
-                });
-                // 분석 완료 시 보드는 시작 포지션, 리뷰 화면 자동 진입.
-                // updateBoardPosition이 isReviewMode를 끄므로 그 후에 켠다.
-                updateBoardPosition(-1, chess.header().FEN || 'start');
-                setIsReviewMode(true);
-                applyReviewView();
-            } else if (analysisQueue[0]) {
-                // FEN 단일: 보드는 그 포지션에 고정, 평가/라인을 패널에 즉시 반영
-                const move = analysisQueue[0];
-                const topLine = move.engineLines && move.engineLines[0] ? move.engineLines[0] : null;
-                updateTopEvalDisplay(topLine?.scoreStr || '', move.classification, isUserWhite);
-                if (move.engineLines && move.engineLines.length > 0) {
-                    renderEngineLines(engineLinesContainer, move.engineLines.filter(Boolean), drawEngineArrow, clearEngineArrow, handleEngineLineClick);
-                }
-            }
-        },
+        onComplete: () => _finalizeAnalysisRun({ fromCache: false }),
+    });
+}
+
+// 분석 결과를 화면에 일괄 반영. runBatch 정상 완료 / 캐시 히트 양쪽에서 호출됨.
+// fromCache=false일 때만 캐시 저장 시도(중복 저장 방지).
+function _finalizeAnalysisRun({ fromCache }) {
+    analyzeBtn.disabled = false;
+    // 모든 포지션 engineLines/classification이 채워진 상태 — 분석 화면 행/UI 일괄 갱신
+    for (let i = 0; i < analysisQueue.length; i++) {
+        const move = analysisQueue[i];
+        if (!move.classification) continue;
+        const topScore = move.engineLines && move.engineLines[0] ? move.engineLines[0].scoreStr : '';
+        updateUIWithEval(i, topScore, move.classification);
+    }
+    exitAnalysisLoading();
+    // FEN 단일 포지션 분석은 리뷰 화면이 없으므로 그 자리에 머문다
+    const isFenOnly = analysisQueue.length === 1 && analysisQueue[0]?.isFenOnly;
+    if (!isFenOnly) {
+        // 새 분석 결과면 캐시 저장 (fire-and-forget). 캐시 hit이었으면 스킵.
+        if (!fromCache) {
+            _persistAnalysisCache().catch(e => console.log('Save analysis cache failed:', e));
+        }
+        // 자동 블런더 수집 — 풀게임 분석에 한해. 토스트 없이 백그라운드.
+        collectAutoBlunders({
+            pgn: chess.pgn(),
+            queue: analysisQueue,
+            isUserWhite,
+            headers: chess.header() || {},
+        });
+        // 분석 완료 시 보드는 시작 포지션, 리뷰 화면 자동 진입.
+        // updateBoardPosition이 isReviewMode를 끄므로 그 후에 켠다.
+        updateBoardPosition(-1, chess.header().FEN || 'start');
+        setIsReviewMode(true);
+        applyReviewView();
+    } else if (analysisQueue[0]) {
+        // FEN 단일: 보드는 그 포지션에 고정, 평가/라인을 패널에 즉시 반영
+        const move = analysisQueue[0];
+        const topLine = move.engineLines && move.engineLines[0] ? move.engineLines[0] : null;
+        updateTopEvalDisplay(topLine?.scoreStr || '', move.classification, isUserWhite);
+        if (move.engineLines && move.engineLines.length > 0) {
+            renderEngineLines(engineLinesContainer, move.engineLines.filter(Boolean), drawEngineArrow, clearEngineArrow, handleEngineLineClick);
+        }
+    }
+}
+
+// analyzed_games(user_id, pgn_hash)에 분석 결과 캐시 저장. 페이로드는 포지션별 engineLines + classification.
+// fen/san 등 메타는 PGN 재replay로 복원 가능하므로 미포함 — 페이로드 크기 절감.
+async function _persistAnalysisCache() {
+    const pgn = chess.pgn();
+    if (!pgn) return;
+    const pgnHash = await computePgnHash(pgn);
+    const headers = chess.header() || {};
+    const playedDate = headers.UTCDate || headers.Date || null;
+    const payload = {
+        version: ANALYSIS_CACHE_VERSION,
+        depth: getDepth(),
+        moves: analysisQueue.map(m => ({
+            engineLines: m.engineLines || [],
+            classification: m.classification || null,
+        })),
+    };
+    await saveAnalysisCache({
+        pgn,
+        pgnHash,
+        headersJson: headers,
+        playedDate,
+        payload,
     });
 }
 

@@ -105,3 +105,33 @@ where v.analyzed_game_id = ag.id
 ```
 
 옛 수동 항목(PGN 헤더에 날짜 있음)은 SQL로 못 뽑으니 NULL 유지 — 새 저장부터만 채워짐.
+
+---
+
+# analyzed_games 분석 결과 캐시 (재분석 스킵용)
+
+같은 사용자가 같은 게임(`pgn_hash` 일치)을 다시 열 때 Stockfish/Gemini 재실행을 피하기 위해 분석 결과 자체를 보관. `pgn_hash`는 이미 unique 키라 추가 인덱스 불필요.
+
+```sql
+alter table public.analyzed_games
+  add column if not exists analysis_json jsonb,
+  add column if not exists analysis_depth smallint,
+  add column if not exists analysis_version smallint;
+```
+
+**컬럼 용도:**
+- `analysis_json`: 포지션별 `engineLines`(top 3 PV) + `classification`을 담은 배열. fen/san/turn 등은 클라이언트에서 PGN 재replay로 복원하므로 저장 안 함.
+- `analysis_depth`: 캐시 생성 시 사용한 엔진 depth. 사용자의 현재 depth 설정이 더 깊으면 재분석.
+- `analysis_version`: 캐시 포맷 버전. classifyMove 알고리즘이나 스키마 바뀌면 bump해서 자동 무효화.
+
+**페이로드 크기:** 80수 게임 기준 평균 20-40KB. JSONB 압축 기준 한 사용자 1만 게임 = ~200-400MB (무료 티어 500MB 안에서 큰 풀 사용자도 수용 가능).
+
+**롤백:**
+```sql
+alter table public.analyzed_games
+  drop column if exists analysis_json,
+  drop column if exists analysis_depth,
+  drop column if exists analysis_version;
+```
+
+옛 행은 세 컬럼이 NULL → 클라이언트에서 cache miss로 처리되고 분석 후 채워짐 (lazy fill).

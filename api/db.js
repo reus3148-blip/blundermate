@@ -114,6 +114,31 @@ export default async function handler(req) {
             });
         }
 
+        if (action === 'upsert') {
+            // analyzed_games 전용 — UNIQUE(user_id, pgn_hash) 충돌 시 merge.
+            // 클라이언트에서 행 생성 + 캐시 갱신을 한 번의 호출로 묶어 INSERT/UPDATE 레이스 제거.
+            // INSERT 검증과 동일한 user_id 일치성 체크.
+            if (table !== 'analyzed_games') {
+                return new Response(JSON.stringify({ error: 'upsert only supported on analyzed_games' }), {
+                    status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+                });
+            }
+            if (!user_id || !normalizedData || normalizedData.user_id !== user_id) {
+                return new Response(JSON.stringify({ error: 'user_id mismatch or missing' }), {
+                    status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+                });
+            }
+            const url = `${supabaseUrl}/rest/v1/${table}`;
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: { ...sbHeaders, 'Prefer': 'return=minimal, resolution=merge-duplicates' },
+                body: JSON.stringify(normalizedData),
+            });
+            return new Response(JSON.stringify({ ok: res.ok }), {
+                status: res.ok ? 200 : res.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            });
+        }
+
         return new Response(JSON.stringify({ error: 'Unknown action' }), {
             status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });

@@ -174,7 +174,7 @@ body {
    Home View: State A — Hero
    ========================================== */
 .home-hero {
-    padding: 28px 18px 4px;
+    padding: 28px 16px 4px;
     flex-shrink: 0;
 }
 
@@ -575,7 +575,7 @@ body.moves-overlay-open .input-pgn-area {
     display: grid;
     grid-template-columns: 1fr auto 1fr;
     align-items: center;
-    padding: 0 0.75rem;
+    padding: 0 16px;
     height: var(--topbar-height);
     background: var(--bg-surface);
     border-bottom: 1px solid var(--brd);
@@ -1414,7 +1414,7 @@ th {
 .pill-filter-bar--home .pill-btn.selected {
     background: transparent;
     border-color: transparent;
-    color: var(--ac);
+    color: var(--tx);
     font-weight: 600;
 }
 
@@ -1425,12 +1425,12 @@ th {
     right: 0;
     bottom: 0;
     height: 2px;
-    background: var(--ac);
+    background: var(--tx);
     border-radius: 1px;
 }
 
 .pill-filter-bar--home .pill-btn.selected:hover {
-    color: var(--ac);
+    color: var(--tx);
     border-color: transparent;
 }
 
@@ -1444,6 +1444,53 @@ th {
     width: 1px;
     height: 12px;
     background: var(--brd2);
+}
+
+/* Scope 필터바 (Saved Games 등): 전폭 text-tab 패턴 — vault-filter-tabs와 결 동일.
+   space-between으로 첫 버튼 좌측 rail, 마지막 버튼 우측 rail에 정렬되어 시각적 가로 균형. */
+.pill-filter-bar--scope {
+    padding: 4px 16px 6px;
+    gap: 16px;
+    height: 32px;
+    box-sizing: border-box;
+    align-items: center;
+    justify-content: space-between;
+}
+.pill-filter-bar--scope .pill-btn {
+    height: auto;
+    padding: 4px 0 6px;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    color: var(--tx3);
+    font-weight: 500;
+    font-size: 13px;
+    line-height: 20px;
+    letter-spacing: -0.01em;
+    position: relative;
+}
+.pill-filter-bar--scope .pill-btn:hover {
+    color: var(--tx2);
+    border-color: transparent;
+}
+.pill-filter-bar--scope .pill-btn.selected {
+    background: transparent;
+    border-color: transparent;
+    color: var(--tx);
+    font-weight: 600;
+}
+.pill-filter-bar--scope .pill-btn.selected::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 2px;
+    background: var(--tx);
+    border-radius: 1px;
+}
+.pill-filter-bar--scope .pill-btn.selected:hover {
+    color: var(--tx);
 }
 
 /* 통계 화면 필터: iOS 세그먼트 컨트롤 스타일 (Apple Health 패턴).
@@ -1519,15 +1566,28 @@ th {
    ========================================== */
 .saved-game-card {
     background: var(--bg-surface);
-    border: 1px solid var(--brd2);
-    border-radius: 8px;
-    padding: 14px 16px;
+    border: none;
+    border-radius: 10px;
+    padding: 12px 16px;
     cursor: pointer;
-    transition: border-color 0.15s ease;
+    -webkit-tap-highlight-color: transparent;
+    box-shadow:
+        0 1px 2px rgba(28, 29, 31, 0.04),
+        0 0 0 1px rgba(28, 29, 31, 0.04);
+    transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.saved-game-card:hover {
+    box-shadow:
+        0 2px 6px rgba(28, 29, 31, 0.06),
+        0 0 0 1px rgba(28, 29, 31, 0.08);
 }
 
 .saved-game-card:active {
-    border-color: var(--ac-br, var(--ac));
+    transform: scale(0.997);
+    box-shadow:
+        0 1px 2px rgba(28, 29, 31, 0.04),
+        0 0 0 1px rgba(43, 91, 215, 0.18);
 }
 
 .saved-game-card-top {
@@ -1550,12 +1610,11 @@ th {
 .saved-game-card-pill {
     flex-shrink: 0;
     font-size: 10px;
-    font-weight: 500;
-    padding: 2px 8px;
-    border-radius: 20px;
-    background: var(--ac-lo);
-    border: 1px solid var(--ac-br, var(--ac));
-    color: var(--ac);
+    font-weight: 600;
+    padding: 0;
+    color: var(--tx3);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
     white-space: nowrap;
 }
 
@@ -2105,6 +2164,28 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
 .feedback-send-btn:hover { opacity: 0.85; }
 .feedback-send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
+.feedback-textarea {
+    min-height: 120px;
+    font-family: inherit;
+    font-size: 0.9rem;
+    padding: 12px;
+    resize: none;
+}
+
+.feedback-status-row {
+    margin-top: 20px;
+}
+
+.feedback-status-text {
+    width: 100%;
+    font-size: 0.85rem;
+    color: var(--tx2);
+}
+
+.feedback-action-row {
+    margin-top: 10px;
+}
+
 /* ==========================================
    Utility & Modal Helpers
    ========================================== */
@@ -2639,7 +2720,7 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     align-items: center;
     flex-wrap: wrap;
     gap: 9px;
-    padding: 4px 14px 10px 10px;
+    padding: 4px 16px 10px;
 }
 
 .home-recent-back {

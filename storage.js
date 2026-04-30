@@ -357,3 +357,105 @@ export async function getAnalyzedGameById(id) {
     }
     return null;
 }
+
+// ── Analysis Cache ────────────────────────────────────────────────
+// 같은 (user_id, pgn_hash)의 게임을 다시 열 때 Stockfish/Gemini 재실행 스킵.
+// localStorage 우선(비로그인 사용자 + 빠른 hit) + Supabase 백업(멀티 디바이스).
+// 캐시 페이로드 = { version, depth, moves: [{ engineLines, classification }, ...] }
+
+export const ANALYSIS_CACHE_VERSION = 1;
+
+// 캐시가 현재 분석 환경(요청 depth + 스키마 버전)과 호환되는지 판정.
+// version 불일치(알고리즘 변경)면 미스. depth가 cache보다 높게 요청되면 미스(더 깊은 분석 필요).
+export function isCacheCompatible(cache, requiredDepth) {
+    if (!cache || typeof cache !== 'object') return false;
+    if (cache.version !== ANALYSIS_CACHE_VERSION) return false;
+    if (typeof cache.depth !== 'number') return false;
+    if (typeof requiredDepth === 'number' && cache.depth < requiredDepth) return false;
+    if (!Array.isArray(cache.moves) || cache.moves.length === 0) return false;
+    return true;
+}
+
+// 캐시 조회 — pgnHash 기준. localStorage hit이면 즉시 반환.
+// userId가 있고 local miss면 Supabase 시도.
+export async function loadAnalysisCache(pgnHash) {
+    if (!pgnHash) return null;
+
+    // 1. localStorage 먼저
+    const local = _getAnalyzedGamesSync().find(g => g.pgn_hash === pgnHash);
+    if (local && local.analysis_json) {
+        return local.analysis_json;
+    }
+
+    // 2. Supabase 시도
+    const userId = getMyUserId();
+    if (!userId) return null;
+    try {
+        const data = await callDB('select', 'analyzed_games', {
+            user_id: userId,
+            filter: { pgn_hash: pgnHash },
+        });
+        if (Array.isArray(data) && data.length > 0 && data[0].analysis_json) {
+            // 로컬 캐시도 업데이트 (다음 hit 빠르게)
+            const cache = _getAnalyzedGamesSync();
+            const idx = cache.findIndex(g => g.pgn_hash === pgnHash);
+            if (idx >= 0) {
+                cache[idx] = { ...cache[idx], ...data[0] };
+            } else {
+                cache.push(data[0]);
+            }
+            try { localStorage.setItem(ANALYZED_GAMES_KEY, JSON.stringify(cache)); } catch {}
+            return data[0].analysis_json;
+        }
+    } catch (e) {
+        console.log('Supabase analysis cache fetch failed', e);
+    }
+    return null;
+}
+
+// 캐시 저장 — localStorage에 행 직접 보장 + Supabase upsert 한 번으로 행 생성/병합.
+// 이전 구현은 upsertAnalyzedGame(INSERT fire-and-forget) + 별도 UPDATE 호출이라 두 요청이
+// 레이스로 도착 순서 뒤집힐 수 있었음. upsert(merge-duplicates) 단일 호출로 race 제거.
+export async function saveAnalysisCache({ pgn, pgnHash, headersJson, playedDate, payload }) {
+    if (!pgnHash || !payload) return;
+
+    const cachePatch = {
+        analysis_json: payload,
+        analysis_depth: payload.depth,
+        analysis_version: payload.version,
+    };
+
+    // localStorage — 행이 있으면 patch, 없으면 신규 행으로 push. 이 시점에서 row.id 확정.
+    let row;
+    try {
+        const cache = _getAnalyzedGamesSync();
+        row = cache.find(g => g.pgn_hash === pgnHash);
+        if (row) {
+            Object.assign(row, cachePatch);
+        } else {
+            row = {
+                id: crypto.randomUUID(),
+                pgn,
+                pgn_hash: pgnHash,
+                headers_json: headersJson || null,
+                played_date: playedDate || null,
+                created_at: new Date().toISOString(),
+                ...cachePatch,
+            };
+            cache.push(row);
+        }
+        localStorage.setItem(ANALYZED_GAMES_KEY, JSON.stringify(cache));
+    } catch (e) {
+        console.error('Failed to save analysis cache to localStorage:', e);
+        return;
+    }
+
+    // Supabase — UNIQUE(user_id, pgn_hash) 충돌 시 merge. fire-and-forget.
+    // autoBlunders.js의 별도 INSERT와 동시 발생해도 양쪽 다 merge되어 row 보장.
+    const userId = getMyUserId();
+    if (!userId) return;
+    callDB('upsert', 'analyzed_games', {
+        user_id: userId,
+        data: { ...row, user_id: userId },
+    }).catch(e => console.log('Supabase analysis cache upsert failed', e));
+}

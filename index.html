@@ -387,7 +387,7 @@
             <span class="top-bar-title" data-i18n="savedGames">Saved Games</span>
             <div class="top-bar-spacer"></div>
         </div>
-        <div id="savedGamesFilterBar" class="pill-filter-bar">
+        <div id="savedGamesFilterBar" class="pill-filter-bar pill-filter-bar--scope">
             <button type="button" class="pill-btn selected" data-filter="all" data-i18n="saved_games_filter_all">전체</button>
             <button type="button" class="pill-btn" data-filter="my_game" data-i18n="saved_games_cat_my_game">내 실전 게임</button>
             <button type="button" class="pill-btn" data-filter="otb" data-i18n="saved_games_cat_otb">오프라인 게임</button>
@@ -445,12 +445,12 @@
                     <button id="closeFeedbackBtn" class="modal-close-btn">✕</button>
                 </div>
                 <div class="form-group">
-                    <textarea id="feedbackInput" class="text-input" placeholder="웹사이트에 대한 의견이나 버그를 자유롭게 남겨주세요..." style="min-height: 120px; font-family: inherit; font-size: 0.9rem; padding: 12px; resize: none;"></textarea>
+                    <textarea id="feedbackInput" class="text-input feedback-textarea" placeholder="웹사이트에 대한 의견이나 버그를 자유롭게 남겨주세요..."></textarea>
                 </div>
-                <div class="modal-actions modal-actions--spread" style="margin-top:20px;">
-                    <div id="feedbackStatusText" style="font-size: 0.85rem; color: var(--tx2); width: 100%;"></div>
+                <div class="modal-actions modal-actions--spread feedback-status-row">
+                    <div id="feedbackStatusText" class="feedback-status-text"></div>
                 </div>
-                <div class="modal-actions" style="margin-top: 10px;">
+                <div class="modal-actions feedback-action-row">
                     <button id="cancelFeedbackBtn" class="feedback-cancel-btn" data-i18n="cancel">취소</button>
                     <button id="submitFeedbackBtn" class="feedback-send-btn" data-i18n="feedback_send">전송</button>
                 </div>
