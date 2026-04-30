@@ -2033,17 +2033,20 @@ function _finalizeAnalysisRun({ fromCache }) {
     // FEN 단일 포지션 분석은 리뷰 화면이 없으므로 그 자리에 머문다
     const isFenOnly = analysisQueue.length === 1 && analysisQueue[0]?.isFenOnly;
     if (!isFenOnly) {
-        // 새 분석 결과면 캐시 저장 (fire-and-forget). 캐시 hit이었으면 스킵.
-        if (!fromCache) {
-            _persistAnalysisCache().catch(e => console.log('Save analysis cache failed:', e));
-        }
         // 자동 블런더 수집 — 풀게임 분석에 한해. 토스트 없이 백그라운드.
-        collectAutoBlunders({
+        // 내부에서 upsertAnalyzedGame이 Supabase INSERT까지 await하므로 완료 시점에 행 존재 보장.
+        // 새 분석이면 그 후 캐시 PATCH chain — 행이 있으니 PATCH가 의미 있게 동작.
+        const autoPromise = collectAutoBlunders({
             pgn: chess.pgn(),
             queue: analysisQueue,
             isUserWhite,
             headers: chess.header() || {},
         });
+        if (!fromCache) {
+            autoPromise
+                .then(() => _persistAnalysisCache())
+                .catch(e => console.log('Save analysis cache failed:', e));
+        }
         // 분석 완료 시 보드는 시작 포지션, 리뷰 화면 자동 진입.
         // updateBoardPosition이 isReviewMode를 끄므로 그 후에 켠다.
         updateBoardPosition(-1, chess.header().FEN || 'start');
@@ -2060,14 +2063,13 @@ function _finalizeAnalysisRun({ fromCache }) {
     }
 }
 
-// analyzed_games(user_id, pgn_hash)에 분석 결과 캐시 저장. 페이로드는 포지션별 engineLines + classification.
+// analyzed_games(user_id, pgn_hash)에 분석 결과 캐시 PATCH. 페이로드는 포지션별 engineLines + classification.
 // fen/san 등 메타는 PGN 재replay로 복원 가능하므로 미포함 — 페이로드 크기 절감.
+// 호출 시점: collectAutoBlunders 완료 후 (행 존재 보장).
 async function _persistAnalysisCache() {
     const pgn = chess.pgn();
     if (!pgn) return;
     const pgnHash = await computePgnHash(pgn);
-    const headers = chess.header() || {};
-    const playedDate = headers.UTCDate || headers.Date || null;
     const payload = {
         version: ANALYSIS_CACHE_VERSION,
         depth: getDepth(),
@@ -2076,13 +2078,7 @@ async function _persistAnalysisCache() {
             classification: m.classification || null,
         })),
     };
-    await saveAnalysisCache({
-        pgn,
-        pgnHash,
-        headersJson: headers,
-        playedDate,
-        payload,
-    });
+    await saveAnalysisCache({ pgnHash, payload });
 }
 
 // ==========================================

@@ -323,11 +323,17 @@ export async function upsertAnalyzedGame({ pgn, pgnHash, headersJson, playedDate
     local.push(row);
     try { localStorage.setItem(ANALYZED_GAMES_KEY, JSON.stringify(local)); } catch {}
 
+    // Supabase INSERT를 await하여 후속 PATCH(saveAnalysisCache)가 행 존재를 전제할 수 있게 함.
+    // 충돌(409)이나 네트워크 실패는 catch에서 흡수 — localStorage row는 이미 보장.
     if (userId) {
-        callDB('insert', 'analyzed_games', {
-            user_id: userId,
-            data: { ...row, user_id: userId },
-        }).catch(e => console.log('Supabase analyzed_games insert failed', e));
+        try {
+            await callDB('insert', 'analyzed_games', {
+                user_id: userId,
+                data: { ...row, user_id: userId },
+            });
+        } catch (e) {
+            console.log('Supabase analyzed_games insert failed', e);
+        }
     }
     return id;
 }
@@ -413,10 +419,14 @@ export async function loadAnalysisCache(pgnHash) {
     return null;
 }
 
-// 캐시 저장 — localStorage에 행 직접 보장 + Supabase upsert 한 번으로 행 생성/병합.
-// 이전 구현은 upsertAnalyzedGame(INSERT fire-and-forget) + 별도 UPDATE 호출이라 두 요청이
-// 레이스로 도착 순서 뒤집힐 수 있었음. upsert(merge-duplicates) 단일 호출로 race 제거.
-export async function saveAnalysisCache({ pgn, pgnHash, headersJson, playedDate, payload }) {
+// 캐시 저장 — analyzed_games 행은 collectAutoBlunders.upsertAnalyzedGame가 이미 생성/보장.
+// 이 함수는 그 행에 PATCH로 캐시 컬럼만 갱신. main.js에서 collectAutoBlunders 완료 후 호출 필수.
+//
+// 이전 시도(upsert + merge-duplicates)는 PostgREST가 default로 PK(id) 기준 충돌 판정하는데
+// 매번 새 uuid를 보내 PK 충돌이 안 나고 그대로 INSERT → UNIQUE(user_id, pgn_hash) 위반 → 409.
+// on_conflict 명시도 가능했지만 충돌 시 id까지 덮어쓰여 vault_items.analyzed_game_id가 dangling되는
+// 부작용이 있어 단순 PATCH로 회귀.
+export async function saveAnalysisCache({ pgnHash, payload }) {
     if (!pgnHash || !payload) return;
 
     const cachePatch = {
@@ -425,37 +435,24 @@ export async function saveAnalysisCache({ pgn, pgnHash, headersJson, playedDate,
         analysis_version: payload.version,
     };
 
-    // localStorage — 행이 있으면 patch, 없으면 신규 행으로 push. 이 시점에서 row.id 확정.
-    let row;
+    // localStorage 즉시 반영 — collectAutoBlunders가 행을 만들었으니 idx >= 0이어야 정상.
     try {
         const cache = _getAnalyzedGamesSync();
-        row = cache.find(g => g.pgn_hash === pgnHash);
-        if (row) {
-            Object.assign(row, cachePatch);
-        } else {
-            row = {
-                id: crypto.randomUUID(),
-                pgn,
-                pgn_hash: pgnHash,
-                headers_json: headersJson || null,
-                played_date: playedDate || null,
-                created_at: new Date().toISOString(),
-                ...cachePatch,
-            };
-            cache.push(row);
+        const idx = cache.findIndex(g => g.pgn_hash === pgnHash);
+        if (idx >= 0) {
+            cache[idx] = { ...cache[idx], ...cachePatch };
+            localStorage.setItem(ANALYZED_GAMES_KEY, JSON.stringify(cache));
         }
-        localStorage.setItem(ANALYZED_GAMES_KEY, JSON.stringify(cache));
     } catch (e) {
         console.error('Failed to save analysis cache to localStorage:', e);
-        return;
     }
 
-    // Supabase — UNIQUE(user_id, pgn_hash) 충돌 시 merge. fire-and-forget.
-    // autoBlunders.js의 별도 INSERT와 동시 발생해도 양쪽 다 merge되어 row 보장.
+    // Supabase PATCH — 행이 이미 있으니 fire-and-forget. 0 rows affected면 silent skip.
     const userId = getMyUserId();
     if (!userId) return;
-    callDB('upsert', 'analyzed_games', {
+    callDB('update', 'analyzed_games', {
         user_id: userId,
-        data: { ...row, user_id: userId },
-    }).catch(e => console.log('Supabase analysis cache upsert failed', e));
+        filter: { pgn_hash: pgnHash },
+        data: cachePatch,
+    }).catch(e => console.log('Supabase analysis cache update failed', e));
 }

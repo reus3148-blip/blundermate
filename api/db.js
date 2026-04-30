@@ -114,25 +114,36 @@ export default async function handler(req) {
             });
         }
 
-        if (action === 'upsert') {
-            // analyzed_games 전용 — UNIQUE(user_id, pgn_hash) 충돌 시 merge.
-            // 클라이언트에서 행 생성 + 캐시 갱신을 한 번의 호출로 묶어 INSERT/UPDATE 레이스 제거.
-            // INSERT 검증과 동일한 user_id 일치성 체크.
+        if (action === 'update') {
+            // analyzed_games 캐시 PATCH 전용. (user_id, pgn_hash) 조합으로 행 식별.
+            // 화이트리스트로 캐시 컬럼만 갱신 — pgn/headers_json/id 등 다른 컬럼은 클라이언트에서 변경 불가.
+            // 호출자가 행 존재를 보장(collectAutoBlunders가 먼저 INSERT 완료)해야 의미 있는 작업.
             if (table !== 'analyzed_games') {
-                return new Response(JSON.stringify({ error: 'upsert only supported on analyzed_games' }), {
+                return new Response(JSON.stringify({ error: 'update only supported on analyzed_games' }), {
                     status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
                 });
             }
-            if (!user_id || !normalizedData || normalizedData.user_id !== user_id) {
-                return new Response(JSON.stringify({ error: 'user_id mismatch or missing' }), {
+            const pgnHash = filter?.pgn_hash;
+            if (!user_id || !pgnHash || !data) {
+                return new Response(JSON.stringify({ error: 'user_id, filter.pgn_hash and data required' }), {
                     status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
                 });
             }
-            const url = `${supabaseUrl}/rest/v1/${table}`;
+            const ALLOWED_UPDATE_COLS = ['analysis_json', 'analysis_depth', 'analysis_version'];
+            const patch = {};
+            for (const [col, val] of Object.entries(data)) {
+                if (ALLOWED_UPDATE_COLS.includes(col)) patch[col] = val;
+            }
+            if (Object.keys(patch).length === 0) {
+                return new Response(JSON.stringify({ error: 'no allowed columns to update' }), {
+                    status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+                });
+            }
+            const url = `${supabaseUrl}/rest/v1/${table}?user_id=eq.${encodeURIComponent(user_id)}&pgn_hash=eq.${encodeURIComponent(pgnHash)}`;
             const res = await fetch(url, {
-                method: 'POST',
-                headers: { ...sbHeaders, 'Prefer': 'return=minimal, resolution=merge-duplicates' },
-                body: JSON.stringify(normalizedData),
+                method: 'PATCH',
+                headers: { ...sbHeaders, 'Prefer': 'return=minimal' },
+                body: JSON.stringify(patch),
             });
             return new Response(JSON.stringify({ ok: res.ok }), {
                 status: res.ok ? 200 : res.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
