@@ -22,7 +22,7 @@ import { renderMovesTable, updateUIWithEval, highlightActiveMove, renderEngineLi
 import { addVaultItem, getSavedGames, setMyUserId, getMyUserId, ONBOARDING_KEY, COORDS_KEY, EVAL_MODE_KEY, computePgnHash, loadAnalysisCache, saveAnalysisCache, isCacheCompatible, ANALYSIS_CACHE_VERSION } from './storage.js';
 import { collectAutoBlunders } from './autoBlunders.js';
 import { initVault, initHomeVaultBadge, isVaultDetailActive, isVaultPuzzleActive, getVaultDetailIndex, setVaultDetailIndex, flipVaultBoard, setVaultCoords, redrawVaultBoard, loadVaultData, loadBlunderListData, redrawVaultPuzzleBoard } from './vault.js';
-import { initSavedGames, openSaveGameModalForPgn, loadSavedGamesData } from './savedGames.js';
+import { initSavedGames, loadSavedGamesData } from './savedGames.js';
 import { initInsights, loadInsightsData } from './insights.js';
 import {
     initGemini, handleGeminiExplanation, renderAiTabContent,
