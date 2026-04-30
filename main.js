@@ -1824,13 +1824,12 @@ function startNewAnalysis(newQueue, targetIndex = null, previewOnly = false) {
         return;
     }
 
-    enterAnalysisLoading();
-
     if (analysisQueue.length > 0 && targetIndex != null && targetIndex >= 0 && targetIndex < analysisQueue.length) {
         updateBoardPosition(targetIndex, analysisQueue[targetIndex].fen);
     }
 
-    // runBatch 내부에서 풀 ready를 await하므로 단일 엔진 readiness 체크는 불필요.
+    // 로딩 카드 진입은 processNextInQueue 내부에서 cache miss 분기에만 실행.
+    // cache hit이면 로딩 카드 깜빡임 없이 바로 리뷰 화면으로 전환.
     processNextInQueue();
 }
 
@@ -1969,13 +1968,15 @@ function exitAnalysisLoading() {
 function startAnalysisFromPreview() {
     setIsPreviewMode(false);
     removePreviewControls();
-    enterAnalysisLoading();
+    // enterAnalysisLoading은 processNextInQueue가 cache miss 분기에서 호출.
     processNextInQueue();
 }
 
 // 풀 기반 배치 분석 실행. 진행률은 로딩 카드의 진행 바로 표시.
 // onProgress는 인덱스 순서가 아닌 완료 순서로 호출되므로 단순 카운트만 사용.
-// 진입 시 (user_id, pgn_hash) 캐시 조회 — hit이면 Stockfish 생략하고 hydrate 후 finalize.
+//
+// 진입 시 (user_id, pgn_hash) 캐시 조회 — hit이면 로딩 카드 없이 즉시 hydrate + finalize.
+// miss일 때만 enterAnalysisLoading 호출하여 Stockfish 진행. 캐시 hit은 로딩 깜빡임 없이 직진.
 async function processNextInQueue() {
     // 풀게임 PGN인 경우만 캐시 시도. FEN 단독은 휘발성 분석으로 캐시 안 함.
     const isFenOnly = analysisQueue.length === 1 && analysisQueue[0]?.isFenOnly;
@@ -1986,14 +1987,13 @@ async function processNextInQueue() {
                 const pgnHash = await computePgnHash(pgn);
                 const cache = await loadAnalysisCache(pgnHash);
                 if (cache && isCacheCompatible(cache, getDepth()) && cache.moves.length === analysisQueue.length) {
-                    // 캐시 히트 — engineLines/classification 즉시 hydrate, 진행바 풀로 점프
+                    // 캐시 히트 — engineLines/classification 즉시 hydrate. 로딩 카드 미진입.
                     for (let i = 0; i < analysisQueue.length; i++) {
                         const cached = cache.moves[i];
                         if (!cached) continue;
                         analysisQueue[i].engineLines = cached.engineLines || [];
                         analysisQueue[i].classification = cached.classification;
                     }
-                    setLoadingProgress(analysisQueue.length, analysisQueue.length);
                     _finalizeAnalysisRun({ fromCache: true });
                     return;
                 }
@@ -2003,6 +2003,9 @@ async function processNextInQueue() {
             }
         }
     }
+
+    // Cache miss (또는 FEN 단독) → 이제부터 Stockfish 분석. 로딩 카드 진입.
+    enterAnalysisLoading();
 
     runBatch({
         onProgress: () => {
