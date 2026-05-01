@@ -45,6 +45,19 @@ const vaultPuzzleBoard = document.getElementById('vaultPuzzleBoard');
 const vaultPuzzleFeedback = document.getElementById('vaultPuzzleFeedback');
 const vaultPuzzleNextBtn = document.getElementById('vaultPuzzleNextBtn');
 
+// 두 vault 필터 탭 컨테이너에 동일한 옵션(블런더/메이트/기타)을 #vaultFilterTabsTemplate에서 clone.
+// HTML 중복 제거 — 옵션 변경 시 template 한 곳만 수정.
+{
+    const tpl = document.getElementById('vaultFilterTabsTemplate');
+    if (tpl) {
+        for (const target of [vaultPuzzleFilterTabs, vaultBlunderFilterTabs]) {
+            if (target && !target.children.length) {
+                target.appendChild(tpl.content.cloneNode(true));
+            }
+        }
+    }
+}
+
 // ==========================================
 // State
 // ==========================================
