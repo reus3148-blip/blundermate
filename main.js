@@ -195,6 +195,11 @@ let cachedHomeGames = [];
 let homeTimeClassFilter = 'rapid';
 // 현재 표시 중인 유저의 chess.com 레이팅 (rapid/blitz/bullet). 필터 변경 시 프로필 카드 갱신용.
 let homeProfileRatings = null;
+// 홈 게임 목록 무한 스크롤 — 한 번에 보일 카드 수 + 다음 batch 크기. 스크롤 바닥에서 자동 append.
+const HOME_RECENT_PAGE_SIZE = 15;
+let homeRecentVisibleCount = HOME_RECENT_PAGE_SIZE;
+// 현재 렌더 컨텍스트(컨테이너 + filtered 게임 + 유저 + 날짜 문자열). loadMore가 필요로 함.
+let homeRecentRenderState = null;
 
 // ==========================================
 // 2-2. History-based Navigation
@@ -414,7 +419,6 @@ function updateHomeRecentHeader(overrideUsername) {
 
 function renderHomeGamesList(games, displayUser) {
     const list = document.getElementById('homeRecentList');
-    const section = document.getElementById('homeRecentSection');
     if (!list) return;
 
     // time_class 필터 적용. 'all'이면 전체, 그 외엔 일치하는 것만.
@@ -423,17 +427,43 @@ function renderHomeGamesList(games, displayUser) {
         : games.filter(g => (g.time_class || '') === homeTimeClassFilter);
 
     list.innerHTML = '';
+    // 새 렌더는 항상 처음부터 — 필터 변경 시 이전 스크롤 위치가 남아있으면
+    // 브라우저 auto-clamp에서 scroll 이벤트가 발생해 loadMore가 연쇄로 트리거됨.
+    list.scrollTop = 0;
+    homeRecentVisibleCount = 0;
+    homeRecentRenderState = null;
+
     if (filtered.length === 0) {
         list.innerHTML = `<div class="container-message">${t('filter_no_games')}</div>`;
         return;
     }
 
-    const userLower = displayUser.toLowerCase();
     const container = document.createElement('div');
     container.className = 'home-recent-list';
-    const dateStrings = { dateToday: t('dateToday'), dateYesterday: t('dateYesterday'), dateDaysAgo: t('dateDaysAgo') };
+    list.appendChild(container);
 
-    filtered.slice(0, 15).forEach(game => {
+    const dateStrings = { dateToday: t('dateToday'), dateYesterday: t('dateYesterday'), dateDaysAgo: t('dateDaysAgo') };
+    homeRecentRenderState = { container, filtered, displayUser, dateStrings };
+
+    const initialEnd = Math.min(HOME_RECENT_PAGE_SIZE, filtered.length);
+    appendHomeRecentBatch(0, initialEnd);
+    homeRecentVisibleCount = initialEnd;
+
+    updateScrollFade(list);
+}
+
+// 홈 게임 카드 batch append. renderHomeGamesList 초기 렌더와 loadMoreHomeRecent 양쪽이 사용.
+function appendHomeRecentBatch(from, to) {
+    if (!homeRecentRenderState) return;
+    const { container, filtered, displayUser, dateStrings } = homeRecentRenderState;
+    const slice = filtered.slice(from, to);
+    if (slice.length === 0) return;
+
+    const userLower = displayUser.toLowerCase();
+    const pawnPath = 'M22.5 9c-2.21 0-4 1.79-4 4 0 .89.29 1.71.78 2.38C17.33 16.5 16 18.59 16 21c0 2.03.94 3.84 2.41 5.03-3 1.06-7.41 5.55-7.41 13.47h23c0-7.92-4.41-12.41-7.41-13.47 1.47-1.19 2.41-3 2.41-5.03 0-2.41-1.33-4.5-3.28-5.62.49-.67.78-1.49.78-2.38 0-2.21-1.79-4-4-4z';
+    const buildPawn = (color) => `<svg class="home-recent-pawn home-recent-pawn--${color}" viewBox="0 0 45 45" width="14" height="14" aria-hidden="true"><path d="${pawnPath}"/></svg>`;
+
+    slice.forEach(game => {
         const isWhite = isWhitePlayer(game, userLower);
         const mySide = isWhite ? game.white : game.black;
         const oppSide = isWhite ? game.black : game.white;
@@ -450,9 +480,6 @@ function renderHomeGamesList(games, displayUser) {
         const moveCount = countMovesFromPgn(game.pgn);
         const tc = game.time_control ? formatTimeControl(game.time_control) : '';
         const metaBottom = [moveCount ? `${moveCount}${t('moves_suffix')}` : '', tc].filter(Boolean).join(' · ');
-
-        const pawnPath = 'M22.5 9c-2.21 0-4 1.79-4 4 0 .89.29 1.71.78 2.38C17.33 16.5 16 18.59 16 21c0 2.03.94 3.84 2.41 5.03-3 1.06-7.41 5.55-7.41 13.47h23c0-7.92-4.41-12.41-7.41-13.47 1.47-1.19 2.41-3 2.41-5.03 0-2.41-1.33-4.5-3.28-5.62.49-.67.78-1.49.78-2.38 0-2.21-1.79-4-4-4z';
-        const buildPawn = (color) => `<svg class="home-recent-pawn home-recent-pawn--${color}" viewBox="0 0 45 45" width="14" height="14" aria-hidden="true"><path d="${pawnPath}"/></svg>`;
 
         const card = document.createElement('div');
         card.className = `home-recent-card result-${resultClass}`;
@@ -482,9 +509,19 @@ function renderHomeGamesList(games, displayUser) {
 
         container.appendChild(card);
     });
+}
 
-    list.appendChild(container);
-    updateScrollFade(list);
+// 스크롤 바닥에 가까워지면 호출 — 다음 PAGE_SIZE개 append. 캐시 끝에서 자동 정지.
+function loadMoreHomeRecent() {
+    if (!homeRecentRenderState) return;
+    const total = homeRecentRenderState.filtered.length;
+    if (homeRecentVisibleCount >= total) return;
+    const from = homeRecentVisibleCount;
+    const to = Math.min(from + HOME_RECENT_PAGE_SIZE, total);
+    appendHomeRecentBatch(from, to);
+    homeRecentVisibleCount = to;
+    const list = document.getElementById('homeRecentList');
+    if (list) updateScrollFade(list);
 }
 
 function updateScrollFade(el) {
@@ -497,6 +534,10 @@ function updateScrollFade(el) {
 
 document.getElementById('homeRecentList')?.addEventListener('scroll', function () {
     updateScrollFade(this);
+    // 바닥 100px 이내 도달 시 다음 batch 렌더 — 무한 스크롤.
+    if (this.scrollTop + this.clientHeight >= this.scrollHeight - 100) {
+        loadMoreHomeRecent();
+    }
 });
 
 // 홈 시간대 필터(전체/래피드/블리츠/불렛). 캐시된 게임에서 클라이언트 사이드 필터 후 다시 렌더.
