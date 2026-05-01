@@ -4209,6 +4209,12 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
 /* ==========================================
    Accessibility utilities
    ========================================== */
+/* <main>은 ARIA landmark용 wrapper로만 사용 — layout은 .app-container의 flex chain을
+   끊지 않도록 투명 처리. display: contents는 main의 box만 제거하고 시맨틱은 유지. */
+main {
+    display: contents;
+}
+
 /* 스크린리더에는 노출되지만 시각적으로는 숨김. h1/landmark 보강용. */
 .sr-only {
     position: absolute;
