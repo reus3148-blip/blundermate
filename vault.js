@@ -212,8 +212,6 @@ function findMoveIndexByFen(fens, targetFen) {
 // ==========================================
 // Core Functions
 // ==========================================
-export async function initHomeVaultBadge() {
-}
 
 // vault 진입 — 캐시 갱신 후 stories 시작.
 export async function loadVaultData() {
@@ -295,13 +293,12 @@ function lineSaysMoverMates(line, stmIsMover) {
     return stmIsMover ? line.value > 0 : line.value < 0;
 }
 
-async function deleteCurrentVaultItem() {
+function deleteCurrentVaultItem() {
     if (!vaultDetailItem) return;
     if (!confirm(t('vault_delete_confirm'))) return;
     removeVaultItem(vaultDetailItem.id);
     vaultDetailItem = null;
     history.back();
-    await initHomeVaultBadge();
 }
 
 async function openVaultItem(item) {

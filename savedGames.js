@@ -128,7 +128,7 @@ function syncFilterBar() {
 // ==========================================
 // Public API
 // ==========================================
-export function initSavedGames({ onLoadGame, getChess, showButtonSuccess, saveMoveBtn, initHomeVaultBadge }) {
+export function initSavedGames({ onLoadGame, getChess, showButtonSuccess, saveMoveBtn }) {
     _onLoadGame = onLoadGame;
     _getChess = getChess;
     _showButtonSuccess = showButtonSuccess;
