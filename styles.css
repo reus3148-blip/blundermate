@@ -221,7 +221,7 @@ body {
     padding: 0 14px;
     font-size: 14px;
     color: var(--tx);
-    -webkit-appearance: none;
+    appearance: none;
     font-family: inherit;
     min-width: 0;
 }
@@ -468,8 +468,7 @@ body.moves-overlay-open .input-pgn-area {
     cursor: text;
     pointer-events: auto !important;
     user-select: text !important;
-    -webkit-user-select: text !important;
-    -webkit-appearance: none;
+    appearance: none;
     position: relative;
     z-index: var(--z-sticky);
 }
@@ -656,8 +655,8 @@ textarea {
     resize: none;
     transition: all 0.3s ease;
     font-size: 16px; /* iOS Safari 강제 줌(Zoom-in) 방지를 위한 최소 크기 보장 */
-    -webkit-user-select: text !important;
-    -webkit-appearance: none;
+    user-select: text;
+    appearance: none;
     position: relative;
     z-index: var(--z-sticky);
 }
@@ -1581,10 +1580,10 @@ th {
 /* ==========================================
    Saved Games: Card Style
    ========================================== */
-/* Saved Game 카드 — 홈/Vault 카드와 공유 base, 노트 있으면 자연 확장 */
+/* Saved Game 카드 — 홈/Vault 카드와 공유 base (.home-recent-card, .vault-card, .saved-game-card 그룹), 노트 있으면 자연 확장 */
+/* hover/active는 그룹 셀렉터에서 정의됨 — 여기선 saved-game 전용 속성만 */
 .saved-game-card {
     min-height: var(--game-card-height);
-    gap: 10px;
 }
 
 /* 카테고리별 색바 — 한눈에 카테고리 인식 (홈은 win/loss로, vault는 카테고리로 코딩) */
@@ -1593,19 +1592,6 @@ th {
 .saved-game-card[data-category="otb"]::before     { background: var(--mistake); }
 .saved-game-card[data-category="opening"]::before { background: var(--great); }
 .saved-game-card[data-category="pro"]::before     { background: var(--tx2); }
-
-.saved-game-card:hover {
-    box-shadow:
-        0 2px 6px rgba(28, 29, 31, 0.06),
-        0 0 0 1px rgba(28, 29, 31, 0.08);
-}
-
-.saved-game-card:active {
-    transform: scale(0.997);
-    box-shadow:
-        0 1px 2px rgba(28, 29, 31, 0.04),
-        0 0 0 1px rgba(43, 91, 215, 0.18);
-}
 
 .saved-game-card-info {
     flex: 1;
@@ -2283,7 +2269,7 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
 }
 
 /* Short textarea (80px) */
-.textarea-short { height: 80px !important; }
+.textarea-short { height: 80px; }
 
 /* Native select appearance */
 .select-auto { appearance: auto; }
@@ -3934,7 +3920,7 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
 }
 .insight-col-bar--empty {
     background: var(--bg-elevated);
-    height: 6px !important;
+    height: 6px;
     opacity: 0.5;
 }
 .insight-col-label {
