@@ -4219,3 +4219,19 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     0%, 100% { opacity: 0.5; }
     50% { opacity: 0.85; }
 }
+
+/* ==========================================
+   Accessibility utilities
+   ========================================== */
+/* 스크린리더에는 노출되지만 시각적으로는 숨김. h1/landmark 보강용. */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}

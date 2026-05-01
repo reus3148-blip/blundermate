@@ -36,14 +36,16 @@
 </head>
 <body>
     <div class="app-container">
+        <main>
+        <h1 class="sr-only">blundermate</h1>
         <!-- Onboarding View -->
         <div id="onboardingView" class="view-container hidden">
             <div class="onboarding-top">
-                <h1 class="onboarding-brand"><span class="brand-blunder">blunder</span><span class="brand-mate">mate</span></h1>
+                <div class="onboarding-brand"><span class="brand-blunder">blunder</span><span class="brand-mate">mate</span></div>
                 <p class="onboarding-tagline" data-i18n="onboarding_tagline">당신의 블런더와 놓친 메이트를 기억합니다</p>
             </div>
             <div class="onboarding-middle">
-                <label class="onboarding-label" data-i18n="onboarding_label">Chess.com 아이디를 입력하세요</label>
+                <label class="onboarding-label" for="onboardingUsernameInput" data-i18n="onboarding_label">Chess.com 아이디를 입력하세요</label>
                 <div class="username-input-wrap">
                     <input type="text" id="onboardingUsernameInput" class="home-text-input" data-i18n-placeholder="usernamePlaceholder" placeholder="Chess.com 유저네임" />
                     <button id="onboardingSubmitBtn" class="home-submit-btn" title="시작하기">→</button>
@@ -135,7 +137,7 @@
                     <span data-i18n="back">Back</span>
                 </button>
                 <span class="app-title" data-i18n="input_title">수 입력</span>
-                <button id="inputViewMovesBtn" class="topbar-icon-btn" title="기보" data-i18n-title="moves">☰</button>
+                <button id="inputViewMovesBtn" class="topbar-icon-btn" aria-label="기보" title="기보" data-i18n-title="moves" data-i18n-aria="moves">☰</button>
             </div>
 
             <div class="board-wrapper">
@@ -161,7 +163,7 @@
             </div>
 
             <div class="input-pgn-area">
-                <textarea id="inputBoardPgn" class="input-pgn-textarea" placeholder="PGN 또는 FEN을 붙여넣거나 보드에서 수를 입력하세요" data-i18n-placeholder="input_placeholder" spellcheck="false"></textarea>
+                <textarea id="inputBoardPgn" class="input-pgn-textarea" placeholder="PGN 또는 FEN을 붙여넣거나 보드에서 수를 입력하세요" data-i18n-placeholder="input_placeholder" aria-label="PGN 또는 FEN 입력" data-i18n-aria="input_placeholder" spellcheck="false"></textarea>
             </div>
         </div>
 
@@ -396,6 +398,7 @@
         </div>
         <div id="savedGamesList" class="games-list view-list"></div>
     </div>
+        </main>
 
         <!-- Player Color Choice Modal -->
         <div id="colorChoiceModal" class="modal-overlay hidden">
@@ -417,7 +420,7 @@
                 </div>
                 <div class="form-group">
                     <div class="username-input-wrap">
-                        <input type="text" id="usernameInput" class="home-text-input" placeholder="Chess.com 유저네임" data-i18n-placeholder="usernamePlaceholder" value="" />
+                        <input type="text" id="usernameInput" class="home-text-input" placeholder="Chess.com 유저네임" data-i18n-placeholder="usernamePlaceholder" aria-label="Chess.com 유저네임" data-i18n-aria="usernamePlaceholder" value="" />
                         <button id="clearUsernameBtn" class="username-clear-btn" type="button" aria-label="지우기">×</button>
                         <button id="fetchBtn" class="home-submit-btn" title="게임 불러오기">→</button>
                     </div>
@@ -499,9 +502,9 @@
                     </div>
                     <div class="form-group settings-row">
                         <div class="settings-row-inner">
-                            <span class="settings-label" data-i18n="geminiCoach">Gemini AI Coach</span>
+                            <span class="settings-label" id="geminiCoachLabel" data-i18n="geminiCoach">Gemini AI Coach</span>
                             <label class="switch">
-                                <input type="checkbox" id="geminiToggle">
+                                <input type="checkbox" id="geminiToggle" aria-labelledby="geminiCoachLabel">
                                 <span class="slider round"></span>
                             </label>
                         </div>
@@ -514,9 +517,9 @@
                     <h3 class="settings-section-label" data-i18n="settings_section_board">Board</h3>
                     <div class="form-group settings-row">
                         <div class="settings-row-inner">
-                            <span class="settings-label" data-i18n="boardCoords">Board Coordinates</span>
+                            <span class="settings-label" id="boardCoordsLabel" data-i18n="boardCoords">Board Coordinates</span>
                             <label class="switch">
-                                <input type="checkbox" id="coordsToggle">
+                                <input type="checkbox" id="coordsToggle" aria-labelledby="boardCoordsLabel">
                                 <span class="slider round"></span>
                             </label>
                         </div>
@@ -609,12 +612,12 @@
             <div class="modal-content">
                 <h2 data-i18n="saveEntireGame">Save Entire Game</h2>
                 <div class="form-group">
-                    <label data-i18n="titlePlayers">Title / Players</label>
+                    <label for="saveGameTitle" data-i18n="titlePlayers">Title / Players</label>
                     <input type="text" id="saveGameTitle" class="text-input" placeholder="e.g. Me vs Magnus" data-i18n-placeholder="titlePlayersPlaceholder">
                 </div>
                 <div class="form-group">
-                    <label data-i18n="saved_games_category_label">카테고리</label>
-                    <div id="saveGameCategoryPicker" class="pill-picker">
+                    <label id="saveGameCategoryLabel" data-i18n="saved_games_category_label">카테고리</label>
+                    <div id="saveGameCategoryPicker" class="pill-picker" role="radiogroup" aria-labelledby="saveGameCategoryLabel">
                         <button type="button" class="pill-btn selected" data-value="my_game" data-i18n="saved_games_cat_my_game">내 실전 게임</button>
                         <button type="button" class="pill-btn" data-value="otb" data-i18n="saved_games_cat_otb">오프라인 게임</button>
                         <button type="button" class="pill-btn" data-value="opening" data-i18n="saved_games_cat_opening">오프닝 연구</button>
@@ -622,7 +625,7 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <label data-i18n="notesOptional">Notes (Optional)</label>
+                    <label for="saveGameNotes" data-i18n="notesOptional">Notes (Optional)</label>
                     <textarea id="saveGameNotes" class="textarea-short" placeholder="Great attacking game..." data-i18n-placeholder="notesGamePlaceholder"></textarea>
                 </div>
                 <div class="modal-actions">
@@ -640,7 +643,7 @@
                 <p id="saveMoveText" class="save-move-text"></p>
                 <p id="saveBestMoveText" class="save-best-move-text"></p>
                 <div class="form-group">
-                    <label data-i18n="category">Category</label>
+                    <label for="saveCategory" data-i18n="category">Category</label>
                     <select id="saveCategory" class="text-input select-auto">
                         <option value="blunder">Blunder (??)</option>
                         <option value="mistake">Mistake (?)</option>
@@ -650,7 +653,7 @@
                     </select>
                 </div>
                 <div class="form-group">
-                    <label data-i18n="notesOptional">Notes (Optional)</label>
+                    <label for="saveNotes" data-i18n="notesOptional">Notes (Optional)</label>
                     <textarea id="saveNotes" class="textarea-short" placeholder="Why did you play this? What was the right move?" data-i18n-placeholder="notes_move_placeholder"></textarea>
                 </div>
                 <div class="modal-actions">
@@ -683,7 +686,7 @@
         </div>
 
         <!-- Bottom Navigation -->
-        <nav id="bottomNav" class="bottom-nav" aria-label="Main">
+        <nav id="bottomNav" class="bottom-nav" aria-label="주요 메뉴" data-i18n-aria="nav_primary">
             <button id="navHomeBtn" class="bottom-nav-tab" data-screen="home" aria-label="홈" data-i18n-aria="nav_home">
                 <svg class="bottom-nav-icon" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
                 <span class="bottom-nav-label" data-i18n="nav_home">홈</span>
