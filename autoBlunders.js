@@ -205,7 +205,6 @@ export async function collectAutoBlunders({ pgn, queue, isUserWhite, headers }) 
         }
 
         if (items.length > 0) {
-            console.log('[Auto blunders]', { gameId: analyzedGameId, count: items.length, items: items.map(i => ({ idx: i.moveIndex, cat: i.category })) });
             addVaultItemsBatch(items);
         }
     } catch (e) {

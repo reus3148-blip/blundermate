@@ -98,7 +98,7 @@ export async function getVaultItems(options = {}) {
         if (Array.isArray(data)) return data.map(normalizeVaultItem);
         throw new Error('Invalid response');
     } catch (e) {
-        console.log('Supabase vault load failed, using localStorage', e);
+        console.warn('Supabase vault load failed, using localStorage', e);
         return filterLocal(_getVaultItemsSync().map(normalizeLocalVaultItem));
     }
 }
@@ -138,7 +138,7 @@ export function addVaultItem(item) {
             mate_in: item.mateIn ?? null,
             played_date: item.playedDate || null,
         }
-    }).catch(e => console.log('Supabase vault save failed, using localStorage', e));
+    }).catch(e => console.warn('Supabase vault save failed, using localStorage', e));
 }
 
 // 자동 수집용 일괄 추가. 게임 한 판당 0~수 개 호출. addVaultItem을 그대로 재사용.
@@ -160,7 +160,7 @@ export function removeVaultItem(id) {
     const userId = getMyUserId();
     if (!userId) return;
     callDB('delete', 'vault_items', { id, user_id: userId })
-        .catch(e => console.log('Supabase vault delete failed', e));
+        .catch(e => console.warn('Supabase vault delete failed', e));
 }
 
 // ── Saved Games ────────────────────────────────────────────────────
@@ -193,7 +193,7 @@ export async function getSavedGames() {
         if (Array.isArray(data)) return data.map(normalizeSavedGame);
         throw new Error('Invalid response');
     } catch (e) {
-        console.log('Supabase saved_games load failed, using localStorage', e);
+        console.warn('Supabase saved_games load failed, using localStorage', e);
         return _getSavedGamesSync();
     }
 }
@@ -221,7 +221,7 @@ export function addSavedGame(item) {
             pgn: item.pgn,
             notes: item.notes || null
         }
-    }).catch(e => console.log('Supabase saved_games save failed', e));
+    }).catch(e => console.warn('Supabase saved_games save failed', e));
 }
 
 export function removeSavedGame(id) {
@@ -237,7 +237,7 @@ export function removeSavedGame(id) {
     const userId = getMyUserId();
     if (!userId) return;
     callDB('delete', 'saved_games', { id, user_id: userId })
-        .catch(e => console.log('Supabase delete failed', e));
+        .catch(e => console.warn('Supabase delete failed', e));
 }
 
 export function updateSavedGame(id, updates) {
@@ -306,7 +306,7 @@ export async function upsertAnalyzedGame({ pgn, pgnHash, headersJson, playedDate
                 return row.id;
             }
         } catch (e) {
-            console.log('Supabase analyzed_games lookup failed', e);
+            console.warn('Supabase analyzed_games lookup failed', e);
         }
     }
 
@@ -332,7 +332,7 @@ export async function upsertAnalyzedGame({ pgn, pgnHash, headersJson, playedDate
                 data: { ...row, user_id: userId },
             });
         } catch (e) {
-            console.log('Supabase analyzed_games insert failed', e);
+            console.warn('Supabase analyzed_games insert failed', e);
         }
     }
     return id;
@@ -359,7 +359,7 @@ export async function getAnalyzedGameById(id) {
             return data[0];
         }
     } catch (e) {
-        console.log('Supabase analyzed_games fetch failed', e);
+        console.warn('Supabase analyzed_games fetch failed', e);
     }
     return null;
 }
@@ -414,7 +414,7 @@ export async function loadAnalysisCache(pgnHash) {
             return data[0].analysis_json;
         }
     } catch (e) {
-        console.log('Supabase analysis cache fetch failed', e);
+        console.warn('Supabase analysis cache fetch failed', e);
     }
     return null;
 }
@@ -454,5 +454,5 @@ export async function saveAnalysisCache({ pgnHash, payload }) {
         user_id: userId,
         filter: { pgn_hash: pgnHash },
         data: cachePatch,
-    }).catch(e => console.log('Supabase analysis cache update failed', e));
+    }).catch(e => console.warn('Supabase analysis cache update failed', e));
 }

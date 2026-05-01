@@ -222,7 +222,6 @@ const insightsViewNav = document.getElementById('insightsView');
 // renderScreen이 hideAllViews + 해당 view 노출 + syncBottomNav를 모두 처리하므로
 // 부분 호출(예: history만 push)로 화면이 일관성을 잃을 일 없음.
 function navigateTo(screen, state = {}) {
-    console.log('[Nav] push:', screen, state);
     history.pushState({ screen, ...state }, '', `#${screen}`);
     renderScreen(screen);
 }
@@ -255,7 +254,6 @@ function cleanupAnalysis() {
 }
 
 function renderScreen(screen) {
-    console.log('[Nav] render:', screen);
     if (_currentScreen === SCREENS.ANALYSIS && screen !== SCREENS.ANALYSIS) {
         cleanupAnalysis();
     }
@@ -336,7 +334,6 @@ if (navInsightsBtn) {
 }
 
 window.addEventListener('popstate', (event) => {
-    console.log('[Nav] pop:', event.state);
     const state = event.state;
     if (state && state.screen) {
         renderScreen(state.screen);
@@ -1523,7 +1520,6 @@ choiceSaveMoveBtn.addEventListener('click', () => {
         classification: move.classification,
         engineLines: move.engineLines
     };
-    console.log('[Vault snapshot]', { snapIndex, fen: vaultSnapshot.fen, san: vaultSnapshot.san });
 
     // Auto-select category based on engine classification
     if (move.classification) {
@@ -1543,7 +1539,6 @@ confirmSaveBtn.addEventListener('click', () => {
     if (!vaultSnapshot) return;
 
     const snap = vaultSnapshot;
-    console.log('[Vault save]', { moveIndex: snap.moveIndex, fen: snap.fen, san: snap.san });
 
     let gameTitle = '';
     let playedDate = null;
@@ -1719,10 +1714,6 @@ function handlePgnReviewStart(e = null, isWhiteGame = null, targetIndex = null, 
 
     const pgnText = pgnInput.value.trim();
     if (!pgnText) return;
-
-    console.log('PGN headers:', pgnText.split('\n')
-        .filter(line => line.startsWith('['))
-        .join('\n'));
 
     resetMainGame();
     const result = parseAndLoadPgn(chess, pgnText);
@@ -1998,7 +1989,7 @@ async function processNextInQueue() {
                     return;
                 }
             } catch (e) {
-                console.log('Analysis cache lookup failed:', e);
+                console.warn('Analysis cache lookup failed:', e);
                 // fallthrough: 엔진 분석 정상 진행
             }
         }
@@ -2048,7 +2039,7 @@ function _finalizeAnalysisRun({ fromCache }) {
         if (!fromCache) {
             autoPromise
                 .then(() => _persistAnalysisCache())
-                .catch(e => console.log('Save analysis cache failed:', e));
+                .catch(e => console.warn('Save analysis cache failed:', e));
         }
         // 분석 완료 시 보드는 시작 포지션, 리뷰 화면 자동 진입.
         // updateBoardPosition이 isReviewMode를 끄므로 그 후에 켠다.
@@ -2370,21 +2361,13 @@ function updateBoardForSimulation(index) {
 if ('serviceWorker' in navigator) {
     // 기존 유저의 브라우저에 설치된 SW 전부 제거
     navigator.serviceWorker.getRegistrations().then(registrations => {
-        registrations.forEach(reg => {
-            reg.unregister().then(success => {
-                if (success) console.log('[SW] Unregistered existing service worker');
-            });
-        });
+        registrations.forEach(reg => reg.unregister());
     });
 
     // 기존 캐시 전부 삭제
     if ('caches' in window) {
         caches.keys().then(keys => {
-            keys.forEach(key => {
-                caches.delete(key).then(success => {
-                    if (success) console.log('[SW] Deleted cache:', key);
-                });
-            });
+            keys.forEach(key => caches.delete(key));
         });
     }
 }
