@@ -19,7 +19,7 @@ import {
 } from './modes.js';
 import { parseEvalData, getDests, convertPvToSan, parseAndLoadPgn, isValidFen, escapeHtml, parseOpeningFromPgn, formatTimeControl, formatRelativeDate, getTier, TIERS, isWhitePlayer, classifyGameResult, countMovesFromPgn } from './utils.js';
 import { renderMovesTable, updateUIWithEval, highlightActiveMove, renderEngineLines, updateTopEvalDisplay, renderReviewReport, buildPreviewCardHtml } from './ui.js';
-import { addVaultItem, getSavedGames, setMyUserId, getMyUserId, ONBOARDING_KEY, COORDS_KEY, EVAL_MODE_KEY, computePgnHash, loadAnalysisCache, saveAnalysisCache, isCacheCompatible, ANALYSIS_CACHE_VERSION } from './storage.js';
+import { addVaultItem, getSavedGames, setMyUserId, getMyUserId, getMyPlatform, setMyPlatform, PLATFORM_CHESSCOM, PLATFORM_LICHESS, ONBOARDING_KEY, COORDS_KEY, EVAL_MODE_KEY, computePgnHash, loadAnalysisCache, saveAnalysisCache, isCacheCompatible, ANALYSIS_CACHE_VERSION } from './storage.js';
 import { collectAutoBlunders } from './autoBlunders.js';
 import { initVault, isVaultDetailActive, isVaultPuzzleActive, getVaultDetailIndex, setVaultDetailIndex, flipVaultBoard, setVaultCoords, redrawVaultBoard, loadVaultData, loadBlunderListData, redrawVaultPuzzleBoard } from './vault.js';
 import { initSavedGames, loadSavedGamesData } from './savedGames.js';
@@ -64,13 +64,15 @@ function logUsernameToServer(username, source) {
     try {
         const normalized = (username || '').trim().toLowerCase();
         if (!normalized) return;
-        const dedupKey = `${source}:${normalized}`;
+        const platform = getMyPlatform();
+        // dedup key에도 platform 포함 — 같은 닉을 두 platform에서 시도해도 둘 다 기록.
+        const dedupKey = `${source}:${platform}:${normalized}`;
         if (localStorage.getItem(USERNAME_LOG_DEDUP_KEY) === dedupKey) return;
         try { localStorage.setItem(USERNAME_LOG_DEDUP_KEY, dedupKey); } catch (_) {}
         fetch('/api/log-username', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username: normalized, source })
+            body: JSON.stringify({ username: normalized, source, platform })
         }).catch(() => {});
     } catch (_) {}
 }
@@ -686,6 +688,7 @@ function updateHomeHeader() {
     const heroSubtitle = document.querySelector('.hero-subtitle');
     const profileCard = document.getElementById('homeProfileCard');
     const profileName = document.getElementById('profileName');
+    const profilePlatform = document.getElementById('profilePlatform');
     const profileRapid = document.getElementById('profileRapid');
     const profileAvatar = document.getElementById('profileAvatar');
 
@@ -696,6 +699,10 @@ function updateHomeHeader() {
         profileName.classList.remove('username-md', 'username-sm');
         if (userId.length > 16) profileName.classList.add('username-sm');
         else if (userId.length > 10) profileName.classList.add('username-md');
+        if (profilePlatform) {
+            // 다른 유저 검색도 현재 플랫폼 안에서만 동작하므로 항상 getMyPlatform()으로 표시.
+            profilePlatform.textContent = getMyPlatform() === PLATFORM_LICHESS ? 'Lichess' : 'Chess.com';
+        }
         profileRapid.textContent = '—';
         updateProfileRatingLabel(homeTimeClassFilter === 'all' ? 'rapid' : homeTimeClassFilter);
         profileAvatar.innerHTML = '';
@@ -726,6 +733,7 @@ function updateHomeHeader() {
     } else {
         heroSection.classList.remove('home-hero--user');
         profileCard.classList.add('hidden');
+        if (profilePlatform) profilePlatform.textContent = '';
         heroTitle.setAttribute('data-i18n', 'heroTitle');
         heroTitle.textContent = t('heroTitle');
         heroSubtitle.classList.remove('hidden');
@@ -741,6 +749,35 @@ const onboardingView = document.getElementById('onboardingView');
 const onboardingUsernameInput = document.getElementById('onboardingUsernameInput');
 const onboardingSubmitBtn = document.getElementById('onboardingSubmitBtn');
 const onboardingSkipBtn = document.getElementById('onboardingSkipBtn');
+const onboardingPlatformTabs = document.getElementById('onboardingPlatformTabs');
+const onboardingLabel = document.querySelector('#onboardingView .onboarding-label');
+
+// 온보딩 화면 전용 — 사용자가 선택한 플랫폼. 제출할 때 setMyPlatform으로 영속화.
+let onboardingPlatform = PLATFORM_CHESSCOM;
+
+function applyOnboardingPlatformUI(platform) {
+    onboardingPlatform = platform;
+    if (onboardingPlatformTabs) {
+        onboardingPlatformTabs.querySelectorAll('.onboarding-platform-tab').forEach(btn => {
+            btn.classList.toggle('selected', btn.dataset.platform === platform);
+        });
+    }
+    // 라벨/placeholder를 선택된 플랫폼에 맞게 갱신.
+    const isLichess = platform === PLATFORM_LICHESS;
+    if (onboardingLabel) onboardingLabel.textContent = t(isLichess ? 'onboarding_label_lichess' : 'onboarding_label');
+    if (onboardingUsernameInput) onboardingUsernameInput.placeholder = t(isLichess ? 'usernamePlaceholder_lichess' : 'usernamePlaceholder');
+}
+
+if (onboardingPlatformTabs) {
+    onboardingPlatformTabs.addEventListener('click', (e) => {
+        const btn = e.target.closest('.onboarding-platform-tab');
+        if (!btn) return;
+        const platform = btn.dataset.platform;
+        if (platform !== PLATFORM_CHESSCOM && platform !== PLATFORM_LICHESS) return;
+        if (platform === onboardingPlatform) return;
+        applyOnboardingPlatformUI(platform);
+    });
+}
 
 function finishOnboarding() {
     localStorage.setItem(ONBOARDING_KEY, 'true');
@@ -753,6 +790,7 @@ function finishOnboarding() {
 onboardingSubmitBtn.addEventListener('click', () => {
     const username = onboardingUsernameInput.value.trim();
     if (username) {
+        setMyPlatform(onboardingPlatform);
         setMyUserId(username);
         logUsernameToServer(username, 'onboarding');
     }
@@ -770,6 +808,8 @@ if (!localStorage.getItem(ONBOARDING_KEY)) {
     onboardingView.classList.remove('hidden');
     bottomNav.classList.add('hidden');
     appContainer.classList.add('bottom-nav-hidden');
+    // 디폴트 chesscom으로 시작 (라벨/placeholder 동기화).
+    applyOnboardingPlatformUI(PLATFORM_CHESSCOM);
 } else {
     refreshHomeCounts();
     const cachedUser = getMyUserId();
@@ -849,6 +889,7 @@ if (logoutBtn) {
         // VAULT_KEY / SAVED_GAMES_KEY는 유지 — 같은 ID로 재로그인 시 복구 가능해야 함.
         try {
             localStorage.removeItem('blundermate_user_id');
+            localStorage.removeItem('blundermate_platform');
             localStorage.removeItem(ONBOARDING_KEY);
         } catch (e) {
             console.error('Logout cleanup failed:', e);

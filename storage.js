@@ -2,17 +2,21 @@ export const VAULT_KEY = 'blundermate_vault';
 export const SAVED_GAMES_KEY = 'blundermate_saved_games';
 export const ANALYZED_GAMES_KEY = 'blundermate_analyzed_games';
 const USER_ID_KEY = 'blundermate_user_id';
+const PLATFORM_KEY = 'blundermate_platform';
 export const ONBOARDING_KEY = 'blundermate_onboarding_done';
 export const COORDS_KEY = 'coordsEnabled';
 export const GEMINI_KEY = 'geminiEnabled';
 export const EVAL_MODE_KEY = 'evalDisplayMode';
 
+export const PLATFORM_CHESSCOM = 'chesscom';
+export const PLATFORM_LICHESS = 'lichess';
+const VALID_PLATFORMS = new Set([PLATFORM_CHESSCOM, PLATFORM_LICHESS]);
+
 // ── User ID ────────────────────────────────────────────────────────
 // 주의: 여기서 관리하는 값은 "내 계정"(myUserId)이다.
 // 다른 유저 검색(viewing) 상태는 이 파일과 무관하며 localStorage에 저장되면 안 된다.
-// 모든 vault/saved_games 저장·조회는 getMyUserId()만 사용한다.
+// 모든 vault/saved_games 저장·조회는 getMyUserId() + getMyPlatform()만 사용한다.
 
-// Chess.com 닉네임은 대소문자 구분 X. 경계에서 소문자로 정규화해 dedup/비교 안정화.
 export function getMyUserId() {
     const raw = localStorage.getItem(USER_ID_KEY);
     return raw ? raw.toLowerCase() : null;
@@ -22,14 +26,30 @@ export function setMyUserId(id) {
     if (id) localStorage.setItem(USER_ID_KEY, id.toLowerCase());
 }
 
+// 미설정(legacy chesscom-only 사용자)은 chesscom 폴백 — DB DEFAULT 'chesscom'과 일치.
+export function getMyPlatform() {
+    const raw = localStorage.getItem(PLATFORM_KEY);
+    return VALID_PLATFORMS.has(raw) ? raw : PLATFORM_CHESSCOM;
+}
+
+export function setMyPlatform(platform) {
+    if (VALID_PLATFORMS.has(platform)) localStorage.setItem(PLATFORM_KEY, platform);
+}
+
 // ── Supabase proxy helper ──────────────────────────────────────────
-// Supabase 자격증명은 Vercel 환경변수에 있으므로 /api/db Edge Function을 통해 호출
+// callDB가 platform을 자동 주입 — 호출자는 신경 안 써도 (user_id, platform) 격리됨.
+// insert는 data row에도 platform을 박아 서버측 spoofing 검증을 통과시킨다.
 
 async function callDB(action, table, params = {}) {
+    const platform = getMyPlatform();
+    const body = { action, table, platform, ...params };
+    if (action === 'insert' && body.data && typeof body.data === 'object') {
+        body.data = { ...body.data, platform };
+    }
     const res = await fetch('/api/db', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, table, ...params })
+        body: JSON.stringify(body),
     });
     if (!res.ok) throw new Error(`DB call failed: ${res.status}`);
     return res.json();
@@ -73,10 +93,12 @@ function normalizeVaultItem(row) {
 }
 
 // 로컬 저장 vault_items 정규화: 구버전 항목엔 source 필드가 없으므로 'manual' 디폴트.
+// platform 미설정 row(Phase 1 이전)는 'chesscom'으로 간주 — 마이그레이션 없이 호환.
 function normalizeLocalVaultItem(it) {
     return {
         ...it,
         source: it.source || 'manual',
+        platform: it.platform || 'chesscom',
         analyzedGameId: it.analyzedGameId || null,
         cpLoss: it.cpLoss ?? null,
         mateIn: it.mateIn ?? null,
@@ -87,7 +109,11 @@ function normalizeLocalVaultItem(it) {
 // source 옵션: 'manual' | 'auto' | undefined(전체).
 export async function getVaultItems(options = {}) {
     const { source } = options;
-    const filterLocal = (arr) => source ? arr.filter(it => (it.source || 'manual') === source) : arr;
+    const platform = getMyPlatform();
+    // localStorage 폴백도 platform 격리 — Supabase 실패 시에도 다른 플랫폼 데이터가 새지 않음.
+    const filterLocal = (arr) => arr
+        .filter(it => it.platform === platform)
+        .filter(it => !source || (it.source || 'manual') === source);
 
     const userId = getMyUserId();
     if (!userId) return filterLocal(_getVaultItemsSync().map(normalizeLocalVaultItem));
@@ -103,52 +129,68 @@ export async function getVaultItems(options = {}) {
     }
 }
 
+// vault_items row 페이로드 빌더 — addVaultItem과 addVaultItemsBatch가 공유.
+function _vaultRowFromItem(item, userId) {
+    return {
+        id: item.id,
+        user_id: userId,
+        move: item.san,
+        classification: item.category,
+        notes: item.notes || null,
+        position_fen: item.fen,
+        pgn: item.pgn || null,
+        move_index: item.moveIndex ?? null,
+        move_number: item.moveNumber ?? null,
+        is_white_move: item.isWhite ?? null,
+        best_move: item.bestMove || null,
+        game_title: item.gameTitle || null,
+        is_user_white: item.isUserWhite ?? null,
+        source: item.source || 'manual',
+        analyzed_game_id: item.analyzedGameId || null,
+        cp_loss: item.cpLoss ?? null,
+        mate_in: item.mateIn ?? null,
+        played_date: item.playedDate || null,
+    };
+}
+
 export function addVaultItem(item) {
-    // Always save to localStorage first
+    const platform = getMyPlatform();
     try {
         const vault = _getVaultItemsSync();
-        vault.push(item);
+        vault.push({ ...item, platform });
         localStorage.setItem(VAULT_KEY, JSON.stringify(vault));
     } catch (e) {
         console.error('Failed to save to Vault:', e);
     }
 
-    // Then try Supabase in background
     const userId = getMyUserId();
     if (!userId) return;
-    callDB('insert', 'vault_items', {
-        user_id: userId,
-        data: {
-            id: item.id,
-            user_id: userId,
-            move: item.san,
-            classification: item.category,
-            notes: item.notes || null,
-            position_fen: item.fen,
-            pgn: item.pgn || null,
-            move_index: item.moveIndex ?? null,
-            move_number: item.moveNumber ?? null,
-            is_white_move: item.isWhite ?? null,
-            best_move: item.bestMove || null,
-            game_title: item.gameTitle || null,
-            is_user_white: item.isUserWhite ?? null,
-            source: item.source || 'manual',
-            analyzed_game_id: item.analyzedGameId || null,
-            cp_loss: item.cpLoss ?? null,
-            mate_in: item.mateIn ?? null,
-            played_date: item.playedDate || null,
-        }
-    }).catch(e => console.warn('Supabase vault save failed, using localStorage', e));
+    callDB('insert', 'vault_items', { user_id: userId, data: _vaultRowFromItem(item, userId) })
+        .catch(e => console.warn('Supabase vault save failed, using localStorage', e));
 }
 
-// 자동 수집용 일괄 추가. 게임 한 판당 0~수 개 호출. addVaultItem을 그대로 재사용.
+// 자동 수집 일괄 추가 — N회 read/write 대신 단일 read+write로 localStorage thrashing 방지.
+// Supabase INSERT는 항목별로 나가지만 fire-and-forget이라 OK.
 export function addVaultItemsBatch(items) {
-    if (!Array.isArray(items)) return;
-    for (const it of items) addVaultItem(it);
+    if (!Array.isArray(items) || items.length === 0) return;
+    const platform = getMyPlatform();
+    try {
+        const vault = _getVaultItemsSync();
+        for (const it of items) vault.push({ ...it, platform });
+        localStorage.setItem(VAULT_KEY, JSON.stringify(vault));
+    } catch (e) {
+        console.error('Failed to save batch to Vault:', e);
+    }
+
+    const userId = getMyUserId();
+    if (!userId) return;
+    for (const it of items) {
+        callDB('insert', 'vault_items', { user_id: userId, data: _vaultRowFromItem(it, userId) })
+            .catch(e => console.warn('Supabase vault save failed, using localStorage', e));
+    }
 }
 
 export function removeVaultItem(id) {
-    // Always delete from localStorage first
     try {
         const vault = _getVaultItemsSync().filter(v => v.id !== id);
         localStorage.setItem(VAULT_KEY, JSON.stringify(vault));
@@ -156,7 +198,6 @@ export function removeVaultItem(id) {
         console.error('Failed to remove item from Vault:', e);
     }
 
-    // Then try Supabase in background
     const userId = getMyUserId();
     if (!userId) return;
     callDB('delete', 'vault_items', { id, user_id: userId })
@@ -186,29 +227,32 @@ function normalizeSavedGame(row) {
 }
 
 export async function getSavedGames() {
+    const platform = getMyPlatform();
+    // platform 미설정 row(legacy)는 'chesscom' fallback — 마이그레이션 없이 호환.
+    const filterLocal = (arr) => arr.filter(g => (g.platform || 'chesscom') === platform);
+
     const userId = getMyUserId();
-    if (!userId) return _getSavedGamesSync();
+    if (!userId) return filterLocal(_getSavedGamesSync());
     try {
         const data = await callDB('select', 'saved_games', { user_id: userId });
         if (Array.isArray(data)) return data.map(normalizeSavedGame);
         throw new Error('Invalid response');
     } catch (e) {
         console.warn('Supabase saved_games load failed, using localStorage', e);
-        return _getSavedGamesSync();
+        return filterLocal(_getSavedGamesSync());
     }
 }
 
 export function addSavedGame(item) {
-    // Always save to localStorage first
+    // platform 태깅은 Supabase 실패 시에도 폴백에서 격리 유지하기 위함.
     try {
         const games = _getSavedGamesSync();
-        games.push(item);
+        games.push({ ...item, platform: getMyPlatform() });
         localStorage.setItem(SAVED_GAMES_KEY, JSON.stringify(games));
     } catch (e) {
         console.error('Failed to save game:', e);
     }
 
-    // Then try Supabase in background
     const userId = getMyUserId();
     if (!userId) return;
     callDB('insert', 'saved_games', {
@@ -225,7 +269,6 @@ export function addSavedGame(item) {
 }
 
 export function removeSavedGame(id) {
-    // Always delete from localStorage first
     try {
         const games = _getSavedGamesSync().filter(g => g.id !== id);
         localStorage.setItem(SAVED_GAMES_KEY, JSON.stringify(games));
@@ -233,7 +276,6 @@ export function removeSavedGame(id) {
         console.error('Failed to remove saved game:', e);
     }
 
-    // Then try Supabase in background
     const userId = getMyUserId();
     if (!userId) return;
     callDB('delete', 'saved_games', { id, user_id: userId })
@@ -281,19 +323,24 @@ export async function computePgnHash(pgn) {
 
 // 같은 pgn_hash가 이미 있으면 그 id 재사용. 없으면 새로 생성.
 // localStorage 우선 저장 → Supabase 시도 (실패 시 local 단독). 항상 string id 반환.
+//
+// platform 격리: 같은 브라우저에서 chesscom과 lichess를 둘 다 쓰면 같은 PGN이라도
+// 두 platform 각각 별도 analyzed_games row를 가져야 vault_items.analyzed_game_id의
+// 참조 무결성이 깨지지 않음. 그래서 local cache lookup도 (pgn_hash, platform) 짝으로 매칭.
 export async function upsertAnalyzedGame({ pgn, pgnHash, headersJson, playedDate }) {
     const userId = getMyUserId();
+    const platform = getMyPlatform();
 
     // localStorage 우선 — 비로그인 사용자도 동작
     const local = _getAnalyzedGamesSync();
-    const existingLocal = local.find(g => g.pgn_hash === pgnHash);
+    // legacy local row(platform 없음)는 'chesscom'으로 간주 — 마이그레이션 없이 호환.
+    const existingLocal = local.find(g => g.pgn_hash === pgnHash && (g.platform || 'chesscom') === platform);
     if (existingLocal) {
-        // 로그인 상태에서도 local cache hit이면 그 id를 그대로 사용 (Supabase에도 동일 id가 있다고 가정)
         return existingLocal.id;
     }
 
     if (userId) {
-        // Supabase에 이미 있는지 먼저 확인 (다른 디바이스에서 만든 행이 있을 수 있음)
+        // Supabase에 이미 있는지 먼저 확인 (다른 디바이스에서 만든 행이 있을 수 있음). callDB가 platform 자동 주입.
         try {
             const existing = await callDB('select', 'analyzed_games', {
                 user_id: userId,
@@ -318,6 +365,7 @@ export async function upsertAnalyzedGame({ pgn, pgnHash, headersJson, playedDate
         pgn_hash: pgnHash,
         headers_json: headersJson || null,
         played_date: playedDate || null,
+        platform,
         created_at: new Date().toISOString(),
     };
     local.push(row);
@@ -382,18 +430,15 @@ export function isCacheCompatible(cache, requiredDepth) {
     return true;
 }
 
-// 캐시 조회 — pgnHash 기준. localStorage hit이면 즉시 반환.
-// userId가 있고 local miss면 Supabase 시도.
+// 캐시 조회 — pgnHash 기준. localStorage hit 우선, miss면 Supabase 시도.
+// platform 격리: upsertAnalyzedGame과 동일 — (pgn_hash, platform) 짝으로 매칭.
 export async function loadAnalysisCache(pgnHash) {
     if (!pgnHash) return null;
+    const platform = getMyPlatform();
 
-    // 1. localStorage 먼저
-    const local = _getAnalyzedGamesSync().find(g => g.pgn_hash === pgnHash);
-    if (local && local.analysis_json) {
-        return local.analysis_json;
-    }
+    const local = _getAnalyzedGamesSync().find(g => g.pgn_hash === pgnHash && (g.platform || 'chesscom') === platform);
+    if (local && local.analysis_json) return local.analysis_json;
 
-    // 2. Supabase 시도
     const userId = getMyUserId();
     if (!userId) return null;
     try {
@@ -402,14 +447,11 @@ export async function loadAnalysisCache(pgnHash) {
             filter: { pgn_hash: pgnHash },
         });
         if (Array.isArray(data) && data.length > 0 && data[0].analysis_json) {
-            // 로컬 캐시도 업데이트 (다음 hit 빠르게)
+            // 다음 hit을 빠르게 — Supabase에서 받은 row를 local cache에 머지.
             const cache = _getAnalyzedGamesSync();
-            const idx = cache.findIndex(g => g.pgn_hash === pgnHash);
-            if (idx >= 0) {
-                cache[idx] = { ...cache[idx], ...data[0] };
-            } else {
-                cache.push(data[0]);
-            }
+            const idx = cache.findIndex(g => g.pgn_hash === pgnHash && (g.platform || 'chesscom') === platform);
+            if (idx >= 0) cache[idx] = { ...cache[idx], ...data[0] };
+            else cache.push(data[0]);
             try { localStorage.setItem(ANALYZED_GAMES_KEY, JSON.stringify(cache)); } catch {}
             return data[0].analysis_json;
         }
@@ -436,9 +478,10 @@ export async function saveAnalysisCache({ pgnHash, payload }) {
     };
 
     // localStorage 즉시 반영 — collectAutoBlunders가 행을 만들었으니 idx >= 0이어야 정상.
+    const platform = getMyPlatform();
     try {
         const cache = _getAnalyzedGamesSync();
-        const idx = cache.findIndex(g => g.pgn_hash === pgnHash);
+        const idx = cache.findIndex(g => g.pgn_hash === pgnHash && (g.platform || 'chesscom') === platform);
         if (idx >= 0) {
             cache[idx] = { ...cache[idx], ...cachePatch };
             localStorage.setItem(ANALYZED_GAMES_KEY, JSON.stringify(cache));

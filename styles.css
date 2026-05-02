@@ -2652,6 +2652,35 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     padding: 0 24px;
 }
 
+/* Apple/Notion 결: text-tab. 라벨/위계가 더 중요하므로 pill보다 underline 강조. */
+.onboarding-platform-tabs {
+    display: flex;
+    gap: 18px;
+    margin-bottom: 18px;
+    justify-content: center;
+}
+
+.onboarding-platform-tab {
+    background: none;
+    border: none;
+    padding: 4px 2px;
+    font: inherit;
+    font-size: 14px;
+    color: var(--tx3);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.onboarding-platform-tab:hover {
+    color: var(--tx2);
+}
+
+.onboarding-platform-tab.selected {
+    color: var(--tx);
+    border-bottom-color: var(--tx);
+}
+
 .onboarding-label {
     display: block;
     font-size: 13px;
@@ -2745,6 +2774,14 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
 }
 .home-profile-name.username-md { font-size: 19px; }
 .home-profile-name.username-sm { font-size: 16px; }
+
+.home-profile-platform {
+    font-size: 11px;
+    color: var(--tx3);
+    letter-spacing: 0.01em;
+    line-height: 1;
+}
+.home-profile-platform:empty { display: none; }
 
 .home-profile-tier {
     font-size: 11px;

@@ -1,5 +1,7 @@
 // Vercel Edge Function: log entered chess.com usernames to Supabase username_logs.
 // Fire-and-forget — UX에 영향 주지 않도록 클라이언트는 await/에러 무시.
+import { normalizePlatform } from './_platform.js';
+
 export const config = {
     runtime: 'edge',
 };
@@ -29,6 +31,7 @@ export default async function handler(req) {
         const body = await req.json();
         const rawUsername = typeof body?.username === 'string' ? body.username.trim() : '';
         const source = typeof body?.source === 'string' ? body.source : '';
+        const platform = normalizePlatform(body?.platform);
 
         if (!rawUsername || !ALLOWED_SOURCES.has(source)) {
             return new Response(JSON.stringify({ error: 'invalid payload' }), {
@@ -56,7 +59,7 @@ export default async function handler(req) {
                 'Authorization': `Bearer ${supabaseKey}`,
                 'Prefer': 'return=minimal'
             },
-            body: JSON.stringify({ username, source })
+            body: JSON.stringify({ username, source, platform })
         });
 
         if (!response.ok) {

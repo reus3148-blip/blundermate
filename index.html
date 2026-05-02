@@ -45,6 +45,10 @@
                 <p class="onboarding-tagline" data-i18n="onboarding_tagline">당신의 블런더와 놓친 메이트를 기억합니다</p>
             </div>
             <div class="onboarding-middle">
+                <div id="onboardingPlatformTabs" class="onboarding-platform-tabs" role="tablist" aria-label="Platform">
+                    <button type="button" class="onboarding-platform-tab selected" data-platform="chesscom" role="tab" data-i18n="onboarding_platform_chesscom">Chess.com</button>
+                    <button type="button" class="onboarding-platform-tab" data-platform="lichess" role="tab" data-i18n="onboarding_platform_lichess">Lichess</button>
+                </div>
                 <label class="onboarding-label" for="onboardingUsernameInput" data-i18n="onboarding_label">Chess.com 아이디를 입력하세요</label>
                 <div class="username-input-wrap">
                     <input type="text" id="onboardingUsernameInput" class="home-text-input" data-i18n-placeholder="usernamePlaceholder" placeholder="Chess.com 유저네임" />
@@ -91,6 +95,7 @@
                         <div class="home-profile-avatar" id="profileAvatar"></div>
                         <div class="home-profile-info">
                             <div id="profileName" class="home-profile-name"></div>
+                            <div id="profilePlatform" class="home-profile-platform"></div>
                         </div>
                         <div class="home-profile-rating-block">
                             <div class="home-profile-rating" id="profileRapid">—</div>
