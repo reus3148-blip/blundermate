@@ -17,7 +17,7 @@ import {
     setAppMode, setIsPreviewMode, setIsReviewMode, clearExplorationEngineLines, setExplorationLineAt,
     setSimulationQueue, pushSimulationQueueItem, setSimulationIndex,
 } from './modes.js';
-import { parseEvalData, getDests, convertPvToSan, parseAndLoadPgn, isValidFen, escapeHtml, parseOpeningFromPgn, formatTimeControl, formatRelativeDate, getTier, TIERS, isWhitePlayer, classifyGameResult, countMovesFromPgn } from './utils.js';
+import { parseEvalData, getDests, convertPvToSan, parseAndLoadPgn, isValidFen, escapeHtml, parseOpeningFromPgn, formatTimeControl, formatRelativeDate, getTier, TIERS, isWhitePlayer, classifyGameResult, countMovesFromPgn, cpToWhiteWinPct } from './utils.js';
 import { renderMovesTable, updateUIWithEval, highlightActiveMove, renderEngineLines, updateTopEvalDisplay, renderReviewReport, buildPreviewCardHtml } from './ui.js';
 import { addVaultItem, getSavedGames, setMyUserId, getMyUserId, getMyPlatform, setMyPlatform, PLATFORM_CHESSCOM, PLATFORM_LICHESS, ONBOARDING_KEY, COORDS_KEY, EVAL_MODE_KEY, computePgnHash, loadAnalysisCache, saveAnalysisCache, isCacheCompatible, ANALYSIS_CACHE_VERSION } from './storage.js';
 import { collectAutoBlunders } from './autoBlunders.js';
@@ -192,15 +192,16 @@ const EVAL_RENDER_THROTTLE = 100; // UI 업데이트 제한 시간(ms)
 // isGeminiLoading, geminiAbortController, isGeminiEnabled 는 gemini.js로 이전.
 let isCoordsEnabled = localStorage.getItem(COORDS_KEY) !== 'false';
 let cachedHomeGames = [];
-// 홈 게임 목록의 time_class 필터: 'all' | 'rapid' | 'blitz' | 'bullet'
-// 기본값은 래피드 — 일반 사용자가 가장 자주 보는 시간대.
+// 홈 게임 목록의 time_class 필터: 'rapid' | 'blitz' | 'bullet' | 'all'.
+// 헤더 우측 드롭다운으로 선택. 기본 'rapid' — 일반 사용자가 가장 자주 보는 시간대.
 let homeTimeClassFilter = 'rapid';
-// 현재 표시 중인 유저의 chess.com 레이팅 (rapid/blitz/bullet). 필터 변경 시 프로필 카드 갱신용.
+// 현재 표시 중인 유저의 레이팅 (rapid/blitz/bullet). 히어로 레이팅 pill 갱신용.
 let homeProfileRatings = null;
-// 홈 게임 목록 무한 스크롤 — 한 번에 보일 카드 수 + 다음 batch 크기. 스크롤 바닥에서 자동 append.
-const HOME_RECENT_PAGE_SIZE = 15;
-let homeRecentVisibleCount = HOME_RECENT_PAGE_SIZE;
-// 현재 렌더 컨텍스트(컨테이너 + filtered 게임 + 유저 + 날짜 문자열). loadMore가 필요로 함.
+// 홈 게임 카드 — 처음 4개만 보여주고 "모두 보기"로 전체(15개) 펼침.
+const HOME_RECENT_INITIAL = 4;
+const HOME_RECENT_FULL = 15;
+let homeRecentExpanded = false;
+// 현재 렌더 컨텍스트(컨테이너 + filtered 게임 + 유저 + 날짜 문자열). 카드 비동기 업그레이드(분석 캐시 lookup) 시 참조.
 let homeRecentRenderState = null;
 
 // ==========================================
@@ -404,52 +405,82 @@ function updateHomeRecentHeader(overrideUsername) {
     if (overrideUsername) {
         homeRecentLabel.textContent = t('home_other_user_games').replace('{username}', overrideUsername);
         homeRecentLabel.removeAttribute('data-i18n');
-        homeRecentLabel.classList.remove('hidden');
         backToMyGamesBtn.classList.remove('hidden');
     } else {
+        homeRecentLabel.setAttribute('data-i18n', 'home_recent_games');
         homeRecentLabel.textContent = t('home_recent_games');
-        homeRecentLabel.removeAttribute('data-i18n');
-        homeRecentLabel.classList.remove('hidden');
         backToMyGamesBtn.classList.add('hidden');
     }
+}
+
+// ── Hero meta: 레이팅 pill + form strip ─────────────────────────
+function clearHeroMeta() {
+    const meta = document.getElementById('homeHeroMeta');
+    if (meta) meta.classList.add('hidden');
+}
+
+function updateHeroRatingPill() {
+    const valueEl = document.getElementById('homeRatingValue');
+    const tcEl = document.getElementById('homeRatingTc');
+    if (!valueEl || !tcEl) return;
+    const tc = homeTimeClassFilter === 'all' ? 'rapid' : homeTimeClassFilter;
+    const rating = homeProfileRatings ? homeProfileRatings[tc] : null;
+    valueEl.textContent = rating || '—';
+    tcEl.textContent = t(`home_filter_${tc}`);
+}
+
+function updateHeroFormStrip(games, displayUser) {
+    const strip = document.getElementById('homeFormStrip');
+    if (!strip || !displayUser) return;
+    const userLower = displayUser.toLowerCase();
+    // 현재 시간대 필터 기준으로 폼 스트립도 좁힘 — 필터와 형 표시의 의미 일관성.
+    const filtered = homeTimeClassFilter === 'all'
+        ? games
+        : games.filter(g => (g.time_class || '') === homeTimeClassFilter);
+    // 디자인: 가장 오래된 막대 opacity 0.4 → 최신 1.0 그라데이션. API는 최신 우선이므로 reverse.
+    const recent = filtered.slice(0, 15).map(g => classifyGameResult(g, userLower)).reverse();
+    const total = recent.length || 15;
+    strip.innerHTML = recent.map((r, i) => {
+        const cls = r === 'win' ? 'w' : r === 'loss' ? 'l' : 'd';
+        const opacity = (0.4 + (i / total) * 0.6).toFixed(2);
+        return `<span class="home-form-bar home-form-bar--${cls}" style="opacity:${opacity}"></span>`;
+    }).join('');
 }
 
 function renderHomeGamesList(games, displayUser) {
     const list = document.getElementById('homeRecentList');
     if (!list) return;
 
-    // time_class 필터 적용. 'all'이면 전체, 그 외엔 일치하는 것만.
     const filtered = homeTimeClassFilter === 'all'
         ? games
         : games.filter(g => (g.time_class || '') === homeTimeClassFilter);
 
     list.innerHTML = '';
-    // 새 렌더는 항상 처음부터 — 필터 변경 시 이전 스크롤 위치가 남아있으면
-    // 브라우저 auto-clamp에서 scroll 이벤트가 발생해 loadMore가 연쇄로 트리거됨.
-    list.scrollTop = 0;
-    homeRecentVisibleCount = 0;
     homeRecentRenderState = null;
 
     if (filtered.length === 0) {
         list.innerHTML = `<div class="container-message">${t('filter_no_games')}</div>`;
+        const showAllBtn = document.getElementById('homeShowAllBtn');
+        if (showAllBtn) showAllBtn.classList.add('hidden');
         return;
     }
 
-    const container = document.createElement('div');
-    container.className = 'home-recent-list';
-    list.appendChild(container);
-
     const dateStrings = { dateToday: t('dateToday'), dateYesterday: t('dateYesterday'), dateDaysAgo: t('dateDaysAgo') };
-    homeRecentRenderState = { container, filtered, displayUser, dateStrings };
+    homeRecentRenderState = { container: list, filtered, displayUser, dateStrings };
 
-    const initialEnd = Math.min(HOME_RECENT_PAGE_SIZE, filtered.length);
-    appendHomeRecentBatch(0, initialEnd);
-    homeRecentVisibleCount = initialEnd;
+    const visible = homeRecentExpanded
+        ? Math.min(HOME_RECENT_FULL, filtered.length)
+        : Math.min(HOME_RECENT_INITIAL, filtered.length);
+    appendHomeRecentBatch(0, visible);
 
-    updateScrollFade(list);
+    const showAllBtn = document.getElementById('homeShowAllBtn');
+    if (showAllBtn) {
+        const hasMore = !homeRecentExpanded && filtered.length > HOME_RECENT_INITIAL;
+        showAllBtn.classList.toggle('hidden', !hasMore);
+    }
 }
 
-// 홈 게임 카드 batch append. renderHomeGamesList 초기 렌더와 loadMoreHomeRecent 양쪽이 사용.
+// 홈 게임 카드 batch append. renderHomeGamesList 초기 렌더 + 모두 보기 펼침에서 호출.
 function appendHomeRecentBatch(from, to) {
     if (!homeRecentRenderState) return;
     const { container, filtered, displayUser, dateStrings } = homeRecentRenderState;
@@ -457,103 +488,292 @@ function appendHomeRecentBatch(from, to) {
     if (slice.length === 0) return;
 
     const userLower = displayUser.toLowerCase();
-    const pawnPath = 'M22.5 9c-2.21 0-4 1.79-4 4 0 .89.29 1.71.78 2.38C17.33 16.5 16 18.59 16 21c0 2.03.94 3.84 2.41 5.03-3 1.06-7.41 5.55-7.41 13.47h23c0-7.92-4.41-12.41-7.41-13.47 1.47-1.19 2.41-3 2.41-5.03 0-2.41-1.33-4.5-3.28-5.62.49-.67.78-1.49.78-2.38 0-2.21-1.79-4-4-4z';
-    const buildPawn = (color) => `<svg class="home-recent-pawn home-recent-pawn--${color}" viewBox="0 0 45 45" width="14" height="14" aria-hidden="true"><path d="${pawnPath}"/></svg>`;
 
     slice.forEach(game => {
         const isWhite = isWhitePlayer(game, userLower);
-        const mySide = isWhite ? game.white : game.black;
         const oppSide = isWhite ? game.black : game.white;
         const resultClass = classifyGameResult(game, userLower);
-        const resultKey = `game_result_${resultClass}`;
 
-        const myColor = isWhite ? 'white' : 'black';
-        const oppColor = isWhite ? 'black' : 'white';
-        const myName = escapeHtml(mySide.username);
-        const myRatingStr = mySide.rating ? ` (${mySide.rating})` : '';
-        const oppRatingStr = oppSide.rating ? ` (${oppSide.rating})` : '';
-
+        const summary = parsePgnSummary(game.pgn);
+        const opening = parseOpeningFromPgn(game.pgn || '').name || '';
         const date = game.end_time ? formatRelativeDate(game.end_time, dateStrings) : '';
-        const moveCount = countMovesFromPgn(game.pgn);
-        const tc = game.time_control ? formatTimeControl(game.time_control) : '';
-        const metaBottom = [moveCount ? `${moveCount}${t('moves_suffix')}` : '', tc].filter(Boolean).join(' · ');
+        const oppRating = oppSide.rating ? String(oppSide.rating) : '';
 
-        const card = document.createElement('div');
-        card.className = `home-recent-card result-${resultClass}`;
-        card.setAttribute('aria-label', `${t(resultKey)} · ${isWhite ? 'White' : 'Black'}`);
+        const isKo = getLocale() === 'ko';
+        const resultLetter = resultClass === 'win' ? (isKo ? '승' : 'W')
+                          : resultClass === 'loss' ? (isKo ? '패' : 'L')
+                          : (isKo ? '무' : 'D');
+
+        const movesLabel = summary.moves ? `${summary.moves}${t('moves_suffix')}` : '';
+        const metaParts = [opening, movesLabel].filter(Boolean);
+        const metaInner = metaParts.map((p, i) => {
+            const sep = i === 0 ? '' : '<span class="home-game-meta-sep" aria-hidden="true">·</span>';
+            return `${sep}<span>${escapeHtml(p)}</span>`;
+        }).join('');
+
+        const initialFen = summary.fen || 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR';
+
+        const card = document.createElement('button');
+        card.type = 'button';
+        card.className = 'home-game-card';
         card.innerHTML = `
-            <div class="home-recent-rows">
-                <div class="home-recent-row home-recent-row--me">
-                    ${buildPawn(myColor)}
-                    <span class="home-recent-name">${myName}</span><span class="home-recent-rating">${escapeHtml(myRatingStr)}</span>
+            ${renderMiniBoardSvgHtml(initialFen, 84, summary.lastMove, !isWhite)}
+            <div class="home-game-body">
+                <div>
+                    <div class="home-game-header">
+                        <span class="home-result-chip home-result-chip--${resultClass}">${resultLetter}</span>
+                        <span class="home-game-opp">${escapeHtml(oppSide.username || '')}</span>
+                        ${oppRating ? `<span class="home-game-opp-rating">${escapeHtml(oppRating)}</span>` : ''}
+                    </div>
+                    <div class="home-game-meta-row">${metaInner}</div>
                 </div>
-                <div class="home-recent-row home-recent-row--opp">
-                    ${buildPawn(oppColor)}
-                    <span class="home-recent-name">${escapeHtml(oppSide.username)}</span><span class="home-recent-rating">${escapeHtml(oppRatingStr)}</span>
-                </div>
+                <div class="home-game-class-row" data-slot="class-row" hidden></div>
             </div>
-            <div class="home-recent-meta">
-                <div class="home-recent-meta-line">${escapeHtml(date)}</div>
-                <div class="home-recent-meta-line">${escapeHtml(metaBottom)}</div>
+            <div class="home-game-meta">
+                <span class="home-game-when">${escapeHtml(date)}</span>
+                <span data-slot="meta-bottom">
+                    <button type="button" class="home-analyze-btn" data-action="analyze">${escapeHtml(t('home_analyze_btn'))}</button>
+                </span>
             </div>
         `;
 
-        card.addEventListener('click', () => {
+        // 카드 본체 → 분석 화면(미분석이면 새 분석, 캐시 hit이면 즉시 리뷰).
+        card.addEventListener('click', (e) => {
+            if (e.target.closest('[data-action="analyze"]')) return;
             if (!game.pgn) return;
             pgnInput.value = game.pgn;
             handlePgnReviewStart(null, isWhite, null, true);
         });
 
+        const analyzeBtn = card.querySelector('[data-action="analyze"]');
+        if (analyzeBtn) {
+            analyzeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (!game.pgn) return;
+                pgnInput.value = game.pgn;
+                handlePgnReviewStart(null, isWhite, null, true);
+            });
+        }
+
         container.appendChild(card);
+
+        // 분석 캐시가 있으면 카드 비동기 업그레이드 — "분석" 버튼 → 정확도%, chips 노출.
+        decorateCardWithAnalysisAsync(card, game, isWhite);
     });
 }
 
-// 스크롤 바닥에 가까워지면 호출 — 다음 PAGE_SIZE개 append. 캐시 끝에서 자동 정지.
-function loadMoreHomeRecent() {
-    if (!homeRecentRenderState) return;
-    const total = homeRecentRenderState.filtered.length;
-    if (homeRecentVisibleCount >= total) return;
-    const from = homeRecentVisibleCount;
-    const to = Math.min(from + HOME_RECENT_PAGE_SIZE, total);
-    appendHomeRecentBatch(from, to);
-    homeRecentVisibleCount = to;
-    const list = document.getElementById('homeRecentList');
-    if (list) updateScrollFade(list);
-}
-
-function updateScrollFade(el) {
-    const top = el.scrollTop > 2;
-    const bottom = el.scrollTop + el.clientHeight < el.scrollHeight - 2;
-    el.classList.toggle('fade-top', top && !bottom);
-    el.classList.toggle('fade-bottom', bottom && !top);
-    el.classList.toggle('fade-both', top && bottom);
-}
-
-document.getElementById('homeRecentList')?.addEventListener('scroll', function () {
-    updateScrollFade(this);
-    // 바닥 100px 이내 도달 시 다음 batch 렌더 — 무한 스크롤.
-    if (this.scrollTop + this.clientHeight >= this.scrollHeight - 100) {
-        loadMoreHomeRecent();
+// PGN을 chess.js로 한 번 파싱해서 마지막 위치 FEN, 마지막 수, 수 카운트 추출.
+function parsePgnSummary(pgn) {
+    if (!pgn) return { moves: 0, fen: '', lastMove: null };
+    try {
+        const c = new window.Chess();
+        if (!c.load_pgn(pgn)) return { moves: 0, fen: '', lastMove: null };
+        const verbose = c.history({ verbose: true });
+        const last = verbose[verbose.length - 1];
+        return {
+            moves: Math.ceil(verbose.length / 2),
+            fen: c.fen(),
+            lastMove: last ? [last.from, last.to] : null,
+        };
+    } catch {
+        return { moves: 0, fen: '', lastMove: null };
     }
-});
+}
 
-// 홈 시간대 필터(전체/래피드/블리츠/불렛). 캐시된 게임에서 클라이언트 사이드 필터 후 다시 렌더.
-document.getElementById('homeTimeFilterBar')?.addEventListener('click', (e) => {
-    const btn = e.target.closest('.pill-btn');
-    if (!btn) return;
-    const tc = btn.dataset.tc;
-    if (!tc || tc === homeTimeClassFilter) return;
-    homeTimeClassFilter = tc;
-    document.querySelectorAll('#homeTimeFilterBar .pill-btn').forEach(b => {
-        b.classList.toggle('selected', b.dataset.tc === tc);
-    });
-    // 프로필 카드 레이팅/티어를 현재 시간대 기준으로 즉시 갱신
-    applyProfileRatingForFilter();
+// 미니 체스보드 SVG 렌더 — 84px 기준, 8×8 그리드, 마지막 수 하이라이트, 유니코드 기물.
+const _MINIBOARD_GLYPH = {
+    wK: '♔', wQ: '♕', wR: '♖', wB: '♗', wN: '♘', wP: '♙',
+    bK: '♚', bQ: '♛', bR: '♜', bB: '♝', bN: '♞', bP: '♟',
+};
+const _MB_FILES = ['a','b','c','d','e','f','g','h'];
+function _miniBoardParseFen(fen) {
+    const rows = (fen || '').split(' ')[0].split('/');
+    const out = [];
+    for (let r = 0; r < 8; r++) {
+        const row = rows[r] || '8';
+        for (const ch of row) {
+            if (/[1-8]/.test(ch)) {
+                for (let i = 0; i < parseInt(ch); i++) out.push(null);
+            } else {
+                const color = ch === ch.toUpperCase() ? 'w' : 'b';
+                out.push(color + ch.toUpperCase());
+            }
+        }
+    }
+    while (out.length < 64) out.push(null);
+    return out;
+}
+function _squareToIdx(sq) {
+    const f = _MB_FILES.indexOf(sq[0]);
+    const r = 8 - parseInt(sq[1]);
+    return r * 8 + f;
+}
+function renderMiniBoardSvgHtml(fen, size, lastMove, flipped) {
+    const cells = _miniBoardParseFen(fen);
+    const cellSize = size / 8;
+    const lm = lastMove ? new Set(lastMove.map(_squareToIdx)) : new Set();
+    const lightColor = '#E8DCBF';
+    const darkColor = '#8C6840';
+    let body = '';
+    for (let i = 0; i < 64; i++) {
+        const rIdx = flipped ? 7 - Math.floor(i / 8) : Math.floor(i / 8);
+        const fIdx = flipped ? 7 - (i % 8) : (i % 8);
+        const isLight = (rIdx + fIdx) % 2 === 0;
+        const x = (i % 8) * cellSize;
+        const y = Math.floor(i / 8) * cellSize;
+        const realIdx = rIdx * 8 + fIdx;
+        const piece = cells[realIdx];
+        const isLm = lm.has(realIdx);
+        body += `<rect x="${x}" y="${y}" width="${cellSize}" height="${cellSize}" fill="${isLight ? lightColor : darkColor}"/>`;
+        if (isLm) body += `<rect class="last-move" x="${x}" y="${y}" width="${cellSize}" height="${cellSize}"/>`;
+        if (piece) {
+            const tx = x + cellSize / 2;
+            const ty = y + cellSize / 2 + cellSize * 0.32;
+            const cls = piece[0] === 'w' ? 'piece-w' : 'piece-b';
+            body += `<text class="${cls}" x="${tx}" y="${ty}" text-anchor="middle" font-size="${cellSize * 0.92}">${_MINIBOARD_GLYPH[piece]}</text>`;
+        }
+    }
+    return `<svg class="home-mini-board-svg home-game-board" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" aria-hidden="true">${body}</svg>`;
+}
+
+async function decorateCardWithAnalysisAsync(card, game, isUserWhiteForGame) {
+    if (!game.pgn) return;
+    let hash;
+    try { hash = await computePgnHash(game.pgn); } catch { return; }
+    let cache;
+    try { cache = await loadAnalysisCache(hash); } catch { return; }
+    if (!cache || !Array.isArray(cache.moves) || cache.moves.length === 0) return;
+
+    const stats = computeMyStatsFromCache(cache.moves, isUserWhiteForGame);
+    if (!stats) return;
+
+    const metaBottom = card.querySelector('[data-slot="meta-bottom"]');
+    if (metaBottom) {
+        metaBottom.innerHTML = `<span class="home-game-accuracy">${stats.accuracy}%</span>`;
+    }
+
+    const classRow = card.querySelector('[data-slot="class-row"]');
+    if (classRow) {
+        const items = [];
+        const c = stats.classification;
+        if (c.brilliant > 0) items.push({ k: 'brilliant', n: c.brilliant });
+        if (c.great > 0)     items.push({ k: 'great',     n: c.great });
+        if (c.mistake > 0)   items.push({ k: 'mistake',   n: c.mistake });
+        if (c.blunder > 0)   items.push({ k: 'blunder',   n: c.blunder });
+        if (items.length > 0) {
+            classRow.innerHTML = items.map(it =>
+                `<span class="home-game-class-chip"><span class="home-game-class-dot home-game-class-dot--${it.k}"></span>${it.n}</span>`
+            ).join('');
+            classRow.hidden = false;
+        }
+    }
+}
+
+// 캐시된 moves[] (각 { engineLines, classification })에서 사용자(나)의 정확도 + 분류 카운트 계산.
+// engineLines[0].scoreNum은 백 기준 cp. cpToWhiteWinPct로 winPct 추출 후 Lichess 식 정확도 적용.
+function computeMyStatsFromCache(moves, isUserWhite) {
+    const counts = { brilliant: 0, great: 0, mistake: 0, blunder: 0 };
+    const accs = [];
+    let prevWhitePct = 50;
+
+    for (let i = 0; i < moves.length; i++) {
+        const m = moves[i];
+        const isWhiteMove = (i % 2) === 0;
+        const isMyMove = isWhiteMove === isUserWhite;
+
+        const top = m.engineLines && m.engineLines[0];
+        let currWhitePct = null;
+        if (top && typeof top.scoreNum === 'number') {
+            currWhitePct = cpToWhiteWinPct(top.scoreNum);
+        }
+
+        if (isMyMove && currWhitePct !== null) {
+            const prevOwnPct = isUserWhite ? prevWhitePct : 100 - prevWhitePct;
+            const currOwnPct = isUserWhite ? currWhitePct : 100 - currWhitePct;
+            const loss = Math.max(0, prevOwnPct - currOwnPct);
+            const a = 103.1668 * Math.exp(-0.04354 * loss) - 3.1669;
+            accs.push(Math.max(0, Math.min(100, a)));
+
+            const cls = m.classification;
+            if (cls === 'Brilliant') counts.brilliant++;
+            else if (cls === 'Great') counts.great++;
+            else if (cls === 'Mistake') counts.mistake++;
+            else if (cls === 'Blunder') counts.blunder++;
+        }
+
+        if (currWhitePct !== null) prevWhitePct = currWhitePct;
+    }
+
+    if (accs.length === 0) return null;
+    const avg = accs.reduce((s, v) => s + v, 0) / accs.length;
+    return { accuracy: Math.round(avg), classification: counts };
+}
+
+// "모두 보기" — 4개 → 15개 펼치기.
+document.getElementById('homeShowAllBtn')?.addEventListener('click', () => {
+    homeRecentExpanded = true;
     const displayUser = isViewingOtherUser() ? viewingUserId : getMyUserId();
     if (cachedHomeGames.length > 0 && displayUser) {
         renderHomeGamesList(cachedHomeGames, displayUser);
-        updateProfileRecord(cachedHomeGames, displayUser);
     }
+});
+
+// ── 시간대 필터 드롭다운 ───────────────────────────────────────
+function setHomeTcFilter(tc) {
+    if (tc !== 'rapid' && tc !== 'blitz' && tc !== 'bullet' && tc !== 'all') return;
+    if (tc === homeTimeClassFilter) return;
+    homeTimeClassFilter = tc;
+    homeRecentExpanded = false;
+    // 트리거 라벨 + 옵션 aria-checked 동기화
+    const labelEl = document.getElementById('homeTcFilterLabel');
+    if (labelEl) {
+        labelEl.setAttribute('data-i18n', `home_filter_${tc}`);
+        labelEl.textContent = t(`home_filter_${tc}`);
+    }
+    document.querySelectorAll('.home-tc-filter-option').forEach(opt => {
+        opt.setAttribute('aria-checked', opt.dataset.tc === tc ? 'true' : 'false');
+    });
+    // 카드 + 형 스트립 + 레이팅 pill 모두 새 필터로 재렌더
+    const displayUser = isViewingOtherUser() ? viewingUserId : getMyUserId();
+    if (cachedHomeGames.length > 0 && displayUser) {
+        renderHomeGamesList(cachedHomeGames, displayUser);
+        updateHeroFormStrip(cachedHomeGames, displayUser);
+    }
+    updateHeroRatingPill();
+}
+
+function toggleHomeTcMenu(forceState) {
+    const trigger = document.getElementById('homeTcFilterBtn');
+    const menu = document.getElementById('homeTcFilterMenu');
+    if (!trigger || !menu) return;
+    const open = forceState !== undefined ? forceState : menu.classList.contains('hidden');
+    menu.classList.toggle('hidden', !open);
+    trigger.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+
+document.getElementById('homeTcFilterBtn')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleHomeTcMenu();
+});
+
+document.getElementById('homeTcFilterMenu')?.addEventListener('click', (e) => {
+    const opt = e.target.closest('.home-tc-filter-option');
+    if (!opt) return;
+    e.stopPropagation();
+    setHomeTcFilter(opt.dataset.tc);
+    toggleHomeTcMenu(false);
+});
+
+// 메뉴 외부 클릭 / ESC 시 닫기
+document.addEventListener('click', (e) => {
+    const menu = document.getElementById('homeTcFilterMenu');
+    if (!menu || menu.classList.contains('hidden')) return;
+    if (!e.target.closest('.home-tc-filter')) toggleHomeTcMenu(false);
+});
+document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    const menu = document.getElementById('homeTcFilterMenu');
+    if (menu && !menu.classList.contains('hidden')) toggleHomeTcMenu(false);
 });
 
 function loadHomeRecentGames(overrideUsername = null) {
@@ -564,6 +784,7 @@ function loadHomeRecentGames(overrideUsername = null) {
     if (!displayUser || !section || !list) return;
 
     viewingUserId = normalizedOverride;
+    homeRecentExpanded = false;
     updateHomeRecentHeader(isViewingOtherUser() ? viewingUserId : null);
     section.classList.remove('hidden');
 
@@ -577,15 +798,18 @@ function loadHomeRecentGames(overrideUsername = null) {
                 section.classList.add('hidden');
             }
             cachedHomeGames = [];
-            resetProfileRecord();
+            clearHeroMeta();
             return;
         }
         cachedHomeGames = games;
         renderHomeGamesList(games, displayUser);
-        updateProfileRecord(games, displayUser);
+        // 히어로 폼 스트립 + 메타 행 노출 (레이팅 pill은 fetchPlayerProfile 콜백에서 갱신).
+        updateHeroFormStrip(games, displayUser);
+        const meta = document.getElementById('homeHeroMeta');
+        if (meta) meta.classList.remove('hidden');
     }).catch(() => {
         cachedHomeGames = [];
-        resetProfileRecord();
+        clearHeroMeta();
         if (overrideUsername) {
             list.innerHTML = `<div class="container-message container-message--error">${t('games_fetch_error')}</div>`;
         } else {
@@ -594,161 +818,26 @@ function loadHomeRecentGames(overrideUsername = null) {
     });
 }
 
-function resetProfileRecord() {
-    const recordEl = document.getElementById('profileRecord');
-    if (recordEl) recordEl.innerHTML = '<span class="profile-record-dash">—</span>';
-}
-
-function updateProfileRecord(games, displayUser) {
-    const recordEl = document.getElementById('profileRecord');
-    if (!recordEl || !displayUser) return;
-    const userLower = displayUser.toLowerCase();
-    // 게임 목록과 동일한 time_class 필터 적용 — 사용자가 본 15개 기준 W/L/D
-    const filtered = homeTimeClassFilter === 'all'
-        ? games
-        : games.filter(g => (g.time_class || '') === homeTimeClassFilter);
-    let w = 0, l = 0, d = 0;
-    filtered.slice(0, 15).forEach(game => {
-        const r = classifyGameResult(game, userLower);
-        if (r === 'win') w++;
-        else if (r === 'loss') l++;
-        else d++;
-    });
-    recordEl.innerHTML = `
-        <span class="profile-record-win">${w}${t('profile_record_win_short')}</span>
-        <span class="profile-record-loss">${l}${t('profile_record_loss_short')}</span>
-        <span class="profile-record-draw">${d}${t('profile_record_draw_short')}</span>
-    `;
-}
-
-function renderProfileTier(rapid) {
-    const tierEl = document.getElementById('profileTier');
-    const avatarEl = document.getElementById('profileAvatar');
-    const tier = getTier(rapid);
-    avatarEl.classList.remove('tier-emperor');
-    tierEl.classList.remove('tier-emperor');
-    if (!tier) {
-        tierEl.innerHTML = `<span>${t('tier_unranked')}</span>`;
-        if (!avatarEl.querySelector('img')) {
-            avatarEl.textContent = '\u265F';
-        }
+function updateHomeHeader() {
+    // 워드마크/타이틀은 i18n 자동 적용. 여기서는 레이팅 pill만 갱신 (form strip은 게임 로드 후).
+    homeProfileRatings = null;
+    updateHeroRatingPill();
+    const userId = getViewingUserId();
+    if (!userId) {
+        clearHeroMeta();
         return;
     }
-    tierEl.innerHTML = `<span class="home-profile-tier-glyph">${tier.glyph}</span><span>${t('tier_' + tier.key)}</span>`;
-    if (tier.isEmperor) tierEl.classList.add('tier-emperor');
-    if (!avatarEl.querySelector('img')) {
-        avatarEl.textContent = tier.glyph;
-        if (tier.isEmperor) avatarEl.classList.add('tier-emperor');
-    }
-}
-
-// 현재 시간대 필터 기준으로 프로필 카드의 레이팅 + 티어 갱신.
-// 'all' 필터일 땐 단일 값 표시가 어려워 rapid를 기본 fallback으로 사용.
-function applyProfileRatingForFilter() {
-    const profileRapidEl = document.getElementById('profileRapid');
-    if (!profileRapidEl || !homeProfileRatings) return;
-    const tc = homeTimeClassFilter === 'all' ? 'rapid' : homeTimeClassFilter;
-    const rating = homeProfileRatings[tc];
-    profileRapidEl.textContent = rating || '—';
-    updateProfileRatingLabel(tc);
-    renderProfileTier(rating);
-}
-
-function updateProfileRatingLabel(tc) {
-    const labelEl = document.getElementById('profileRatingLabel');
-    if (!labelEl) return;
-    const key = `home_filter_${tc}`;
-    labelEl.setAttribute('data-i18n', key);
-    labelEl.textContent = t(key);
-}
-
-function setProfileAvatar(url, fallbackRapid) {
-    const avatarEl = document.getElementById('profileAvatar');
-    avatarEl.innerHTML = '';
-    avatarEl.classList.remove('tier-emperor');
-    if (url) {
-        const img = new Image();
-        img.alt = '';
-        img.src = url;
-        img.onerror = () => {
-            avatarEl.innerHTML = '';
-            renderProfileTier(fallbackRapid);
-        };
-        avatarEl.appendChild(img);
-    } else {
-        renderProfileTier(fallbackRapid);
-    }
-}
-
-function updateHomeHeader() {
-    const userId = getViewingUserId();
-    const heroSection = document.querySelector('.home-hero');
-    const inputWrap = document.querySelector('.username-input-wrap');
-    const heroTitle = document.querySelector('.hero-title');
-    const heroSubtitle = document.querySelector('.hero-subtitle');
-    const profileCard = document.getElementById('homeProfileCard');
-    const profileName = document.getElementById('profileName');
-    const profilePlatform = document.getElementById('profilePlatform');
-    const profileRapid = document.getElementById('profileRapid');
-    const profileAvatar = document.getElementById('profileAvatar');
-
-    if (userId) {
-        heroSection.classList.add('home-hero--user');
-        profileCard.classList.remove('hidden');
-        profileName.textContent = userId;
-        profileName.classList.remove('username-md', 'username-sm');
-        if (userId.length > 16) profileName.classList.add('username-sm');
-        else if (userId.length > 10) profileName.classList.add('username-md');
-        if (profilePlatform) {
-            // 다른 유저 검색도 현재 플랫폼 안에서만 동작하므로 항상 getMyPlatform()으로 표시.
-            profilePlatform.textContent = getMyPlatform() === PLATFORM_LICHESS ? 'Lichess' : 'Chess.com';
-        }
-        profileRapid.textContent = '—';
-        updateProfileRatingLabel(homeTimeClassFilter === 'all' ? 'rapid' : homeTimeClassFilter);
-        profileAvatar.innerHTML = '';
-        profileAvatar.classList.remove('tier-emperor');
-        renderProfileTier(null);
-        resetProfileRecord();
-        homeProfileRatings = null;
-        inputWrap.classList.add('username-input-wrap--small');
-        usernameInput.placeholder = t('home_search_other');
-
-        fetchPlayerProfile(userId).then(profile => {
-            if (!profile) return;
-            const { ratings, avatar, displayName } = profile;
-            homeProfileRatings = ratings;
-            // chess.com 캐노니컬 케이스로 표시명 갱신 ("bywxx" → "Bywxx" 등)
-            if (displayName) {
-                profileName.textContent = displayName;
-                profileName.classList.remove('username-md', 'username-sm');
-                if (displayName.length > 16) profileName.classList.add('username-sm');
-                else if (displayName.length > 10) profileName.classList.add('username-md');
-            }
-            // 현재 필터 기준으로 레이팅 + 티어 표시
-            applyProfileRatingForFilter();
-            // 아바타는 한 번만 세팅 (URL 동일하면 그대로)
-            const tc = homeTimeClassFilter === 'all' ? 'rapid' : homeTimeClassFilter;
-            setProfileAvatar(avatar, ratings[tc] || ratings.rapid);
-        });
-    } else {
-        heroSection.classList.remove('home-hero--user');
-        profileCard.classList.add('hidden');
-        if (profilePlatform) profilePlatform.textContent = '';
-        heroTitle.setAttribute('data-i18n', 'heroTitle');
-        heroTitle.textContent = t('heroTitle');
-        heroSubtitle.classList.remove('hidden');
-        heroSubtitle.setAttribute('data-i18n', 'heroSubtitle');
-        heroSubtitle.textContent = t('heroSubtitle');
-        inputWrap.classList.remove('username-input-wrap--small');
-        usernameInput.placeholder = t('usernamePlaceholder');
-    }
+    fetchPlayerProfile(userId).then(profile => {
+        if (!profile) return;
+        homeProfileRatings = profile.ratings || null;
+        updateHeroRatingPill();
+    });
 }
 
 // ── Onboarding ─────────────────────────────────────────────────────
 const onboardingView = document.getElementById('onboardingView');
 const onboardingUsernameInput = document.getElementById('onboardingUsernameInput');
 const onboardingSubmitBtn = document.getElementById('onboardingSubmitBtn');
-const onboardingSkipBtn = document.getElementById('onboardingSkipBtn');
 const onboardingPlatformTabs = document.getElementById('onboardingPlatformTabs');
 const onboardingLabel = document.querySelector('#onboardingView .onboarding-label');
 
@@ -789,19 +878,19 @@ function finishOnboarding() {
 
 onboardingSubmitBtn.addEventListener('click', () => {
     const username = onboardingUsernameInput.value.trim();
-    if (username) {
-        setMyPlatform(onboardingPlatform);
-        setMyUserId(username);
-        logUsernameToServer(username, 'onboarding');
+    if (!username) {
+        onboardingUsernameInput.focus();
+        return;
     }
+    setMyPlatform(onboardingPlatform);
+    setMyUserId(username);
+    logUsernameToServer(username, 'onboarding');
     finishOnboarding();
 });
 
 onboardingUsernameInput.addEventListener('keyup', (e) => {
     if (e.key === 'Enter') onboardingSubmitBtn.click();
 });
-
-onboardingSkipBtn.addEventListener('click', finishOnboarding);
 
 if (!localStorage.getItem(ONBOARDING_KEY)) {
     homeView.classList.add('hidden');
@@ -997,15 +1086,7 @@ if (settingsAboutBtn && aboutModal) {
         aboutModal.classList.remove('hidden');
     });
 }
-// 홈 전용 피드백 FAB — 설정 모달을 거치지 않고 바로 피드백 모달을 연다.
-const homeFeedbackFab = document.getElementById('homeFeedbackFab');
-if (homeFeedbackFab) {
-    homeFeedbackFab.addEventListener('click', () => {
-        feedbackInput.value = '';
-        feedbackStatusText.textContent = '';
-        feedbackModal.classList.remove('hidden');
-    });
-}
+// 피드백 진입점은 설정 모달 안의 #settingsFeedbackBtn으로 통일 (홈 FAB는 리디자인 v2에서 제거됨).
 if (submitFeedbackBtn) {
     submitFeedbackBtn.addEventListener('click', async () => {
         const content = feedbackInput.value.trim();

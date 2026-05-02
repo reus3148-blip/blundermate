@@ -55,34 +55,38 @@
                     <button id="onboardingSubmitBtn" class="home-submit-btn" title="시작하기">→</button>
                 </div>
             </div>
-            <div class="onboarding-skip-wrap">
-                <button id="onboardingSkipBtn" class="onboarding-skip" data-i18n="onboarding_skip">건너뛰기</button>
-            </div>
         </div>
 
         <!-- Home View -->
         <div id="homeView" class="view-container">
-            <!-- Shared Header -->
+            <!-- Top Bar — 설정 / 워드마크 / + (PGN 입력). 검색/프로필 카드 없음 (라이브러리 탭에서 처리 예정) -->
             <div class="analysis-top-bar home-top-bar">
                 <button id="homeSettingsBtn" class="topbar-icon-btn" aria-label="설정" data-i18n-aria="aria_settings">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
                 </button>
                 <span class="home-brand-text"><span class="brand-blunder">blunder</span><span class="brand-mate">mate</span></span>
-                <div class="topbar-right-group">
-                    <button id="homeBoardInputBtn" class="topbar-icon-btn" aria-label="수 입력" data-i18n-aria="aria_new_analysis">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
-                    </button>
-                    <button id="homeSearchBtn" class="topbar-icon-btn" aria-label="검색" data-i18n-aria="aria_search">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-                    </button>
-                </div>
+                <button id="homeBoardInputBtn" class="topbar-icon-btn topbar-icon-btn--end" aria-label="수 입력" data-i18n-aria="aria_new_analysis">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#14140F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                </button>
             </div>
 
             <!-- Home Content -->
             <div class="home-state home-scroll">
                 <section class="home-hero">
-                    <div class="hero-title" data-i18n="heroTitle">어떤 게임을 분석할까요?</div>
-                    <div class="hero-subtitle" data-i18n="heroSubtitle">Chess.com 유저네임을 입력하세요</div>
+                    <h2 class="home-hero-title">
+                        <span data-i18n="hero_title_line1">어떤 게임을</span><br>
+                        <span data-i18n="hero_title_line2">다시 들여다볼까요?</span>
+                    </h2>
+                    <div id="homeHeroMeta" class="home-hero-meta hidden">
+                        <span class="home-rating-pill">
+                            <span class="home-rating-dot" aria-hidden="true"></span>
+                            <span id="homeRatingValue" class="home-rating-value">—</span>
+                            <span id="homeRatingTc" class="home-rating-tc"></span>
+                        </span>
+                        <span class="home-meta-sep" aria-hidden="true">·</span>
+                        <span class="home-meta-text" data-i18n="home_last_15">최근 15</span>
+                        <span id="homeFormStrip" class="home-form-strip" aria-hidden="true"></span>
+                    </div>
                 </section>
 
                 <div id="manualInputWrapper" style="display:none">
@@ -90,48 +94,27 @@
                     <button id="analyzeBtn"></button>
                 </div>
 
-                <div id="homeProfileCard" class="home-profile-card hidden">
-                    <div class="home-profile-main">
-                        <div class="home-profile-avatar" id="profileAvatar"></div>
-                        <div class="home-profile-info">
-                            <div id="profileName" class="home-profile-name"></div>
-                            <div id="profilePlatform" class="home-profile-platform"></div>
-                        </div>
-                        <div class="home-profile-rating-block">
-                            <div class="home-profile-rating" id="profileRapid">—</div>
-                            <div class="home-profile-rating-meta">
-                                <button type="button" class="home-profile-tier" id="profileTier" aria-label="랭크 시스템 보기"></button>
-                                <span class="home-profile-rating-tc" id="profileRatingLabel" data-i18n="home_filter_rapid">래피드</span>
+                <div id="homeRecentSection" class="home-recent-section hidden">
+                    <div class="home-recent-head">
+                        <h3 id="homeRecentLabel" class="home-recent-h3" data-i18n="home_recent_games">최근 게임</h3>
+                        <div class="home-tc-filter">
+                            <button id="homeTcFilterBtn" class="home-tc-filter-trigger" type="button" aria-haspopup="menu" aria-expanded="false">
+                                <span id="homeTcFilterLabel" data-i18n="home_filter_rapid">래피드</span>
+                                <svg class="home-tc-filter-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+                            </button>
+                            <div id="homeTcFilterMenu" class="home-tc-filter-menu hidden" role="menu" aria-labelledby="homeTcFilterBtn">
+                                <button type="button" class="home-tc-filter-option" data-tc="rapid" role="menuitemradio" aria-checked="true" data-i18n="home_filter_rapid">래피드</button>
+                                <button type="button" class="home-tc-filter-option" data-tc="blitz" role="menuitemradio" aria-checked="false" data-i18n="home_filter_blitz">블리츠</button>
+                                <button type="button" class="home-tc-filter-option" data-tc="bullet" role="menuitemradio" aria-checked="false" data-i18n="home_filter_bullet">불렛</button>
+                                <button type="button" class="home-tc-filter-option" data-tc="all" role="menuitemradio" aria-checked="false" data-i18n="home_filter_all">전체</button>
                             </div>
-                        </div>
-                    </div>
-                    <div class="home-profile-record" id="homeProfileRecord">
-                        <span class="profile-record-label" data-i18n="profile_record_label">최근 15경기</span>
-                        <span class="profile-record-value" id="profileRecord">
-                            <span class="profile-record-dash">—</span>
-                        </span>
-                    </div>
-                </div>
-
-                <div id="homeRecentSection" class="hidden">
-                    <div class="home-recent-header">
-                        <span id="homeRecentLabel" class="home-section-label hidden"></span>
-                        <div id="homeTimeFilterBar" class="pill-filter-bar pill-filter-bar--home">
-                            <button type="button" class="pill-btn selected" data-tc="rapid" data-i18n="home_filter_rapid">래피드</button>
-                            <button type="button" class="pill-btn" data-tc="blitz" data-i18n="home_filter_blitz">블리츠</button>
-                            <button type="button" class="pill-btn" data-tc="bullet" data-i18n="home_filter_bullet">불렛</button>
                         </div>
                         <button id="backToMyGamesBtn" class="home-recent-back hidden" data-i18n="home_back_to_my_games">내 게임으로 돌아가기</button>
                     </div>
-                    <div id="homeRecentList" class="recent-games-scroll"></div>
+                    <div id="homeRecentList" class="home-recent-list-v2"></div>
+                    <button id="homeShowAllBtn" class="home-recent-action home-recent-action--bottom hidden" type="button" data-i18n="home_see_all">모두 보기</button>
                 </div>
             </div>
-            <!-- 피드백 FAB — 홈 전용. 클릭 시 기존 #feedbackModal 재사용. -->
-            <button id="homeFeedbackFab" class="fab-feedback" aria-label="피드백" data-i18n-aria="home_feedback">
-                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-                </svg>
-            </button>
         </div>
 
         <!-- Input View -->

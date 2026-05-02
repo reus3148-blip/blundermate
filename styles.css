@@ -116,27 +116,36 @@ body {
 }
 
 /* ==========================================
-   Home View: Header
+   Home View: Header — 52px grid, 좌:설정 / 중앙:워드마크 / 우:+
+   .analysis-top-bar.home-top-bar 합성 셀렉터로 specificity 끌어올려 .analysis-top-bar 기본값 덮음.
    ========================================== */
+.analysis-top-bar.home-top-bar {
+    display: grid;
+    grid-template-columns: 44px 1fr 44px;
+    align-items: center;
+    height: 52px;
+    padding: 0 12px;
+    flex-shrink: 0;
+}
+
 .home-top-bar .topbar-icon-btn {
     width: 44px;
     height: 44px;
+    color: var(--tx2);
 }
 
 .home-top-bar .topbar-icon-btn:first-child {
     justify-self: start;
 }
 
-.topbar-right-group {
-    display: flex;
-    align-items: center;
+.home-top-bar .topbar-icon-btn--end {
     justify-self: end;
-    gap: 2px;
+    color: var(--tx);
 }
 
 .home-brand-text {
-    font-size: 18px;
-    font-weight: 700;
+    text-align: center;
+    font-size: 15px;
     letter-spacing: -0.01em;
     line-height: 1;
     margin: 0;
@@ -171,31 +180,86 @@ body {
 }
 
 /* ==========================================
-   Home View: State A — Hero
+   Home View: Hero — 38px 디스플레이 + 레이팅 pill / form strip
    ========================================== */
 .home-hero {
-    padding: 28px 16px 4px;
+    padding: 24px 20px 28px;
     flex-shrink: 0;
 }
 
-.hero-title {
-    font-size: 26px;
+.home-hero-title {
+    font-size: 38px;
     font-weight: 600;
-    color: var(--tx);
-    letter-spacing: -0.025em;
-    line-height: 1.2;
+    color: #14140F;
+    letter-spacing: -0.035em;
+    line-height: 1.05;
+    margin: 0;
 }
 
-.hero-subtitle {
-    font-size: 14px;
+.home-hero-meta {
+    margin-top: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
     color: var(--tx2);
-    margin-top: 6px;
-    margin-bottom: 24px;
-    letter-spacing: -0.01em;
+    flex-wrap: wrap;
 }
+.home-hero-meta.hidden { display: none; }
+
+.home-rating-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    background: var(--bg-surface);
+    border-radius: 999px;
+    border: 1px solid var(--brd);
+}
+
+.home-rating-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--brilliant);
+}
+
+.home-rating-value {
+    color: var(--tx);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.home-rating-tc {
+    color: var(--tx2);
+}
+
+.home-meta-sep {
+    color: var(--tx3);
+}
+
+.home-meta-text {
+    color: var(--tx2);
+}
+
+.home-form-strip {
+    display: inline-flex;
+    gap: 2px;
+    align-items: flex-end;
+}
+
+.home-form-bar {
+    width: 4px;
+    height: 12px;
+    border-radius: 1px;
+    flex-shrink: 0;
+}
+.home-form-bar--w { background: var(--brilliant); }
+.home-form-bar--l { background: var(--blunder); }
+.home-form-bar--d { background: var(--brd2); }
 
 /* ==========================================
-   Home View: Username Input
+   Username Input — 온보딩 전용 (홈에서는 사용 안 함)
    ========================================== */
 .username-input-wrap {
     display: flex;
@@ -228,28 +292,6 @@ body {
 
 .home-text-input::placeholder {
     color: var(--tx3);
-}
-
-.username-clear-btn {
-    display: none;
-    align-items: center;
-    justify-content: center;
-    width: 28px;
-    height: 28px;
-    flex-shrink: 0;
-    background: var(--brd2);
-    border: none;
-    border-radius: 50%;
-    color: var(--tx3);
-    font-size: 16px;
-    line-height: 1;
-    cursor: pointer;
-    padding: 0;
-    margin-right: 2px;
-}
-
-.username-clear-btn.visible {
-    display: flex;
 }
 
 .home-submit-btn {
@@ -288,48 +330,6 @@ body {
 
 .bottom-nav.hidden {
     display: none;
-}
-
-/* ==========================================
-   Home FAB — 피드백 단축 버튼 (홈 전용, .bottom-nav 위 우측 하단)
-   ========================================== */
-.fab-feedback {
-    position: absolute;
-    right: 16px;
-    bottom: calc(56px + env(safe-area-inset-bottom) + 16px);
-    width: 46px;
-    height: 46px;
-    padding: 0;
-    border-radius: 50%;
-    background: var(--bg-surface);
-    border: none;
-    color: var(--tx2);
-    box-shadow:
-        0 1px 2px rgba(28, 29, 31, 0.06),
-        0 6px 18px rgba(28, 29, 31, 0.10),
-        0 0 0 1px rgba(28, 29, 31, 0.04);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: transform 0.15s ease, box-shadow 0.15s ease, color 0.15s ease;
-    z-index: var(--z-sticky-top);
-}
-
-.fab-feedback:hover {
-    color: var(--tx);
-    box-shadow:
-        0 1px 2px rgba(28, 29, 31, 0.08),
-        0 8px 22px rgba(28, 29, 31, 0.14),
-        0 0 0 1px rgba(28, 29, 31, 0.06);
-    transform: translateY(-1px);
-}
-
-.fab-feedback:active {
-    transform: translateY(0);
-    box-shadow:
-        0 1px 2px rgba(28, 29, 31, 0.06),
-        0 0 0 1px rgba(28, 29, 31, 0.04);
 }
 
 .bottom-nav-tab {
@@ -1401,8 +1401,7 @@ th {
     flex-shrink: 0;
 }
 
-/* 홈 시간대 필터: home-recent-header 안에 inline 배치 — 자체 패딩 제거 */
-/* 우측 정렬 + text-tab 스타일 (pill 대체, Apple Music/Notion 탭 결) */
+/* 홈 시간대 필터 — 현재 홈에서는 사용 안 함 (라이브러리 PR에서 재도입 검토). 기존 컨슈머 보호용 정의만 유지. */
 .pill-filter-bar--home {
     padding: 0;
     gap: 16px;
@@ -2688,290 +2687,7 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     margin-bottom: 8px;
 }
 
-.onboarding-skip-wrap {
-    margin-top: 16px;
-    text-align: center;
-}
-
-.onboarding-skip {
-    font-size: 13px;
-    color: var(--tx3);
-    background: none;
-    border: none;
-    cursor: pointer;
-    text-decoration: underline;
-    text-underline-offset: 3px;
-    padding: 0;
-}
-
-/* ── Home: Logged-in state ─────────────────────────────────────── */
-.home-hero--user .hero-title,
-.home-hero--user .hero-subtitle { display: none; }
-.home-hero--user { padding: 0; }
-
-/* Profile Card (Apple/Notion soft surface — layered shadow ring, no hard border) */
-.home-profile-card {
-    margin: 20px 16px 8px;
-    padding: 18px 18px 14px;
-    background: var(--bg-surface);
-    border-radius: 16px;
-    box-shadow:
-        0 1px 2px rgba(28, 29, 31, 0.04),
-        0 0 0 1px rgba(28, 29, 31, 0.04);
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    flex-shrink: 0;
-}
-.home-profile-card.hidden { display: none; }
-
-.home-profile-main {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    min-width: 0;
-}
-
-.home-profile-avatar {
-    width: 44px;
-    height: 44px;
-    border-radius: 50%;
-    background: var(--bg-elevated);
-    flex-shrink: 0;
-    overflow: hidden;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--tx);
-    font-size: 24px;
-    line-height: 1;
-}
-.home-profile-avatar img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
-}
-.home-profile-avatar.tier-emperor { color: var(--ac); }
-
-.home-profile-info {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-.home-profile-name {
-    font-size: 22px;
-    font-weight: 600;
-    color: var(--tx);
-    letter-spacing: -0.018em;
-    line-height: 1.15;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-.home-profile-name.username-md { font-size: 19px; }
-.home-profile-name.username-sm { font-size: 16px; }
-
-.home-profile-platform {
-    font-size: 11px;
-    color: var(--tx3);
-    letter-spacing: 0.01em;
-    line-height: 1;
-}
-.home-profile-platform:empty { display: none; }
-
-.home-profile-tier {
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--tx2);
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    white-space: nowrap;
-    background: none;
-    border: none;
-    padding: 2px 4px;
-    margin: -2px -4px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-family: inherit;
-    -webkit-tap-highlight-color: transparent;
-    transition: background 0.15s;
-}
-.home-profile-tier:active {
-    background: var(--bg-elevated);
-}
-.home-profile-tier-glyph {
-    font-size: 13px;
-    line-height: 1;
-}
-.home-profile-tier.tier-emperor {
-    color: var(--ac);
-}
-
-/* Right-aligned rating stat block (big number + tier·timeclass meta) */
-.home-profile-rating-block {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 4px;
-    flex-shrink: 0;
-    align-self: center;
-}
-.home-profile-rating {
-    font-size: 22px;
-    font-weight: 700;
-    color: var(--tx);
-    letter-spacing: -0.02em;
-    line-height: 1;
-    font-variant-numeric: tabular-nums;
-}
-.home-profile-rating-meta {
-    display: inline-flex;
-    align-items: baseline;
-    line-height: 1;
-}
-.home-profile-rating-tc {
-    font-size: 11px;
-    color: var(--tx2);
-    font-weight: 600;
-}
-.home-profile-rating-tc::before {
-    content: '·';
-    color: var(--tx3);
-    margin: 0 5px;
-}
-
-/* Last 15 record line — separated by hairline so it reads as quiet metadata */
-.home-profile-record {
-    display: flex;
-    align-items: baseline;
-    gap: 10px;
-    padding: 12px 4px 2px;
-    border-top: 1px solid var(--brd);
-}
-.profile-record-label {
-    font-size: 11px;
-    color: var(--tx3);
-    font-weight: 500;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-}
-.profile-record-value {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--tx2);
-    font-variant-numeric: tabular-nums;
-    display: inline-flex;
-    gap: 8px;
-}
-.profile-record-win,
-.profile-record-loss,
-.profile-record-draw { color: var(--tx2); }
-.profile-record-dash { color: var(--tx3); }
-
-.username-input-wrap--small {
-    height: 40px;
-}
-
-.username-input-wrap--small .home-text-input {
-    font-size: 13px;
-}
-
-.username-input-wrap--small .home-submit-btn {
-    width: 36px;
-}
-
-/* ── Home: Recent Games ────────────────────────────────────────── */
-#homeRecentSection {
-    padding: 0 16px;
-    flex: 1;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-}
-
-.home-section-label {
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    color: var(--tx3);
-    text-transform: uppercase;
-    line-height: 1;
-}
-
-.home-recent-header {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 9px;
-    padding: 4px 16px 10px;
-}
-
-.home-recent-back {
-    background: none;
-    border: none;
-    font-family: inherit;
-    font-size: 11px;
-    color: var(--tx3);
-    text-decoration: underline;
-    text-underline-offset: 3px;
-    cursor: pointer;
-    padding: 0;
-    margin-left: auto;
-}
-
-.home-recent-back:hover { color: var(--tx2); }
-.home-recent-back.hidden { display: none; }
-
-.home-recent-list {
-    display: flex;
-    flex-direction: column;
-    gap: var(--game-card-gap);
-}
-
-/* 최근 게임 스크롤 박스: 남은 공간을 자동으로 채움 */
-.recent-games-scroll {
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: thin;
-    scrollbar-color: var(--brd2) transparent;
-}
-
-.recent-games-scroll.fade-bottom {
-    mask-image: linear-gradient(to bottom, black 0%, black 85%, transparent 100%);
-    -webkit-mask-image: linear-gradient(to bottom, black 0%, black 85%, transparent 100%);
-}
-
-.recent-games-scroll.fade-top {
-    mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 100%);
-    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 100%);
-}
-
-.recent-games-scroll.fade-both {
-    mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%);
-    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%);
-}
-
-.recent-games-scroll::-webkit-scrollbar {
-    width: 4px;
-}
-.recent-games-scroll::-webkit-scrollbar-track {
-    background: transparent;
-}
-.recent-games-scroll::-webkit-scrollbar-thumb {
-    background: var(--brd2);
-    border-radius: 2px;
-}
-
-/* 홈 카드 / Vault 카드 / Saved Game 카드 — 부드러운 elevation + 좌측 status stripe (Apple Mail 풍) */
-.home-recent-card,
+/* Vault / Saved 카드 공용 base — 홈 카드는 자체 .home-game-card 정의를 사용. */
 .vault-card,
 .saved-game-card {
     padding: 0 14px 0 18px;
@@ -2991,7 +2707,6 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     transition: box-shadow 0.15s ease, transform 0.15s ease;
 }
 
-.home-recent-card::before,
 .vault-card::before,
 .saved-game-card::before {
     content: '';
@@ -3003,7 +2718,6 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     border-radius: 0 2px 2px 0;
 }
 
-.home-recent-card:hover,
 .vault-card:hover,
 .saved-game-card:hover {
     box-shadow:
@@ -3011,7 +2725,6 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
         0 0 0 1px rgba(28, 29, 31, 0.08);
 }
 
-.home-recent-card:active,
 .vault-card:active,
 .saved-game-card:active {
     transform: scale(0.997);
@@ -3020,101 +2733,367 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
         0 0 0 1px rgba(43, 91, 215, 0.18);
 }
 
-.home-recent-card {
-    height: var(--game-card-height);
+/* ──────────────────────────────────────────────────────────────────
+   Home: Recent Games (리디자인 v2 — 미니보드 + 결과 칩 + 분석 메트릭)
+   ────────────────────────────────────────────────────────────────── */
+.home-recent-section {
+    padding: 0 20px 24px;
+    flex-shrink: 0;
+}
+.home-recent-section.hidden { display: none; }
+/* 홈 전체가 함께 스크롤 — hero + recent 섹션이 한 흐름. */
+.home-state.home-scroll {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+}
+
+.home-recent-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    padding: 0 2px;
     gap: 10px;
 }
-.home-recent-card::before { background: var(--brd2); }
-.home-recent-card.result-win::before  { background: var(--win); }
-.home-recent-card.result-loss::before { background: var(--loss); }
-.home-recent-card.result-draw::before { background: var(--brd2); }
 
-.home-recent-rows {
+.home-recent-h3 {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--tx3);
+    margin: 0;
+}
+
+.home-recent-action {
+    background: none;
+    border: none;
+    padding: 0;
+    font-family: inherit;
+    font-size: 12px;
+    color: var(--tx2);
+    cursor: pointer;
+}
+.home-recent-action:hover { color: var(--tx); }
+.home-recent-action.hidden { display: none; }
+
+/* "모두 보기" — 카드 리스트 하단 중앙 작은 텍스트 링크. 펼치기 전에만 노출. */
+.home-recent-action--bottom {
+    display: block;
+    margin: 12px auto 0;
+    padding: 6px 12px;
+    color: var(--tx3);
+    font-size: 12px;
+}
+.home-recent-action--bottom:hover { color: var(--tx2); }
+
+/* 시간대 필터 드롭다운 — 헤더 우측. text-tab 톤(Apple/Notion 결): 작은 트리거 + 가벼운 popover. */
+.home-tc-filter {
+    position: relative;
+    display: inline-block;
+}
+
+.home-tc-filter-trigger {
+    background: none;
+    border: none;
+    padding: 4px 6px 4px 8px;
+    font-family: inherit;
+    font-size: 12px;
+    color: var(--tx);
+    font-weight: 500;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    border-radius: 6px;
+    -webkit-tap-highlight-color: transparent;
+    transition: background 0.12s ease;
+}
+.home-tc-filter-trigger:hover { background: var(--bg-elevated); }
+.home-tc-filter-trigger[aria-expanded="true"] { background: var(--bg-elevated); }
+
+.home-tc-filter-chevron {
+    color: var(--tx3);
+    transition: transform 0.15s ease;
+    flex-shrink: 0;
+}
+.home-tc-filter-trigger[aria-expanded="true"] .home-tc-filter-chevron {
+    transform: rotate(180deg);
+}
+
+.home-tc-filter-menu {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    z-index: var(--z-sticky-top);
+    min-width: 120px;
+    background: var(--bg-surface);
+    border-radius: 10px;
+    padding: 4px;
+    box-shadow:
+        0 4px 16px rgba(20, 20, 15, 0.12),
+        0 0 0 0.5px rgba(20, 20, 15, 0.10);
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+.home-tc-filter-menu.hidden { display: none; }
+
+.home-tc-filter-option {
+    background: none;
+    border: none;
+    padding: 7px 10px;
+    text-align: left;
+    font-family: inherit;
+    font-size: 13px;
+    color: var(--tx);
+    cursor: pointer;
+    border-radius: 6px;
+    -webkit-tap-highlight-color: transparent;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+.home-tc-filter-option:hover { background: var(--bg-elevated); }
+
+/* 선택된 옵션 — 굵게 + 우측 체크. 텍스트 위계만으로 상태 전달 (메모리 톤: 장식보다 타이포). */
+.home-tc-filter-option[aria-checked="true"] {
+    font-weight: 600;
+}
+.home-tc-filter-option[aria-checked="true"]::after {
+    content: '✓';
+    color: var(--tx);
+    font-size: 12px;
+}
+
+.home-recent-back {
+    background: none;
+    border: none;
+    font-family: inherit;
+    font-size: 12px;
+    color: var(--tx2);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    cursor: pointer;
+    padding: 0;
+}
+.home-recent-back:hover { color: var(--tx); }
+.home-recent-back.hidden { display: none; }
+
+.home-recent-list-v2 {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* 게임 카드 — 미니보드(좌) / 본문(중) / 메타 컬럼(우) */
+.home-game-card {
+    background: var(--bg-surface);
+    border-radius: 14px;
+    padding: 14px;
+    display: flex;
+    gap: 12px;
+    align-items: stretch;
+    box-shadow:
+        0 1px 2px rgba(20, 20, 15, 0.04),
+        0 0 0 0.5px rgba(20, 20, 15, 0.06);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: box-shadow 0.15s ease, transform 0.15s ease;
+    border: none;
+    width: 100%;
+    text-align: left;
+    font: inherit;
+    color: inherit;
+}
+
+.home-game-card:hover {
+    box-shadow:
+        0 2px 6px rgba(20, 20, 15, 0.06),
+        0 0 0 0.5px rgba(20, 20, 15, 0.10);
+}
+
+.home-game-card:active {
+    transform: scale(0.998);
+}
+
+.home-game-board {
+    width: 84px;
+    height: 84px;
+    flex-shrink: 0;
+    border-radius: 6px;
+    overflow: hidden;
+    display: block;
+    background: var(--board-light);
+}
+
+.home-game-body {
     flex: 1;
     min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    justify-content: space-between;
 }
-.home-recent-row {
+
+.home-game-header {
     display: flex;
     align-items: center;
     gap: 8px;
-    min-width: 0;
-    font-size: 13px;
-    color: var(--tx);
-    white-space: nowrap;
-    overflow: hidden;
-}
-.home-recent-row--me { font-weight: 700; }
-.home-recent-row--opp {
-    font-weight: 500;
-    color: var(--tx2);
+    margin-bottom: 4px;
 }
 
-.home-recent-name {
+.home-result-chip {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    padding: 2px 6px;
+    border-radius: 3px;
+    flex-shrink: 0;
+    line-height: 1.4;
+}
+.home-result-chip--win {
+    background: rgba(58, 133, 96, 0.12);
+    color: var(--brilliant);
+}
+.home-result-chip--loss {
+    background: rgba(208, 56, 50, 0.12);
+    color: var(--blunder);
+}
+.home-result-chip--draw {
+    background: rgba(154, 156, 163, 0.12);
+    color: var(--tx3);
+}
+
+.home-game-opp {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--tx);
     overflow: hidden;
     text-overflow: ellipsis;
+    white-space: nowrap;
     min-width: 0;
 }
 
-.home-recent-rating {
+.home-game-opp-rating {
+    font-size: 11px;
     color: var(--tx3);
-    font-weight: 400;
-    font-size: 12px;
     flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
 }
 
-.home-recent-pawn {
-    flex-shrink: 0;
-    width: 14px;
-    height: 14px;
+.home-game-meta-row {
+    font-size: 11px;
+    color: var(--tx2);
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    flex-wrap: wrap;
 }
-.home-recent-pawn--white path {
-    fill: none;
-    stroke: var(--tx);
-    stroke-width: 2.5;
-    stroke-linejoin: round;
-}
-.home-recent-pawn--black path {
-    fill: var(--tx);
-    stroke: none;
-}
-.home-recent-row--opp .home-recent-pawn--white path { stroke: var(--tx2); }
-.home-recent-row--opp .home-recent-pawn--black path { fill: var(--tx2); }
 
-.home-recent-meta {
-    flex-shrink: 0;
+.home-game-meta-sep {
+    color: var(--rule, #C7C9CE);
+}
+
+.home-game-class-row {
+    margin-top: 8px;
+    display: inline-flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.home-game-class-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    color: var(--tx2);
+    font-variant-numeric: tabular-nums;
+}
+
+.home-game-class-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    display: inline-block;
+}
+.home-game-class-dot--brilliant { background: var(--brilliant); }
+.home-game-class-dot--great     { background: var(--great); }
+.home-game-class-dot--mistake   { background: var(--mistake); }
+.home-game-class-dot--blunder   { background: var(--blunder); }
+
+/* 우측 메타 컬럼 — 한국어 nowrap 필수, 카드 높이 균등 분배 */
+.home-game-meta {
     display: flex;
     flex-direction: column;
     align-items: flex-end;
-    justify-content: center;
-    gap: 4px;
+    justify-content: space-between;
+    flex-shrink: 0;
+    min-width: 52px;
+}
+.home-game-meta > * { white-space: nowrap; }
+
+.home-game-when {
     font-size: 11px;
     color: var(--tx3);
-    line-height: 1.2;
+}
+
+.home-game-accuracy {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--tx);
     font-variant-numeric: tabular-nums;
-    letter-spacing: -0.005em;
-}
-.home-recent-meta-line {
-    white-space: nowrap;
 }
 
+.home-analyze-btn {
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    color: #14140F;
+    padding: 5px 10px;
+    background: #F2EDE3;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: background 0.15s ease;
+}
+.home-analyze-btn:hover { background: #ECE5D6; }
+.home-analyze-btn:disabled { opacity: 0.6; cursor: progress; }
 
-/* Skeleton */
+/* 미니보드 SVG: stroke-paint-order로 흰 기물의 윤곽선 보존 */
+.home-mini-board-svg {
+    display: block;
+    font-family: serif;
+}
+.home-mini-board-svg .piece-w {
+    fill: #fafafa;
+    stroke: #1c1d1f;
+    stroke-width: 0.8;
+    paint-order: stroke fill;
+}
+.home-mini-board-svg .piece-b {
+    fill: #1c1d1f;
+}
+.home-mini-board-svg .last-move {
+    fill: rgba(43, 91, 215, 0.28);
+}
+
+/* Skeleton — 새 카드 비율에 맞춤 */
 .home-recent-skeleton {
     display: flex;
     flex-direction: column;
-    gap: var(--game-card-gap);
+    gap: 10px;
 }
 
 .home-recent-skeleton-card {
-    height: var(--game-card-height);
-    border-radius: 10px;
+    height: 112px;
+    border-radius: 14px;
     background: var(--bg-surface);
     box-shadow:
-        0 1px 2px rgba(28, 29, 31, 0.03),
-        0 0 0 1px rgba(28, 29, 31, 0.03);
+        0 1px 2px rgba(20, 20, 15, 0.04),
+        0 0 0 0.5px rgba(20, 20, 15, 0.06);
 }
 
 /* ── Vault Card (홈 카드와 시각 통일, 2~3줄) ─────────────────────── */
