@@ -304,14 +304,25 @@ function _getAnalyzedGamesSync() {
     }
 }
 
-// PGN moves-only 영역만 해싱 (헤더의 시간/사이트는 같은 게임이라도 다를 수 있어 제외).
+// PGN moves-only 영역만 해싱. SAN 토큰 시퀀스만 추출해 표기 변형(시계 주석, black ellipsis,
+// NAG, 변형, annotation, 결과 토큰)에 영향받지 않게 함.
+//
+// 주의: chess.com API 원본 PGN은 `1. d4 {[%clk ...]} 1... d5 {[%clk ...]}` 형태 (black ellipsis 포함),
+// chess.js round-trip 결과는 `1. d4 d5` 형태 (ellipsis 없음). 두 입력이 같은 hash를 내야
+// (저장: round-trip / 조회: API 원본) decorateCardWithAnalysisAsync 매칭이 성립.
 export async function computePgnHash(pgn) {
     if (!pgn) return '';
     const moves = pgn
         .split('\n')
         .filter(l => !l.startsWith('['))
         .join(' ')
-        .replace(/\{[^}]*\}/g, '')
+        .replace(/\{[^}]*\}/g, '')                // 주석 (시계, eval 등)
+        .replace(/\([^)]*\)/g, '')                // 변형 라인
+        .replace(/\$\d+/g, '')                    // NAG ($1, $2, …)
+        .replace(/\d+\s*\.{3}/g, '')              // black move ellipsis (1... / 1 ...)
+        .replace(/\d+\s*\./g, '')                 // white move number (1. / 1 .)
+        .replace(/[!?]+/g, '')                    // SAN annotation (! ? !! ?? !? ?!)
+        .replace(/\s+(1-0|0-1|1\/2-1\/2|\*)\s*$/, '')  // 결과 토큰 (게임 끝)
         .replace(/\s+/g, ' ')
         .trim();
     const buf = new TextEncoder().encode(moves);
@@ -477,7 +488,8 @@ export async function saveAnalysisCache({ pgnHash, payload }) {
         analysis_version: payload.version,
     };
 
-    // localStorage 즉시 반영 — collectAutoBlunders가 행을 만들었으니 idx >= 0이어야 정상.
+    // localStorage 즉시 반영 — _persistAnalysisCache가 upsertAnalyzedGame으로 행을 보장하니
+    // idx >= 0이어야 정상. idx < 0이면 호출 측에서 행 생성을 빼먹은 것 → 진단을 위해 warn.
     const platform = getMyPlatform();
     try {
         const cache = _getAnalyzedGamesSync();
@@ -485,6 +497,8 @@ export async function saveAnalysisCache({ pgnHash, payload }) {
         if (idx >= 0) {
             cache[idx] = { ...cache[idx], ...cachePatch };
             localStorage.setItem(ANALYZED_GAMES_KEY, JSON.stringify(cache));
+        } else {
+            console.warn('saveAnalysisCache: 매칭 행 없음 — 캐시 PATCH 스킵', { pgnHash, platform, cacheLen: cache.length });
         }
     } catch (e) {
         console.error('Failed to save analysis cache to localStorage:', e);

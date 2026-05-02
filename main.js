@@ -19,7 +19,7 @@ import {
 } from './modes.js';
 import { parseEvalData, getDests, convertPvToSan, parseAndLoadPgn, isValidFen, escapeHtml, parseOpeningFromPgn, formatTimeControl, formatRelativeDate, getTier, TIERS, isWhitePlayer, classifyGameResult, countMovesFromPgn, cpToWhiteWinPct } from './utils.js';
 import { renderMovesTable, updateUIWithEval, highlightActiveMove, renderEngineLines, updateTopEvalDisplay, renderReviewReport, buildPreviewCardHtml } from './ui.js';
-import { addVaultItem, getSavedGames, setMyUserId, getMyUserId, getMyPlatform, setMyPlatform, PLATFORM_CHESSCOM, PLATFORM_LICHESS, ONBOARDING_KEY, COORDS_KEY, EVAL_MODE_KEY, computePgnHash, loadAnalysisCache, saveAnalysisCache, isCacheCompatible, ANALYSIS_CACHE_VERSION } from './storage.js';
+import { addVaultItem, getSavedGames, setMyUserId, getMyUserId, getMyPlatform, setMyPlatform, PLATFORM_CHESSCOM, PLATFORM_LICHESS, ONBOARDING_KEY, COORDS_KEY, EVAL_MODE_KEY, computePgnHash, upsertAnalyzedGame, loadAnalysisCache, saveAnalysisCache, isCacheCompatible, ANALYSIS_CACHE_VERSION } from './storage.js';
 import { collectAutoBlunders } from './autoBlunders.js';
 import { initVault, isVaultDetailActive, isVaultPuzzleActive, getVaultDetailIndex, setVaultDetailIndex, flipVaultBoard, setVaultCoords, redrawVaultBoard, loadVaultData, loadBlunderListData, redrawVaultPuzzleBoard } from './vault.js';
 import { initSavedGames, loadSavedGamesData } from './savedGames.js';
@@ -2216,11 +2216,22 @@ function _finalizeAnalysisRun({ fromCache }) {
 
 // analyzed_games(user_id, pgn_hash)에 분석 결과 캐시 PATCH. 페이로드는 포지션별 engineLines + classification.
 // fen/san 등 메타는 PGN 재replay로 복원 가능하므로 미포함 — 페이로드 크기 절감.
-// 호출 시점: collectAutoBlunders 완료 후 (행 존재 보장).
+//
+// 행 보장: collectAutoBlunders는 candidate(블런더/놓친메이트)가 0이면 early return하므로
+// upsertAnalyzedGame을 직접 호출. 깨끗하게 플레이한 게임도 캐시에 들어가야 홈 카드 정확도% 표시됨.
 async function _persistAnalysisCache() {
     const pgn = chess.pgn();
     if (!pgn) return;
     const pgnHash = await computePgnHash(pgn);
+
+    const headers = chess.header() || {};
+    await upsertAnalyzedGame({
+        pgn,
+        pgnHash,
+        headersJson: headers,
+        playedDate: headers.UTCDate || headers.Date || null,
+    });
+
     const payload = {
         version: ANALYSIS_CACHE_VERSION,
         depth: getDepth(),
