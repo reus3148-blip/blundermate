@@ -279,7 +279,7 @@ function getEvaluationLossThreshold(classif, prevEval) {
  *   type: 'cp' | 'mate'
  *   value: cp는 백 기준 정수 cp, mate는 부호 있는 mate 수 (+ = 백 mate)
  */
-function lineToEval(line) {
+export function lineToEval(line) {
     if (!line) return null;
     const s = line.scoreStr || '';
     if (s.includes('M')) {

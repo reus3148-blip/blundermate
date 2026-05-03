@@ -11,19 +11,7 @@
 // 반환: { worstTwo, missedMates }. collectAutoBlunders가 upsertAnalyzedGame → addVaultItemsBatch로 영속화.
 
 import { computePgnHash, upsertAnalyzedGame, addVaultItemsBatch, getVaultItems } from './storage.js';
-
-// engineLines 항목 → {type:'cp'|'mate', value(white-perspective)} 변환.
-// scoreStr 'M3'/'+M2'/'-M5' 또는 cp 정수 형식. parseEvalData가 white-perspective로 정규화해둠.
-function lineToEval(line) {
-    if (!line) return null;
-    const s = line.scoreStr || '';
-    if (s.includes('M')) {
-        const sign = s.startsWith('-') ? -1 : 1;
-        const n = parseInt(s.replace(/[^\d]/g, ''), 10);
-        return { type: 'mate', value: sign * (Number.isFinite(n) ? n : 0) };
-    }
-    return { type: 'cp', value: Math.round((line.scoreNum || 0) * 100) };
-}
+import { lineToEval } from './utils.js';
 
 // CPL: 사용자(=mover) 관점의 손실. 양수면 손실.
 function computeCpLoss(prevEval, postEval, isWhite) {
