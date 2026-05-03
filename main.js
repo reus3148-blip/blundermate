@@ -205,7 +205,6 @@ const HOME_RECENT_MAX = 100;
 // 현재 렌더 컨텍스트(컨테이너 + filtered 게임 + 유저 + 날짜 문자열 + 현재 표시 개수).
 // 카드 비동기 업그레이드(분석 캐시 lookup) + 무한 스크롤 양쪽에서 참조.
 let homeRecentRenderState = null;
-let homeRecentLoadingMore = false;
 
 // ==========================================
 // 2-2. History-based Navigation
@@ -477,33 +476,27 @@ function renderHomeGamesList(games, displayUser) {
 
     const dateStrings = { dateToday: t('dateToday'), dateYesterday: t('dateYesterday'), dateDaysAgo: t('dateDaysAgo') };
     homeRecentRenderState = { container: list, filtered, displayUser, dateStrings, visible: 0 };
-
-    const initial = Math.min(HOME_RECENT_PAGE, filtered.length, HOME_RECENT_MAX);
-    appendHomeRecentBatch(0, initial);
-    homeRecentRenderState.visible = initial;
+    appendHomeRecentBatch(0, Math.min(HOME_RECENT_PAGE, filtered.length, HOME_RECENT_MAX));
 }
 
 // 무한 스크롤 — 홈 스크롤 컨테이너 하단 근처 도달 시 10개씩 추가. 페치 한도(100)까지.
 function onHomeScroll(e) {
-    if (!homeRecentRenderState || homeRecentLoadingMore) return;
+    if (!homeRecentRenderState) return;
     const { filtered, visible } = homeRecentRenderState;
     const cap = Math.min(filtered.length, HOME_RECENT_MAX);
     if (visible >= cap) return;
     const el = e.currentTarget;
     if (el.scrollTop + el.clientHeight < el.scrollHeight - 240) return;
-    homeRecentLoadingMore = true;
-    const next = Math.min(visible + HOME_RECENT_PAGE, cap);
-    appendHomeRecentBatch(visible, next);
-    homeRecentRenderState.visible = next;
-    homeRecentLoadingMore = false;
+    appendHomeRecentBatch(visible, Math.min(visible + HOME_RECENT_PAGE, cap));
 }
 
-// 홈 게임 카드 batch append. renderHomeGamesList 초기 렌더 + 모두 보기 펼침에서 호출.
+// 홈 게임 카드 batch append. 초기 렌더 + 무한 스크롤 양쪽에서 호출.
 function appendHomeRecentBatch(from, to) {
     if (!homeRecentRenderState) return;
     const { container, filtered, displayUser, dateStrings } = homeRecentRenderState;
     const slice = filtered.slice(from, to);
     if (slice.length === 0) return;
+    homeRecentRenderState.visible = to;
 
     const userLower = displayUser.toLowerCase();
 
@@ -745,7 +738,6 @@ function setHomeTcFilter(tc) {
     document.querySelectorAll('.home-tc-filter-option').forEach(opt => {
         opt.setAttribute('aria-checked', opt.dataset.tc === tc ? 'true' : 'false');
     });
-    // 카드 + 전적 + 레이팅 모두 새 필터로 재렌더
     const displayUser = isViewingOtherUser() ? viewingUserId : getMyUserId();
     if (cachedHomeGames.length > 0 && displayUser) {
         renderHomeGamesList(cachedHomeGames, displayUser);

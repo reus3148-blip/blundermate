@@ -610,21 +610,6 @@ export function subVariantName(fullName, rootName) {
     return variant.join(' ');
 }
 
-/**
- * 통계 카드 표시용 — root + variant 압축 라벨.
- * 변종 있으면 root에서 trailing "Defense/Game/Opening/Defence" 제거하여
- * "Sicilian Defense: Najdorf" 같은 중복감 줄임. 변종 없으면 root 그대로.
- *
- * 예: ("Sicilian Defense", "Najdorf")   → "Sicilian Najdorf"
- *     ("Italian Game", "Giuoco Piano")  → "Italian Giuoco Piano"
- *     ("Scotch Gambit", "Haxo")         → "Scotch Gambit Haxo"  (Gambit는 보존 — 의미 있음)
- *     ("Caro-Kann Defense", "")         → "Caro-Kann Defense"
- */
-export function compactOpeningLabel(root, variant) {
-    if (!variant) return root;
-    const compactRoot = root.replace(/\s+(Defense|Defence|Game|Opening)$/, '');
-    return `${compactRoot} ${variant}`;
-}
 
 /**
  * PGN 스트링 또는 단순 텍스트 기보를 Chess 인스턴스에 로드하고 결과와 PGN 텍스트를 반환합니다.

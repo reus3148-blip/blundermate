@@ -220,11 +220,10 @@ function computeInsights(games, userLower, opts = {}) {
             if (!openings.has(op.key)) openings.set(op.key, { ...emptyWDL(), eco: op.eco, variants: new Map() });
             const bucket = openings.get(op.key);
             addResult(bucket, r);
-            // 변종 분해 — 클릭 시 인라인 확장. 변종 없는 경우는 'base' 키로 묶어 "기본 라인"으로 표시.
+            // 변종 분해 — 클릭 시 인라인 확장. 변종 없으면 빈 문자열 키 = "기본 라인".
             const variantLabel = (op.fullName && op.root) ? subVariantName(op.fullName, op.root) : '';
-            const vKey = variantLabel || '__base__';
-            if (!bucket.variants.has(vKey)) bucket.variants.set(vKey, { ...emptyWDL(), label: variantLabel });
-            addResult(bucket.variants.get(vKey), r);
+            if (!bucket.variants.has(variantLabel)) bucket.variants.set(variantLabel, { ...emptyWDL(), label: variantLabel });
+            addResult(bucket.variants.get(variantLabel), r);
         }
 
         const term = classifyTermination(game, userLower);
@@ -709,13 +708,9 @@ function renderOpeningsCard(topOpenings, recent, prior) {
         const pct = winPct(op);
         const delta = deltaSpan(recent?.openings?.get(op.key), prior?.openings?.get(op.key));
         // 변종 행 — base는 마지막에, 나머지는 게임 수 내림차순. 1개뿐이면 펼쳐도 의미 없으므로 토글 숨김.
-        const variants = op.variants ? [...op.variants.entries()] : [];
-        const variantRows = variants
-            .map(([vKey, v]) => ({ vKey, label: v.label || t('insights_opening_base'), isBase: !v.label, stats: v }))
-            .sort((a, b) => {
-                if (a.isBase !== b.isBase) return a.isBase ? 1 : -1;
-                return b.stats.games - a.stats.games;
-            });
+        const variantRows = [...(op.variants || [])]
+            .map(([, v]) => ({ label: v.label || t('insights_opening_base'), isBase: !v.label, stats: v }))
+            .sort((a, b) => Number(a.isBase) - Number(b.isBase) || b.stats.games - a.stats.games);
         const expandable = variantRows.length > 1;
         const variantHtml = expandable ? variantRows.map(vr => `
             <div class="insight-row insight-row--variant">
