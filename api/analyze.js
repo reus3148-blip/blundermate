@@ -1,39 +1,23 @@
 // Vercel Edge Function for Streaming Gemini AI
+import { corsHeaders, jsonResponse, methodGuard } from './_http.js';
+
 export const config = {
     runtime: 'edge',
 };
 
 export default async function handler(req) {
-    const corsHeaders = {
-        'Access-Control-Allow-Credentials': 'true',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'OPTIONS,POST',
-        'Access-Control-Allow-Headers': 'Content-Type'
-    };
-
-    if (req.method === 'OPTIONS') {
-        return new Response(null, { status: 200, headers: corsHeaders });
-    }
-
-    if (req.method !== 'POST') {
-        return new Response(JSON.stringify({ error: "Method Not Allowed" }), { 
-            status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        });
-    }
+    const rejection = methodGuard(req);
+    if (rejection) return rejection;
 
     const apiKey = (process.env.GEMINI_API_KEY || '').trim();
     if (!apiKey || apiKey === 'your_gemini_api_key_here') {
-        return new Response(JSON.stringify({ error: "API key is not configured on the server." }), { 
-            status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        });
+        return jsonResponse({ error: "API key is not configured on the server." }, 500);
     }
 
     const body = await req.json();
     const { fen, ascii_board, playedMove, classification, evalDrop, best_move, punishment_pv, best_pv } = body || {};
     if (!fen || !playedMove) {
-        return new Response(JSON.stringify({ error: "Missing required chess data (fen, playedMove)." }), { 
-            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        });
+        return jsonResponse({ error: "Missing required chess data (fen, playedMove)." }, 400);
     }
 
     const AI_CONFIG = {

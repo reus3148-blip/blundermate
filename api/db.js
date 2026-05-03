@@ -1,42 +1,23 @@
 // Vercel Edge Function — Supabase CRUD proxy for vault_items and saved_games
 import { normalizePlatform } from './_platform.js';
+import { jsonResponse, methodGuard, supabaseHeaders } from './_http.js';
 
 export const config = {
     runtime: 'edge',
 };
 
 export default async function handler(req) {
-    const corsHeaders = {
-        'Access-Control-Allow-Credentials': 'true',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'OPTIONS, POST',
-        'Access-Control-Allow-Headers': 'Content-Type'
-    };
-
-    if (req.method === 'OPTIONS') {
-        return new Response(null, { status: 200, headers: corsHeaders });
-    }
-
-    if (req.method !== 'POST') {
-        return new Response(JSON.stringify({ error: 'Method Not Allowed' }), {
-            status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
-    }
+    const rejection = methodGuard(req);
+    if (rejection) return rejection;
 
     const supabaseUrl = process.env.SUPABASE_URL;
     const supabaseKey = process.env.SUPABASE_ANON_KEY;
 
     if (!supabaseUrl || !supabaseKey) {
-        return new Response(JSON.stringify({ error: 'Supabase not configured' }), {
-            status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
+        return jsonResponse({ error: 'Supabase not configured' }, 500);
     }
 
-    const sbHeaders = {
-        'Content-Type': 'application/json',
-        'apikey': supabaseKey,
-        'Authorization': `Bearer ${supabaseKey}`,
-    };
+    const sbHeaders = supabaseHeaders(supabaseKey);
 
     try {
         const body = await req.json();
@@ -54,9 +35,7 @@ export default async function handler(req) {
             : data;
 
         if (!table || !['vault_items', 'saved_games', 'analyzed_games'].includes(table)) {
-            return new Response(JSON.stringify({ error: 'Invalid table' }), {
-                status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-            });
+            return jsonResponse({ error: 'Invalid table' }, 400);
         }
 
         // 허용 컬럼: 임의 컬럼 필터로 SQL 분리 위험을 차단. analyzed_games는 pgn_hash/id로만 조회 가능.
@@ -68,9 +47,7 @@ export default async function handler(req) {
 
         if (action === 'select') {
             if (!user_id) {
-                return new Response(JSON.stringify([]), {
-                    status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-                });
+                return jsonResponse([]);
             }
             let query = `user_id=eq.${encodeURIComponent(user_id)}&platform=eq.${encodeURIComponent(platform)}`;
             if (filter && typeof filter === 'object') {
@@ -84,9 +61,7 @@ export default async function handler(req) {
             const url = `${supabaseUrl}/rest/v1/${table}?${query}&order=created_at.desc`;
             const res = await fetch(url, { headers: { ...sbHeaders, 'Accept': 'application/json' } });
             const result = await res.json();
-            return new Response(JSON.stringify(result), {
-                status: res.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-            });
+            return jsonResponse(result, res.status);
         }
 
         if (action === 'insert') {
@@ -94,9 +69,7 @@ export default async function handler(req) {
             // 피해자 이름으로 데이터 생성(user_id spoofing)을 서버에서 차단.
             // platform은 normalizedData 단계에서 강제 동기화되므로 추가 검증 불필요.
             if (!user_id || !normalizedData || normalizedData.user_id !== user_id) {
-                return new Response(JSON.stringify({ error: 'user_id mismatch or missing' }), {
-                    status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-                });
+                return jsonResponse({ error: 'user_id mismatch or missing' }, 400);
             }
             const url = `${supabaseUrl}/rest/v1/${table}`;
             const res = await fetch(url, {
@@ -104,23 +77,17 @@ export default async function handler(req) {
                 headers: { ...sbHeaders, 'Prefer': 'return=minimal' },
                 body: JSON.stringify(normalizedData)
             });
-            return new Response(JSON.stringify({ ok: res.ok }), {
-                status: res.ok ? 200 : res.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-            });
+            return jsonResponse({ ok: res.ok }, res.ok ? 200 : res.status);
         }
 
         if (action === 'delete') {
             // user_id를 쿼리에 강제 포함 — UUID만 알아도 타 유저 행 삭제 불가.
             if (!id || !user_id) {
-                return new Response(JSON.stringify({ error: 'id and user_id required' }), {
-                    status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-                });
+                return jsonResponse({ error: 'id and user_id required' }, 400);
             }
             const url = `${supabaseUrl}/rest/v1/${table}?id=eq.${encodeURIComponent(id)}&user_id=eq.${encodeURIComponent(user_id)}&platform=eq.${encodeURIComponent(platform)}`;
             const res = await fetch(url, { method: 'DELETE', headers: sbHeaders });
-            return new Response(JSON.stringify({ ok: res.ok }), {
-                status: res.ok ? 200 : res.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-            });
+            return jsonResponse({ ok: res.ok }, res.ok ? 200 : res.status);
         }
 
         if (action === 'update') {
@@ -128,15 +95,11 @@ export default async function handler(req) {
             // 화이트리스트로 캐시 컬럼만 갱신 — pgn/headers_json/id 등 다른 컬럼은 클라이언트에서 변경 불가.
             // 호출자가 행 존재를 보장(collectAutoBlunders가 먼저 INSERT 완료)해야 의미 있는 작업.
             if (table !== 'analyzed_games') {
-                return new Response(JSON.stringify({ error: 'update only supported on analyzed_games' }), {
-                    status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-                });
+                return jsonResponse({ error: 'update only supported on analyzed_games' }, 400);
             }
             const pgnHash = filter?.pgn_hash;
             if (!user_id || !pgnHash || !data) {
-                return new Response(JSON.stringify({ error: 'user_id, filter.pgn_hash and data required' }), {
-                    status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-                });
+                return jsonResponse({ error: 'user_id, filter.pgn_hash and data required' }, 400);
             }
             const ALLOWED_UPDATE_COLS = ['analysis_json', 'analysis_depth', 'analysis_version'];
             const patch = {};
@@ -144,9 +107,7 @@ export default async function handler(req) {
                 if (ALLOWED_UPDATE_COLS.includes(col)) patch[col] = val;
             }
             if (Object.keys(patch).length === 0) {
-                return new Response(JSON.stringify({ error: 'no allowed columns to update' }), {
-                    status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-                });
+                return jsonResponse({ error: 'no allowed columns to update' }, 400);
             }
             const url = `${supabaseUrl}/rest/v1/${table}?user_id=eq.${encodeURIComponent(user_id)}&platform=eq.${encodeURIComponent(platform)}&pgn_hash=eq.${encodeURIComponent(pgnHash)}`;
             const res = await fetch(url, {
@@ -154,19 +115,13 @@ export default async function handler(req) {
                 headers: { ...sbHeaders, 'Prefer': 'return=minimal' },
                 body: JSON.stringify(patch),
             });
-            return new Response(JSON.stringify({ ok: res.ok }), {
-                status: res.ok ? 200 : res.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-            });
+            return jsonResponse({ ok: res.ok }, res.ok ? 200 : res.status);
         }
 
-        return new Response(JSON.stringify({ error: 'Unknown action' }), {
-            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
+        return jsonResponse({ error: 'Unknown action' }, 400);
 
     } catch (e) {
         console.error('DB API Error:', e);
-        return new Response(JSON.stringify({ error: 'Internal Server Error' }), {
-            status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
+        return jsonResponse({ error: 'Internal Server Error' }, 500);
     }
 }
