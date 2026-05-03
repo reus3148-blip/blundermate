@@ -13,6 +13,7 @@ import {
     setPersistentShapes, pushPersistentShape, clearPersistentShapes,
 } from './board.js';
 import {
+    APP_MODES,
     appMode, explorationChess, explorationEngineLines, simulationQueue, simulationIndex, isPreviewMode, isReviewMode,
     setAppMode, setIsPreviewMode, setIsReviewMode, clearExplorationEngineLines, setExplorationLineAt,
     setSimulationQueue, pushSimulationQueueItem, setSimulationIndex,
@@ -1371,12 +1372,12 @@ analyzeBtn.addEventListener('click', () => {
 
 // --- Move Navigation Helpers ---
 function handlePrevMove() {
-    if (appMode === 'simulate') {
+    if (appMode === APP_MODES.SIMULATE) {
         setSimulationIndex(Math.max(0, simulationIndex - 1));
         updateBoardForSimulation(simulationIndex);
         return;
     }
-    if (appMode === 'explore') {
+    if (appMode === APP_MODES.EXPLORE) {
         exitExplorationMode();
         if (currentlyViewedIndex >= 0 && analysisQueue[currentlyViewedIndex]) {
             updateBoardPosition(currentlyViewedIndex, analysisQueue[currentlyViewedIndex].fen);
@@ -1403,12 +1404,12 @@ function handlePrevMove() {
 }
 
 function handleNextMove() {
-    if (appMode === 'simulate') {
+    if (appMode === APP_MODES.SIMULATE) {
         setSimulationIndex(Math.min(simulationQueue.length - 1, simulationIndex + 1));
         updateBoardForSimulation(simulationIndex);
         return;
     }
-    if (appMode === 'explore') {
+    if (appMode === APP_MODES.EXPLORE) {
         exitExplorationMode();
         if (currentlyViewedIndex >= 0 && analysisQueue[currentlyViewedIndex]) {
             updateBoardPosition(currentlyViewedIndex, analysisQueue[currentlyViewedIndex].fen);
@@ -1763,13 +1764,13 @@ window.addEventListener('resize', () => {
 
 function handleExplorationMove(orig, dest) {
     if (isPreviewMode) return;
-    if (appMode === 'simulate') {
-        setAppMode('explore');
+    if (appMode === APP_MODES.SIMULATE) {
+        setAppMode(APP_MODES.EXPLORE);
         explorationChess.load(simulationQueue[simulationIndex].fen);
         clearExplorationEngineLines();
         getEngine().stop();
-    } else if (appMode !== 'explore') {
-        setAppMode('explore');
+    } else if (appMode !== APP_MODES.EXPLORE) {
+        setAppMode(APP_MODES.EXPLORE);
         showReturnBtn();
 
         let baseFen = START_FEN;
@@ -1806,7 +1807,7 @@ function handleExplorationMove(orig, dest) {
 }
 
 function exitExplorationMode() {
-    setAppMode('main');
+    setAppMode(APP_MODES.MAIN);
     hideReturnBtn();
     clearExplorationEngineLines();
     setSimulationQueue([]);
@@ -1845,7 +1846,7 @@ const engineCallbacks = {
         console.error("Failed to load Stockfish worker:", e);
     },
     onEval: (evalData) => {
-        if (appMode !== 'explore') return;
+        if (appMode !== APP_MODES.EXPLORE) return;
         const isBlackToMove = explorationChess.turn() === 'b';
         const { scoreStr, scoreNum } = parseEvalData(evalData, isBlackToMove);
 
@@ -1864,7 +1865,7 @@ const engineCallbacks = {
         }
     },
     onBestMove: () => {
-        if (appMode === 'explore') {
+        if (appMode === APP_MODES.EXPLORE) {
             analysisStatus.className = 'tag engine-ready hidden';
             analysisStatus.textContent = '';
         }
@@ -1946,7 +1947,7 @@ function startNewAnalysis(newQueue, targetIndex = null, previewOnly = false) {
     analysisView.classList.remove('hidden');
 
     // 이전 탐색(Exploration) 및 시뮬레이션 모드 상태 완전 초기화
-    setAppMode('main');
+    setAppMode(APP_MODES.MAIN);
     hideReturnBtn();
     analysisView.classList.remove('view-review');
     setIsReviewMode(false);
@@ -2270,7 +2271,7 @@ function canShowReview() {
     if (isAnalysisLoading) return false;
     if (isPreviewMode) return false;
     const isFenOnly = analysisQueue.length === 1 && analysisQueue[0]?.isFenOnly;
-    return appMode === 'main' && analysisQueue.length > 0 && !isFenOnly;
+    return appMode === APP_MODES.MAIN && analysisQueue.length > 0 && !isFenOnly;
 }
 
 function applyReviewView() {
@@ -2297,7 +2298,7 @@ function applyReviewView() {
 }
 
 function updateBoardPosition(index, fen) {
-    if (appMode === 'explore') {
+    if (appMode === APP_MODES.EXPLORE) {
         exitExplorationMode();
     }
 
@@ -2467,7 +2468,7 @@ function clearEngineArrow() {
 
 function handleEngineLineClick(lineIndex) {
     let baseFen, lines;
-    if (appMode === 'explore') {
+    if (appMode === APP_MODES.EXPLORE) {
         baseFen = explorationChess.fen();
         lines = explorationEngineLines;
     } else {
@@ -2495,7 +2496,7 @@ function handleEngineLineClick(lineIndex) {
         else break;
     }
 
-    setAppMode('simulate');
+    setAppMode(APP_MODES.SIMULATE);
     setSimulationIndex(1);
 
     getEngine().stop();

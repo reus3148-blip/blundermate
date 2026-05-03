@@ -12,7 +12,13 @@
 //
 // 다른 모듈에서 read는 live binding으로 그대로 가능. 재할당은 setter로만.
 
-export let appMode = 'main';
+export const APP_MODES = Object.freeze({
+    MAIN: 'main',
+    EXPLORE: 'explore',
+    SIMULATE: 'simulate',
+});
+
+export let appMode = APP_MODES.MAIN;
 export const explorationChess = new Chess();
 export let explorationEngineLines = [];
 export let simulationQueue = [];

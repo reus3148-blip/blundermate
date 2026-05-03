@@ -1,7 +1,7 @@
 import { formatMarkdownToHtml } from './utils.js';
 import { t } from './strings.js';
 import { GEMINI_KEY } from './storage.js';
-import { appMode } from './modes.js';
+import { appMode, APP_MODES } from './modes.js';
 import { currentlyViewedIndex } from './board.js';
 import { analysisQueue } from './analysis.js';
 
@@ -66,7 +66,7 @@ export async function handleGeminiExplanation() {
     }
 
     // 예외 2: 탐색/시뮬레이션 모드
-    if (appMode !== 'main') {
+    if (appMode !== APP_MODES.MAIN) {
         _geminiEl.innerHTML = `<p class="ai-notice">${t('gemini_no_free')}</p>`;
         if (_onOpen) _onOpen();
         return;
