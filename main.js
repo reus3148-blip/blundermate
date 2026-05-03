@@ -17,7 +17,7 @@ import {
     setAppMode, setIsPreviewMode, setIsReviewMode, clearExplorationEngineLines, setExplorationLineAt,
     setSimulationQueue, pushSimulationQueueItem, setSimulationIndex,
 } from './modes.js';
-import { parseEvalData, getDests, convertPvToSan, parseAndLoadPgn, isValidFen, escapeHtml, parseOpeningFromPgn, formatTimeControl, formatRelativeDate, getTier, TIERS, isWhitePlayer, classifyGameResult, countMovesFromPgn, cpToWhiteWinPct } from './utils.js';
+import { parseEvalData, getDests, convertPvToSan, parseAndLoadPgn, isValidFen, escapeHtml, parseOpeningFromPgn, rootOpeningName, formatTimeControl, formatRelativeDate, getTier, TIERS, isWhitePlayer, classifyGameResult, countMovesFromPgn, cpToWhiteWinPct } from './utils.js';
 import { renderMovesTable, updateUIWithEval, highlightActiveMove, renderEngineLines, updateTopEvalDisplay, renderReviewReport, buildPreviewCardHtml } from './ui.js';
 import { addVaultItem, getSavedGames, setMyUserId, getMyUserId, getMyPlatform, setMyPlatform, PLATFORM_CHESSCOM, PLATFORM_LICHESS, ONBOARDING_KEY, COORDS_KEY, EVAL_MODE_KEY, computePgnHash, upsertAnalyzedGame, loadAnalysisCache, saveAnalysisCache, isCacheCompatible, ANALYSIS_CACHE_VERSION } from './storage.js';
 import { collectAutoBlunders } from './autoBlunders.js';
@@ -195,14 +195,17 @@ let cachedHomeGames = [];
 // 홈 게임 목록의 time_class 필터: 'rapid' | 'blitz' | 'bullet' | 'all'.
 // 헤더 우측 드롭다운으로 선택. 기본 'rapid' — 일반 사용자가 가장 자주 보는 시간대.
 let homeTimeClassFilter = 'rapid';
-// 현재 표시 중인 유저의 레이팅 (rapid/blitz/bullet). 히어로 레이팅 pill 갱신용.
+// 현재 표시 중인 유저의 레이팅 (rapid/blitz/bullet) + 아바타/표시명 — 프로필 카드용.
 let homeProfileRatings = null;
-// 홈 게임 카드 — 처음 4개만 보여주고 "모두 보기"로 전체(15개) 펼침.
-const HOME_RECENT_INITIAL = 4;
-const HOME_RECENT_FULL = 15;
-let homeRecentExpanded = false;
-// 현재 렌더 컨텍스트(컨테이너 + filtered 게임 + 유저 + 날짜 문자열). 카드 비동기 업그레이드(분석 캐시 lookup) 시 참조.
+let homeProfileAvatar = null;
+let homeProfileDisplayName = null;
+// 홈 게임 카드 — 처음 10개 → 스크롤 하단 도달 시 10개씩 추가 (페치 한도 100).
+const HOME_RECENT_PAGE = 10;
+const HOME_RECENT_MAX = 100;
+// 현재 렌더 컨텍스트(컨테이너 + filtered 게임 + 유저 + 날짜 문자열 + 현재 표시 개수).
+// 카드 비동기 업그레이드(분석 캐시 lookup) + 무한 스크롤 양쪽에서 참조.
 let homeRecentRenderState = null;
+let homeRecentLoadingMore = false;
 
 // ==========================================
 // 2-2. History-based Navigation
@@ -413,38 +416,47 @@ function updateHomeRecentHeader(overrideUsername) {
     }
 }
 
-// ── Hero meta: 레이팅 pill + form strip ─────────────────────────
-function clearHeroMeta() {
-    const meta = document.getElementById('homeHeroMeta');
-    if (meta) meta.classList.add('hidden');
+// ── Profile card: 아바타 + 이름 + 레이팅 + 최근 전적 ─────────────
+function clearProfileCard() {
+    const card = document.getElementById('homeProfileCard');
+    if (card) card.classList.add('hidden');
 }
 
-function updateHeroRatingPill() {
-    const valueEl = document.getElementById('homeRatingValue');
-    const tcEl = document.getElementById('homeRatingTc');
-    if (!valueEl || !tcEl) return;
+function updateProfileCardIdentity(displayUser) {
+    const nameEl = document.getElementById('homeProfileName');
+    const avatarEl = document.getElementById('homeProfileAvatar');
+    if (nameEl) nameEl.textContent = homeProfileDisplayName || displayUser || '—';
+    if (avatarEl) {
+        if (homeProfileAvatar) {
+            avatarEl.innerHTML = `<img src="${escapeHtml(homeProfileAvatar)}" alt="">`;
+        } else {
+            avatarEl.textContent = '♜';
+        }
+    }
+}
+
+function updateProfileCardRating() {
+    const el = document.getElementById('homeProfileRating');
+    if (!el) return;
     const tc = homeTimeClassFilter === 'all' ? 'rapid' : homeTimeClassFilter;
     const rating = homeProfileRatings ? homeProfileRatings[tc] : null;
-    valueEl.textContent = rating || '—';
-    tcEl.textContent = t(`home_filter_${tc}`);
+    el.textContent = rating || '—';
 }
 
-function updateHeroFormStrip(games, displayUser) {
-    const strip = document.getElementById('homeFormStrip');
-    if (!strip || !displayUser) return;
+function updateProfileCardRecord(games, displayUser) {
+    const labelEl = document.getElementById('homeProfileLabel');
+    const wldEl = document.getElementById('homeProfileWld');
+    if (!labelEl || !wldEl || !displayUser) return;
     const userLower = displayUser.toLowerCase();
-    // 현재 시간대 필터 기준으로 폼 스트립도 좁힘 — 필터와 형 표시의 의미 일관성.
     const filtered = homeTimeClassFilter === 'all'
         ? games
         : games.filter(g => (g.time_class || '') === homeTimeClassFilter);
-    // 디자인: 가장 오래된 막대 opacity 0.4 → 최신 1.0 그라데이션. API는 최신 우선이므로 reverse.
-    const recent = filtered.slice(0, 15).map(g => classifyGameResult(g, userLower)).reverse();
-    const total = recent.length || 15;
-    strip.innerHTML = recent.map((r, i) => {
-        const cls = r === 'win' ? 'w' : r === 'loss' ? 'l' : 'd';
-        const opacity = (0.4 + (i / total) * 0.6).toFixed(2);
-        return `<span class="home-form-bar home-form-bar--${cls}" style="opacity:${opacity}"></span>`;
-    }).join('');
+    const recent = filtered.slice(0, 15).map(g => classifyGameResult(g, userLower));
+    const w = recent.filter(r => r === 'win').length;
+    const l = recent.filter(r => r === 'loss').length;
+    const d = recent.filter(r => r === 'draw').length;
+    labelEl.textContent = t('home_record_label').replace('{n}', recent.length);
+    wldEl.textContent = t('home_record_wld').replace('{w}', w).replace('{l}', l).replace('{d}', d);
 }
 
 function renderHomeGamesList(games, displayUser) {
@@ -460,24 +472,30 @@ function renderHomeGamesList(games, displayUser) {
 
     if (filtered.length === 0) {
         list.innerHTML = `<div class="container-message">${t('filter_no_games')}</div>`;
-        const showAllBtn = document.getElementById('homeShowAllBtn');
-        if (showAllBtn) showAllBtn.classList.add('hidden');
         return;
     }
 
     const dateStrings = { dateToday: t('dateToday'), dateYesterday: t('dateYesterday'), dateDaysAgo: t('dateDaysAgo') };
-    homeRecentRenderState = { container: list, filtered, displayUser, dateStrings };
+    homeRecentRenderState = { container: list, filtered, displayUser, dateStrings, visible: 0 };
 
-    const visible = homeRecentExpanded
-        ? Math.min(HOME_RECENT_FULL, filtered.length)
-        : Math.min(HOME_RECENT_INITIAL, filtered.length);
-    appendHomeRecentBatch(0, visible);
+    const initial = Math.min(HOME_RECENT_PAGE, filtered.length, HOME_RECENT_MAX);
+    appendHomeRecentBatch(0, initial);
+    homeRecentRenderState.visible = initial;
+}
 
-    const showAllBtn = document.getElementById('homeShowAllBtn');
-    if (showAllBtn) {
-        const hasMore = !homeRecentExpanded && filtered.length > HOME_RECENT_INITIAL;
-        showAllBtn.classList.toggle('hidden', !hasMore);
-    }
+// 무한 스크롤 — 홈 스크롤 컨테이너 하단 근처 도달 시 10개씩 추가. 페치 한도(100)까지.
+function onHomeScroll(e) {
+    if (!homeRecentRenderState || homeRecentLoadingMore) return;
+    const { filtered, visible } = homeRecentRenderState;
+    const cap = Math.min(filtered.length, HOME_RECENT_MAX);
+    if (visible >= cap) return;
+    const el = e.currentTarget;
+    if (el.scrollTop + el.clientHeight < el.scrollHeight - 240) return;
+    homeRecentLoadingMore = true;
+    const next = Math.min(visible + HOME_RECENT_PAGE, cap);
+    appendHomeRecentBatch(visible, next);
+    homeRecentRenderState.visible = next;
+    homeRecentLoadingMore = false;
 }
 
 // 홈 게임 카드 batch append. renderHomeGamesList 초기 렌더 + 모두 보기 펼침에서 호출.
@@ -495,7 +513,8 @@ function appendHomeRecentBatch(from, to) {
         const resultClass = classifyGameResult(game, userLower);
 
         const summary = parsePgnSummary(game.pgn);
-        const opening = parseOpeningFromPgn(game.pgn || '').name || '';
+        // 홈 카드는 변종 제외 root family만 (예: "Italian Game Hungarian Defense" → "Italian Game"). 상세는 게임 진입 시.
+        const opening = rootOpeningName(parseOpeningFromPgn(game.pgn || '').name || '');
         const date = game.end_time ? formatRelativeDate(game.end_time, dateStrings) : '';
         const oppRating = oppSide.rating ? String(oppSide.rating) : '';
 
@@ -709,21 +728,14 @@ function computeMyStatsFromCache(moves, isUserWhite) {
     return { accuracy: Math.round(avg), classification: counts };
 }
 
-// "모두 보기" — 4개 → 15개 펼치기.
-document.getElementById('homeShowAllBtn')?.addEventListener('click', () => {
-    homeRecentExpanded = true;
-    const displayUser = isViewingOtherUser() ? viewingUserId : getMyUserId();
-    if (cachedHomeGames.length > 0 && displayUser) {
-        renderHomeGamesList(cachedHomeGames, displayUser);
-    }
-});
+// 무한 스크롤 — 게임 리스트 자체에서 스크롤 (프로필/헤더는 위에 고정).
+document.getElementById('homeRecentList')?.addEventListener('scroll', onHomeScroll, { passive: true });
 
 // ── 시간대 필터 드롭다운 ───────────────────────────────────────
 function setHomeTcFilter(tc) {
     if (tc !== 'rapid' && tc !== 'blitz' && tc !== 'bullet' && tc !== 'all') return;
     if (tc === homeTimeClassFilter) return;
     homeTimeClassFilter = tc;
-    homeRecentExpanded = false;
     // 트리거 라벨 + 옵션 aria-checked 동기화
     const labelEl = document.getElementById('homeTcFilterLabel');
     if (labelEl) {
@@ -733,13 +745,13 @@ function setHomeTcFilter(tc) {
     document.querySelectorAll('.home-tc-filter-option').forEach(opt => {
         opt.setAttribute('aria-checked', opt.dataset.tc === tc ? 'true' : 'false');
     });
-    // 카드 + 형 스트립 + 레이팅 pill 모두 새 필터로 재렌더
+    // 카드 + 전적 + 레이팅 모두 새 필터로 재렌더
     const displayUser = isViewingOtherUser() ? viewingUserId : getMyUserId();
     if (cachedHomeGames.length > 0 && displayUser) {
         renderHomeGamesList(cachedHomeGames, displayUser);
-        updateHeroFormStrip(cachedHomeGames, displayUser);
+        updateProfileCardRecord(cachedHomeGames, displayUser);
     }
-    updateHeroRatingPill();
+    updateProfileCardRating();
 }
 
 function toggleHomeTcMenu(forceState) {
@@ -784,7 +796,6 @@ function loadHomeRecentGames(overrideUsername = null) {
     if (!displayUser || !section || !list) return;
 
     viewingUserId = normalizedOverride;
-    homeRecentExpanded = false;
     updateHomeRecentHeader(isViewingOtherUser() ? viewingUserId : null);
     section.classList.remove('hidden');
 
@@ -798,18 +809,19 @@ function loadHomeRecentGames(overrideUsername = null) {
                 section.classList.add('hidden');
             }
             cachedHomeGames = [];
-            clearHeroMeta();
+            clearProfileCard();
             return;
         }
         cachedHomeGames = games;
         renderHomeGamesList(games, displayUser);
-        // 히어로 폼 스트립 + 메타 행 노출 (레이팅 pill은 fetchPlayerProfile 콜백에서 갱신).
-        updateHeroFormStrip(games, displayUser);
-        const meta = document.getElementById('homeHeroMeta');
-        if (meta) meta.classList.remove('hidden');
+        // 프로필 카드 노출 (이름/아바타/레이팅은 fetchPlayerProfile 콜백에서 갱신).
+        updateProfileCardIdentity(displayUser);
+        updateProfileCardRecord(games, displayUser);
+        const card = document.getElementById('homeProfileCard');
+        if (card) card.classList.remove('hidden');
     }).catch(() => {
         cachedHomeGames = [];
-        clearHeroMeta();
+        clearProfileCard();
         if (overrideUsername) {
             list.innerHTML = `<div class="container-message container-message--error">${t('games_fetch_error')}</div>`;
         } else {
@@ -819,18 +831,24 @@ function loadHomeRecentGames(overrideUsername = null) {
 }
 
 function updateHomeHeader() {
-    // 워드마크/타이틀은 i18n 자동 적용. 여기서는 레이팅 pill만 갱신 (form strip은 게임 로드 후).
+    // 워드마크/타이틀은 i18n 자동 적용. 여기서는 프로필 카드 식별/레이팅만 갱신 (전적은 게임 로드 후).
     homeProfileRatings = null;
-    updateHeroRatingPill();
+    homeProfileAvatar = null;
+    homeProfileDisplayName = null;
+    updateProfileCardRating();
     const userId = getViewingUserId();
     if (!userId) {
-        clearHeroMeta();
+        clearProfileCard();
         return;
     }
+    updateProfileCardIdentity(userId);
     fetchPlayerProfile(userId).then(profile => {
         if (!profile) return;
         homeProfileRatings = profile.ratings || null;
-        updateHeroRatingPill();
+        homeProfileAvatar = profile.avatar || null;
+        homeProfileDisplayName = profile.displayName || null;
+        updateProfileCardRating();
+        updateProfileCardIdentity(userId);
     });
 }
 

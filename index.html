@@ -72,20 +72,18 @@
 
             <!-- Home Content -->
             <div class="home-state home-scroll">
-                <section class="home-hero">
-                    <h2 class="home-hero-title">
-                        <span data-i18n="hero_title_line1">어떤 게임을</span><br>
-                        <span data-i18n="hero_title_line2">다시 들여다볼까요?</span>
-                    </h2>
-                    <div id="homeHeroMeta" class="home-hero-meta hidden">
-                        <span class="home-rating-pill">
-                            <span class="home-rating-dot" aria-hidden="true"></span>
-                            <span id="homeRatingValue" class="home-rating-value">—</span>
-                            <span id="homeRatingTc" class="home-rating-tc"></span>
-                        </span>
-                        <span class="home-meta-sep" aria-hidden="true">·</span>
-                        <span class="home-meta-text" data-i18n="home_last_15">최근 15</span>
-                        <span id="homeFormStrip" class="home-form-strip" aria-hidden="true"></span>
+                <section id="homeProfileCard" class="home-profile-card hidden" aria-label="프로필">
+                    <div class="home-profile-row1">
+                        <div class="home-profile-left">
+                            <div id="homeProfileAvatar" class="home-profile-avatar" aria-hidden="true">♜</div>
+                            <div id="homeProfileName" class="home-profile-name">—</div>
+                        </div>
+                        <div id="homeProfileRating" class="home-profile-rating">—</div>
+                    </div>
+                    <div class="home-profile-divider"></div>
+                    <div class="home-profile-row2">
+                        <span id="homeProfileLabel" class="home-profile-label">최근 15경기</span>
+                        <span id="homeProfileWld" class="home-profile-wld"></span>
                     </div>
                 </section>
 
@@ -112,7 +110,6 @@
                         <button id="backToMyGamesBtn" class="home-recent-back hidden" data-i18n="home_back_to_my_games">내 게임으로 돌아가기</button>
                     </div>
                     <div id="homeRecentList" class="home-recent-list-v2"></div>
-                    <button id="homeShowAllBtn" class="home-recent-action home-recent-action--bottom hidden" type="button" data-i18n="home_see_all">모두 보기</button>
                 </div>
             </div>
         </div>

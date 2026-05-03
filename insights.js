@@ -1,6 +1,6 @@
 import { fetchRecentGames } from './chessApi.js';
 import { getMyUserId, getVaultItems } from './storage.js';
-import { escapeHtml, parseOpeningFromPgn, rootOpeningName, subVariantName, compactOpeningLabel, isWhitePlayer, classifyGameResult, extractMoveTimesForUser } from './utils.js';
+import { escapeHtml, parseOpeningFromPgn, rootOpeningName, subVariantName, isWhitePlayer, classifyGameResult, extractMoveTimesForUser } from './utils.js';
 import { t } from './strings.js';
 
 // 통계 bucket 분류용 가벼운 수 카운트.
@@ -90,17 +90,14 @@ function moveCountBucket(pgn) {
 
 function openingKey(pgn) {
     const { name, eco } = parseOpeningFromPgn(pgn || '');
-    // root + variant 합성 키로 그룹화. 같은 root 라도 변종마다 사실상 다른 게임이므로 분리.
-    //   "Sicilian Defense Najdorf ..." → root "Sicilian Defense" + variant "Najdorf" → 합성 "Sicilian Najdorf"
-    //   "Sicilian Defense Dragon ..."  → root "Sicilian Defense" + variant "Dragon"  → 합성 "Sicilian Dragon"
-    // 변종 없으면 root 만 사용. ECOUrl 없으면 ECO 코드만이라도 키로.
+    // root family로만 그룹화 — 변종까지 쪼개면 통계가 너무 세분화돼 의미가 약해짐.
+    //   "Sicilian Defense Najdorf ..." & "Sicilian Defense Dragon ..." → 모두 "Sicilian Defense"로 합산.
+    // 변종은 fullName으로 별도 보존 — 행 클릭 시 인라인 확장에서 사용.
     if (name) {
         const root = rootOpeningName(name);
-        const variant = subVariantName(name, root);
-        const label = compactOpeningLabel(root, variant);
-        return { key: label, eco, root, variant };
+        return { key: root, eco, root, fullName: name };
     }
-    if (eco) return { key: eco, eco, root: '', variant: '' };
+    if (eco) return { key: eco, eco, root: '', fullName: '' };
     return null;
 }
 
@@ -220,8 +217,14 @@ function computeInsights(games, userLower, opts = {}) {
 
         const op = openingKey(game.pgn);
         if (op) {
-            if (!openings.has(op.key)) openings.set(op.key, { ...emptyWDL(), eco: op.eco });
-            addResult(openings.get(op.key), r);
+            if (!openings.has(op.key)) openings.set(op.key, { ...emptyWDL(), eco: op.eco, variants: new Map() });
+            const bucket = openings.get(op.key);
+            addResult(bucket, r);
+            // 변종 분해 — 클릭 시 인라인 확장. 변종 없는 경우는 'base' 키로 묶어 "기본 라인"으로 표시.
+            const variantLabel = (op.fullName && op.root) ? subVariantName(op.fullName, op.root) : '';
+            const vKey = variantLabel || '__base__';
+            if (!bucket.variants.has(vKey)) bucket.variants.set(vKey, { ...emptyWDL(), label: variantLabel });
+            addResult(bucket.variants.get(vKey), r);
         }
 
         const term = classifyTermination(game, userLower);
@@ -701,13 +704,49 @@ function renderOpeningsCard(topOpenings, recent, prior) {
                 <div class="insight-card-body"><div class="insight-empty">${t('insights_empty')}</div></div>
             </div>`;
     }
-    const rows = topOpenings.map(op => ({
-        label: op.eco ? `${op.key} · ${op.eco}` : op.key,
-        stats: op,
-        recentStats: recent?.openings?.get(op.key),
-        priorStats: prior?.openings?.get(op.key),
-    }));
-    return renderRowCard(t('insights_top_openings'), rows);
+    const body = topOpenings.map(op => {
+        const label = op.eco ? `${op.key} · ${op.eco}` : op.key;
+        const pct = winPct(op);
+        const delta = deltaSpan(recent?.openings?.get(op.key), prior?.openings?.get(op.key));
+        // 변종 행 — base는 마지막에, 나머지는 게임 수 내림차순. 1개뿐이면 펼쳐도 의미 없으므로 토글 숨김.
+        const variants = op.variants ? [...op.variants.entries()] : [];
+        const variantRows = variants
+            .map(([vKey, v]) => ({ vKey, label: v.label || t('insights_opening_base'), isBase: !v.label, stats: v }))
+            .sort((a, b) => {
+                if (a.isBase !== b.isBase) return a.isBase ? 1 : -1;
+                return b.stats.games - a.stats.games;
+            });
+        const expandable = variantRows.length > 1;
+        const variantHtml = expandable ? variantRows.map(vr => `
+            <div class="insight-row insight-row--variant">
+                <div class="insight-row-header">
+                    <span class="insight-row-label">${escapeHtml(vr.label)}</span>
+                    <span class="insight-row-pct">${winPct(vr.stats)}%</span>
+                </div>
+                ${renderWDLBar(vr.stats)}
+                ${renderWDLCounts(vr.stats)}
+            </div>`).join('') : '';
+        const chev = expandable
+            ? `<svg class="insight-row-chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>`
+            : '';
+        const rowClass = expandable ? 'insight-row insight-row--expandable' : 'insight-row';
+        const ariaAttrs = expandable ? `role="button" tabindex="0" aria-expanded="false"` : '';
+        return `
+            <div class="${rowClass}" ${ariaAttrs}>
+                <div class="insight-row-header">
+                    <span class="insight-row-label">${escapeHtml(label)}${chev}</span>
+                    <span class="insight-row-pct">${pct}%${delta}</span>
+                </div>
+                ${renderWDLBar(op)}
+                ${renderWDLCounts(op)}
+                ${variantHtml ? `<div class="insight-row-variants hidden">${variantHtml}</div>` : ''}
+            </div>`;
+    }).join('');
+    return `
+        <div class="insight-card">
+            <div class="insight-card-title">${escapeHtml(t('insights_top_openings'))}</div>
+            <div class="insight-card-body">${body}</div>
+        </div>`;
 }
 
 function renderTerminationCard(termination, total) {
@@ -1256,6 +1295,29 @@ export function initInsights() {
                 b.classList.toggle('selected', b.dataset.cat === cat);
             });
             recomputeAndRender();
+        });
+    }
+    // 오프닝 행 인라인 확장 — 클릭/Enter/Space 토글. innerHTML로 매번 다시 그려지므로 위임 방식.
+    if (insightsBody) {
+        const toggleRow = (row) => {
+            const variants = row.querySelector('.insight-row-variants');
+            if (!variants) return;
+            const isExpanded = row.getAttribute('aria-expanded') === 'true';
+            row.setAttribute('aria-expanded', isExpanded ? 'false' : 'true');
+            variants.classList.toggle('hidden', isExpanded);
+        };
+        insightsBody.addEventListener('click', (e) => {
+            // 변종 행 자체 클릭은 부모로 버블링되므로 가드.
+            if (e.target.closest('.insight-row--variant')) return;
+            const row = e.target.closest('.insight-row--expandable');
+            if (row) toggleRow(row);
+        });
+        insightsBody.addEventListener('keydown', (e) => {
+            if (e.key !== 'Enter' && e.key !== ' ') return;
+            const row = e.target.closest('.insight-row--expandable');
+            if (!row) return;
+            e.preventDefault();
+            toggleRow(row);
         });
     }
 }

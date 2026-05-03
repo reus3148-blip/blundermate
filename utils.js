@@ -532,7 +532,9 @@ export function formatMarkdownToHtml(text) {
 /**
  * PGN 헤더에서 오프닝 정보(이름, ECO 코드)를 추출합니다.
  * Chess.com PGN은 [Opening] 태그가 없고 [ECOUrl] 태그의 슬러그를 변환합니다.
- * 슬러그 뒤에 붙는 수순 notation(예: -4.c3-Nf6-5.d3)은 제거하여 루트 오프닝명만 노출한다.
+ * 슬러그 뒤에 붙는 수순 notation은 제거하여 루트 오프닝명만 노출한다.
+ *   - "-4.c3-Nf6-5.d3"   ← dash 구분
+ *   - "...3.E3-D5"       ← chess.com 일부 슬러그가 ellipsis로 수순 시작
  */
 export function parseOpeningFromPgn(pgn) {
     const eco = pgn.match(/\[ECO "([^"]+)"\]/)?.[1] || '';
@@ -542,7 +544,7 @@ export function parseOpeningFromPgn(pgn) {
     if (ecoUrl) {
         const slug = ecoUrl.split('/openings/')[1] || '';
         name = slug
-            .replace(/-\d+\..*$/, '')
+            .replace(/(?:\.\.\.|-)\d+\..*$/, '')
             .replace(/-/g, ' ')
             .replace(/\b\w/g, c => c.toUpperCase())
             .replace(':', ': ');
@@ -579,14 +581,19 @@ export function rootOpeningName(fullName) {
  *
  * 알고리즘:
  *   1) fullName에서 rootName prefix 제거 후 tail 토큰화.
- *   2) 다음 변종 키워드(Variation/Attack/System/Defense/Gambit/Opening/Game) 만나기 전까지의 단어들 join.
- *   3) tail이 비거나 첫 토큰이 키워드면 빈 문자열 반환(= 변종 없음).
+ *   2) 키워드(Variation/Attack/System/Defense/Gambit/Opening/Game)를 만날 때까지 누적,
+ *      해당 키워드까지 포함하고 종료. 변종 자체에 키워드가 들어가는 경우(Scotch Gambit,
+ *      Berlin Defense)도 정확히 포착됨.
+ *   3) tail이 비면 빈 문자열(= 변종 없음).
  *
- * 예: ("Sicilian Defense Najdorf Variation",   "Sicilian Defense") → "Najdorf"
- *     ("Italian Game Giuoco Piano",            "Italian Game")     → "Giuoco Piano"
- *     ("Italian Game Two Knights Defense ...", "Italian Game")     → "Two Knights"
- *     ("Ruy Lopez Berlin Defense",             "Ruy Lopez")        → "Berlin"
- *     ("Scotch Game",                          "Scotch Game")      → ""
+ * 예: ("Sicilian Defense Najdorf Variation",     "Sicilian Defense") → "Najdorf"
+ *     ("Italian Game Giuoco Piano",              "Italian Game")     → "Giuoco Piano"
+ *     ("Italian Game Two Knights Defense ...",   "Italian Game")     → "Two Knights Defense"
+ *     ("Ruy Lopez Berlin Defense",               "Ruy Lopez")        → "Berlin Defense"
+ *     ("Scotch Game Scotch Gambit Haxo Gambit",  "Scotch Game")      → "Scotch Gambit"
+ *     ("Scotch Game",                            "Scotch Game")      → ""
+ *
+ * "Variation"은 거의 모든 변종에 붙는 잉여 접미사라 라벨에서 제거 (Defense/Gambit/Attack 등은 보존 — 의미 있음).
  */
 const VARIANT_STOP_WORDS = new Set(['Variation', 'Attack', 'System', 'Defense', 'Defence', 'Gambit', 'Opening', 'Game']);
 export function subVariantName(fullName, rootName) {
@@ -596,9 +603,10 @@ export function subVariantName(fullName, rootName) {
     if (!tail) return '';
     const variant = [];
     for (const w of tail.split(/\s+/)) {
-        if (VARIANT_STOP_WORDS.has(w)) break;
         variant.push(w);
+        if (VARIANT_STOP_WORDS.has(w)) break;
     }
+    if (variant.length > 1 && variant[variant.length - 1] === 'Variation') variant.pop();
     return variant.join(' ');
 }
 

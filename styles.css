@@ -180,83 +180,95 @@ body {
 }
 
 /* ==========================================
-   Home View: Hero — 38px 디스플레이 + 레이팅 pill / form strip
+   Home View: Profile Card — 아바타 + 이름 + 레이팅 + 최근 전적
    ========================================== */
-.home-hero {
-    padding: 24px 20px 28px;
+.home-profile-card {
+    margin: 16px 20px 28px;
+    background: var(--bg-surface);
+    border: 1px solid var(--brd);
+    border-radius: 16px;
+    padding: 16px 18px;
     flex-shrink: 0;
 }
+.home-profile-card.hidden { display: none; }
 
-.home-hero-title {
-    font-size: 38px;
-    font-weight: 600;
-    color: #14140F;
-    letter-spacing: -0.035em;
-    line-height: 1.05;
-    margin: 0;
-}
-
-.home-hero-meta {
-    margin-top: 16px;
+.home-profile-row1 {
     display: flex;
     align-items: center;
-    gap: 10px;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.home-profile-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+}
+
+.home-profile-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--bg-elevated);
+    display: grid;
+    place-items: center;
+    font-size: 22px;
+    flex-shrink: 0;
+    overflow: hidden;
+}
+.home-profile-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.home-profile-name {
+    font-size: 18px;
+    font-weight: 700;
+    color: #14140F;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.home-profile-rating {
+    font-size: 26px;
+    font-weight: 700;
+    color: #14140F;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    flex-shrink: 0;
+    transform: translateY(6px);
+}
+
+.home-profile-divider {
+    height: 1px;
+    background: var(--brd);
+    margin: 12px 0;
+}
+
+.home-profile-row2 {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     font-size: 13px;
     color: var(--tx2);
-    flex-wrap: wrap;
-}
-.home-hero-meta.hidden { display: none; }
-
-.home-rating-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 4px 10px;
-    background: var(--bg-surface);
-    border-radius: 999px;
-    border: 1px solid var(--brd);
 }
 
-.home-rating-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--brilliant);
+.home-profile-label {
+    color: var(--tx2);
 }
 
-.home-rating-value {
-    color: var(--tx);
+.home-profile-wld {
     font-weight: 600;
+    color: var(--tx2);
     font-variant-numeric: tabular-nums;
 }
-
-.home-rating-tc {
-    color: var(--tx2);
-}
-
-.home-meta-sep {
-    color: var(--tx3);
-}
-
-.home-meta-text {
-    color: var(--tx2);
-}
-
-.home-form-strip {
-    display: inline-flex;
-    gap: 2px;
-    align-items: flex-end;
-}
-
-.home-form-bar {
-    width: 4px;
-    height: 12px;
-    border-radius: 1px;
-    flex-shrink: 0;
-}
-.home-form-bar--w { background: var(--brilliant); }
-.home-form-bar--l { background: var(--blunder); }
-.home-form-bar--d { background: var(--brd2); }
 
 /* ==========================================
    Username Input — 온보딩 전용 (홈에서는 사용 안 함)
@@ -2737,56 +2749,37 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
    Home: Recent Games (리디자인 v2 — 미니보드 + 결과 칩 + 분석 메트릭)
    ────────────────────────────────────────────────────────────────── */
 .home-recent-section {
-    padding: 0 20px 24px;
-    flex-shrink: 0;
+    padding: 0 20px;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
 }
 .home-recent-section.hidden { display: none; }
-/* 홈 전체가 함께 스크롤 — hero + recent 섹션이 한 흐름. */
+/* 프로필/헤더는 위에 고정, 게임 리스트만 내부 스크롤. */
 .home-state.home-scroll {
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    -webkit-overflow-scrolling: touch;
+    overflow: hidden;
 }
 
 .home-recent-head {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
-    margin-bottom: 12px;
-    padding: 0 2px;
+    margin-bottom: 6px;
+    padding: 0;
     gap: 10px;
+    flex-shrink: 0;
 }
 
 .home-recent-h3 {
-    font-size: 11px;
+    font-size: 13px;
     font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--tx3);
-    margin: 0;
+    letter-spacing: -0.01em;
+    color: var(--tx);
+    margin: 0 0 0 8px;
+    padding: 4px 0;
+    line-height: 1.4;
 }
-
-.home-recent-action {
-    background: none;
-    border: none;
-    padding: 0;
-    font-family: inherit;
-    font-size: 12px;
-    color: var(--tx2);
-    cursor: pointer;
-}
-.home-recent-action:hover { color: var(--tx); }
-.home-recent-action.hidden { display: none; }
-
-/* "모두 보기" — 카드 리스트 하단 중앙 작은 텍스트 링크. 펼치기 전에만 노출. */
-.home-recent-action--bottom {
-    display: block;
-    margin: 12px auto 0;
-    padding: 6px 12px;
-    color: var(--tx3);
-    font-size: 12px;
-}
-.home-recent-action--bottom:hover { color: var(--tx2); }
 
 /* 시간대 필터 드롭다운 — 헤더 우측. text-tab 톤(Apple/Notion 결): 작은 트리거 + 가벼운 popover. */
 .home-tc-filter {
@@ -2797,11 +2790,12 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
 .home-tc-filter-trigger {
     background: none;
     border: none;
-    padding: 4px 6px 4px 8px;
+    padding: 4px 8px;
     font-family: inherit;
-    font-size: 12px;
-    color: var(--tx);
+    font-size: 13px;
+    color: var(--tx2);
     font-weight: 500;
+    line-height: 1.4;
     cursor: pointer;
     display: inline-flex;
     align-items: center;
@@ -2886,6 +2880,12 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     display: flex;
     flex-direction: column;
     gap: 10px;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 16px;
 }
 
 /* 게임 카드 — 미니보드(좌) / 본문(중) / 메타 컬럼(우) */
@@ -4111,6 +4111,49 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     font-weight: 600;
     font-variant-numeric: tabular-nums;
     letter-spacing: -0.005em;
+}
+
+/* 확장 가능한 오프닝 행 — 클릭하면 변종 sub-row 펼침. */
+.insight-row--expandable {
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    border-radius: 8px;
+    margin: -4px -6px;
+    padding: 4px 6px;
+    transition: background 0.12s ease;
+}
+.insight-row--expandable:hover { background: var(--bg-elevated); }
+.insight-row--expandable:focus-visible { outline: 2px solid var(--ac); outline-offset: 2px; }
+
+.insight-row-chev {
+    display: inline-block;
+    margin-left: 4px;
+    color: var(--tx3);
+    transition: transform 0.18s ease;
+    vertical-align: -1px;
+}
+.insight-row--expandable[aria-expanded="true"] .insight-row-chev {
+    transform: rotate(180deg);
+}
+
+.insight-row-variants {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 10px;
+    padding: 10px 0 2px 12px;
+    border-left: 2px solid var(--brd);
+}
+.insight-row-variants.hidden { display: none; }
+
+.insight-row--variant .insight-row-label {
+    color: var(--tx2);
+    font-size: 11.5px;
+}
+.insight-row--variant .insight-row-pct {
+    color: var(--tx2);
+    font-weight: 500;
+    font-size: 11.5px;
 }
 
 /* Termination/Phase row (single-bar fills) */
