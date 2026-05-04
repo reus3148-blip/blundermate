@@ -6,6 +6,105 @@
 
 ---
 
+## Phase 36 — 수 입력 → 라이브 분석 모드 (2026-05-04)
+
+기존 별도 `inputView`(보드 입력 전용 화면)을 통째로 들어내고, 분석 화면 UI를 그대로 재사용해 **사용자가 보드에 수를 둘 때마다 단일 엔진이 실시간 분석**하는 모드로 전환. chess.com / lichess의 분석 보드와 동일한 UX.
+
+**왜:** inputView는 수 입력만 받고 PGN을 토출해 따로 분석을 돌리는 구조라 "지금 둔 수가 좋은지" 즉시 알 수 없었음. 같은 분석 패널 자산을 두 벌(메인 분석 view + inputView 보드/textarea/네비) 유지하던 점도 부담.
+
+**진입 + 흐름:**
+- 홈 우상단 `+` → `openLiveInput()` — 분석 화면을 빈 큐 + `appMode=LIVE_INPUT`으로 띄움
+- `explorationChess.load(START_FEN)` + 시작 포지션 즉시 depth 12로 라이브 분석
+- 보드에 수 두면 → `handleExplorationMove`가 explorationChess 갱신 → `kickExploreEngine(fen)` 으로 새 포지션 재분석
+- `prevMoveBtn` = `liveInputUndo()` (`explorationChess.undo()` + 재분석). `nextMoveBtn`은 noop — 항상 끝에 있음
+- `☰` 오버레이는 explorationChess.history()에서 수 목록 추출
+
+**`APP_MODES.LIVE_INPUT` 도입 ([modes.js](modes.js)):**
+- 이전에 `isLiveInputMode` 별도 boolean 플래그로 시작했다가 dispatch 분기가 4곳(prev/next/handleExplorationMove/movesOverlay)에 흩어지면서 mode enum으로 흡수
+- `handleExplorationMove`의 "MAIN→EXPLORE 전환" 블록 조건에 `&& appMode !== LIVE_INPUT` 추가해서 라이브 모드 진입 후 첫 수 둘 때 EXPLORE로 강제 전환되지 않게 가드
+
+**`kickExploreEngine(fen)` 헬퍼:**
+- `openLiveInput` / `liveInputUndo` / `handleExplorationMove` 세 군데에 흩어져 있던 "stop + clear engine lines + reset top eval + container message + status tag + analyzeFen" 시퀀스를 단일 헬퍼로 통합
+- depth 결정도 헬퍼 안: `appMode === LIVE_INPUT ? LIVE_INPUT_DEPTH(12) : getDepth()` — 라이브 모드는 매 수 즉응성 우선, explore 모드는 사용자 설정 depth 따름
+- 매 호출마다 `getEngine().stop()` 먼저 — Stockfish 중간에 새 `position`/`go` 들어와도 안전하게 시작
+
+**Depth 12 락 (렉 방지):**
+- 기본 분석은 depth 14 ([Phase 24](#phase-24)) — 매 수마다 1~2초 걸려서 라이브 모드엔 부적합
+- 12로 내리면 한 수당 200~500ms — 실시간 사용 무리 없음
+
+**PGN/FEN 붙여넣기 분리 ([index.html](index.html)):**
+- 우상단에 `📋` paste 버튼 추가 (라이브 모드에서만 노출), 누르면 `livePasteModal`
+- 모달 내 textarea 입력 → PGN/FEN 자동 분기
+  - `isValidFen(text)` → `handleFenReviewStart` (단일 포지션)
+  - 그 외 → `handlePgnReviewStart` (풀 배치)
+- 라이브 입력 상태 cleanup은 `startNewAnalysis`로 흡수 — paste 핸들러는 라우팅만
+
+**분석 화면 UI 그대로 유지:**
+- `setLiveInputControls(active)`는 라이브 전용 paste 버튼만 토글 — Save / AI 토글 / 분류 라벨 / 구분선 / 평가는 분석 화면과 동일하게 노출
+- Save: `choiceSaveMoveBtn`에 라이브 분기 추가 — `explorationChess.history()` 마지막 수 + 현재 top engine PV를 vaultSnapshot으로 캡처. `confirmSaveBtn`은 `appMode===LIVE_INPUT`일 때 PGN을 `explorationChess.pgn()`에서 추출
+- AI: 호환 단계 미개통. 클릭 시 기존 `gemini_no_start` 안내(빈 큐 가드 그대로). 후속 phase에서 explorationChess + explorationEngineLines 기반으로 라이브 분석 가능하게 확장 가능
+
+**라이브 수 분류 (Best/Mistake/Blunder/...):**
+- `handleExplorationMove`가 라이브 모드에서 `analysisQueue.push({ fen, san, from, to, promotion, isWhite, moveNumber, engineLines: [] })` — classifyMove가 직전 포지션의 engineLines를 참조하도록 인덱스 일관성 유지
+- `engineCallbacks.onBestMove`가 라이브 모드에서 새 분석 완료 시: `analysisQueue[idx].engineLines = explorationEngineLines.slice()` → `classifyMove(idx, analysisQueue)` → 라벨 + 보드 위 배지(`showPieceBadge`) 갱신
+- `liveInputUndo`가 `analysisQueue.pop()`도 같이 — 한 수 빼면 큐도 동기 축소. 배지는 직전 분류로 자동 redraw
+- **Stale info 필터** (`engineCallbacks.onEval`): `getEngine().stop()` 직후 워커가 OLD 포지션의 잔여 info를 emit하는 경우가 있음. PV 첫 수의 from-square에 현재 차례 기물이 없으면 그 라인 버림 — 가벼운 검증으로 stale onBestMove까지 빈 lines로 막아서 분류는 새 분석 결과로만 산출됨
+- 첫 수는 `prevTopMoveUci=''` + `previousEvaluation={cp:20}` 베이스라인으로 분류 — Brilliant/Great 검출은 안 되지만 Best/Excellent/Good/Inaccuracy/Mistake/Blunder는 정상 동작. 두 번째 수부터 직전 포지션의 engineLines를 참조해 정밀 분류
+
+**검증 (preview):**
+- e2-e4 → BEST (52%) ✓
+- g7-g5 (의도적 약수) → MISTAKE/INACCURACY (63%) ✓ — 보드 g5 위에 분류 배지 표시
+- prev 1회 → 직전 분류(BEST)로 라벨 복귀 ✓
+
+**Save 라우팅 — 라이브 모드도 saved_games / vault 둘 다 정상:**
+- `saveChoiceModal`은 원래부터 "Save This Move(Vault)" / "Save Entire Game(saved_games)" 두 갈래
+- 이전엔 Vault(`choiceSaveMoveBtn`) 분기만 라이브 모드 처리했음 → "Save Entire Game"(`choiceSaveGameBtn`)이 `_getChess().pgn()`을 호출하는데 라이브 모드에선 메인 chess가 비어 있어 빈 PGN 저장됨
+- 픽스: `initSavedGames`에 전달하는 `getChess` 콜백을 `() => appMode === LIVE_INPUT ? explorationChess : chess`로 — 모드에 따라 적절한 인스턴스 반환
+- 검증: 라이브로 `1. e4 e5 2. Nf3 Nc6` 두고 "전체 게임 저장" → `localStorage.blundermate_saved_games`에 `pgn: "1. e4 e5 2. Nf3 Nc6"` 정상 보존
+
+**라이브 액션바 (Undo / Reset / PGN) — 분석 화면 하단 전용:**
+- 홈 bottomNav 시각 결을 그대로 차용 — `position: relative + flex-shrink: 0`로 분석 view의 마지막 자식. 56px + safe-area, 3등분 flex
+- Undo (실행취소): `analysisQueue.pop()` + 새 tail로 nav. 캐시된 engineLines 있으면 즉시 표시, 없으면(첫 수 후 undo로 시작 포지션 도달 등) 엔진 재시작
+- Reset (처음부터): `setQueue([]) + clearPersistentShapes()`로 모든 수 제거. `syncLiveStateToIndex(-1)`로 시작 포지션 진입 + 엔진 재시작
+- PGN: 기존 paste 모달 그대로 — 우상단 📋 → 하단 액션바로 이동. top bar는 이제 분석 화면과 100% 동일 (back / 워드마크 / ☰)
+
+**prev/next는 navigation 본연 역할로 복원:**
+- 이전 단계에선 라이브 모드의 prev = `liveInputUndo`로 매핑했었음. 사용자 피드백 후 분리: prev = "직전 위치로 navigate" (history 보존), Undo는 액션바의 별도 버튼
+- `liveInputNavigate(delta)`: `currentlyViewedIndex ± 1`, queue 보존. 캐시된 engineLines 있으면 엔진 재시작 없이 즉시 렌더 (분석 화면 navigation과 동일 결)
+- `syncLiveStateToIndex(idx)` 헬퍼: navigate / undo / reset 모두 공통. explorationChess를 idx 위치로 replay → 보드 동기 → 캐시 cache hit이면 렌더, miss면 `kickExploreEngine`
+
+**Fork 처리 (중간에서 새 수 두면 분기):**
+- `handleExplorationMove`이 라이브 모드에서 `currentlyViewedIndex < analysisQueue.length - 1`이면 `analysisQueue.length = currentlyViewedIndex + 1`로 truncate 후 새 수 push
+- 사용자가 e4/e5/Nf3 두고 prev 2번으로 e4 직후로 가서 c5(시실리안) 두면 e5/Nf3 라인은 사라지고 e4/c5 라인이 됨
+
+**검증 추가:**
+- prev 1번 → EXCELLENT(e5의 캐시 분류) ✓
+- prev 1번 더 → BEST(e4의 캐시 분류) ✓
+- next 1번 → EXCELLENT(다시 e5) ✓
+- Undo → 마지막 수 pop, 새 tail 분류 표시 ✓
+- Reset → 시작 포지션 + 엔진 재시작 ✓
+- Fork: prev 2번 후 c5 → e5/Nf3 라인 truncate, c5가 EXCELLENT로 분류 ✓
+
+**삭제 (총 −137줄):**
+- `inputView` HTML 블록 / `.input-pgn-area` · `.input-pgn-textarea` · `.input-secondary-btn` · `.input-analyze-btn` CSS
+- `inputChess` · `inputCg` · `inputViewIndex` · `inputStartFen` 상태 / `openInputView` · `getInputViewChess` · `handleInputBoardMove` · `updateInputBoard` · `buildInputMovesQueue` 등 8개 함수
+- 5개 입력 뷰 버튼 핸들러
+- `SCREENS.INPUT` 라우트
+- `input_*` i18n 키 5종
+
+**검증 (preview):**
+- 시작 포지션 즉시 53% / depth 12 라인 3개
+- e2-e4 두면 흑 응수 라인(`d5/e5/e6`)으로 갱신
+- prev로 undo → 다시 백 후보(`e4/d4/Nf3`)
+- 📋 → 모달 → PGN 입력 → 색 선택 → 배치 분석 → 리뷰 화면 (정확도 99.2%/99.7%) e2e 통과
+
+**의사결정 메모 — 라이브 모드에 분류/그래프/AI/Save를 어디까지 채울까:**
+- 첫 시도는 4개 다 살리려 했음 (chess.com/lichess가 그렇게 해서). 하지만 라이브 분류 = 직전 eval 캐시 + classifyMove를 explore 콜백에 push하는 새 흐름이고, 그래프 = `analysisQueue` 기반 재구조화 필요. 한 번에 다 넣으면 phase 길이 폭증
+- 일단 라이브 = "엔진 평가 + PV 패널만" 좁은 v1. 그 외(AI/Save/분류/그래프)는 발견점 자체를 숨김. 후속 phase에서 라이브 분류부터 (직전 eval만 캐시하면 즉시 라벨 가능 — 비용 작음)
+- `appMode` 4값(MAIN/EXPLORE/LIVE_INPUT/SIMULATE) + isPreview/isReview 플래그 2개로 모드 공간 정리 — 5번째 라이브 모드 분기가 추가될 때 충돌 신호로 봐야 함
+
+---
+
 ## Phase 1 — 초기 프로토타입 (~0407)
 
 - 모바일 우선 PGN 리뷰 앱 골격 (`Initial commit`, `3233062`)

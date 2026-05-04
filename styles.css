@@ -389,78 +389,84 @@ body {
 }
 
 /* ==========================================
-   Input View
+   Live Input Action Bar — 분석 화면 하단, LIVE_INPUT 모드 전용. 홈 bottom-nav 시각 결.
    ========================================== */
-.input-pgn-area {
+.live-action-bar {
+    display: flex;
+    align-items: stretch;
+    justify-content: space-around;
     background: var(--bg-surface);
     border-top: 1px solid var(--brd);
-    padding: 12px 14px;
+    padding-bottom: env(safe-area-inset-bottom);
+    flex-shrink: 0;
+}
+
+.live-action-bar.hidden {
+    display: none;
+}
+
+.live-action-tab {
     flex: 1;
-    min-height: 0;
     display: flex;
     flex-direction: column;
-}
-
-/* 기보 오버레이가 열리면 PGN textarea 숨김 — 시트에 가려져도 포커스/키보드/탭 순회가
-   남아있을 수 있어 명시적으로 제거. visibility를 쓰는 이유: 레이아웃 시프트 방지 */
-body.moves-overlay-open .input-pgn-area {
-    visibility: hidden;
-}
-
-.input-pgn-textarea {
-    width: 100%;
-    flex: 1;
-    min-height: 60px;
-    background: var(--bg-elevated);
-    border: 1px solid var(--brd2);
-    border-radius: 8px;
-    padding: 10px 12px;
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 12px;
-    color: var(--tx);
-    resize: none;
-    box-sizing: border-box;
-    outline: none;
-}
-
-.input-pgn-textarea::placeholder {
-    color: var(--tx2);
-    opacity: 0.6;
-}
-
-.input-secondary-btn {
-    height: 32px;
-    padding: 0 12px;
-    border-radius: 6px;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    height: 56px;
     background: none;
-    color: var(--tx2);
-    font-size: 12px;
-    font-weight: 600;
-    border: 1px solid var(--brd);
-    cursor: pointer;
-    transition: background 0.15s, color 0.15s;
-}
-.input-secondary-btn:hover {
-    background: var(--bg-elevated);
-    color: var(--tx);
-}
-.input-analyze-btn {
-    flex: 1;
-    height: 32px;
-    margin: 0 8px;
-    padding: 0 16px;
-    border-radius: 6px;
-    background: var(--ac);
-    color: #fff;
-    font-size: 13px;
-    font-weight: 700;
     border: none;
+    color: var(--tx3);
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    font-weight: 500;
     cursor: pointer;
-    font-family: inherit;
-    transition: opacity 0.15s ease;
+    transition: color 0.15s;
+    -webkit-tap-highlight-color: transparent;
 }
 
-.input-analyze-btn:hover { opacity: 0.85; }
+.live-action-tab:active {
+    color: var(--tx);
+    transform: scale(0.96);
+}
+
+.live-action-tab:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+.live-action-icon {
+    flex-shrink: 0;
+}
+
+.live-action-label {
+    line-height: 1;
+}
+
+/* ==========================================
+   Live Paste Modal — PGN/FEN 붙여넣기
+   ========================================== */
+.live-paste-textarea {
+    width: 100%;
+    min-height: 120px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    line-height: 1.4;
+    resize: vertical;
+    padding: 10px 12px;
+    box-sizing: border-box;
+}
+
+/* 모바일 .primary-btn { width: 100% } 글로벌 룰을 모달 안에서 다시 컨텐츠 폭으로 되돌림.
+   #saveGameModal과 동일 패턴 — Cancel/Submit 버튼이 가로로 나란히 보이게. */
+#livePasteModal .modal-actions {
+    flex-direction: row;
+    justify-content: flex-end;
+    gap: 8px;
+}
+#livePasteModal .primary-btn {
+    align-self: auto;
+    width: auto;
+}
 
 
 /* ==========================================
@@ -882,8 +888,7 @@ textarea:focus {
 
 .ctrl-btn:hover { color: var(--tx); }
 .ctrl-btn:active { transform: scale(0.95); }
-.ctrl-btn:disabled,
-.input-secondary-btn:disabled {
+.ctrl-btn:disabled {
     opacity: 0.35;
     cursor: not-allowed;
 }

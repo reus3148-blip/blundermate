@@ -18,7 +18,7 @@ import {
     setAppMode, setIsPreviewMode, setIsReviewMode, clearExplorationEngineLines, setExplorationLineAt,
     setSimulationQueue, pushSimulationQueueItem, setSimulationIndex,
 } from './modes.js';
-import { parseEvalData, getDests, convertPvToSan, parseAndLoadPgn, isValidFen, escapeHtml, parseOpeningFromPgn, rootOpeningName, formatTimeControl, formatRelativeDate, getTier, TIERS, isWhitePlayer, classifyGameResult, countMovesFromPgn, cpToWhiteWinPct } from './utils.js';
+import { parseEvalData, getDests, convertPvToSan, parseAndLoadPgn, isValidFen, escapeHtml, parseOpeningFromPgn, rootOpeningName, formatTimeControl, formatRelativeDate, getTier, TIERS, isWhitePlayer, classifyGameResult, countMovesFromPgn, cpToWhiteWinPct, classifyMove } from './utils.js';
 import { renderMovesTable, updateUIWithEval, highlightActiveMove, renderEngineLines, updateTopEvalDisplay, renderReviewReport, buildPreviewCardHtml } from './ui.js';
 import { addVaultItem, getSavedGames, setMyUserId, getMyUserId, getMyPlatform, setMyPlatform, PLATFORM_CHESSCOM, PLATFORM_LICHESS, ONBOARDING_KEY, COORDS_KEY, EVAL_MODE_KEY, computePgnHash, upsertAnalyzedGame, loadAnalysisCache, saveAnalysisCache, isCacheCompatible, ANALYSIS_CACHE_VERSION } from './storage.js';
 import { collectAutoBlunders } from './autoBlunders.js';
@@ -95,23 +95,21 @@ const movesOverlayBtn = document.getElementById('movesOverlayBtn');
 const movesOverlayCloseBtn = document.getElementById('movesOverlayCloseBtn');
 const movesOverlayReviewBtn = document.getElementById('movesOverlayReviewBtn');
 const copyPgnBtn = document.getElementById('copyPgnBtn');
-const inputViewMovesBtn = document.getElementById('inputViewMovesBtn');
-
 // View Navigation Elements
 const homeView = document.getElementById('homeView');
 const analysisView = document.getElementById('analysisView');
 const backBtn = document.getElementById('backBtn');
 
-// Board Input Elements
-const inputView = document.getElementById('inputView');
-const inputViewBackBtn = document.getElementById('inputViewBackBtn');
-const inputViewUndoBtnBottom = document.getElementById('inputViewUndoBtnBottom');
-const inputViewResetBtn = document.getElementById('inputViewResetBtn');
-const inputViewAnalyzeBtn = document.getElementById('inputViewAnalyzeBtn');
-const inputBoardContainer = document.getElementById('inputBoardContainer');
-const inputBoardPgn = document.getElementById('inputBoardPgn');
-const inputPrevMoveBtn = document.getElementById('inputPrevMoveBtn');
-const inputNextMoveBtn = document.getElementById('inputNextMoveBtn');
+// Live Input Action Bar + Paste Modal
+const liveActionBar = document.getElementById('liveActionBar');
+const liveUndoBtn = document.getElementById('liveUndoBtn');
+const liveResetBtn = document.getElementById('liveResetBtn');
+const livePastePgnBtn = document.getElementById('livePastePgnBtn');
+const livePasteModal = document.getElementById('livePasteModal');
+const livePasteTextarea = document.getElementById('livePasteTextarea');
+const cancelLivePasteBtn = document.getElementById('cancelLivePasteBtn');
+const confirmLivePasteBtn = document.getElementById('confirmLivePasteBtn');
+
 const previewStartBtn = document.getElementById('previewStartBtn');
 const ctrlCenter = document.querySelector('.ctrl-center');
 const analysisLoadingText = document.getElementById('analysisLoadingText');
@@ -181,13 +179,7 @@ let currentEval = '';
 let isAnalysisLoading = false;
 let currentBestMoveForVault = ''; // 저장 시 함께 보관할 최선의 수
 let vaultSnapshot = null; // 🔖 탭 시점의 수 데이터 스냅샷 (모달 열린 동안 고정)
-let inputChess = new window.Chess(); // 수동 보드 입력용 체스 인스턴스 (전체 수 히스토리 보유)
-let inputCg; // 수동 보드 입력용 체스그라운드 인스턴스
-// 입력 뷰 네비게이션 상태: 현재 보고 있는 수 인덱스(0 = 시작, N = N번째 수 이후).
-// 중간 어딘가에서 새 수를 두면 그 지점까지 truncate 후 새 수를 append (fork).
-let inputViewIndex = 0;
-// FEN으로 로드된 커스텀 시작 포지션. null이면 표준 시작.
-let inputStartFen = null;
+const LIVE_INPUT_DEPTH = 12; // 라이브 입력 모드 엔진 depth 락 — 렉 방지용 고정값
 let lastEvalRenderTime = 0; // 엔진 UI 렌더링 스로틀링용 타임스탬프
 const EVAL_RENDER_THROTTLE = 100; // UI 업데이트 제한 시간(ms)
 // isGeminiLoading, geminiAbortController, isGeminiEnabled 는 gemini.js로 이전.
@@ -213,7 +205,6 @@ let homeRecentRenderState = null;
 const SCREENS = {
     HOME: 'home',
     ANALYSIS: 'analysis',
-    INPUT: 'input',
     VAULT_LIST: 'vault_list',
     VAULT_BLUNDER_LIST: 'vault_blunder_list',
     VAULT_DETAIL: 'vault_detail',
@@ -241,12 +232,17 @@ function hideAllViews() {
     homeView.classList.add('hidden');
     analysisView.classList.add('hidden');
     analysisView.classList.remove('view-review');
-    inputView.classList.add('hidden');
     vaultViewNav.classList.add('hidden');
     if (vaultBlunderListViewNav) vaultBlunderListViewNav.classList.add('hidden');
     vaultDetailViewNav.classList.add('hidden');
     savedGamesViewNav.classList.add('hidden');
     if (insightsViewNav) insightsViewNav.classList.add('hidden');
+}
+
+// 단일 엔진(stockfish)을 쓰는 모드들 — 분석 화면이 보드 자유 입력으로 동작.
+// SIMULATE는 엔진 PV를 따라가는 별개 모드라 제외.
+function isExploreLikeMode() {
+    return appMode === APP_MODES.EXPLORE || appMode === APP_MODES.LIVE_INPUT;
 }
 
 function cleanupAnalysis() {
@@ -257,6 +253,10 @@ function cleanupAnalysis() {
     if (isReviewMode) {
         setIsReviewMode(false);
         applyReviewView();
+    }
+    if (appMode === APP_MODES.LIVE_INPUT) {
+        setLiveInputControls(false);
+        getEngine().stop();
     }
     if (isAnalysisLoading) exitAnalysisLoading();
     stopAndClear();
@@ -277,9 +277,6 @@ function renderScreen(screen) {
             break;
         case SCREENS.ANALYSIS:
             analysisView.classList.remove('hidden');
-            break;
-        case SCREENS.INPUT:
-            inputView.classList.remove('hidden');
             break;
         case SCREENS.VAULT_LIST:
             vaultViewNav.classList.remove('hidden');
@@ -937,7 +934,6 @@ coordsToggle.addEventListener('change', (e) => {
     isCoordsEnabled = e.target.checked;
     localStorage.setItem(COORDS_KEY, isCoordsEnabled);
     if (cg) cg.set({ coordinates: isCoordsEnabled });
-    if (inputCg) inputCg.set({ coordinates: isCoordsEnabled });
     setVaultCoords(isCoordsEnabled);
 });
 
@@ -1050,6 +1046,7 @@ const modalConfigs = [
     { modal: tierModal, closeBtn: closeTierModalBtn },
     { modal: saveChoiceModal, closeBtn: cancelChoiceBtn, noBg: true },
     { modal: saveModal, closeBtn: cancelSaveBtn, noBg: true },
+    { modal: livePasteModal, closeBtn: cancelLivePasteBtn },
 ];
 
 modalConfigs.forEach(({ modal, closeBtn, noBg }) => {
@@ -1157,194 +1154,148 @@ document.getElementById('langEnBtn').addEventListener('click', () => {
 // ==========================================
 // 4. Event Listeners
 // ==========================================
-function openInputView() {
-    navigateTo(SCREENS.INPUT);
-    homeView.classList.add('hidden');
-    inputView.classList.remove('hidden');
-    inputChess = new window.Chess();
-    inputStartFen = null;
-    inputViewIndex = 0;
-    inputBoardPgn.value = '';
-
-    if (!inputCg) {
-        inputCg = Chessground(inputBoardContainer, {
-            animation: { enabled: true, duration: 250 },
-            movable: { free: false },
-            coordinates: isCoordsEnabled,
-            events: {
-                move: handleInputBoardMove,
-            }
-        });
-    }
-    updateInputBoard();
-    forceRedraw(inputCg);
+// 단일 엔진을 새 fen 위에서 재시작 + UI 표지를 'Exploring' 상태로 초기화.
+// stop() 먼저 — 직전 검색이 진행 중이라도 새 검색이 깔끔히 시작되게.
+// depth는 라이브 입력 모드면 12 고정(렉 방지), 그 외 explore는 사용자 설정 depth.
+function kickExploreEngine(fen) {
+    getEngine().stop();
+    clearExplorationEngineLines();
+    updateTopEvalDisplay('...', 'Exploring', isUserWhite);
+    engineLinesContainer.innerHTML = `<div class="container-message">${t('analysis_variation')}</div>`;
+    analysisStatus.className = 'tag engine-loading';
+    analysisStatus.textContent = t('analysis_exploring');
+    const depth = appMode === APP_MODES.LIVE_INPUT ? LIVE_INPUT_DEPTH : getDepth();
+    getEngine().analyzeFen(fen, depth);
 }
 
-// 현재 inputViewIndex까지 replay한 체스 인스턴스 반환. 보드/토출 용도.
-function getInputViewChess() {
-    const c = new window.Chess();
-    if (inputStartFen) c.load(inputStartFen);
-    const hist = inputChess.history({ verbose: true });
-    const limit = Math.min(inputViewIndex, hist.length);
-    for (let i = 0; i < limit; i++) {
-        c.move({ from: hist[i].from, to: hist[i].to, promotion: hist[i].promotion });
-    }
-    return c;
+function openLiveInput() {
+    navigateTo(SCREENS.ANALYSIS);
+
+    setQueue([]);
+    resetMainGame();
+    setCurrentlyViewedIndex(-1);
+    setIsUserWhite(true);
+    setIsReviewMode(false);
+    analysisView.classList.remove('view-review');
+    setIsPreviewMode(false);
+    clearPersistentShapes();
+
+    setAppMode(APP_MODES.LIVE_INPUT);
+    explorationChess.load(START_FEN);
+
+    cg.set({
+        fen: START_FEN,
+        orientation: 'white',
+        turnColor: 'white',
+        lastMove: [],
+        movable: { color: 'white', free: false, dests: getDests(explorationChess) },
+        drawable: { autoShapes: [] }
+    });
+    forceRedraw(cg);
+
+    setLiveInputControls(true);
+    kickExploreEngine(START_FEN);
 }
 
-// 사용자가 현재 보고 있는 위치에서 보드에 수를 두면 호출된다.
-// 끝이 아닌 중간에서 두면 그 지점까지 truncate + fork.
-function handleInputBoardMove(orig, dest) {
-    const hist = inputChess.history({ verbose: true });
-    if (inputViewIndex < hist.length) {
-        const newChess = new window.Chess();
-        if (inputStartFen) newChess.load(inputStartFen);
-        for (let i = 0; i < inputViewIndex; i++) {
-            newChess.move({ from: hist[i].from, to: hist[i].to, promotion: hist[i].promotion });
-        }
-        const result = newChess.move({ from: orig, to: dest, promotion: 'q' });
-        if (!result) return;
-        inputChess = newChess;
+// 라이브 모드의 보드를 explorationChess의 현 상태로 동기.
+function syncLiveBoard() {
+    const turnColor = explorationChess.turn() === 'w' ? 'white' : 'black';
+    const hist = explorationChess.history({ verbose: true });
+    const lastMove = hist.length > 0 ? [hist[hist.length - 1].from, hist[hist.length - 1].to] : [];
+    cg.set({
+        fen: explorationChess.fen(),
+        turnColor,
+        lastMove,
+        movable: { color: turnColor, free: false, dests: getDests(explorationChess) },
+        drawable: { autoShapes: [] }
+    });
+}
+
+// 라이브 상태를 idx 위치로 통일 (explorationChess replay + 보드 갱신 + 엔진 라인 캐시 또는 재시작).
+// idx=-1=시작, 0..N-1=각 수 직후. navigate/undo/reset 공통 로직.
+function syncLiveStateToIndex(idx) {
+    setCurrentlyViewedIndex(idx);
+    explorationChess.reset();
+    for (let i = 0; i <= idx; i++) {
+        const m = analysisQueue[i];
+        explorationChess.move({ from: m.from, to: m.to, promotion: m.promotion });
+    }
+    syncLiveBoard();
+    showPieceBadge(idx);
+
+    const cached = idx >= 0 ? analysisQueue[idx]?.engineLines : null;
+    if (cached && cached[0]) {
+        // 캐시된 라인 재사용 — 엔진 재시작 없이 즉시 표시.
+        getEngine().stop();
+        clearExplorationEngineLines();
+        for (let i = 0; i < cached.length; i++) setExplorationLineAt(i, cached[i]);
+        renderEngineLines(engineLinesContainer, cached.filter(Boolean), drawEngineArrow, clearEngineArrow, handleEngineLineClick);
+        const cls = analysisQueue[idx].classification || 'Exploring';
+        updateTopEvalDisplay(cached[0].scoreStr, cls, isUserWhite);
+        analysisStatus.className = 'tag engine-ready hidden';
+        analysisStatus.textContent = '';
     } else {
-        const result = inputChess.move({ from: orig, to: dest, promotion: 'q' });
-        if (!result) return;
+        // 캐시 없음 (시작 포지션 또는 분석 미완료) → 엔진 재시작.
+        kickExploreEngine(explorationChess.fen());
     }
-    inputViewIndex++;
-    updateInputBoard();
 }
 
-function handleInputPrev() {
-    if (inputViewIndex <= 0) return;
-    inputViewIndex--;
-    updateInputBoard();
+// prev/next nav — viewedIndex만 ±1, queue 보존.
+function liveInputNavigate(delta) {
+    const newIdx = Math.max(-1, Math.min(analysisQueue.length - 1, currentlyViewedIndex + delta));
+    if (newIdx === currentlyViewedIndex) return;
+    syncLiveStateToIndex(newIdx);
 }
 
-function handleInputNext() {
-    if (inputViewIndex >= inputChess.history().length) return;
-    inputViewIndex++;
-    updateInputBoard();
+// Undo — 마지막 수 pop, 새 tail로 이동.
+function liveInputUndo() {
+    if (analysisQueue.length === 0) return;
+    analysisQueue.pop();
+    syncLiveStateToIndex(analysisQueue.length - 1);
 }
 
-function updateInputNavButtons() {
-    const historyLen = inputChess.history().length;
-    inputPrevMoveBtn.disabled = inputViewIndex === 0;
-    inputNextMoveBtn.disabled = inputViewIndex >= historyLen;
-    inputViewUndoBtnBottom.disabled = inputViewIndex === 0;
+// Reset — 모든 수 제거, 시작 포지션 복귀.
+function liveInputReset() {
+    setQueue([]);
+    clearPersistentShapes();
+    syncLiveStateToIndex(-1);
 }
 
-openBoardInputBtn.addEventListener('click', openInputView);
+openBoardInputBtn.addEventListener('click', openLiveInput);
+backBtn.addEventListener('click', () => { history.back(); });
 
-inputViewBackBtn.addEventListener('click', () => {
-    history.back();
-});
-
-// Undo: 현재 보고 있는 수 + 그 이후 전부 삭제 (viewIndex - 1 까지 truncate).
-// 끝에서 누르면 마지막 수 제거로 기존 동작과 동일하고, 중간에서 누르면 그 분기를 쳐낸다.
-function doUndoInput() {
-    if (inputViewIndex === 0) return;
-    const hist = inputChess.history({ verbose: true });
-    const newChess = new window.Chess();
-    if (inputStartFen) newChess.load(inputStartFen);
-    for (let i = 0; i < inputViewIndex - 1; i++) {
-        newChess.move({ from: hist[i].from, to: hist[i].to, promotion: hist[i].promotion });
-    }
-    inputChess = newChess;
-    inputViewIndex--;
-    updateInputBoard();
+// 분석 화면 UI를 그대로 유지 — Save/AI 토글/분류 라벨/구분선 모두 노출.
+// 라이브 전용 액션바(Undo/Reset/Paste)는 LIVE_INPUT일 때만 노출.
+function setLiveInputControls(active) {
+    liveActionBar?.classList.toggle('hidden', !active);
 }
-inputViewUndoBtnBottom.addEventListener('click', doUndoInput);
-inputViewResetBtn.addEventListener('click', () => {
-    inputChess = new window.Chess();
-    inputStartFen = null;
-    inputViewIndex = 0;
-    inputBoardPgn.value = '';
-    updateInputBoard();
-});
-inputPrevMoveBtn.addEventListener('click', handleInputPrev);
-inputNextMoveBtn.addEventListener('click', handleInputNext);
 
-inputBoardPgn.addEventListener('input', () => {
-    const text = inputBoardPgn.value.trim();
-    if (!text) {
-        inputChess = new window.Chess();
-        inputStartFen = null;
-        inputViewIndex = 0;
-        if (inputCg) updateInputBoard();
-        return;
-    }
-    const tempChess = new window.Chess();
-    const result = parseAndLoadPgn(tempChess, text);
-    if (result.success) {
-        inputChess = tempChess;
-        inputStartFen = null;
-        inputViewIndex = inputChess.history().length;
-        if (inputCg) updateInputBoard();
-        return;
-    }
-    // PGN 파싱 실패 시 FEN으로 시도 — 보드만 갱신, 수는 비어있음
+function openLivePasteModal() {
+    if (!livePasteModal) return;
+    livePasteTextarea.value = '';
+    livePasteModal.classList.remove('hidden');
+    setTimeout(() => livePasteTextarea.focus(), 50);
+}
+
+if (livePastePgnBtn) livePastePgnBtn.addEventListener('click', openLivePasteModal);
+if (liveUndoBtn) liveUndoBtn.addEventListener('click', liveInputUndo);
+if (liveResetBtn) liveResetBtn.addEventListener('click', liveInputReset);
+
+if (confirmLivePasteBtn) confirmLivePasteBtn.addEventListener('click', () => {
+    const text = (livePasteTextarea.value || '').trim();
+    if (!text) return;
+
+    closeModal(livePasteModal);
+
     if (isValidFen(text)) {
-        const fenChess = new window.Chess();
-        fenChess.load(text);
-        inputChess = fenChess;
-        inputStartFen = text;
-        inputViewIndex = 0;
-        if (inputCg) updateInputBoard();
-    }
-});
-
-inputViewAnalyzeBtn.addEventListener('click', () => {
-    const text = inputBoardPgn.value.trim();
-    // FEN이면 단일 포지션 분석 플로우로 분기
-    if (text && isValidFen(text)) {
-        inputView.classList.add('hidden');
         pendingAnalysisCallback = (isWhite) => handleFenReviewStart(text, isWhite);
         colorChoiceModal.classList.remove('hidden');
         return;
     }
-    const pgn = text || inputChess.pgn();
-    if (!pgn) {
-        alert(t('analysis_no_moves'));
-        return;
-    }
-    pgnInput.value = pgn;
-    inputView.classList.add('hidden');
+    pgnInput.value = text;
     pendingAnalysisCallback = (isWhite) => handlePgnReviewStart(null, isWhite);
     colorChoiceModal.classList.remove('hidden');
 });
-
-backBtn.addEventListener('click', () => {
-    history.back();
-});
-
-function updateInputBoard() {
-    // 보드는 inputViewIndex까지만 replay한 상태를 표시, dests도 그 포지션 기준으로 계산.
-    // textarea는 항상 inputChess의 전체 PGN을 보여준다.
-    const viewChess = getInputViewChess();
-    const turnColor = viewChess.turn() === 'w' ? 'white' : 'black';
-
-    // 현재 포지션으로 이끈 마지막 수를 두 칸 하이라이트로 표시 (Lichess/Chess.com 관례).
-    // 시작 포지션(viewIndex === 0)에서는 빈 배열로 명시해 이전 하이라이트를 지운다.
-    let lastMove = [];
-    if (inputViewIndex > 0) {
-        const hist = inputChess.history({ verbose: true });
-        const m = hist[inputViewIndex - 1];
-        if (m) lastMove = [m.from, m.to];
-    }
-
-    inputCg.set({
-        fen: viewChess.fen(),
-        turnColor: turnColor,
-        lastMove,
-        movable: {
-            color: turnColor,
-            dests: getDests(viewChess)
-        },
-        drawable: { autoShapes: [] }
-    });
-    inputBoardPgn.value = inputChess.pgn();
-    inputBoardPgn.scrollTop = inputBoardPgn.scrollHeight;
-    updateInputNavButtons();
-}
 
 fetchBtn.addEventListener('click', handleApiFetch);
 usernameInput.addEventListener('keyup', (e) => {
@@ -1377,6 +1328,12 @@ function handlePrevMove() {
         updateBoardForSimulation(simulationIndex);
         return;
     }
+    // 라이브 입력 모드: prev = 직전 수 위치로 navigate (history 보존).
+    // 중간에서 다른 수를 두면 그 시점에서 fork(handleExplorationMove의 truncate 분기).
+    if (appMode === APP_MODES.LIVE_INPUT) {
+        liveInputNavigate(-1);
+        return;
+    }
     if (appMode === APP_MODES.EXPLORE) {
         exitExplorationMode();
         if (currentlyViewedIndex >= 0 && analysisQueue[currentlyViewedIndex]) {
@@ -1407,6 +1364,11 @@ function handleNextMove() {
     if (appMode === APP_MODES.SIMULATE) {
         setSimulationIndex(Math.min(simulationQueue.length - 1, simulationIndex + 1));
         updateBoardForSimulation(simulationIndex);
+        return;
+    }
+    // 라이브 입력 모드: next = 다음 수 위치로 navigate (history 끝까지).
+    if (appMode === APP_MODES.LIVE_INPUT) {
+        liveInputNavigate(1);
         return;
     }
     if (appMode === APP_MODES.EXPLORE) {
@@ -1537,14 +1499,15 @@ initSavedGames({
         pgnInput.value = pgn;
         handlePgnReviewStart(null, null, null, true);
     },
-    getChess: () => chess,
+    // 라이브 입력 모드는 메인 chess가 비어 있고 explorationChess만 의미 있음.
+    getChess: () => appMode === APP_MODES.LIVE_INPUT ? explorationChess : chess,
     showButtonSuccess,
     saveMoveBtn,
 });
 initInsights();
 
-function buildInputMovesQueue() {
-    const history = inputChess.history({ verbose: true });
+function buildExplorationMovesQueue() {
+    const history = explorationChess.history({ verbose: true });
     return history.map((m, i) => ({
         san: m.san,
         moveNumber: Math.floor(i / 2) + 1,
@@ -1553,6 +1516,14 @@ function buildInputMovesQueue() {
 }
 
 movesOverlayBtn.addEventListener('click', () => {
+    // 라이브 입력 모드: 사용자가 둔 수만 explorationChess에서 추출 (분석 큐 없음).
+    if (appMode === APP_MODES.LIVE_INPUT) {
+        showMovesOverlay({
+            getPgn: () => explorationChess.pgn(),
+            renderBody: () => renderMovesTable(movesBody, buildExplorationMovesQueue(), () => closeMovesOverlay()),
+        });
+        return;
+    }
     // 분석 데이터가 있고 FEN 단독이 아닐 때만 리뷰 버튼 노출. 미리보기 모드일 때는 분석 전이라 숨김.
     const isFenOnly = analysisQueue.length === 1 && analysisQueue[0]?.isFenOnly;
     const canReview = !isPreviewMode && !isAnalysisLoading && analysisQueue.length > 0 && !isFenOnly;
@@ -1585,10 +1556,6 @@ movesOverlayReviewBtn.addEventListener('click', () => {
     setIsReviewMode(true);
     applyReviewView();
 });
-inputViewMovesBtn.addEventListener('click', () => showMovesOverlay({
-    getPgn: () => inputBoardPgn.value.trim() || inputChess.pgn(),
-    renderBody: () => renderMovesTable(movesBody, buildInputMovesQueue(), () => closeMovesOverlay()),
-}));
 movesOverlayCloseBtn.addEventListener('click', closeMovesOverlay);
 movesOverlay.addEventListener('click', (e) => {
     if (e.target === movesOverlay) closeMovesOverlay();
@@ -1652,6 +1619,49 @@ saveMoveBtn.addEventListener('click', () => {
 
 choiceSaveMoveBtn.addEventListener('click', () => {
     saveChoiceModal.classList.add('hidden');
+
+    // 라이브 입력 모드: explorationChess의 마지막 수를 저장 (분류 없음, bestMove는 현재 위치의 top PV).
+    if (appMode === APP_MODES.LIVE_INPUT) {
+        const hist = explorationChess.history({ verbose: true });
+        if (hist.length === 0) {
+            alert(t('analysis_no_save_start'));
+            return;
+        }
+        const last = hist[hist.length - 1];
+        const moveIdx = hist.length - 1;
+        const isWhiteMove = moveIdx % 2 === 0;
+        const moveNumber = Math.floor(moveIdx / 2) + 1;
+        const moveNumberStr = moveNumber + (isWhiteMove ? '. ' : '... ');
+        saveMoveText.textContent = moveNumberStr + last.san;
+
+        // bestMove는 "이 수 다음에 둘 만한 수" — 현재 explorationEngineLines[0]의 첫 수.
+        // 메인 분석 모드의 "직전 포지션 best"와 의미가 다름(여기선 직전 캐시가 없음).
+        const liveBest = explorationEngineLines[0]?.pv?.split(' ')[0] || '';
+        currentBestMoveForVault = liveBest;
+        saveBestMoveText.textContent = liveBest ? t('vault_engine_suggested').replace('{move}', liveBest) : '';
+
+        // prevFen 복원 — 마지막 수만 빼고 나머지 history replay.
+        const tempChess = new Chess();
+        for (let i = 0; i < moveIdx; i++) {
+            tempChess.move({ from: hist[i].from, to: hist[i].to, promotion: hist[i].promotion });
+        }
+        vaultSnapshot = {
+            moveIndex: moveIdx,
+            move: { san: last.san, fen: explorationChess.fen() },
+            fen: explorationChess.fen(),
+            prevFen: tempChess.fen(),
+            san: last.san,
+            bestMove: liveBest,
+            moveNumber,
+            isWhite: isWhiteMove,
+            classification: null,
+            engineLines: explorationEngineLines.slice(),
+        };
+        saveCategory.value = 'positional';
+        saveNotes.value = '';
+        saveModal.classList.remove('hidden');
+        return;
+    }
 
     if (currentlyViewedIndex < 0 || !analysisQueue[currentlyViewedIndex]) {
         alert(t('analysis_no_save_start'));
@@ -1718,10 +1728,13 @@ confirmSaveBtn.addEventListener('click', () => {
         playedDate = h.UTCDate || h.Date || null;
     }
 
+    // 라이브 입력 모드는 chess(메인 게임)이 비어있고 explorationChess만 의미 있음.
+    const sourcePgn = appMode === APP_MODES.LIVE_INPUT ? explorationChess.pgn() : chess.pgn();
+
     const vaultItem = {
         id: crypto.randomUUID(),
         date: new Date().toISOString(),
-        pgn: chess.pgn(),
+        pgn: sourcePgn,
         moveIndex: snap.moveIndex,
         gameTitle,
         isUserWhite,
@@ -1754,9 +1767,6 @@ window.addEventListener('resize', () => {
         if (cg && !analysisView.classList.contains('hidden')) {
             cg.redrawAll();
         }
-        if (inputCg && !inputView.classList.contains('hidden')) {
-            inputCg.redrawAll();
-        }
         redrawVaultBoard();
         redrawVaultPuzzleBoard();
     }, 100); // 100ms 디바운스 적용
@@ -1767,9 +1777,9 @@ function handleExplorationMove(orig, dest) {
     if (appMode === APP_MODES.SIMULATE) {
         setAppMode(APP_MODES.EXPLORE);
         explorationChess.load(simulationQueue[simulationIndex].fen);
-        clearExplorationEngineLines();
-        getEngine().stop();
-    } else if (appMode !== APP_MODES.EXPLORE) {
+    } else if (!isExploreLikeMode()) {
+        // MAIN → EXPLORE 첫 진입: 메인 라인의 현재 위치를 base로 잡고 returnMainLine 버튼 표시.
+        // LIVE_INPUT은 진입 시 이미 explorationChess에 START_FEN이 로드돼 있으므로 이 블록 건너뜀.
         setAppMode(APP_MODES.EXPLORE);
         showReturnBtn();
 
@@ -1778,32 +1788,47 @@ function handleExplorationMove(orig, dest) {
         else if (chess.header().FEN) baseFen = chess.header().FEN;
 
         explorationChess.load(baseFen);
-        clearExplorationEngineLines();
-
-        // 메인 기보 분석 중지
-        getEngine().stop();
     }
-    
+    // 엔진 정지 + 라인 클리어는 kickExploreEngine이 처리.
+
+    // 라이브 모드 fork 처리: 사용자가 중간 위치를 보다가 새 수를 두면 그 시점에서 history 분기.
+    // currentlyViewedIndex 이후의 큐 항목 모두 버리고 explorationChess는 이미 navigate 시 그 위치로 replay 되어 있음.
+    if (appMode === APP_MODES.LIVE_INPUT && currentlyViewedIndex < analysisQueue.length - 1) {
+        analysisQueue.length = currentlyViewedIndex + 1;
+    }
+
     const moveRes = explorationChess.move({ from: orig, to: dest, promotion: 'q' });
     if (!moveRes) {
         cg.set({ fen: explorationChess.fen() });
         return;
     }
-    
+
+    // 라이브 입력 모드: 둔 수를 analysisQueue에 push해서 classifyMove가 직전 포지션 평가를 참조 가능하게.
+    // engineLines는 새 분석이 끝나면 onBestMove에서 채워짐.
+    if (appMode === APP_MODES.LIVE_INPUT) {
+        const moveIdx = analysisQueue.length;
+        analysisQueue.push({
+            fen: explorationChess.fen(),
+            san: moveRes.san,
+            from: moveRes.from,
+            to: moveRes.to,
+            promotion: moveRes.promotion,
+            turn: explorationChess.turn() === 'w' ? 'b' : 'w',
+            moveNumber: Math.floor(moveIdx / 2) + 1,
+            isWhite: moveIdx % 2 === 0,
+            engineLines: [],
+        });
+        setCurrentlyViewedIndex(moveIdx);
+    }
+
     const turnColor = explorationChess.turn() === 'w' ? 'white' : 'black';
-    cg.set({ 
+    cg.set({
         fen: explorationChess.fen(),
-        turnColor: turnColor,
+        turnColor,
         movable: { color: turnColor, free: false, dests: getDests(explorationChess) }
     });
-    
-    clearExplorationEngineLines();
-    updateTopEvalDisplay('...', 'Exploring', isUserWhite);
-    engineLinesContainer.innerHTML = `<div class="container-message">${t('analysis_variation')}</div>`;
 
-    analysisStatus.className = 'tag engine-loading';
-    analysisStatus.textContent = t('analysis_exploring');
-    getEngine().analyzeFen(explorationChess.fen(), getDepth());
+    kickExploreEngine(explorationChess.fen());
 }
 
 function exitExplorationMode() {
@@ -1840,19 +1865,29 @@ async function handleApiFetch() {
 // ==========================================
 // 6. Engine Initialization
 // ==========================================
-// 단일 엔진 콜백 — 탐색(explore) 모드 전용. 배치 분석은 풀(promise 기반)이 별도 처리.
+// 단일 엔진 콜백 — 탐색/라이브 입력 모드 전용. 배치 분석은 풀(promise 기반)이 별도 처리.
 const engineCallbacks = {
     onError: (e) => {
         console.error("Failed to load Stockfish worker:", e);
     },
     onEval: (evalData) => {
-        if (appMode !== APP_MODES.EXPLORE) return;
+        if (!isExploreLikeMode()) return;
+
+        // Stale-info 필터: stop() 직후 워커가 OLD 포지션의 잔여 info를 emit하는 경우가 있음.
+        // PV 첫 수가 현재 explorationChess에서 합법이 아니면(놓인 칸에 자기 차례 기물 없음) 버린다.
+        const firstUci = evalData.pv ? evalData.pv.split(' ')[0] : '';
+        if (firstUci && firstUci.length >= 4) {
+            const fromSq = firstUci.slice(0, 2);
+            const piece = explorationChess.get(fromSq);
+            const turn = explorationChess.turn();
+            if (!piece || piece.color !== turn) return;
+        }
+
         const isBlackToMove = explorationChess.turn() === 'b';
         const { scoreStr, scoreNum } = parseEvalData(evalData, isBlackToMove);
 
         const lineIndex = evalData.multipv - 1;
         const sanPv = convertPvToSan(evalData.pv, explorationChess.fen());
-        const firstUci = evalData.pv ? evalData.pv.split(' ')[0] : '';
         setExplorationLineAt(lineIndex, { scoreStr, scoreNum, pv: sanPv, uci: firstUci });
 
         const now = Date.now();
@@ -1860,14 +1895,28 @@ const engineCallbacks = {
             lastEvalRenderTime = now;
             requestAnimationFrame(() => {
                 renderEngineLines(engineLinesContainer, explorationEngineLines.filter(Boolean), drawEngineArrow, clearEngineArrow, handleEngineLineClick);
-                updateTopEvalDisplay(explorationEngineLines[0].scoreStr, 'Exploring', isUserWhite);
+                // 라이브 모드에서 분류 산출 전엔 Exploring 메타 라벨로 라벨 영역 비움.
+                // 분류는 onBestMove에서 fix됨.
+                const cls = (appMode === APP_MODES.LIVE_INPUT && analysisQueue.length > 0)
+                    ? (analysisQueue[analysisQueue.length - 1].classification || 'Exploring')
+                    : 'Exploring';
+                updateTopEvalDisplay(explorationEngineLines[0].scoreStr, cls, isUserWhite);
             });
         }
     },
     onBestMove: () => {
-        if (appMode === APP_MODES.EXPLORE) {
-            analysisStatus.className = 'tag engine-ready hidden';
-            analysisStatus.textContent = '';
+        if (!isExploreLikeMode()) return;
+        analysisStatus.className = 'tag engine-ready hidden';
+        analysisStatus.textContent = '';
+
+        // 라이브 모드: 새 분석 완료 → 마지막 수 분류. 단, lines가 stale 필터 통과해 채워졌을 때만.
+        if (appMode === APP_MODES.LIVE_INPUT && analysisQueue.length > 0 && explorationEngineLines[0]) {
+            const idx = analysisQueue.length - 1;
+            analysisQueue[idx].engineLines = explorationEngineLines.slice();
+            const cls = classifyMove(idx, analysisQueue);
+            analysisQueue[idx].classification = cls;
+            updateTopEvalDisplay(explorationEngineLines[0].scoreStr, cls, isUserWhite);
+            showPieceBadge(idx);
         }
     }
 };
@@ -1943,10 +1992,12 @@ function startNewAnalysis(newQueue, targetIndex = null, previewOnly = false) {
     vaultViewNav.classList.add('hidden');
     vaultDetailViewNav.classList.add('hidden');
     savedGamesViewNav.classList.add('hidden');
-    inputView.classList.add('hidden');
     analysisView.classList.remove('hidden');
 
-    // 이전 탐색(Exploration) 및 시뮬레이션 모드 상태 완전 초기화
+    // 이전 탐색(Exploration) / 라이브 입력 / 시뮬레이션 모드 상태 완전 초기화.
+    // startNewAnalysis는 ANALYSIS 화면 안에서 호출되어 cleanupAnalysis(renderScreen 분기)를 통과 안 함 →
+    // 라이브 입력 모드의 UI 토글은 여기서 직접 해제 (paste→PGN 분석 경로의 핵심 cleanup 지점).
+    if (appMode === APP_MODES.LIVE_INPUT) setLiveInputControls(false);
     setAppMode(APP_MODES.MAIN);
     hideReturnBtn();
     analysisView.classList.remove('view-review');
@@ -2468,7 +2519,7 @@ function clearEngineArrow() {
 
 function handleEngineLineClick(lineIndex) {
     let baseFen, lines;
-    if (appMode === APP_MODES.EXPLORE) {
+    if (isExploreLikeMode()) {
         baseFen = explorationChess.fen();
         lines = explorationEngineLines;
     } else {
