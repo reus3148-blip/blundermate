@@ -1479,11 +1479,12 @@ th {
 }
 
 /* Scope 필터바 (Saved Games 등): 전폭 text-tab 패턴 — vault-filter-tabs와 결 동일.
-   space-between으로 첫 버튼 좌측 rail, 마지막 버튼 우측 rail에 정렬되어 시각적 가로 균형. */
+   space-between으로 첫 버튼 좌측 rail, 마지막 버튼 우측 rail에 정렬되어 시각적 가로 균형.
+   상단바 제거 후 첫 chrome이라 위 패딩 12 → 시각적 호흡. */
 .pill-filter-bar--scope {
-    padding: 4px 16px 6px;
+    padding: 12px 16px 6px;
     gap: 16px;
-    height: 32px;
+    height: 40px;
     box-sizing: border-box;
     align-items: center;
     justify-content: space-between;
@@ -3206,11 +3207,42 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
 
 /* ===== VAULT PUZZLE (Stories) ===========================================
    보드 y좌표를 1픽셀도 흔들리지 않게 — 보드 위 chrome 모두 height 픽셀로 고정.
-   레이아웃 합산: top-bar 44 + filter-tabs 30 + indicator 26 + prompt 50 = 150px.
+   레이아웃 합산 (top-bar 제거 후): filter-row 38 + indicator 26 + prompt 50 = 114px.
    카테고리 전환·풀 사이즈 변동·폰트 weight 변동에 모두 무관.
    원칙: min-height 사용 금지(자식이 더 크면 늘어남), height + box-sizing border-box로 못 박음. */
 
-/* 카테고리 sub-filter — 블런더 / 메이트 / 기타 */
+/* Vault 필터 행 — 좌: 카테고리 sub-filter, 우: 목록(보조 리스트) 진입 버튼.
+   상단바 제거 후 첫 chrome이라 위 패딩 8 → 시각적 호흡. */
+.vault-filter-row {
+    display: flex;
+    align-items: center;
+    padding: 8px 16px 4px;
+    height: 38px;
+    box-sizing: border-box;
+    flex-shrink: 0;
+}
+.vault-filter-row .vault-filter-tabs {
+    flex: 1;
+    padding: 0;
+    height: auto;
+}
+.vault-filter-end-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    color: var(--tx2);
+    width: 30px;
+    height: 26px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+    flex-shrink: 0;
+}
+.vault-filter-end-btn:hover { background: var(--bg-elevated); color: var(--tx); }
+
+/* 카테고리 sub-filter — 블런더 / 메이트 / 기타. 보조 리스트 뷰(#vaultBlunderListView)에서는 단독 사용. */
 .vault-filter-tabs {
     display: flex;
     align-items: center;
@@ -3265,10 +3297,11 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
 }
 .vault-puzzle-stage.hidden { display: none; }
 
-/* 보드 max-width — 100dvh에서 다른 chrome(top + filter + indicator + prompt + feedback
-   + actions + bottom-nav) 합산 약 340px를 빼서 일반 케이스에 스크롤 없이 다음 버튼까지 노출. */
+/* 보드 max-width — 100dvh에서 다른 chrome(filter-row + indicator + prompt + feedback
+   + actions + bottom-nav) 합산 약 300px를 빼서 일반 케이스에 스크롤 없이 다음 버튼까지 노출.
+   상단바 제거(46) + 필터 행 8px 호흡(+8) ≈ 38px 절감 → 340 → 300. */
 #vaultPuzzlePane .board-container {
-    max-width: calc(100dvh - 340px);
+    max-width: calc(100dvh - 300px);
 }
 
 /* Empty state */
@@ -3778,14 +3811,15 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
 .review-cta-btn:hover { opacity: 0.92; }
 
 /* ── Insights (통계) — 홈 디자인 언어와 통일 ───────────────────── */
-/* subtitle(좌) + dropdown 필터(우) 한 줄. 좁아지면 wrap. */
+/* subtitle(좌) + dropdown 필터(우) 한 줄. 좁아지면 wrap.
+   상단바 제거 후 첫 chrome이라 위 패딩 12 → 시각적 호흡. */
 .insights-head {
     display: flex;
     align-items: center;
     justify-content: space-between;
     flex-wrap: wrap;
     gap: 4px 12px;
-    padding: 8px 14px 4px;
+    padding: 12px 14px 4px;
     flex-shrink: 0;
 }
 .insights-subtitle {
