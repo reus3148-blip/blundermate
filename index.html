@@ -311,27 +311,39 @@
             <span class="top-bar-title" data-i18n="insights_title">통계</span>
             <div class="top-bar-spacer"></div>
         </div>
-        <div id="insightsSubtitle" class="insights-subtitle"></div>
-        <div class="insights-filter-row">
-            <div id="insightsTimeFilterBar" class="pill-filter-bar pill-filter-bar--insights">
-                <button type="button" class="pill-btn" data-tc="all" data-i18n="saved_games_filter_all">전체</button>
-                <button type="button" class="pill-btn selected" data-tc="rapid" data-i18n="home_filter_rapid">래피드</button>
-                <button type="button" class="pill-btn" data-tc="blitz" data-i18n="home_filter_blitz">블리츠</button>
-                <button type="button" class="pill-btn" data-tc="bullet" data-i18n="home_filter_bullet">불렛</button>
-            </div>
-            <div id="insightsColorFilterBar" class="pill-filter-bar pill-filter-bar--insights">
-                <button type="button" class="pill-btn selected" data-color="all" data-i18n="saved_games_filter_all">전체</button>
-                <button type="button" class="pill-btn" data-color="white" data-i18n="insights_white">백</button>
-                <button type="button" class="pill-btn" data-color="black" data-i18n="insights_black">흑</button>
+        <div class="insights-head">
+            <div id="insightsSubtitle" class="insights-subtitle"></div>
+            <div class="insights-scope-filters">
+                <div class="insights-scope-filter">
+                    <button id="insightsTcFilterBtn" class="insights-scope-filter-trigger" type="button" aria-haspopup="menu" aria-expanded="false">
+                        <span id="insightsTcFilterLabel" data-i18n="home_filter_rapid">래피드</span>
+                        <svg class="insights-scope-filter-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                    <div id="insightsTcFilterMenu" class="insights-scope-filter-menu hidden" role="menu" aria-labelledby="insightsTcFilterBtn">
+                        <button type="button" class="insights-scope-filter-option" data-tc="all" role="menuitemradio" aria-checked="false" data-i18n="saved_games_filter_all">전체</button>
+                        <button type="button" class="insights-scope-filter-option" data-tc="rapid" role="menuitemradio" aria-checked="true" data-i18n="home_filter_rapid">래피드</button>
+                        <button type="button" class="insights-scope-filter-option" data-tc="blitz" role="menuitemradio" aria-checked="false" data-i18n="home_filter_blitz">블리츠</button>
+                        <button type="button" class="insights-scope-filter-option" data-tc="bullet" role="menuitemradio" aria-checked="false" data-i18n="home_filter_bullet">불렛</button>
+                    </div>
+                </div>
+                <div class="insights-scope-filter">
+                    <button id="insightsColorFilterBtn" class="insights-scope-filter-trigger" type="button" aria-haspopup="menu" aria-expanded="false">
+                        <span id="insightsColorFilterLabel" data-i18n="saved_games_filter_all">전체</span>
+                        <svg class="insights-scope-filter-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                    <div id="insightsColorFilterMenu" class="insights-scope-filter-menu hidden" role="menu" aria-labelledby="insightsColorFilterBtn">
+                        <button type="button" class="insights-scope-filter-option" data-color="all" role="menuitemradio" aria-checked="true" data-i18n="saved_games_filter_all">전체</button>
+                        <button type="button" class="insights-scope-filter-option" data-color="white" role="menuitemradio" aria-checked="false" data-i18n="insights_white">백</button>
+                        <button type="button" class="insights-scope-filter-option" data-color="black" role="menuitemradio" aria-checked="false" data-i18n="insights_black">흑</button>
+                    </div>
+                </div>
             </div>
         </div>
-        <div id="insightsCategoryTabs" class="insights-cat-tabs">
-            <button type="button" class="insights-cat-tab selected" data-cat="summary" data-i18n="insights_cat_summary">요약</button>
-            <button type="button" class="insights-cat-tab" data-cat="opening" data-i18n="insights_cat_opening">오프닝</button>
-            <button type="button" class="insights-cat-tab" data-cat="clock" data-i18n="insights_cat_clock">시계</button>
-            <button type="button" class="insights-cat-tab" data-cat="when" data-i18n="insights_cat_when">시간</button>
-            <button type="button" class="insights-cat-tab" data-cat="people" data-i18n="insights_cat_people">사람</button>
-            <button type="button" class="insights-cat-tab" data-cat="weak" data-i18n="insights_cat_weak">약점</button>
+        <div id="insightsCategoryTabs" class="insights-cat-tabs" role="tablist">
+            <button type="button" class="insights-cat-tab selected" data-cat="summary" role="tab" aria-selected="true" data-i18n="insights_cat_summary">요약</button>
+            <button type="button" class="insights-cat-tab" data-cat="results" role="tab" aria-selected="false" data-i18n="insights_cat_results">결과</button>
+            <button type="button" class="insights-cat-tab" data-cat="openings" role="tab" aria-selected="false" data-i18n="insights_cat_openings">오프닝</button>
+            <button type="button" class="insights-cat-tab" data-cat="patterns" role="tab" aria-selected="false" data-i18n="insights_cat_patterns">패턴</button>
         </div>
         <div id="insightsBody" class="insights-body"></div>
     </div>

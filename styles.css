@@ -2786,13 +2786,16 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     line-height: 1.4;
 }
 
-/* 시간대 필터 드롭다운 — 헤더 우측. text-tab 톤(Apple/Notion 결): 작은 트리거 + 가벼운 popover. */
-.home-tc-filter {
+/* 작은 dropdown 필터 — text-tab 톤(Apple/Notion 결): 작은 트리거 + 가벼운 popover.
+   home 시간대 필터 + insights 시간/색 필터에 공용. */
+.home-tc-filter,
+.insights-scope-filter {
     position: relative;
     display: inline-block;
 }
 
-.home-tc-filter-trigger {
+.home-tc-filter-trigger,
+.insights-scope-filter-trigger {
     background: none;
     border: none;
     padding: 4px 8px;
@@ -2809,19 +2812,24 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     -webkit-tap-highlight-color: transparent;
     transition: background 0.12s ease;
 }
-.home-tc-filter-trigger:hover { background: var(--bg-elevated); }
-.home-tc-filter-trigger[aria-expanded="true"] { background: var(--bg-elevated); }
+.home-tc-filter-trigger:hover,
+.insights-scope-filter-trigger:hover { background: var(--bg-elevated); }
+.home-tc-filter-trigger[aria-expanded="true"],
+.insights-scope-filter-trigger[aria-expanded="true"] { background: var(--bg-elevated); }
 
-.home-tc-filter-chevron {
+.home-tc-filter-chevron,
+.insights-scope-filter-chevron {
     color: var(--tx3);
     transition: transform 0.15s ease;
     flex-shrink: 0;
 }
-.home-tc-filter-trigger[aria-expanded="true"] .home-tc-filter-chevron {
+.home-tc-filter-trigger[aria-expanded="true"] .home-tc-filter-chevron,
+.insights-scope-filter-trigger[aria-expanded="true"] .insights-scope-filter-chevron {
     transform: rotate(180deg);
 }
 
-.home-tc-filter-menu {
+.home-tc-filter-menu,
+.insights-scope-filter-menu {
     position: absolute;
     top: calc(100% + 4px);
     right: 0;
@@ -2837,9 +2845,11 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     flex-direction: column;
     gap: 1px;
 }
-.home-tc-filter-menu.hidden { display: none; }
+.home-tc-filter-menu.hidden,
+.insights-scope-filter-menu.hidden { display: none; }
 
-.home-tc-filter-option {
+.home-tc-filter-option,
+.insights-scope-filter-option {
     background: none;
     border: none;
     padding: 7px 10px;
@@ -2855,13 +2865,16 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     justify-content: space-between;
     gap: 12px;
 }
-.home-tc-filter-option:hover { background: var(--bg-elevated); }
+.home-tc-filter-option:hover,
+.insights-scope-filter-option:hover { background: var(--bg-elevated); }
 
 /* 선택된 옵션 — 굵게 + 우측 체크. 텍스트 위계만으로 상태 전달 (메모리 톤: 장식보다 타이포). */
-.home-tc-filter-option[aria-checked="true"] {
+.home-tc-filter-option[aria-checked="true"],
+.insights-scope-filter-option[aria-checked="true"] {
     font-weight: 600;
 }
-.home-tc-filter-option[aria-checked="true"]::after {
+.home-tc-filter-option[aria-checked="true"]::after,
+.insights-scope-filter-option[aria-checked="true"]::after {
     content: '✓';
     color: var(--tx);
     font-size: 12px;
@@ -3765,80 +3778,78 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
 .review-cta-btn:hover { opacity: 0.92; }
 
 /* ── Insights (통계) — 홈 디자인 언어와 통일 ───────────────────── */
-.insights-subtitle {
+/* subtitle(좌) + dropdown 필터(우) 한 줄. 좁아지면 wrap. */
+.insights-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    padding: 8px 14px 4px;
     flex-shrink: 0;
-    padding: 8px 16px 6px;
+}
+.insights-subtitle {
     font-size: 11px;
     color: var(--tx3);
     font-weight: 500;
     letter-spacing: -0.005em;
     line-height: 1.3;
     font-variant-numeric: tabular-nums;
+    flex: 1;
+    min-width: 0;
 }
 .insights-subtitle:empty { display: none; }
 
-/* 필터 row: 시간제어(primary, left) + 진영(secondary, right) 양 끝 정렬.
-   여백이 두 그룹 사이로 가서 시각적 균형 형성. 좁으면 wrap — 각자 자기 줄에서 left-aligned. */
-.insights-filter-row {
-    display: flex;
+.insights-scope-filters {
+    display: inline-flex;
     align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 8px;
-    padding: 4px 16px 6px;
+    gap: 2px;
     flex-shrink: 0;
 }
-.insights-subtitle:empty + .insights-filter-row {
-    padding-top: 8px;
-}
 
-/* 카테고리 탭 바 — 통계 본문을 6개 카테고리로 쪼갬.
-   필터 바 아래, 본문 위. justify-content: space-between 으로 양 끝 정렬 + 균등 분포.
-   가로 스크롤 폴백으로 좁은 화면 대응 (overflow-x 시엔 space-between 효과 무력화되고 자연 패킹). */
+/* 카테고리 탭 바 — 4탭 pill segmented control. design_handoff_insights_dashboard §3.
+   외곽 컨테이너 padding 3px + border 1px + radius 999. 본문 위. */
 .insights-cat-tabs {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    padding: 6px 16px 0;
-    margin-top: 4px;
-    border-bottom: 1px solid var(--brd);
-    overflow-x: auto;
+    align-items: stretch;
+    gap: 0;
+    margin: 8px 14px 0;
+    padding: 3px;
+    background: var(--bg-surface);
+    border: 1px solid var(--brd);
+    border-radius: 999px;
     flex-shrink: 0;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
 }
-.insights-cat-tabs::-webkit-scrollbar { display: none; }
 
 .insights-cat-tab {
-    position: relative;
+    flex: 1;
     border: none;
     background: transparent;
-    padding: 4px 0 10px;
+    padding: 8px 10px;
+    border-radius: 999px;
     font-family: inherit;
-    font-size: 14px;
-    line-height: 20px;
+    font-size: 12px;
+    line-height: 16px;
     font-weight: 500;
-    color: var(--tx3);
-    letter-spacing: -0.015em;
+    color: var(--tx2);
+    letter-spacing: -0.01em;
     cursor: pointer;
-    transition: color 0.15s ease;
+    transition: background 0.15s ease, color 0.15s ease;
     white-space: nowrap;
-    flex-shrink: 0;
+    text-align: center;
+    min-width: 0;
 }
-.insights-cat-tab:hover { color: var(--tx2); }
+.insights-cat-tab:hover { color: var(--tx); }
+.insights-cat-tab:focus-visible {
+    outline: 2px solid var(--ac);
+    outline-offset: 2px;
+}
 .insights-cat-tab.selected {
-    color: var(--tx);
-    font-weight: 700;
-}
-.insights-cat-tab.selected::after {
-    content: '';
-    position: absolute;
-    inset: auto 0 -1px;
-    height: 2px;
-    border-radius: 1px;
     background: var(--tx);
+    color: var(--bg-surface);
+    font-weight: 600;
 }
+.insights-cat-tab.selected:hover { color: var(--bg-surface); }
 
 .insights-body {
     flex: 1;
@@ -3966,12 +3977,14 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     padding: 20px 18px 16px;
 }
 .insight-card--hero .insight-card-title { display: none; }
+/* 세로 스택 — 게임 수가 2~3자리 되면 가로배치는 좁은 폭에서 잘림.
+   상단 metric (winrate + delta + 라벨) → 그 아래 W/D/L 3분할 그리드. */
 .insight-hero-top {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
+    flex-direction: column;
+    align-items: stretch;
     margin-bottom: 16px;
-    gap: 16px;
+    gap: 14px;
 }
 .insight-hero-metric {
     display: flex;
@@ -4008,15 +4021,15 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     text-transform: uppercase;
 }
 .insight-hero-counts {
-    display: flex;
-    gap: 18px;
-    text-align: right;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
 }
 .insight-hero-counts > div {
     display: flex;
     flex-direction: column;
     align-items: center;
-    min-width: 36px;
+    min-width: 0;
 }
 .hero-count {
     font-size: 18px;
@@ -4173,7 +4186,7 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     font-weight: 500;
     flex-shrink: 0;
     min-width: 64px;
-    max-width: 96px;
+    max-width: 130px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -4212,11 +4225,15 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
 .insight-card-body--single {
     gap: 10px;
 }
+/* 큰 값 + 서브 텍스트 — 좁은 폭에서 한 줄에 안 들어가면 wrap.
+   value는 nowrap (한글 라벨이 글자 단위로 깨지는 것 방지),
+   sub는 keep-all로 한글 단어 경계에서만 줄바꿈. */
 .insight-big-metric {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
     gap: 12px;
+    flex-wrap: wrap;
 }
 .insight-big-value {
     font-size: 26px;
@@ -4225,6 +4242,7 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     letter-spacing: -0.025em;
     line-height: 1;
     font-variant-numeric: tabular-nums;
+    white-space: nowrap;
 }
 .insight-big-sub {
     font-size: 11px;
@@ -4232,6 +4250,9 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     font-weight: 500;
     text-align: right;
     line-height: 1.35;
+    word-break: keep-all;
+    flex: 1;
+    min-width: 0;
 }
 /* 레이팅 변화 카드의 최고/최저 라인 */
 .insight-rating-range {

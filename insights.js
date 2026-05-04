@@ -1,5 +1,5 @@
 import { fetchRecentGames } from './chessApi.js';
-import { getMyUserId, getVaultItems } from './storage.js';
+import { getMyUserId } from './storage.js';
 import { escapeHtml, parseOpeningFromPgn, rootOpeningName, subVariantName, isWhitePlayer, classifyGameResult, extractMoveTimesForUser } from './utils.js';
 import { t } from './strings.js';
 
@@ -23,23 +23,19 @@ const INSIGHTS_GAMES_LIMIT = 100;
 
 const insightsBody = document.getElementById('insightsBody');
 const insightsSubtitle = document.getElementById('insightsSubtitle');
-const insightsTimeFilterBar = document.getElementById('insightsTimeFilterBar');
-const insightsColorFilterBar = document.getElementById('insightsColorFilterBar');
 const insightsCategoryTabs = document.getElementById('insightsCategoryTabs');
 
 // 통계 화면 필터 상태.
 // timeClass: 'all' | 'rapid' | 'blitz' | 'bullet' (기본 rapid — 일반 사용자가 가장 자주 보는 시간대)
 // color: 'all' | 'white' | 'black' (기본 all — 오프닝은 흑백 분리해서 봐야 의미 있지만 첫 진입은 종합 보기)
-// category: 'summary' | 'opening' | 'clock' | 'when' | 'people' | 'weak'
-//   기본 'summary' — 처음 진입 시 전체 요약(hero+flow+색+시간제어). 다른 탭은 세부 카테고리.
+// category: 'summary' | 'results' | 'openings' | 'patterns'
+//   design_handoff_insights_dashboard §2의 B-A 4탭 구조.
 let insightsTimeClassFilter = 'rapid';
 let insightsColorFilter = 'all';
 let insightsCategoryFilter = 'summary';
 // 마지막 fetch한 게임 + 사용자 (필터 변경 시 재 fetch 없이 다시 compute용)
 let lastInsightsGames = null;
 let lastInsightsUser = null;
-// 블런더 핫스팟은 vault 전체 기준 (chess.com 게임 필터와 무관) — 한 번 로드 후 재사용
-let lastBlunderHotspots = null;
 
 const TC_LABEL_KEY = {
     rapid: 'home_filter_rapid',
@@ -322,32 +318,6 @@ function computeRatingChange(games, userLower) {
     const peak = Math.max(...ratings);
     const trough = Math.min(...ratings);
     return { start: first, end: last, delta: last - first, peak, trough, samples: ratings.length };
-}
-
-// 블런더 핫스팟 — vault auto 항목의 moveNumber 분포를 5수 단위 버킷으로.
-// {1-5: count, 6-10: count, ...} 반환. moveNumber 없는 항목 스킵.
-async function computeBlunderHotspots() {
-    try {
-        const items = await getVaultItems({ source: 'auto' });
-        if (!items || items.length === 0) return null;
-        const buckets = new Map();
-        for (const it of items) {
-            const n = it.moveNumber;
-            if (typeof n !== 'number' || n < 1) continue;
-            const key = Math.floor((n - 1) / 5) * 5 + 1; // 1-5, 6-10, 11-15, ...
-            buckets.set(key, (buckets.get(key) || 0) + 1);
-        }
-        if (buckets.size === 0) return null;
-        const total = items.filter(it => typeof it.moveNumber === 'number').length;
-        // 정렬된 배열로 변환
-        const sorted = [...buckets.entries()]
-            .sort((a, b) => a[0] - b[0])
-            .map(([start, count]) => ({ start, end: start + 4, count }));
-        return { buckets: sorted, total };
-    } catch (e) {
-        console.warn('Blunder hotspots failed:', e);
-        return null;
-    }
 }
 
 // 비교용 게임 분할: 최근 절반 vs 그 전 절반.
@@ -1018,39 +988,6 @@ function renderRatingChangeCard(ratingChange) {
         </div>`;
 }
 
-function renderBlunderHotspotsCard(hotspots) {
-    if (!hotspots || hotspots.buckets.length === 0) return '';
-    // 1수~60수 모두 보여주기 (빈 버킷도) — 분포 흐름 가시화
-    const max = Math.max(...hotspots.buckets.map(b => b.count));
-    const fullRange = [];
-    for (let start = 1; start <= 60; start += 5) {
-        const found = hotspots.buckets.find(b => b.start === start);
-        fullRange.push({ start, end: start + 4, count: found?.count || 0 });
-    }
-    const cols = fullRange.map(b => {
-        const isEmpty = b.count === 0;
-        const heightPct = isEmpty ? 0 : Math.max(2, (b.count / max) * 100);
-        // 핫스팟 카드는 승률 색상 대신 단일 톤(blunder 색) — count가 위험 신호
-        const barClass = isEmpty ? 'insight-col-bar insight-col-bar--empty' : 'insight-col-bar';
-        const barStyle = isEmpty ? '' : `height:${heightPct}%; background:var(--blunder);`;
-        return `
-            <div class="insight-col">
-                <div class="insight-col-value">${isEmpty ? '' : b.count}</div>
-                <div class="insight-col-bar-wrap">
-                    <div class="${barClass}" style="${barStyle}"></div>
-                </div>
-                <div class="insight-col-label">${b.start}</div>
-            </div>`;
-    }).join('');
-    return `
-        <div class="insight-card">
-            <div class="insight-card-title">${t('insights_blunder_hotspots')}</div>
-            <div class="insight-card-body insight-card-body--single">
-                <div class="insight-cols">${cols}</div>
-            </div>
-        </div>`;
-}
-
 // 인접 카드들을 grid 페어로 묶음. 빈 카드 자동 제외.
 //   pairCards(a)         → a (solo, no wrap)
 //   pairCards(a, b)      → 2-up grid
@@ -1064,78 +1001,62 @@ function pairCards(...cards) {
     return `<div class="${cls}">${filled.join('')}</div>`;
 }
 
-// 카테고리별 카드 모음. 각 함수는 카드 HTML 배열 반환.
-//   summary: 요약 (전체+흐름+색+시간제어)
-//   opening: 스타일 (오프닝/첫수/캐슬/거래/길이)
-//   clock:   시계 (평균/압박/즉답/단계별)
-//   when:    시간 (시간대/요일/레이팅변화)
-//   people:  사람 (상대 레이팅별/자주 만난 상대)
-//   weak:    약점 (블런더 핫스팟/종료 사유)
+// 4탭 카드 빌더 (design_handoff_insights_dashboard §2 매핑).
+//   summary:  hero 요약 + 결과 흐름 + 레이팅 변화
+//   results:  by-color + termination + castling + trade activity
+//   openings: by-time-class + vs opp diff + top openings + first move
+//   patterns: 게임 길이 + 시간대/요일 + 시계(평균/압박/즉답) + 단계별 + 자주 만난 상대
 function buildSummaryCards(insights, opts) {
-    const { recent, prior, streaks, narrative, streakiness } = opts;
+    const { recent, prior, streaks, narrative, streakiness, ratingChange } = opts;
     const cards = [renderOverallCard(insights.overall, { recent, prior, streaks, narrative, streakiness })];
     const flowCard = renderResultFlowCard(streakiness, streaks);
     if (flowCard) cards.push(flowCard);
-    cards.push(pairCards(
-        opts.showColorCard !== false ? renderColorCard(insights.byColor, recent, prior) : '',
-        opts.showTimeClassCard !== false ? renderTimeClassCard(insights.byTimeClass, recent, prior) : '',
-    ));
+    const ratingCard = renderRatingChangeCard(ratingChange);
+    if (ratingCard) cards.push(ratingCard);
     return cards;
 }
 
-function buildOpeningCards(insights, opts) {
+function buildResultsCards(insights, opts) {
     const { recent, prior } = opts;
-    return [
-        renderOpeningsCard(insights.topOpenings, recent, prior),
-        renderFirstMoveCard(insights.firstMoveWhite),
-        renderCastlingCard(insights.castling, recent, prior),
-        renderTradeActivityCard(insights.tradeActivity),
-        renderMoveLengthCard(insights.moveBuckets, recent, prior),
-    ];
+    const cards = [];
+    if (opts.showColorCard !== false) cards.push(renderColorCard(insights.byColor, recent, prior));
+    cards.push(renderTerminationCard(insights.termination, insights.overall.games));
+    cards.push(renderCastlingCard(insights.castling, recent, prior));
+    cards.push(renderTradeActivityCard(insights.tradeActivity));
+    return cards;
 }
 
-function buildClockCards(insights) {
+function buildOpeningsCards(insights, opts) {
+    const { recent, prior } = opts;
+    const cards = [];
+    if (opts.showTimeClassCard !== false) cards.push(renderTimeClassCard(insights.byTimeClass, recent, prior));
+    cards.push(renderOpponentDiffCard(insights.byOppDiff));
+    cards.push(renderOpeningsCard(insights.topOpenings, recent, prior));
+    cards.push(renderFirstMoveCard(insights.firstMoveWhite));
+    return cards;
+}
+
+function buildPatternsCards(insights, opts) {
+    const { recent, prior } = opts;
     return [
+        renderMoveLengthCard(insights.moveBuckets, recent, prior),
+        renderTimeOfDayCard(insights.timeBuckets),
+        renderDayOfWeekCard(insights.byDayOfWeek),
         pairCards(
             renderAvgThinkCard(insights.timeStats),
             renderTimePressureCard(insights.timeStats),
             renderInstantMovesCard(insights.timeStats),
         ),
         renderPhaseTimeCard(insights.timeStats),
-    ];
-}
-
-function buildWhenCards(insights, opts) {
-    const { ratingChange } = opts;
-    return [
-        renderTimeOfDayCard(insights.timeBuckets),
-        renderDayOfWeekCard(insights.byDayOfWeek),
-        renderRatingChangeCard(ratingChange),
-    ];
-}
-
-function buildPeopleCards(insights) {
-    return [
-        renderOpponentDiffCard(insights.byOppDiff),
         renderOpponentsCard(insights.topOpponents),
     ];
 }
 
-function buildWeakCards(insights, opts) {
-    const { hotspots } = opts;
-    return [
-        renderBlunderHotspotsCard(hotspots),
-        renderTerminationCard(insights.termination, insights.overall.games),
-    ];
-}
-
 const CATEGORY_BUILDERS = {
-    summary: buildSummaryCards,
-    opening: buildOpeningCards,
-    clock:   buildClockCards,
-    when:    buildWhenCards,
-    people:  buildPeopleCards,
-    weak:    buildWeakCards,
+    summary:  buildSummaryCards,
+    results:  buildResultsCards,
+    openings: buildOpeningsCards,
+    patterns: buildPatternsCards,
 };
 
 function renderInsights(insights, opts = {}) {
@@ -1196,7 +1117,6 @@ function recomputeAndRender() {
         showColorCard: color === 'all',
         recent, prior, streaks, streakiness, narrative,
         ratingChange,
-        hotspots: lastBlunderHotspots,
     });
     updateInsightsSubtitle(lastInsightsGames.length, filtered.length);
 }
@@ -1233,17 +1153,12 @@ export async function loadInsightsData() {
     renderSkeleton();
 
     try {
-        // chess.com 게임 + vault 핫스팟 병렬 로드 (vault는 빨라서 같은 await에 묶음)
-        const [games, hotspots] = await Promise.all([
-            fetchRecentGames(username, INSIGHTS_GAMES_LIMIT),
-            computeBlunderHotspots(),
-        ]);
+        const games = await fetchRecentGames(username, INSIGHTS_GAMES_LIMIT);
         // 무거운 동기 계산(100게임 × PGN 파싱)을 다음 frame으로 미뤄 화면 전환 잔렉 제거.
         // rAF + setTimeout 0 = 화면이 그려진 뒤 계산 시작 → 부드러운 전환 + 짧은 스켈레톤.
         await new Promise(resolve => requestAnimationFrame(() => setTimeout(resolve, 0)));
         lastInsightsGames = games;
         lastInsightsUser = username.toLowerCase();
-        lastBlunderHotspots = hotspots;
         recomputeAndRender();
     } catch (err) {
         console.error('Insights fetch error:', err);
@@ -1253,32 +1168,96 @@ export async function loadInsightsData() {
 }
 
 export function initInsights() {
-    if (insightsTimeFilterBar) {
-        insightsTimeFilterBar.addEventListener('click', (e) => {
-            const btn = e.target.closest('.pill-btn');
-            if (!btn) return;
-            const tc = btn.dataset.tc;
-            if (!tc || tc === insightsTimeClassFilter) return;
-            insightsTimeClassFilter = tc;
-            insightsTimeFilterBar.querySelectorAll('.pill-btn').forEach(b => {
-                b.classList.toggle('selected', b.dataset.tc === tc);
+    // 홈의 home-tc-filter 패턴과 동일.
+    function makeScopeSetter({ valid, get, set, labelId, menuId, dataAttr, keyFor }) {
+        return (value) => {
+            if (!valid.includes(value) || value === get()) return;
+            set(value);
+            const labelEl = document.getElementById(labelId);
+            if (labelEl) {
+                const key = keyFor(value);
+                labelEl.setAttribute('data-i18n', key);
+                labelEl.textContent = t(key);
+            }
+            document.querySelectorAll(`#${menuId} .insights-scope-filter-option`).forEach(opt => {
+                opt.setAttribute('aria-checked', opt.dataset[dataAttr] === value ? 'true' : 'false');
             });
             recomputeAndRender();
+        };
+    }
+    const setInsightsTimeClassFilter = makeScopeSetter({
+        valid: ['all', 'rapid', 'blitz', 'bullet'],
+        get: () => insightsTimeClassFilter,
+        set: (v) => { insightsTimeClassFilter = v; },
+        labelId: 'insightsTcFilterLabel',
+        menuId: 'insightsTcFilterMenu',
+        dataAttr: 'tc',
+        keyFor: (tc) => `home_filter_${tc}`,
+    });
+    const setInsightsColorFilter = makeScopeSetter({
+        valid: ['all', 'white', 'black'],
+        get: () => insightsColorFilter,
+        set: (v) => { insightsColorFilter = v; },
+        labelId: 'insightsColorFilterLabel',
+        menuId: 'insightsColorFilterMenu',
+        dataAttr: 'color',
+        keyFor: (c) => c === 'all' ? 'saved_games_filter_all' : `insights_${c}`,
+    });
+
+    function toggleScopeMenu(triggerId, menuId, forceState) {
+        const trigger = document.getElementById(triggerId);
+        const menu = document.getElementById(menuId);
+        if (!trigger || !menu) return;
+        const open = forceState !== undefined ? forceState : menu.classList.contains('hidden');
+        // 한 번에 메뉴 하나만 — 다른 메뉴가 열려있으면 닫기.
+        if (open) closeAllScopeMenus(menuId);
+        menu.classList.toggle('hidden', !open);
+        trigger.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+    function closeAllScopeMenus(exceptMenuId) {
+        ['insightsTcFilterMenu', 'insightsColorFilterMenu'].forEach(id => {
+            if (id === exceptMenuId) return;
+            const m = document.getElementById(id);
+            if (m && !m.classList.contains('hidden')) {
+                m.classList.add('hidden');
+                const triggerId = id.replace('Menu', 'Btn');
+                document.getElementById(triggerId)?.setAttribute('aria-expanded', 'false');
+            }
         });
     }
-    if (insightsColorFilterBar) {
-        insightsColorFilterBar.addEventListener('click', (e) => {
-            const btn = e.target.closest('.pill-btn');
-            if (!btn) return;
-            const color = btn.dataset.color;
-            if (!color || color === insightsColorFilter) return;
-            insightsColorFilter = color;
-            insightsColorFilterBar.querySelectorAll('.pill-btn').forEach(b => {
-                b.classList.toggle('selected', b.dataset.color === color);
-            });
-            recomputeAndRender();
-        });
-    }
+
+    document.getElementById('insightsTcFilterBtn')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleScopeMenu('insightsTcFilterBtn', 'insightsTcFilterMenu');
+    });
+    document.getElementById('insightsTcFilterMenu')?.addEventListener('click', (e) => {
+        const opt = e.target.closest('.insights-scope-filter-option');
+        if (!opt) return;
+        e.stopPropagation();
+        setInsightsTimeClassFilter(opt.dataset.tc);
+        toggleScopeMenu('insightsTcFilterBtn', 'insightsTcFilterMenu', false);
+    });
+    document.getElementById('insightsColorFilterBtn')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleScopeMenu('insightsColorFilterBtn', 'insightsColorFilterMenu');
+    });
+    document.getElementById('insightsColorFilterMenu')?.addEventListener('click', (e) => {
+        const opt = e.target.closest('.insights-scope-filter-option');
+        if (!opt) return;
+        e.stopPropagation();
+        setInsightsColorFilter(opt.dataset.color);
+        toggleScopeMenu('insightsColorFilterBtn', 'insightsColorFilterMenu', false);
+    });
+    // 외부 클릭 / ESC 시 닫기.
+    document.addEventListener('click', (e) => {
+        if (e.target.closest('.insights-scope-filter')) return;
+        closeAllScopeMenus();
+    });
+    document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Escape') return;
+        closeAllScopeMenus();
+    });
+
     if (insightsCategoryTabs) {
         insightsCategoryTabs.addEventListener('click', (e) => {
             const btn = e.target.closest('.insights-cat-tab');
@@ -1287,7 +1266,9 @@ export function initInsights() {
             if (!cat || cat === insightsCategoryFilter) return;
             insightsCategoryFilter = cat;
             insightsCategoryTabs.querySelectorAll('.insights-cat-tab').forEach(b => {
-                b.classList.toggle('selected', b.dataset.cat === cat);
+                const isSelected = b.dataset.cat === cat;
+                b.classList.toggle('selected', isSelected);
+                b.setAttribute('aria-selected', isSelected ? 'true' : 'false');
             });
             recomputeAndRender();
         });
