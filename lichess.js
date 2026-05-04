@@ -139,7 +139,9 @@ export async function fetchRecentGames(username, limit = RECENT_GAMES_LIMIT) {
             .filter(Boolean)
             .map(normalizeGame);
 
-        if (games.length === 0) throw new Error('No games found for this user.');
+        // 0게임 계정(provisional, 막 가입 등)은 throw 하지 않고 빈 배열로 — 호출부가 graceful empty 처리.
+        // chess.com과 달리 lichess는 0게임 신규 계정이 흔함.
+        if (games.length === 0) return [];
 
         // lichess가 보통 최신순으로 주지만 안전하게 한 번 더 정렬.
         games.sort((a, b) => (b.end_time || 0) - (a.end_time || 0));

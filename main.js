@@ -793,13 +793,14 @@ function loadHomeRecentGames(overrideUsername = null) {
 
     fetchRecentGames(displayUser).then(games => {
         if (!games || games.length === 0) {
-            if (overrideUsername) {
-                list.innerHTML = `<div class="container-message">${t('games_fetch_error')}</div>`;
-            } else {
-                section.classList.add('hidden');
-            }
+            // 0게임 = 정상 응답이지만 비어있음. 검색은 친절한 빈 메시지, 본인은 빈 메시지로 안내.
+            // 프로필 카드는 그대로 유지 — fetchPlayerProfile은 0게임이어도 성공하므로 식별/레이팅 표시 가능.
+            list.innerHTML = `<div class="container-message">${t('games_empty')}</div>`;
             cachedHomeGames = [];
-            clearProfileCard();
+            updateProfileCardIdentity(displayUser);
+            updateProfileCardRecord([], displayUser);
+            const card = document.getElementById('homeProfileCard');
+            if (card) card.classList.remove('hidden');
             return;
         }
         cachedHomeGames = games;
