@@ -424,10 +424,11 @@ function updateProfileCardIdentity(displayUser) {
     const avatarEl = document.getElementById('homeProfileAvatar');
     if (nameEl) nameEl.textContent = homeProfileDisplayName || displayUser || '—';
     if (avatarEl) {
+        const isHeartUser = displayUser && displayUser.toLowerCase() === 'ss0bing' && getMyPlatform() === PLATFORM_LICHESS;
         if (homeProfileAvatar) {
             avatarEl.innerHTML = `<img src="${escapeHtml(homeProfileAvatar)}" alt="">`;
         } else {
-            avatarEl.textContent = '♜';
+            avatarEl.textContent = isHeartUser ? '💕' : '♜';
         }
     }
 }
