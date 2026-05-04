@@ -40,25 +40,7 @@ const pgnInput = document.getElementById('pgnInput');
 const analyzeBtn = document.getElementById('analyzeBtn');
 const openBoardInputBtn = document.getElementById('homeBoardInputBtn');
 const manualInputWrapper = document.getElementById('manualInputWrapper');
-// API inputs
-const usernameInput = document.getElementById('usernameInput');
-const clearUsernameBtn = document.getElementById('clearUsernameBtn');
-const fetchBtn = document.getElementById('fetchBtn');
 const homeRecentLabel = document.getElementById('homeRecentLabel');
-const backToMyGamesBtn = document.getElementById('backToMyGamesBtn');
-
-// ── Viewing User State ─────────────────────────────────────────────
-// viewingUserId: 메모리 전용 상태. null이면 내 계정(myUserId)을 보고 있는 것.
-// 문자열이면 다른 유저 검색 상태. **localStorage에 절대 쓰지 말 것.**
-// vault/saved_games 저장·조회는 반드시 getMyUserId()만 사용한다(storage.js).
-let viewingUserId = null;
-function getViewingUserId() {
-    return viewingUserId || getMyUserId();
-}
-function isViewingOtherUser() {
-    const my = getMyUserId();
-    return !!viewingUserId && viewingUserId !== my;
-}
 
 const USERNAME_LOG_DEDUP_KEY = 'blundermate_username_log_last';
 function logUsernameToServer(username, source) {
@@ -163,11 +145,6 @@ const closeFeedbackBtn = document.getElementById('closeFeedbackBtn');
 const submitFeedbackBtn = document.getElementById('submitFeedbackBtn');
 const feedbackStatusText = document.getElementById('feedbackStatusText');
 
-// User Search Modal
-const openUserSearchBtn = document.getElementById('homeSearchBtn');
-const userSearchModal = document.getElementById('userSearchModal');
-const closeUserSearchBtn = document.getElementById('closeUserSearchBtn');
-
 // ==========================================
 // 2. Application State
 // ==========================================
@@ -220,10 +197,27 @@ const vaultDetailViewNav = document.getElementById('vaultDetailView');
 const savedGamesViewNav = document.getElementById('savedGamesView');
 const insightsViewNav = document.getElementById('insightsView');
 
+// bottom-nav 진입 가능한 루트 탭. 비-HOME 루트 탭에서는 history 스택을 [home, current] 2-deep로
+// 유지해 어느 탭에서도 뒤로가기 한 번에 home으로 복귀.
+const ROOT_TABS = new Set([SCREENS.HOME, SCREENS.VAULT_LIST, SCREENS.SAVED_GAMES, SCREENS.INSIGHTS]);
+
 // push + render 일원화. 호출자는 navigateTo만 호출하면 history와 화면 갱신이 함께 일어남 —
 // renderScreen이 hideAllViews + 해당 view 노출 + syncBottomNav를 모두 처리하므로
 // 부분 호출(예: history만 push)로 화면이 일관성을 잃을 일 없음.
 function navigateTo(screen, state = {}) {
+    const tabSwap = _currentScreen !== SCREENS.HOME
+        && ROOT_TABS.has(_currentScreen)
+        && ROOT_TABS.has(screen);
+    if (tabSwap && screen === SCREENS.HOME) {
+        // popstate가 renderScreen(HOME) 호출 — 여기서 render 호출하면 중복.
+        history.back();
+        return;
+    }
+    if (tabSwap) {
+        history.replaceState({ screen, ...state }, '', `#${screen}`);
+        renderScreen(screen);
+        return;
+    }
     history.pushState({ screen, ...state }, '', `#${screen}`);
     renderScreen(screen);
 }
@@ -309,7 +303,8 @@ const navHomeBtn = document.getElementById('navHomeBtn');
 const navVaultBtn = document.getElementById('navVaultBtn');
 const navSavedBtn = document.getElementById('navSavedBtn');
 const navInsightsBtn = document.getElementById('navInsightsBtn');
-const NAV_VISIBLE_SCREENS = new Set([SCREENS.HOME, SCREENS.VAULT_LIST, SCREENS.VAULT_BLUNDER_LIST, SCREENS.SAVED_GAMES, SCREENS.INSIGHTS]);
+// VAULT_BLUNDER_LIST는 vault drill-in이지만 bottom-nav는 그대로 노출 — 탭 컨텍스트 유지용.
+const NAV_VISIBLE_SCREENS = new Set([...ROOT_TABS, SCREENS.VAULT_BLUNDER_LIST]);
 const appContainer = document.querySelector('.app-container');
 
 function syncBottomNav(screen) {
@@ -400,17 +395,11 @@ function refreshHomeCounts() {
     loadHomeRecentGames();
 }
 
-function updateHomeRecentHeader(overrideUsername) {
-    if (!homeRecentLabel || !backToMyGamesBtn) return;
-    if (overrideUsername) {
-        homeRecentLabel.textContent = t('home_other_user_games').replace('{username}', overrideUsername);
-        homeRecentLabel.removeAttribute('data-i18n');
-        backToMyGamesBtn.classList.remove('hidden');
-    } else {
-        homeRecentLabel.setAttribute('data-i18n', 'home_recent_games');
-        homeRecentLabel.textContent = t('home_recent_games');
-        backToMyGamesBtn.classList.add('hidden');
-    }
+// 라벨은 플랫폼 브랜드명을 그대로 — 브랜드 표기 정확도가 i18n보다 중요.
+const PLATFORM_LABELS = { [PLATFORM_CHESSCOM]: 'chess.com', [PLATFORM_LICHESS]: 'lichess' };
+function updateHomeRecentHeader() {
+    if (!homeRecentLabel) return;
+    homeRecentLabel.textContent = PLATFORM_LABELS[getMyPlatform()];
 }
 
 // ── Profile card: 아바타 + 이름 + 레이팅 + 최근 전적 ─────────────
@@ -737,7 +726,7 @@ function setHomeTcFilter(tc) {
     document.querySelectorAll('.home-tc-filter-option').forEach(opt => {
         opt.setAttribute('aria-checked', opt.dataset.tc === tc ? 'true' : 'false');
     });
-    const displayUser = isViewingOtherUser() ? viewingUserId : getMyUserId();
+    const displayUser = getMyUserId();
     if (cachedHomeGames.length > 0 && displayUser) {
         renderHomeGamesList(cachedHomeGames, displayUser);
         updateProfileCardRecord(cachedHomeGames, displayUser);
@@ -779,23 +768,21 @@ document.addEventListener('keydown', (e) => {
     if (menu && !menu.classList.contains('hidden')) toggleHomeTcMenu(false);
 });
 
-function loadHomeRecentGames(overrideUsername = null) {
-    const normalizedOverride = overrideUsername ? overrideUsername.toLowerCase() : null;
-    const displayUser = normalizedOverride || getMyUserId();
+function loadHomeRecentGames() {
+    const displayUser = getMyUserId();
     const section = document.getElementById('homeRecentSection');
     const list = document.getElementById('homeRecentList');
     if (!displayUser || !section || !list) return;
 
-    viewingUserId = normalizedOverride;
-    updateHomeRecentHeader(isViewingOtherUser() ? viewingUserId : null);
+    updateHomeRecentHeader();
     section.classList.remove('hidden');
 
     list.innerHTML = `<div class="home-recent-skeleton">${'<div class="home-recent-skeleton-card"></div>'.repeat(3)}</div>`;
 
     fetchRecentGames(displayUser).then(games => {
         if (!games || games.length === 0) {
-            // 0게임 = 정상 응답이지만 비어있음. 검색은 친절한 빈 메시지, 본인은 빈 메시지로 안내.
-            // 프로필 카드는 그대로 유지 — fetchPlayerProfile은 0게임이어도 성공하므로 식별/레이팅 표시 가능.
+            // 0게임 = 정상 응답이지만 비어있음. 프로필 카드는 그대로 유지 —
+            // fetchPlayerProfile은 0게임이어도 성공하므로 식별/레이팅 표시 가능.
             list.innerHTML = `<div class="container-message">${t('games_empty')}</div>`;
             cachedHomeGames = [];
             updateProfileCardIdentity(displayUser);
@@ -814,11 +801,7 @@ function loadHomeRecentGames(overrideUsername = null) {
     }).catch(() => {
         cachedHomeGames = [];
         clearProfileCard();
-        if (overrideUsername) {
-            list.innerHTML = `<div class="container-message container-message--error">${t('games_fetch_error')}</div>`;
-        } else {
-            section.classList.add('hidden');
-        }
+        section.classList.add('hidden');
     });
 }
 
@@ -828,7 +811,7 @@ function updateHomeHeader() {
     homeProfileAvatar = null;
     homeProfileDisplayName = null;
     updateProfileCardRating();
-    const userId = getViewingUserId();
+    const userId = getMyUserId();
     if (!userId) {
         clearProfileCard();
         return;
@@ -992,7 +975,6 @@ if (logoutBtn) {
         } catch (e) {
             console.error('Logout cleanup failed:', e);
         }
-        viewingUserId = null;
         settingsModal.classList.add('hidden');
         homeView.classList.add('hidden');
         if (onboardingUsernameInput) onboardingUsernameInput.value = '';
@@ -1044,7 +1026,6 @@ const modalConfigs = [
     { modal: aboutModal, closeBtn: document.getElementById('closeAboutBtn') },
     { modal: feedbackModal, closeBtn: cancelFeedbackBtn },
     { modal: feedbackModal, closeBtn: closeFeedbackBtn },
-    { modal: userSearchModal, closeBtn: closeUserSearchBtn },
     { modal: tierModal, closeBtn: closeTierModalBtn },
     { modal: saveChoiceModal, closeBtn: cancelChoiceBtn, noBg: true },
     { modal: saveModal, closeBtn: cancelSaveBtn, noBg: true },
@@ -1055,28 +1036,6 @@ modalConfigs.forEach(({ modal, closeBtn, noBg }) => {
     if (!modal) return;
     if (closeBtn) closeBtn.addEventListener('click', () => closeModal(modal));
     if (!noBg) modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(modal); });
-});
-
-// User Search Modal: open + ESC close
-if (openUserSearchBtn) {
-    openUserSearchBtn.addEventListener('click', () => {
-        userSearchModal.classList.remove('hidden');
-        setTimeout(() => usernameInput.focus(), 0);
-    });
-}
-
-// 검색 모드 → 본인 모드 복귀
-if (backToMyGamesBtn) {
-    backToMyGamesBtn.addEventListener('click', () => {
-        usernameInput.value = '';
-        clearUsernameBtn.classList.remove('visible');
-        loadHomeRecentGames();
-    });
-}
-document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && userSearchModal && !userSearchModal.classList.contains('hidden')) {
-        closeModal(userSearchModal);
-    }
 });
 
 // Feedback Logic — 설정 모달 안의 피드백 버튼. 클릭 시 설정 모달 닫고 피드백 모달 오픈.
@@ -1299,24 +1258,6 @@ if (confirmLivePasteBtn) confirmLivePasteBtn.addEventListener('click', () => {
     colorChoiceModal.classList.remove('hidden');
 });
 
-fetchBtn.addEventListener('click', handleApiFetch);
-usernameInput.addEventListener('keyup', (e) => {
-    if (e.key === 'Enter') {
-        handleApiFetch();
-    }
-});
-
-usernameInput.addEventListener('input', (e) => {
-    const hasValue = e.target.value.length > 0;
-    clearUsernameBtn.classList.toggle('visible', hasValue);
-});
-
-clearUsernameBtn.addEventListener('click', () => {
-    usernameInput.value = '';
-    clearUsernameBtn.classList.remove('visible');
-    usernameInput.focus();
-    usernameInput.dispatchEvent(new Event('input'));
-});
 analyzeBtn.addEventListener('click', () => {
     if (!pgnInput.value.trim()) return;
     pendingAnalysisCallback = (isWhite) => handlePgnReviewStart(null, isWhite);
@@ -1845,27 +1786,7 @@ function exitExplorationMode() {
 }
 
 // ==========================================
-// 5. API Logic
-// ==========================================
-async function handleApiFetch() {
-    const username = usernameInput.value.trim();
-    if (!username) return;
-
-    logUsernameToServer(username, 'search');
-
-    if (userSearchModal) closeModal(userSearchModal);
-
-    fetchBtn.disabled = true;
-    try {
-        // 검색된 유저의 게임만 최근 게임 박스에 제자리 교체. 본인 identity(myUserId)는 localStorage에 그대로 유지.
-        loadHomeRecentGames(username);
-    } finally {
-        fetchBtn.disabled = false;
-    }
-}
-
-// ==========================================
-// 6. Engine Initialization
+// 5. Engine Initialization
 // ==========================================
 // 단일 엔진 콜백 — 탐색/라이브 입력 모드 전용. 배치 분석은 풀(promise 기반)이 별도 처리.
 const engineCallbacks = {
@@ -1926,7 +1847,7 @@ const engineCallbacks = {
 initAnalysis({ enginePath: './engine/stockfish-18-lite-single.js', callbacks: engineCallbacks });
 
 // ==========================================
-// 7. Analysis Workflow
+// 6. Analysis Workflow
 // ==========================================
 function handlePgnReviewStart(e = null, isWhiteGame = null, targetIndex = null, previewOnly = false) {
     setIsUserWhite(isWhiteGame !== null ? isWhiteGame : true);
@@ -2308,7 +2229,7 @@ async function _persistAnalysisCache() {
 }
 
 // ==========================================
-// 8. UI Rendering
+// 7. UI Rendering
 // ==========================================
 // 0수(시작 포지션) 상태에서 체스보드 자리를 그래프 + 통계 표로 교체한다.
 // 분석 큐가 비어있거나 preview/explore/simulate 모드에서는 진입하지 않는다.
@@ -2436,7 +2357,7 @@ function updateBoardPosition(index, fen) {
 }
 
 // ==========================================
-// 9. Helpers
+// 8. Helpers
 // ==========================================
 
 const BADGE_MAP = {
