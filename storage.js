@@ -39,20 +39,82 @@ export function setMyPlatform(platform) {
 // ── Supabase proxy helper ──────────────────────────────────────────
 // callDB가 platform을 자동 주입 — 호출자는 신경 안 써도 (user_id, platform) 격리됨.
 // insert는 data row에도 platform을 박아 서버측 spoofing 검증을 통과시킨다.
+//
+// Circuit breaker + pilot coalescing: /api/db가 죽은 환경(static dev server, Vercel
+// Functions 미배포 등)에서 콜드 로드 시 ~10개 카드 + vault + saved가 거의 동시에 callDB를
+// 부르는데, 첫 응답이 도착해야 브레이커가 trip되므로 그 사이 in-flight 100+개가 모두 5xx를
+//받음. pilot 패턴: 첫 호출은 fetch를 시작하고, 같은 시점의 다른 호출들은 pilot의 결과를
+// await. pilot이 5xx면 _dbBreakerUntil이 setting되어 waiter들은 깨어나서 entry check로
+// 즉시 silent throw. pilot이 성공하면 waiter들은 자기 fetch 진행. 결과: 콜드 로드 fetch가
+// 200+ → 1로 압축. err.silent=true면 호출자가 console.warn을 swallow하라는 신호.
+const DB_BREAKER_COOLDOWN_MS = 60_000;
+let _dbBreakerUntil = 0;
+let _dbPilot = null;
+
+function _silentDbError(message = 'DB unavailable (circuit open)') {
+    const err = new Error(message);
+    err.silent = true;
+    return err;
+}
 
 async function callDB(action, table, params = {}) {
+    if (Date.now() < _dbBreakerUntil) throw _silentDbError();
+
+    if (_dbPilot) {
+        try { await _dbPilot; } catch {}
+        // pilot 결과 반영 후 브레이커 재확인 — 실패했으면 여기서 silent throw로 빠짐.
+        if (Date.now() < _dbBreakerUntil) throw _silentDbError();
+    }
+
+    const promise = _doCallDB(action, table, params);
+    if (!_dbPilot) {
+        _dbPilot = promise.finally(() => { _dbPilot = null; });
+    }
+    return promise;
+}
+
+async function _doCallDB(action, table, params) {
     const platform = getMyPlatform();
     const body = { action, table, platform, ...params };
     if (action === 'insert' && body.data && typeof body.data === 'object') {
         body.data = { ...body.data, platform };
     }
-    const res = await fetch('/api/db', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-    });
-    if (!res.ok) throw new Error(`DB call failed: ${res.status}`);
+    let res;
+    try {
+        res = await fetch('/api/db', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
+    } catch (e) {
+        // 네트워크 단절(fetch 자체가 실패). 60초 차단.
+        // breakerWasOpen: 이전 호출이 이미 breaker를 trip시킨 상태였는가. 첫 실패는 로그(진단성),
+        // 나머지는 silent. 별도 _dbBreakerLogged 상태 없이 _dbBreakerUntil로 derive.
+        const breakerWasOpen = _dbBreakerUntil > Date.now();
+        _dbBreakerUntil = Date.now() + DB_BREAKER_COOLDOWN_MS;
+        if (breakerWasOpen) e.silent = true;
+        throw e;
+    }
+    if (!res.ok) {
+        // 5xx는 서버/엔드포인트 문제 — 차단. 4xx는 일시적/요청 문제일 수 있어 차단 안 함.
+        const err = new Error(`DB call failed: ${res.status}`);
+        if (res.status >= 500) {
+            const breakerWasOpen = _dbBreakerUntil > Date.now();
+            _dbBreakerUntil = Date.now() + DB_BREAKER_COOLDOWN_MS;
+            if (breakerWasOpen) err.silent = true;
+        }
+        throw err;
+    }
+    // 성공 — 브레이커 리셋
+    _dbBreakerUntil = 0;
     return res.json();
+}
+
+// err.silent가 단 후속 에러는 콘솔에 안 찍는다 — 매 카드/매 진입마다 같은 5xx가 도배되는 걸
+// 막기 위함. 첫 에러는 그대로 통과해 진단성 유지.
+function _warnDb(prefix, e) {
+    if (e?.silent) return;
+    console.warn(prefix, e);
 }
 
 // ── Vault ──────────────────────────────────────────────────────────
@@ -124,7 +186,7 @@ export async function getVaultItems(options = {}) {
         if (Array.isArray(data)) return data.map(normalizeVaultItem);
         throw new Error('Invalid response');
     } catch (e) {
-        console.warn('Supabase vault load failed, using localStorage', e);
+        _warnDb('Supabase vault load failed, using localStorage', e);
         return filterLocal(_getVaultItemsSync().map(normalizeLocalVaultItem));
     }
 }
@@ -166,7 +228,7 @@ export function addVaultItem(item) {
     const userId = getMyUserId();
     if (!userId) return;
     callDB('insert', 'vault_items', { user_id: userId, data: _vaultRowFromItem(item, userId) })
-        .catch(e => console.warn('Supabase vault save failed, using localStorage', e));
+        .catch(e => _warnDb('Supabase vault save failed, using localStorage', e));
 }
 
 // 자동 수집 일괄 추가 — N회 read/write 대신 단일 read+write로 localStorage thrashing 방지.
@@ -186,7 +248,7 @@ export function addVaultItemsBatch(items) {
     if (!userId) return;
     for (const it of items) {
         callDB('insert', 'vault_items', { user_id: userId, data: _vaultRowFromItem(it, userId) })
-            .catch(e => console.warn('Supabase vault save failed, using localStorage', e));
+            .catch(e => _warnDb('Supabase vault save failed, using localStorage', e));
     }
 }
 
@@ -201,7 +263,7 @@ export function removeVaultItem(id) {
     const userId = getMyUserId();
     if (!userId) return;
     callDB('delete', 'vault_items', { id, user_id: userId })
-        .catch(e => console.warn('Supabase vault delete failed', e));
+        .catch(e => _warnDb('Supabase vault delete failed', e));
 }
 
 // ── Saved Games ────────────────────────────────────────────────────
@@ -238,7 +300,7 @@ export async function getSavedGames() {
         if (Array.isArray(data)) return data.map(normalizeSavedGame);
         throw new Error('Invalid response');
     } catch (e) {
-        console.warn('Supabase saved_games load failed, using localStorage', e);
+        _warnDb('Supabase saved_games load failed, using localStorage', e);
         return filterLocal(_getSavedGamesSync());
     }
 }
@@ -265,7 +327,7 @@ export function addSavedGame(item) {
             pgn: item.pgn,
             notes: item.notes || null
         }
-    }).catch(e => console.warn('Supabase saved_games save failed', e));
+    }).catch(e => _warnDb('Supabase saved_games save failed', e));
 }
 
 export function removeSavedGame(id) {
@@ -279,7 +341,7 @@ export function removeSavedGame(id) {
     const userId = getMyUserId();
     if (!userId) return;
     callDB('delete', 'saved_games', { id, user_id: userId })
-        .catch(e => console.warn('Supabase delete failed', e));
+        .catch(e => _warnDb('Supabase delete failed', e));
 }
 
 export function updateSavedGame(id, updates) {
@@ -364,7 +426,7 @@ export async function upsertAnalyzedGame({ pgn, pgnHash, headersJson, playedDate
                 return row.id;
             }
         } catch (e) {
-            console.warn('Supabase analyzed_games lookup failed', e);
+            _warnDb('Supabase analyzed_games lookup failed', e);
         }
     }
 
@@ -391,7 +453,7 @@ export async function upsertAnalyzedGame({ pgn, pgnHash, headersJson, playedDate
                 data: { ...row, user_id: userId },
             });
         } catch (e) {
-            console.warn('Supabase analyzed_games insert failed', e);
+            _warnDb('Supabase analyzed_games insert failed', e);
         }
     }
     return id;
@@ -418,7 +480,7 @@ export async function getAnalyzedGameById(id) {
             return data[0];
         }
     } catch (e) {
-        console.warn('Supabase analyzed_games fetch failed', e);
+        _warnDb('Supabase analyzed_games fetch failed', e);
     }
     return null;
 }
@@ -467,7 +529,7 @@ export async function loadAnalysisCache(pgnHash) {
             return data[0].analysis_json;
         }
     } catch (e) {
-        console.warn('Supabase analysis cache fetch failed', e);
+        _warnDb('Supabase analysis cache fetch failed', e);
     }
     return null;
 }
@@ -511,5 +573,5 @@ export async function saveAnalysisCache({ pgnHash, payload }) {
         user_id: userId,
         filter: { pgn_hash: pgnHash },
         data: cachePatch,
-    }).catch(e => console.warn('Supabase analysis cache update failed', e));
+    }).catch(e => _warnDb('Supabase analysis cache update failed', e));
 }
