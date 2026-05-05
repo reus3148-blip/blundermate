@@ -1,6 +1,7 @@
 import { getSavedGames, addSavedGame, removeSavedGame, updateSavedGame } from './storage.js';
 import { escapeHtml } from './utils.js';
 import { t } from './strings.js';
+import { showConfirm, showToast } from './dialogs.js';
 
 // ==========================================
 // DOM Elements
@@ -106,8 +107,6 @@ export async function loadSavedGamesData() {
 // Dependencies injected via initSavedGames()
 let _onLoadGame = null;
 let _getChess = null;
-let _showButtonSuccess = null;
-let _saveMoveBtn = null;
 
 async function updateSavedGamesView() {
     const games = await getSavedGames();
@@ -128,11 +127,9 @@ function syncFilterBar() {
 // ==========================================
 // Public API
 // ==========================================
-export function initSavedGames({ onLoadGame, getChess, showButtonSuccess, saveMoveBtn }) {
+export function initSavedGames({ onLoadGame, getChess }) {
     _onLoadGame = onLoadGame;
     _getChess = getChess;
-    _showButtonSuccess = showButtonSuccess;
-    _saveMoveBtn = saveMoveBtn;
 
     if (cancelSaveGameBtn) {
         cancelSaveGameBtn.addEventListener('click', () => {
@@ -146,7 +143,11 @@ export function initSavedGames({ onLoadGame, getChess, showButtonSuccess, saveMo
     if (deleteSavedGameBtn) {
         deleteSavedGameBtn.addEventListener('click', async () => {
             if (!_editingGameId) return;
-            if (!confirm(t('saved_games_delete_confirm'))) return;
+            const ok = await showConfirm(t('saved_games_delete_confirm'), {
+                okLabel: t('confirm_delete'),
+                destructive: true,
+            });
+            if (!ok) return;
             removeSavedGame(_editingGameId);
             _editingGameId = null;
             deleteSavedGameBtn.classList.add('hidden');
@@ -221,7 +222,7 @@ export function initSavedGames({ onLoadGame, getChess, showButtonSuccess, saveMo
         if (savedGamesView && !savedGamesView.classList.contains('hidden')) {
             await updateSavedGamesView();
         }
-        _showButtonSuccess(_saveMoveBtn, t('saved_games_saved'));
+        showToast(t('saved_games_saved'));
     });
 }
 

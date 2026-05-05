@@ -4,6 +4,7 @@ import { getVaultItems, removeVaultItem, getAnalyzedGameById, COORDS_KEY } from 
 import { renderMovesTable } from './ui.js';
 import { t } from './strings.js';
 import { EnginePool } from './engine.js';
+import { showAlert, showConfirm } from './dialogs.js';
 
 // ==========================================
 // DOM Elements
@@ -293,9 +294,13 @@ function lineSaysMoverMates(line, stmIsMover) {
     return stmIsMover ? line.value > 0 : line.value < 0;
 }
 
-function deleteCurrentVaultItem() {
+async function deleteCurrentVaultItem() {
     if (!vaultDetailItem) return;
-    if (!confirm(t('vault_delete_confirm'))) return;
+    const ok = await showConfirm(t('vault_delete_confirm'), {
+        okLabel: t('confirm_delete'),
+        destructive: true,
+    });
+    if (!ok) return;
     removeVaultItem(vaultDetailItem.id);
     vaultDetailItem = null;
     history.back();
@@ -308,14 +313,14 @@ async function openVaultItem(item) {
         pgn = game?.pgn || null;
     }
     if (!pgn) {
-        alert(t('vault_legacy_error'));
+        showAlert(t('vault_legacy_error'));
         return;
     }
 
     const tempChess = new Chess();
     const result = parseAndLoadPgn(tempChess, pgn);
     if (!result.success) {
-        alert(t('vault_pgn_error'));
+        showAlert(t('vault_pgn_error'));
         return;
     }
 
