@@ -1,0 +1,119 @@
+/* 디자인 토큰 + 베이스 리셋. styles.css의 cascade 시작점 — 다른 모든 stylesheet보다 먼저 로드된다.
+ * 색상/간격/z-index/치수 변수는 모두 여기서 정의하고 styles.css를 포함한 컴포넌트 stylesheet에서 var()로 소비. */
+
+:root {
+  /* 배경 — 중성 페이퍼 톤 */
+  --bg-base:     #F7F7F8;
+  --bg-surface:  #FFFFFF;
+  --bg-elevated: #EFEFF1;
+
+  /* 텍스트 — 그래파이트 계열 */
+  --tx:   #1C1D1F;
+  --tx2:  #62646A;
+  --tx3:  #9A9CA3;
+
+  /* 포인트 — 잉크 블루 (단일 액센트) */
+  --ac:    #2B5BD7;
+  --ac-lo: rgba(43, 91, 215, 0.10);
+  --ac-br: rgba(43, 91, 215, 0.25);
+
+  /* 테두리 */
+  --brd:  rgba(28, 29, 31, 0.08);
+  --brd2: rgba(28, 29, 31, 0.16);
+
+  /* 수 분류 — 라이트 배경용 어두운 톤 (갈색 계열 정리) */
+  --blunder:    #D03832;  /* 클리어 레드 (was 적갈) */
+  --mistake:    #D97706;  /* 클리어 오렌지 (was 갈오렌지) */
+  --inaccuracy: #C99B2D;  /* 클리어 앰버 (was 액센트와 동일했음) */
+  --excellent:  #6B8C3A;  /* Best보다 약간 밝은 녹 — 1순위 미일치인데 거의 best급 */
+  --best:       #5A7A3A;
+  --great:      #2D6E55;  /* Best보다 한 단계 깊은 청녹 — "유일 정답" 강조 */
+  --brilliant:  #3A8560;
+
+  /* 승/패 — 통계 표시용 (분류색과 분리, 큰 면적에서도 차분하게) */
+  --win:  #1F7A4D;  /* 딥 에메랄드 */
+  --loss: #B23A3A;  /* 가넷 (와인톤 레드) */
+
+  /* 체스 보드 — 따뜻한 톤 유지 (체스다움 보존) */
+  --board-light: #E8DCBF;
+  --board-dark:  #8C6840;
+
+  /* 레이아웃 z-index (색상 아님 — 유지) */
+  --z-board-coords: 2;
+  --z-badge:        10;
+  --z-overlay:      200;
+  --z-sticky:       999;
+  --z-sticky-top:   1000;
+  --z-modal:        9999;
+
+  /* 레이아웃 치수 (색상 아님 — 유지) */
+  --topbar-height: 46px;
+  --game-card-height: 64px;
+  --game-card-gap:    6px;
+}
+
+html {
+    /* 브라우저 레벨의 바운스 효과 및 전체 페이지 스크롤 원천 차단 */
+    overflow: hidden;
+    max-width: 100%;
+}
+
+*, *::before, *::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* 의도치 않은 가로 스크롤을 유발할 수 있는 미디어 요소의 폭 제한 */
+img, video {
+    max-width: 100%;
+    height: auto;
+}
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background-color: #1C1D1F; /* PC 배경: 중성 페이퍼 앱 컨테이너와 구분되는 그래파이트 */
+    color: var(--tx);
+    height: 100vh; /* 하위 브라우저용 Fallback */
+    height: 100dvh; /* 모바일 브라우저 주소창(동적 뷰포트) 높이 완벽 대응 */
+    overflow: hidden; /* 페이지 밖으로 삐져나가는 전체 스크롤 및 하단 빈 공간 노출 차단 */
+    max-width: 100vw;
+    background-image: radial-gradient(circle at 15% 50%, rgba(43, 91, 215, 0.04), transparent 25%),
+                      radial-gradient(circle at 85% 30%, rgba(43, 91, 215, 0.03), transparent 25%);
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 0; /* Mobile edge-to-edge */
+    overscroll-behavior-y: none; /* 모바일(특히 iOS) 당겨서 새로고침(Pull-to-refresh) 및 바운스 효과 방지 */
+}
+
+.app-container {
+    width: 100%;
+    max-width: 420px; /* PC 화면에서 모바일 비율 너비로 제한 */
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    height: 100dvh; /* 모바일 브라우저 하단 스크롤 잘림(100vh 버그) 완벽 방지 */
+    background-color: var(--bg-base); /* PC 배경과 구분하기 위한 배경색 */
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.12); /* 앱 영역 강조 그림자 — 라이트 배경에 맞춰 약화 */
+    overflow: hidden;
+    position: relative;
+    /* 바텀 네비게이션이 보일 때는 nav가 자체 padding으로 safe-area 처리,
+       숨겨져 있을 때(분석/입력 화면)만 .app-container가 safe-area 보정 */
+    padding-bottom: 0;
+}
+
+.app-container.bottom-nav-hidden {
+    padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* PC/태블릿(≥480px): 수직 중앙 정렬 + 프레임 효과. 모바일(<480px)은 기존 그대로. */
+@media (min-width: 480px) {
+    body {
+        align-items: center;
+    }
+    .app-container {
+        min-height: 100dvh;
+        border: 1px solid var(--brd);
+    }
+}

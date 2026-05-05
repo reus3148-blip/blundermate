@@ -32,6 +32,7 @@
     <meta name="twitter:description" content="Chess.com 게임을 엔진으로 분석하고 실수를 저장하세요" />
     <meta name="twitter:image" content="https://blundermate.app/og-image.png" />
 
+    <link rel="stylesheet" href="styles/tokens.css">
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -642,6 +643,20 @@
             <button type="button" class="vault-filter-tab" data-filter="other" data-i18n="vault_filter_other">기타</button>
         </template>
 
+        <!-- Confirm Modal — alert()/confirm() 대체용. main.js의 showAlert/showConfirm 헬퍼가 제어. -->
+        <div id="confirmModal" class="modal-overlay hidden">
+            <div class="modal-content modal-content--narrow">
+                <p id="confirmMessage" class="confirm-message"></p>
+                <div class="modal-actions modal-actions--spread">
+                    <button id="confirmCancelBtn" class="text-btn"></button>
+                    <button id="confirmOkBtn" class="primary-btn"></button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Toast — 앱 컨테이너 하단 고정. showToast()가 제어. -->
+        <div id="appToast" class="app-toast hidden" role="status" aria-live="polite"></div>
+
         <!-- Bottom Navigation -->
         <nav id="bottomNav" class="bottom-nav" aria-label="주요 메뉴" data-i18n-aria="nav_primary">
             <button id="navHomeBtn" class="bottom-nav-tab" data-screen="home" aria-label="홈" data-i18n-aria="nav_home">
@@ -666,6 +681,23 @@
 
     <!-- Chess.js library for PGN parsing -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+    <!-- Dev console gate — 프로덕션(비-localhost)에서 console.log/warn/debug를 noop으로 잠가
+         Supabase 폴백/캐시 미스 등 진단용 warn이 사용자 콘솔에 도배되지 않도록 한다.
+         console.error는 보존 — 사용자가 버그 리포트 시 진단성을 잃지 않게.
+         module 스크립트보다 먼저 실행되어야 모듈 import 시점의 console 호출까지 커버됨. -->
+    <script>
+    (function() {
+        var h = location.hostname;
+        var isDev = h === 'localhost' || h === '127.0.0.1' || h.endsWith('.local');
+        if (!isDev) {
+            var noop = function() {};
+            console.log = noop;
+            console.warn = noop;
+            console.debug = noop;
+            console.info = noop;
+        }
+    })();
+    </script>
     <script type="module" src="main.js"></script>
 
     <!-- Vercel Web Analytics -->

@@ -1,5 +1,6 @@
 import { Chessground } from 'https://cdnjs.cloudflare.com/ajax/libs/chessground/9.0.0/chessground.min.js';
-import { fetchRecentGames, fetchPlayerProfile } from './chessApi.js';
+import { initHome, refreshHomeCounts, showOnboarding } from './home.js';
+import { initDialogs, showAlert, showConfirm, showToast } from './dialogs.js';
 import {
     initAnalysis, getEngine, getDepth, setDepth,
     analysisQueue, setQueue,
@@ -18,9 +19,9 @@ import {
     setAppMode, setIsPreviewMode, setIsReviewMode, clearExplorationEngineLines, setExplorationLineAt,
     setSimulationQueue, pushSimulationQueueItem, setSimulationIndex,
 } from './modes.js';
-import { parseEvalData, getDests, convertPvToSan, parseAndLoadPgn, isValidFen, escapeHtml, parseOpeningFromPgn, rootOpeningName, formatTimeControl, formatRelativeDate, getTier, TIERS, isWhitePlayer, classifyGameResult, countMovesFromPgn, cpToWhiteWinPct, classifyMove } from './utils.js';
+import { parseEvalData, getDests, convertPvToSan, parseAndLoadPgn, isValidFen, escapeHtml, parseOpeningFromPgn, getTier, TIERS, classifyMove } from './utils.js';
 import { renderMovesTable, updateUIWithEval, highlightActiveMove, renderEngineLines, updateTopEvalDisplay, renderReviewReport, buildPreviewCardHtml } from './ui.js';
-import { addVaultItem, getSavedGames, setMyUserId, getMyUserId, getMyPlatform, setMyPlatform, PLATFORM_CHESSCOM, PLATFORM_LICHESS, ONBOARDING_KEY, COORDS_KEY, EVAL_MODE_KEY, computePgnHash, upsertAnalyzedGame, loadAnalysisCache, saveAnalysisCache, isCacheCompatible, ANALYSIS_CACHE_VERSION } from './storage.js';
+import { addVaultItem, getMyUserId, ONBOARDING_KEY, COORDS_KEY, EVAL_MODE_KEY, computePgnHash, upsertAnalyzedGame, loadAnalysisCache, saveAnalysisCache, isCacheCompatible, ANALYSIS_CACHE_VERSION } from './storage.js';
 import { collectAutoBlunders } from './autoBlunders.js';
 import { initVault, isVaultDetailActive, isVaultPuzzleActive, getVaultDetailIndex, setVaultDetailIndex, flipVaultBoard, setVaultCoords, redrawVaultBoard, loadVaultData, loadBlunderListData, redrawVaultPuzzleBoard } from './vault.js';
 import { initSavedGames, loadSavedGamesData } from './savedGames.js';
@@ -32,6 +33,9 @@ import {
 import { t, setLocale, getLocale } from './strings.js';
 import { pickQuote, quotesReady } from './quotes.js';
 
+// 다이얼로그 헬퍼 (showToast/showAlert/showConfirm)는 dialogs.js로 이전.
+// initDialogs()를 한 번 호출해 모달 close 핸들러를 와이어링.
+
 // ==========================================
 // 1. DOM Elements
 // ==========================================
@@ -40,25 +44,7 @@ const pgnInput = document.getElementById('pgnInput');
 const analyzeBtn = document.getElementById('analyzeBtn');
 const openBoardInputBtn = document.getElementById('homeBoardInputBtn');
 const manualInputWrapper = document.getElementById('manualInputWrapper');
-const homeRecentLabel = document.getElementById('homeRecentLabel');
-
-const USERNAME_LOG_DEDUP_KEY = 'blundermate_username_log_last';
-function logUsernameToServer(username, source) {
-    try {
-        const normalized = (username || '').trim().toLowerCase();
-        if (!normalized) return;
-        const platform = getMyPlatform();
-        // dedup key에도 platform 포함 — 같은 닉을 두 platform에서 시도해도 둘 다 기록.
-        const dedupKey = `${source}:${platform}:${normalized}`;
-        if (localStorage.getItem(USERNAME_LOG_DEDUP_KEY) === dedupKey) return;
-        try { localStorage.setItem(USERNAME_LOG_DEDUP_KEY, dedupKey); } catch (_) {}
-        fetch('/api/log-username', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username: normalized, source, platform })
-        }).catch(() => {});
-    } catch (_) {}
-}
+// USERNAME_LOG_DEDUP_KEY / logUsernameToServer / homeRecentLabel은 home.js로 이전.
 
 // Analysis Board UI
 const analysisStatus = document.getElementById('analysisStatus');
@@ -161,20 +147,7 @@ let lastEvalRenderTime = 0; // 엔진 UI 렌더링 스로틀링용 타임스탬�
 const EVAL_RENDER_THROTTLE = 100; // UI 업데이트 제한 시간(ms)
 // isGeminiLoading, geminiAbortController, isGeminiEnabled 는 gemini.js로 이전.
 let isCoordsEnabled = localStorage.getItem(COORDS_KEY) !== 'false';
-let cachedHomeGames = [];
-// 홈 게임 목록의 time_class 필터: 'rapid' | 'blitz' | 'bullet' | 'all'.
-// 헤더 우측 드롭다운으로 선택. 기본 'rapid' — 일반 사용자가 가장 자주 보는 시간대.
-let homeTimeClassFilter = 'rapid';
-// 현재 표시 중인 유저의 레이팅 (rapid/blitz/bullet) + 아바타/표시명 — 프로필 카드용.
-let homeProfileRatings = null;
-let homeProfileAvatar = null;
-let homeProfileDisplayName = null;
-// 홈 게임 카드 — 처음 10개 → 스크롤 하단 도달 시 10개씩 추가 (페치 한도 100).
-const HOME_RECENT_PAGE = 10;
-const HOME_RECENT_MAX = 100;
-// 현재 렌더 컨텍스트(컨테이너 + filtered 게임 + 유저 + 날짜 문자열 + 현재 표시 개수).
-// 카드 비동기 업그레이드(분석 캐시 lookup) + 무한 스크롤 양쪽에서 참조.
-let homeRecentRenderState = null;
+// home/onboarding 상태 (cachedHomeGames, homeTimeClassFilter, homeProfileRatings 등)는 home.js로 이전.
 
 // ==========================================
 // 2-2. History-based Navigation
@@ -390,513 +363,9 @@ function applyLocale() {
     document.getElementById('langEnBtn')?.classList.toggle('active', locale === 'en');
 }
 
-function refreshHomeCounts() {
-    updateHomeHeader();
-    loadHomeRecentGames();
-}
-
-// 라벨은 플랫폼 브랜드명을 그대로 — 브랜드 표기 정확도가 i18n보다 중요.
-const PLATFORM_LABELS = { [PLATFORM_CHESSCOM]: 'chess.com', [PLATFORM_LICHESS]: 'lichess' };
-function updateHomeRecentHeader() {
-    if (!homeRecentLabel) return;
-    homeRecentLabel.textContent = PLATFORM_LABELS[getMyPlatform()];
-}
-
-// ── Profile card: 아바타 + 이름 + 레이팅 + 최근 전적 ─────────────
-function clearProfileCard() {
-    const card = document.getElementById('homeProfileCard');
-    if (card) card.classList.add('hidden');
-}
-
-function updateProfileCardIdentity(displayUser) {
-    const nameEl = document.getElementById('homeProfileName');
-    const avatarEl = document.getElementById('homeProfileAvatar');
-    if (nameEl) nameEl.textContent = homeProfileDisplayName || displayUser || '—';
-    if (avatarEl) {
-        const isHeartUser = displayUser && displayUser.toLowerCase() === 'ss0bing' && getMyPlatform() === PLATFORM_LICHESS;
-        if (homeProfileAvatar) {
-            avatarEl.innerHTML = `<img src="${escapeHtml(homeProfileAvatar)}" alt="">`;
-        } else {
-            avatarEl.textContent = isHeartUser ? '💕' : '♜';
-        }
-    }
-}
-
-function updateProfileCardRating() {
-    const el = document.getElementById('homeProfileRating');
-    if (!el) return;
-    const tc = homeTimeClassFilter === 'all' ? 'rapid' : homeTimeClassFilter;
-    const rating = homeProfileRatings ? homeProfileRatings[tc] : null;
-    el.textContent = rating || '—';
-}
-
-function updateProfileCardRecord(games, displayUser) {
-    const labelEl = document.getElementById('homeProfileLabel');
-    const wldEl = document.getElementById('homeProfileWld');
-    if (!labelEl || !wldEl || !displayUser) return;
-    const userLower = displayUser.toLowerCase();
-    const filtered = homeTimeClassFilter === 'all'
-        ? games
-        : games.filter(g => (g.time_class || '') === homeTimeClassFilter);
-    const recent = filtered.slice(0, 15).map(g => classifyGameResult(g, userLower));
-    const w = recent.filter(r => r === 'win').length;
-    const l = recent.filter(r => r === 'loss').length;
-    const d = recent.filter(r => r === 'draw').length;
-    labelEl.textContent = t('home_record_label').replace('{n}', recent.length);
-    wldEl.textContent = t('home_record_wld').replace('{w}', w).replace('{l}', l).replace('{d}', d);
-}
-
-function renderHomeGamesList(games, displayUser) {
-    const list = document.getElementById('homeRecentList');
-    if (!list) return;
-
-    const filtered = homeTimeClassFilter === 'all'
-        ? games
-        : games.filter(g => (g.time_class || '') === homeTimeClassFilter);
-
-    list.innerHTML = '';
-    homeRecentRenderState = null;
-
-    if (filtered.length === 0) {
-        list.innerHTML = `<div class="container-message">${t('filter_no_games')}</div>`;
-        return;
-    }
-
-    const dateStrings = { dateToday: t('dateToday'), dateYesterday: t('dateYesterday'), dateDaysAgo: t('dateDaysAgo') };
-    homeRecentRenderState = { container: list, filtered, displayUser, dateStrings, visible: 0 };
-    appendHomeRecentBatch(0, Math.min(HOME_RECENT_PAGE, filtered.length, HOME_RECENT_MAX));
-}
-
-// 무한 스크롤 — 홈 스크롤 컨테이너 하단 근처 도달 시 10개씩 추가. 페치 한도(100)까지.
-function onHomeScroll(e) {
-    if (!homeRecentRenderState) return;
-    const { filtered, visible } = homeRecentRenderState;
-    const cap = Math.min(filtered.length, HOME_RECENT_MAX);
-    if (visible >= cap) return;
-    const el = e.currentTarget;
-    if (el.scrollTop + el.clientHeight < el.scrollHeight - 240) return;
-    appendHomeRecentBatch(visible, Math.min(visible + HOME_RECENT_PAGE, cap));
-}
-
-// 홈 게임 카드 batch append. 초기 렌더 + 무한 스크롤 양쪽에서 호출.
-function appendHomeRecentBatch(from, to) {
-    if (!homeRecentRenderState) return;
-    const { container, filtered, displayUser, dateStrings } = homeRecentRenderState;
-    const slice = filtered.slice(from, to);
-    if (slice.length === 0) return;
-    homeRecentRenderState.visible = to;
-
-    const userLower = displayUser.toLowerCase();
-
-    slice.forEach(game => {
-        const isWhite = isWhitePlayer(game, userLower);
-        const oppSide = isWhite ? game.black : game.white;
-        const resultClass = classifyGameResult(game, userLower);
-
-        const summary = parsePgnSummary(game.pgn);
-        // 홈 카드는 변종 제외 root family만 (예: "Italian Game Hungarian Defense" → "Italian Game"). 상세는 게임 진입 시.
-        const opening = rootOpeningName(parseOpeningFromPgn(game.pgn || '').name || '');
-        const date = game.end_time ? formatRelativeDate(game.end_time, dateStrings) : '';
-        const oppRating = oppSide.rating ? String(oppSide.rating) : '';
-
-        const isKo = getLocale() === 'ko';
-        const resultLetter = resultClass === 'win' ? (isKo ? '승' : 'W')
-                          : resultClass === 'loss' ? (isKo ? '패' : 'L')
-                          : (isKo ? '무' : 'D');
-
-        const movesLabel = summary.moves ? `${summary.moves}${t('moves_suffix')}` : '';
-        const metaParts = [opening, movesLabel].filter(Boolean);
-        const metaInner = metaParts.map((p, i) => {
-            const sep = i === 0 ? '' : '<span class="home-game-meta-sep" aria-hidden="true">·</span>';
-            return `${sep}<span>${escapeHtml(p)}</span>`;
-        }).join('');
-
-        const initialFen = summary.fen || 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR';
-
-        const card = document.createElement('button');
-        card.type = 'button';
-        card.className = 'home-game-card';
-        card.innerHTML = `
-            ${renderMiniBoardSvgHtml(initialFen, 84, summary.lastMove, !isWhite)}
-            <div class="home-game-body">
-                <div>
-                    <div class="home-game-header">
-                        <span class="home-result-chip home-result-chip--${resultClass}">${resultLetter}</span>
-                        <span class="home-game-opp">${escapeHtml(oppSide.username || '')}</span>
-                        ${oppRating ? `<span class="home-game-opp-rating">${escapeHtml(oppRating)}</span>` : ''}
-                    </div>
-                    <div class="home-game-meta-row">${metaInner}</div>
-                </div>
-                <div class="home-game-class-row" data-slot="class-row" hidden></div>
-            </div>
-            <div class="home-game-meta">
-                <span class="home-game-when">${escapeHtml(date)}</span>
-                <span data-slot="meta-bottom">
-                    <button type="button" class="home-analyze-btn" data-action="analyze">${escapeHtml(t('home_analyze_btn'))}</button>
-                </span>
-            </div>
-        `;
-
-        // 카드 본체 → 분석 화면(미분석이면 새 분석, 캐시 hit이면 즉시 리뷰).
-        card.addEventListener('click', (e) => {
-            if (e.target.closest('[data-action="analyze"]')) return;
-            if (!game.pgn) return;
-            pgnInput.value = game.pgn;
-            handlePgnReviewStart(null, isWhite, null, true);
-        });
-
-        const analyzeBtn = card.querySelector('[data-action="analyze"]');
-        if (analyzeBtn) {
-            analyzeBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                if (!game.pgn) return;
-                pgnInput.value = game.pgn;
-                handlePgnReviewStart(null, isWhite, null, true);
-            });
-        }
-
-        container.appendChild(card);
-
-        // 분석 캐시가 있으면 카드 비동기 업그레이드 — "분석" 버튼 → 정확도%, chips 노출.
-        decorateCardWithAnalysisAsync(card, game, isWhite);
-    });
-}
-
-// PGN을 chess.js로 한 번 파싱해서 마지막 위치 FEN, 마지막 수, 수 카운트 추출.
-function parsePgnSummary(pgn) {
-    if (!pgn) return { moves: 0, fen: '', lastMove: null };
-    try {
-        const c = new window.Chess();
-        if (!c.load_pgn(pgn)) return { moves: 0, fen: '', lastMove: null };
-        const verbose = c.history({ verbose: true });
-        const last = verbose[verbose.length - 1];
-        return {
-            moves: Math.ceil(verbose.length / 2),
-            fen: c.fen(),
-            lastMove: last ? [last.from, last.to] : null,
-        };
-    } catch {
-        return { moves: 0, fen: '', lastMove: null };
-    }
-}
-
-// 미니 체스보드 SVG 렌더 — 84px 기준, 8×8 그리드, 마지막 수 하이라이트, 유니코드 기물.
-const _MINIBOARD_GLYPH = {
-    wK: '♔', wQ: '♕', wR: '♖', wB: '♗', wN: '♘', wP: '♙',
-    bK: '♚', bQ: '♛', bR: '♜', bB: '♝', bN: '♞', bP: '♟',
-};
-const _MB_FILES = ['a','b','c','d','e','f','g','h'];
-function _miniBoardParseFen(fen) {
-    const rows = (fen || '').split(' ')[0].split('/');
-    const out = [];
-    for (let r = 0; r < 8; r++) {
-        const row = rows[r] || '8';
-        for (const ch of row) {
-            if (/[1-8]/.test(ch)) {
-                for (let i = 0; i < parseInt(ch); i++) out.push(null);
-            } else {
-                const color = ch === ch.toUpperCase() ? 'w' : 'b';
-                out.push(color + ch.toUpperCase());
-            }
-        }
-    }
-    while (out.length < 64) out.push(null);
-    return out;
-}
-function _squareToIdx(sq) {
-    const f = _MB_FILES.indexOf(sq[0]);
-    const r = 8 - parseInt(sq[1]);
-    return r * 8 + f;
-}
-function renderMiniBoardSvgHtml(fen, size, lastMove, flipped) {
-    const cells = _miniBoardParseFen(fen);
-    const cellSize = size / 8;
-    const lm = lastMove ? new Set(lastMove.map(_squareToIdx)) : new Set();
-    const lightColor = '#E8DCBF';
-    const darkColor = '#8C6840';
-    let body = '';
-    for (let i = 0; i < 64; i++) {
-        const rIdx = flipped ? 7 - Math.floor(i / 8) : Math.floor(i / 8);
-        const fIdx = flipped ? 7 - (i % 8) : (i % 8);
-        const isLight = (rIdx + fIdx) % 2 === 0;
-        const x = (i % 8) * cellSize;
-        const y = Math.floor(i / 8) * cellSize;
-        const realIdx = rIdx * 8 + fIdx;
-        const piece = cells[realIdx];
-        const isLm = lm.has(realIdx);
-        body += `<rect x="${x}" y="${y}" width="${cellSize}" height="${cellSize}" fill="${isLight ? lightColor : darkColor}"/>`;
-        if (isLm) body += `<rect class="last-move" x="${x}" y="${y}" width="${cellSize}" height="${cellSize}"/>`;
-        if (piece) {
-            const tx = x + cellSize / 2;
-            const ty = y + cellSize / 2 + cellSize * 0.32;
-            const cls = piece[0] === 'w' ? 'piece-w' : 'piece-b';
-            body += `<text class="${cls}" x="${tx}" y="${ty}" text-anchor="middle" font-size="${cellSize * 0.92}">${_MINIBOARD_GLYPH[piece]}</text>`;
-        }
-    }
-    return `<svg class="home-mini-board-svg home-game-board" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" aria-hidden="true">${body}</svg>`;
-}
-
-async function decorateCardWithAnalysisAsync(card, game, isUserWhiteForGame) {
-    if (!game.pgn) return;
-    let hash;
-    try { hash = await computePgnHash(game.pgn); } catch { return; }
-    let cache;
-    try { cache = await loadAnalysisCache(hash); } catch { return; }
-    if (!cache || !Array.isArray(cache.moves) || cache.moves.length === 0) return;
-
-    const stats = computeMyStatsFromCache(cache.moves, isUserWhiteForGame);
-    if (!stats) return;
-
-    const metaBottom = card.querySelector('[data-slot="meta-bottom"]');
-    if (metaBottom) {
-        metaBottom.innerHTML = `<span class="home-game-accuracy">${stats.accuracy}%</span>`;
-    }
-
-    const classRow = card.querySelector('[data-slot="class-row"]');
-    if (classRow) {
-        const items = [];
-        const c = stats.classification;
-        if (c.brilliant > 0) items.push({ k: 'brilliant', n: c.brilliant });
-        if (c.great > 0)     items.push({ k: 'great',     n: c.great });
-        if (c.mistake > 0)   items.push({ k: 'mistake',   n: c.mistake });
-        if (c.blunder > 0)   items.push({ k: 'blunder',   n: c.blunder });
-        if (items.length > 0) {
-            classRow.innerHTML = items.map(it =>
-                `<span class="home-game-class-chip"><span class="home-game-class-dot home-game-class-dot--${it.k}"></span>${it.n}</span>`
-            ).join('');
-            classRow.hidden = false;
-        }
-    }
-}
-
-// 캐시된 moves[] (각 { engineLines, classification })에서 사용자(나)의 정확도 + 분류 카운트 계산.
-// engineLines[0].scoreNum은 백 기준 cp. cpToWhiteWinPct로 winPct 추출 후 Lichess 식 정확도 적용.
-function computeMyStatsFromCache(moves, isUserWhite) {
-    const counts = { brilliant: 0, great: 0, mistake: 0, blunder: 0 };
-    const accs = [];
-    let prevWhitePct = 50;
-
-    for (let i = 0; i < moves.length; i++) {
-        const m = moves[i];
-        const isWhiteMove = (i % 2) === 0;
-        const isMyMove = isWhiteMove === isUserWhite;
-
-        const top = m.engineLines && m.engineLines[0];
-        let currWhitePct = null;
-        if (top && typeof top.scoreNum === 'number') {
-            currWhitePct = cpToWhiteWinPct(top.scoreNum);
-        }
-
-        if (isMyMove && currWhitePct !== null) {
-            const prevOwnPct = isUserWhite ? prevWhitePct : 100 - prevWhitePct;
-            const currOwnPct = isUserWhite ? currWhitePct : 100 - currWhitePct;
-            const loss = Math.max(0, prevOwnPct - currOwnPct);
-            const a = 103.1668 * Math.exp(-0.04354 * loss) - 3.1669;
-            accs.push(Math.max(0, Math.min(100, a)));
-
-            const cls = m.classification;
-            if (cls === 'Brilliant') counts.brilliant++;
-            else if (cls === 'Great') counts.great++;
-            else if (cls === 'Mistake') counts.mistake++;
-            else if (cls === 'Blunder') counts.blunder++;
-        }
-
-        if (currWhitePct !== null) prevWhitePct = currWhitePct;
-    }
-
-    if (accs.length === 0) return null;
-    const avg = accs.reduce((s, v) => s + v, 0) / accs.length;
-    return { accuracy: Math.round(avg), classification: counts };
-}
-
-// 무한 스크롤 — 게임 리스트 자체에서 스크롤 (프로필/헤더는 위에 고정).
-document.getElementById('homeRecentList')?.addEventListener('scroll', onHomeScroll, { passive: true });
-
-// ── 시간대 필터 드롭다운 ───────────────────────────────────────
-function setHomeTcFilter(tc) {
-    if (tc !== 'rapid' && tc !== 'blitz' && tc !== 'bullet' && tc !== 'all') return;
-    if (tc === homeTimeClassFilter) return;
-    homeTimeClassFilter = tc;
-    // 트리거 라벨 + 옵션 aria-checked 동기화
-    const labelEl = document.getElementById('homeTcFilterLabel');
-    if (labelEl) {
-        labelEl.setAttribute('data-i18n', `home_filter_${tc}`);
-        labelEl.textContent = t(`home_filter_${tc}`);
-    }
-    document.querySelectorAll('.home-tc-filter-option').forEach(opt => {
-        opt.setAttribute('aria-checked', opt.dataset.tc === tc ? 'true' : 'false');
-    });
-    const displayUser = getMyUserId();
-    if (cachedHomeGames.length > 0 && displayUser) {
-        renderHomeGamesList(cachedHomeGames, displayUser);
-        updateProfileCardRecord(cachedHomeGames, displayUser);
-    }
-    updateProfileCardRating();
-}
-
-function toggleHomeTcMenu(forceState) {
-    const trigger = document.getElementById('homeTcFilterBtn');
-    const menu = document.getElementById('homeTcFilterMenu');
-    if (!trigger || !menu) return;
-    const open = forceState !== undefined ? forceState : menu.classList.contains('hidden');
-    menu.classList.toggle('hidden', !open);
-    trigger.setAttribute('aria-expanded', open ? 'true' : 'false');
-}
-
-document.getElementById('homeTcFilterBtn')?.addEventListener('click', (e) => {
-    e.stopPropagation();
-    toggleHomeTcMenu();
-});
-
-document.getElementById('homeTcFilterMenu')?.addEventListener('click', (e) => {
-    const opt = e.target.closest('.home-tc-filter-option');
-    if (!opt) return;
-    e.stopPropagation();
-    setHomeTcFilter(opt.dataset.tc);
-    toggleHomeTcMenu(false);
-});
-
-// 메뉴 외부 클릭 / ESC 시 닫기
-document.addEventListener('click', (e) => {
-    const menu = document.getElementById('homeTcFilterMenu');
-    if (!menu || menu.classList.contains('hidden')) return;
-    if (!e.target.closest('.home-tc-filter')) toggleHomeTcMenu(false);
-});
-document.addEventListener('keydown', (e) => {
-    if (e.key !== 'Escape') return;
-    const menu = document.getElementById('homeTcFilterMenu');
-    if (menu && !menu.classList.contains('hidden')) toggleHomeTcMenu(false);
-});
-
-function loadHomeRecentGames() {
-    const displayUser = getMyUserId();
-    const section = document.getElementById('homeRecentSection');
-    const list = document.getElementById('homeRecentList');
-    if (!displayUser || !section || !list) return;
-
-    updateHomeRecentHeader();
-    section.classList.remove('hidden');
-
-    list.innerHTML = `<div class="home-recent-skeleton">${'<div class="home-recent-skeleton-card"></div>'.repeat(3)}</div>`;
-
-    fetchRecentGames(displayUser).then(games => {
-        if (!games || games.length === 0) {
-            // 0게임 = 정상 응답이지만 비어있음. 프로필 카드는 그대로 유지 —
-            // fetchPlayerProfile은 0게임이어도 성공하므로 식별/레이팅 표시 가능.
-            list.innerHTML = `<div class="container-message">${t('games_empty')}</div>`;
-            cachedHomeGames = [];
-            updateProfileCardIdentity(displayUser);
-            updateProfileCardRecord([], displayUser);
-            const card = document.getElementById('homeProfileCard');
-            if (card) card.classList.remove('hidden');
-            return;
-        }
-        cachedHomeGames = games;
-        renderHomeGamesList(games, displayUser);
-        // 프로필 카드 노출 (이름/아바타/레이팅은 fetchPlayerProfile 콜백에서 갱신).
-        updateProfileCardIdentity(displayUser);
-        updateProfileCardRecord(games, displayUser);
-        const card = document.getElementById('homeProfileCard');
-        if (card) card.classList.remove('hidden');
-    }).catch(() => {
-        cachedHomeGames = [];
-        clearProfileCard();
-        section.classList.add('hidden');
-    });
-}
-
-function updateHomeHeader() {
-    // 워드마크/타이틀은 i18n 자동 적용. 여기서는 프로필 카드 식별/레이팅만 갱신 (전적은 게임 로드 후).
-    homeProfileRatings = null;
-    homeProfileAvatar = null;
-    homeProfileDisplayName = null;
-    updateProfileCardRating();
-    const userId = getMyUserId();
-    if (!userId) {
-        clearProfileCard();
-        return;
-    }
-    updateProfileCardIdentity(userId);
-    fetchPlayerProfile(userId).then(profile => {
-        if (!profile) return;
-        homeProfileRatings = profile.ratings || null;
-        homeProfileAvatar = profile.avatar || null;
-        homeProfileDisplayName = profile.displayName || null;
-        updateProfileCardRating();
-        updateProfileCardIdentity(userId);
-    });
-}
-
-// ── Onboarding ─────────────────────────────────────────────────────
-const onboardingView = document.getElementById('onboardingView');
-const onboardingUsernameInput = document.getElementById('onboardingUsernameInput');
-const onboardingSubmitBtn = document.getElementById('onboardingSubmitBtn');
-const onboardingPlatformTabs = document.getElementById('onboardingPlatformTabs');
-const onboardingLabel = document.querySelector('#onboardingView .onboarding-label');
-
-// 온보딩 화면 전용 — 사용자가 선택한 플랫폼. 제출할 때 setMyPlatform으로 영속화.
-let onboardingPlatform = PLATFORM_CHESSCOM;
-
-function applyOnboardingPlatformUI(platform) {
-    onboardingPlatform = platform;
-    if (onboardingPlatformTabs) {
-        onboardingPlatformTabs.querySelectorAll('.onboarding-platform-tab').forEach(btn => {
-            btn.classList.toggle('selected', btn.dataset.platform === platform);
-        });
-    }
-    // 라벨/placeholder를 선택된 플랫폼에 맞게 갱신.
-    const isLichess = platform === PLATFORM_LICHESS;
-    if (onboardingLabel) onboardingLabel.textContent = t(isLichess ? 'onboarding_label_lichess' : 'onboarding_label');
-    if (onboardingUsernameInput) onboardingUsernameInput.placeholder = t(isLichess ? 'usernamePlaceholder_lichess' : 'usernamePlaceholder');
-}
-
-if (onboardingPlatformTabs) {
-    onboardingPlatformTabs.addEventListener('click', (e) => {
-        const btn = e.target.closest('.onboarding-platform-tab');
-        if (!btn) return;
-        const platform = btn.dataset.platform;
-        if (platform !== PLATFORM_CHESSCOM && platform !== PLATFORM_LICHESS) return;
-        if (platform === onboardingPlatform) return;
-        applyOnboardingPlatformUI(platform);
-    });
-}
-
-function finishOnboarding() {
-    localStorage.setItem(ONBOARDING_KEY, 'true');
-    onboardingView.classList.add('hidden');
-    homeView.classList.remove('hidden');
-    syncBottomNav(SCREENS.HOME);
-    refreshHomeCounts();
-}
-
-onboardingSubmitBtn.addEventListener('click', () => {
-    const username = onboardingUsernameInput.value.trim();
-    if (!username) {
-        onboardingUsernameInput.focus();
-        return;
-    }
-    setMyPlatform(onboardingPlatform);
-    setMyUserId(username);
-    logUsernameToServer(username, 'onboarding');
-    finishOnboarding();
-});
-
-onboardingUsernameInput.addEventListener('keyup', (e) => {
-    if (e.key === 'Enter') onboardingSubmitBtn.click();
-});
-
-if (!localStorage.getItem(ONBOARDING_KEY)) {
-    homeView.classList.add('hidden');
-    onboardingView.classList.remove('hidden');
-    bottomNav.classList.add('hidden');
-    appContainer.classList.add('bottom-nav-hidden');
-    // 디폴트 chesscom으로 시작 (라벨/placeholder 동기화).
-    applyOnboardingPlatformUI(PLATFORM_CHESSCOM);
-} else {
-    refreshHomeCounts();
-    const cachedUser = getMyUserId();
-    if (cachedUser) logUsernameToServer(cachedUser, 'cached');
-}
+// 홈/온보딩 — home.js로 이전. handlePgnReviewStart는 hoisted function declaration이라 안전.
+initHome({ syncBottomNav, SCREENS, handlePgnReviewStart });
+initDialogs();
 
 applyLocale();
 
@@ -936,18 +405,24 @@ async function fetchLastPushTime() {
     const el = document.getElementById('lastPushTime');
     if (!el) return;
     if (_lastPushFetched) return;
-    el.textContent = 'Loading...';
+    el.textContent = '—';
     try {
-        const res = await fetch('https://api.github.com/repos/reus3148-blip/blundermate/commits/main');
+        // /api/version은 Vercel env(VERCEL_GIT_COMMIT_AUTHOR_DATE)를 그대로 노출.
+        // GitHub API rate limit / 외부 의존 / "Failed to fetch" 메시지 폭주 회피.
+        const res = await fetch('/api/version');
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const data = await res.json();
-        const iso = data?.commit?.committer?.date;
-        if (!iso) throw new Error('no date');
-        const d = new Date(iso);
+        if (!data?.commitDate) {
+            // 로컬 dev나 미배포 환경 — 빈 값. 사용자에게 알 필요 없음.
+            _lastPushFetched = true;
+            return;
+        }
+        const d = new Date(data.commitDate);
         el.textContent = d.toLocaleString();
         _lastPushFetched = true;
     } catch (e) {
-        el.textContent = 'Failed to fetch';
+        // Edge Function 미배포 / 네트워크 단절. 조용히 폴백.
+        el.textContent = '—';
     }
 }
 
@@ -964,8 +439,12 @@ document.getElementById('depthSelect')?.addEventListener('change', (e) => {
 
 const logoutBtn = document.getElementById('logoutBtn');
 if (logoutBtn) {
-    logoutBtn.addEventListener('click', () => {
-        if (!confirm(t('settings_logout_confirm'))) return;
+    logoutBtn.addEventListener('click', async () => {
+        const ok = await showConfirm(t('settings_logout_confirm'), {
+            okLabel: t('settings_logout'),
+            destructive: true,
+        });
+        if (!ok) return;
         // 내 계정 식별자 + 온보딩 완료 플래그만 초기화.
         // VAULT_KEY / SAVED_GAMES_KEY는 유지 — 같은 ID로 재로그인 시 복구 가능해야 함.
         try {
@@ -976,11 +455,7 @@ if (logoutBtn) {
             console.error('Logout cleanup failed:', e);
         }
         settingsModal.classList.add('hidden');
-        homeView.classList.add('hidden');
-        if (onboardingUsernameInput) onboardingUsernameInput.value = '';
-        onboardingView.classList.remove('hidden');
-        bottomNav.classList.add('hidden');
-        appContainer.classList.add('bottom-nav-hidden');
+        showOnboarding();
     });
 }
 
@@ -1444,8 +919,6 @@ initSavedGames({
     },
     // 라이브 입력 모드는 메인 chess가 비어 있고 explorationChess만 의미 있음.
     getChess: () => appMode === APP_MODES.LIVE_INPUT ? explorationChess : chess,
-    showButtonSuccess,
-    saveMoveBtn,
 });
 initInsights();
 
@@ -1504,17 +977,11 @@ movesOverlay.addEventListener('click', (e) => {
     if (e.target === movesOverlay) closeMovesOverlay();
 });
 
-let _copyPgnBusy = false;
 copyPgnBtn.addEventListener('click', () => {
-    if (_copyPgnBusy) return;
     const pgn = _overlayGetPgn ? _overlayGetPgn() : chess.pgn();
     if (!pgn) return;
-    _copyPgnBusy = true;
-    const label = copyPgnBtn.querySelector('span');
-    const orig = label.textContent;
     navigator.clipboard.writeText(pgn).catch(() => prompt('PGN', pgn));
-    label.textContent = t('copied');
-    setTimeout(() => { label.textContent = orig; _copyPgnBusy = false; }, 1500);
+    showToast(t('copied'));
 });
 
 // --- Gemini AI Coach Logic ---
@@ -1545,15 +1012,6 @@ function hideReturnBtn() {
     tabToggleBtn.classList.remove('hidden');
 }
 
-function showButtonSuccess(button, text) {
-    const originalHTML = button.innerHTML;
-    button.innerHTML = text;
-    button.style.color = 'var(--best)';
-    setTimeout(() => {
-        button.innerHTML = originalHTML;
-        button.style.color = '';
-    }, 1500);
-}
 
 // --- Save Move to Vault Logic ---
 saveMoveBtn.addEventListener('click', () => {
@@ -1567,7 +1025,7 @@ choiceSaveMoveBtn.addEventListener('click', () => {
     if (appMode === APP_MODES.LIVE_INPUT) {
         const hist = explorationChess.history({ verbose: true });
         if (hist.length === 0) {
-            alert(t('analysis_no_save_start'));
+            showAlert(t('analysis_no_save_start'));
             return;
         }
         const last = hist[hist.length - 1];
@@ -1607,7 +1065,7 @@ choiceSaveMoveBtn.addEventListener('click', () => {
     }
 
     if (currentlyViewedIndex < 0 || !analysisQueue[currentlyViewedIndex]) {
-        alert(t('analysis_no_save_start'));
+        showAlert(t('analysis_no_save_start'));
         return;
     }
 
@@ -1698,8 +1156,7 @@ confirmSaveBtn.addEventListener('click', () => {
     saveModal.classList.add('hidden');
     vaultSnapshot = null;
 
-    // UX Feedback
-    showButtonSuccess(saveMoveBtn, t('saved_games_saved'));
+    showToast(t('saved_games_saved'));
 });
 
 // Redraw board on window resize or device rotation for better responsive behavior
@@ -1859,7 +1316,7 @@ function handlePgnReviewStart(e = null, isWhiteGame = null, targetIndex = null, 
     const result = parseAndLoadPgn(chess, pgnText);
 
     if (!result.success) {
-        alert(t('analysis_invalid_pgn'));
+        showAlert(t('analysis_invalid_pgn'));
         return;
     }
 
@@ -1892,7 +1349,7 @@ function handleFenReviewStart(fenText, isWhiteGame) {
 
     resetMainGame();
     if (!chess.load(fenText)) {
-        alert(t('analysis_invalid_pgn'));
+        showAlert(t('analysis_invalid_pgn'));
         return;
     }
     pgnInput.value = chess.pgn();
@@ -2509,15 +1966,16 @@ function updateBoardForSimulation(index) {
     });
 }
 
-// PWA Service Worker — 일시 비활성화 (베타 기간)
-// 재활성화 시점은 Phase 3 이후 검토
+// SW 영구 비활성화 정책 — Phase 37 결정.
+// SW를 재도입하지 않기로 했지만, Phase 8 PWA 시기에 sw.js를 등록한 적이 있는 사용자 브라우저에는
+// 옛 SW가 cache-first로 살아있어 영영 stale 버전을 보여줄 수 있다. 매 로드 시점에 unregister + 캐시 삭제로
+// 그런 사용자도 깨끗한 fresh fetch 경로로 자동 마이그레이션. 이 블록은 죽은 코드가 아니라
+// 자동 업데이트가 매끄럽게 동작하는 핵심 메커니즘이라 영구 보존.
 if ('serviceWorker' in navigator) {
-    // 기존 유저의 브라우저에 설치된 SW 전부 제거
     navigator.serviceWorker.getRegistrations().then(registrations => {
         registrations.forEach(reg => reg.unregister());
     });
 
-    // 기존 캐시 전부 삭제
     if ('caches' in window) {
         caches.keys().then(keys => {
             keys.forEach(key => caches.delete(key));
