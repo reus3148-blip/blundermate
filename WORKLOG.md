@@ -6,6 +6,55 @@
 
 ---
 
+## Phase 38 — P0/P1 코드 위생 통합 + 2회 simplify 패스 (2026-05-05 ~ 06)
+
+코드 리뷰 도출 P0/P1 항목 한 번에 + 두 차례 `/simplify` 패스로 발견 14건 사전 해결. 기능 추가 없음 — 표면 정리만.
+
+**P0 (안전성):**
+- **`callDB` 서킷 브레이커 + pilot coalescing ([storage.js:50-118](storage.js:50)):** /api/db가 죽은 환경(static dev server, Vercel Functions 미배포 등)에서 콜드 로드 시 ~10개 카드 + vault + saved가 거의 동시에 callDB를 부르는데 첫 응답 전 in-flight 200+가 모두 5xx를 받음. pilot 패턴: 첫 호출은 fetch 시작, 같은 시점 다른 호출들은 pilot 결과 await. pilot 5xx → `_dbBreakerUntil` 60s setting → waiter들은 깨어나서 entry check로 silent throw. 검증: `performance.getEntriesByType('resource')` = **1건** (이전 200+). `_dbBreakerLogged` 별도 상태 없이 `_dbBreakerUntil > Date.now()`로 derive — race condition 없는 단일 진실 원천. `err.silent` 플래그 + `_warnDb` 헬퍼로 콘솔 경고도 1건만.
+- **`alert`/`confirm` → 모달/토스트 ([dialogs.js](dialogs.js) 신규, 9곳):** logout/삭제 confirm 3곳 + alert 6곳 교체. `showToast`/`showAlert`/`showConfirm`/`initDialogs` ES module export. `showConfirm`은 `Promise<boolean>`, `destructive: true` 옵션 시 빨간 OK 버튼 자동. **cancelBtn 자동 focus + 글로벌 Enter 핸들러 제거** — 모달 밖 input에 focus 남아있을 때 의도치 않은 OK 트리거 위험 차단. ESC만 글로벌, Enter는 native button activation으로.
+- **`showButtonSuccess` → toast 통합:** 헬퍼 9줄 제거 + saveMoveBtn 아이콘이 텍스트로 깜빡이던 awkward 동작 사라짐. `_toastTimers[]` 배열로 outer/inner setTimeout 둘 다 추적 — 빠른 연속 호출 시 이전 호출의 inner setTimeout(220ms 후 'hidden' 추가)이 새 토스트에 다시 hidden 씌우던 race condition 픽스.
+
+**P1 (구조):**
+- **A. console.* 게이트 ([index.html](index.html)):** module import 전 inline `<script>`로 비-localhost 환경에서 `console.log`/`warn`/`debug`/`info`를 noop. `console.error` 보존 — 사용자 버그 리포트 진단성. 47개 console 호출이 한 줄로 정리.
+- **B. last push time → /api/version ([api/version.js](api/version.js) 신규):** GitHub API(rate limit 60/h, 외부 의존, "Failed to fetch" 메시지 노출) 제거. Vercel `VERCEL_GIT_COMMIT_AUTHOR_DATE` env를 Edge Function으로 노출. `_http.js` `methodGuard`에 `allowed` 인자 추가(디폴트 `['POST']`로 4개 기존 호출자 호환) + `Access-Control-Allow-Methods`에 GET 추가 (cross-origin GET preflight 버그 사전 차단).
+- **C. `home.js` 추출 (-455줄):** 홈 프로필 카드, 게임 카드 무한 스크롤, 미니보드 SVG, 시간대 필터, 온보딩 전체 이전. main.js 2,531 → 2,072줄. `initHome({syncBottomNav, SCREENS, handlePgnReviewStart})` — DOM ref는 내부 `getElementById` lookup (DI 백 7→3). `_initialized` 플래그 멱등성 가드. 미니보드 더블 FEN 파싱 제거 — `parsePgnSummary`가 chess.js `c.board()` → cells 직접 반환, `_miniBoardParseFen` 함수 자체 삭제. 미사용 import 13개 main.js에서 제거.
+- **D. `styles/tokens.css` 분리 (-118줄):** :root 변수 + 베이스 리셋. cascade 위험 0. **styles.css 본체 분할은 별도 phase로 보류** — 시간순 성장으로 selector가 흩어져 있어(`pill-buttons` 1402, `saved-game-card` 1599 등) 분할이 아니라 selector 의존 추적 + cascade 재배치(=리팩토링) 동반. 그때는 "관련 selector 묶기 + 죽은 코드 제거"가 본질.
+
+**Simplify 패스에서 잡힌 것:**
+- 1차: dialogs.js 추출(`window.*` 전역 누설 + 5곳 dead polyfill 제거), Enter 키 안전성, callDB pilot coalescing, `_dbBreakerLogged` derive, WHAT 주석 정리.
+- 2차: `_http.js methodGuard` allowlist + GET CORS preflight, `api/version.js` 단일 호출로 단순화, `home.js` `initHome` 멱등성 + DI 백 3개로 축소, 미니보드 더블 FEN 파싱 제거.
+
+**검증 (모두 미리보기 measure + 시각 캡처):**
+| 지표 | 이전 | 이후 |
+|---|---|---|
+| 콜드 로드 `/api/db` fetch | 200+ | **1건** |
+| 콘솔 에러/경고 (silent gate) | 카드당 2~3개 | **0건** |
+| 미니보드 카드당 FEN 파싱 | 2회 | **0회** (chess.js board() 직접) |
+| main.js 줄 수 | 2,531 | **2,072** (-459) |
+| 다이얼로그 destructive 자동 cancel focus | — | ✓ |
+
+---
+
+## Phase 37 — sw.js 영구 삭제 (2026-05-05)
+
+**결정: Service Worker는 다시 켜지 않는다.** sw.js 117줄 + vercel.json의 SW 헤더 룰 제거.
+
+**왜:**
+- 현재 상태(SW 없음 + manifest.webmanifest만 존재)가 사실상 PWA의 "최선의 변종"으로 동작 중. iOS/Android 둘 다 "홈 화면에 추가" 메뉴 노출 + standalone 풀스크린 + theme-color 통일까지 다 됨. SW가 빠진 대신 **매번 fresh fetch → 자동 업데이트가 깨끗히 동작**. cache-first/network-first 전략을 잘못 짜서 사용자가 며칠씩 stale 버전을 보는 PWA의 가장 흔한 함정에 빠지지 않음.
+- 오프라인 동작은 사용자가 "필요 없음"으로 명시. SW의 주된 가치 중 하나가 빠지면 도입 비용(전략 설계 + skipWaiting/claim 타이밍 + API 라우트 우회 + 캐시 버전 무효화 + WORKLOG 새 phase + 검증) 대비 리턴이 음수.
+- sw.js 본문 자체에 "재활성화 시 network-first/cache-first 전략 분리 구현 필요" 주석이 박혀 있던 상태 — 의도적으로 쓰던 코드가 아니라 결정 보류 중인 죽은 코드. 미래에 누군가 헷갈릴 여지를 없앰.
+
+**삭제:**
+- `sw.js` (117줄)
+- `vercel.json`의 `/sw.js` 헤더 룰 (Service-Worker-Allowed + Cache-Control)
+
+**남김:** manifest.webmanifest, apple-touch-icon, theme-color, apple-mobile-web-app-* meta — 이걸로 PWA 설치 경험은 충분.
+
+**main.js의 옛 SW unregister 블록은 영구 보존** ([main.js:2076](main.js:2076)) — Phase 8 PWA 시기에 sw.js를 등록한 적이 있는 사용자 브라우저에 옛 SW가 cache-first로 살아있을 수 있다. 매 로드 시점에 unregister + 캐시 삭제로 그런 사용자도 깨끗한 fresh fetch 경로로 자동 마이그레이션. 죽은 코드가 아니라 자동 업데이트가 매끄럽게 동작하는 핵심 메커니즘.
+
+---
+
 ## Phase 36 — 수 입력 → 라이브 분석 모드 (2026-05-04)
 
 기존 별도 `inputView`(보드 입력 전용 화면)을 통째로 들어내고, 분석 화면 UI를 그대로 재사용해 **사용자가 보드에 수를 둘 때마다 단일 엔진이 실시간 분석**하는 모드로 전환. chess.com / lichess의 분석 보드와 동일한 UX.
