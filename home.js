@@ -15,7 +15,7 @@
 import { fetchRecentGames, fetchPlayerProfile } from './chessApi.js';
 import {
     getMyUserId, setMyUserId, getMyPlatform, setMyPlatform,
-    PLATFORM_CHESSCOM, PLATFORM_LICHESS, ONBOARDING_KEY,
+    PLATFORM_CHESSCOM, PLATFORM_LICHESS, ONBOARDING_KEY, DEFAULT_TC_KEY,
     computePgnHash, loadAnalysisCache,
 } from './storage.js';
 import {
@@ -27,8 +27,12 @@ import { t, getLocale } from './strings.js';
 // ==========================================
 // State
 // ==========================================
-// 헤더 우측 드롭다운으로 선택. 기본 'rapid' — 일반 사용자가 가장 자주 보는 시간대.
-let homeTimeClassFilter = 'rapid';
+// 헤더 드롭다운 / 설정 양쪽이 같은 키를 공유 — 마지막 선택이 다음 로드의 기본값.
+const VALID_TC = ['rapid', 'blitz', 'bullet', 'all'];
+let homeTimeClassFilter = (() => {
+    try { const v = localStorage.getItem(DEFAULT_TC_KEY); return VALID_TC.includes(v) ? v : 'rapid'; }
+    catch { return 'rapid'; }
+})();
 let homeProfileRatings = null;
 let homeProfileAvatar = null;
 let homeProfileDisplayName = null;
@@ -405,18 +409,23 @@ function appendHomeRecentBatch(from, to) {
 // ==========================================
 // Time class filter dropdown (rapid/blitz/bullet/all)
 // ==========================================
-function setHomeTcFilter(tc) {
-    if (tc !== 'rapid' && tc !== 'blitz' && tc !== 'bullet' && tc !== 'all') return;
-    if (tc === homeTimeClassFilter) return;
-    homeTimeClassFilter = tc;
+function syncTcFilterUI() {
     const labelEl = document.getElementById('homeTcFilterLabel');
     if (labelEl) {
-        labelEl.setAttribute('data-i18n', `home_filter_${tc}`);
-        labelEl.textContent = t(`home_filter_${tc}`);
+        labelEl.setAttribute('data-i18n', `home_filter_${homeTimeClassFilter}`);
+        labelEl.textContent = t(`home_filter_${homeTimeClassFilter}`);
     }
     document.querySelectorAll('.home-tc-filter-option').forEach(opt => {
-        opt.setAttribute('aria-checked', opt.dataset.tc === tc ? 'true' : 'false');
+        opt.setAttribute('aria-checked', opt.dataset.tc === homeTimeClassFilter ? 'true' : 'false');
     });
+}
+
+export function setHomeTcFilter(tc) {
+    if (!VALID_TC.includes(tc)) return;
+    if (tc === homeTimeClassFilter) return;
+    homeTimeClassFilter = tc;
+    try { localStorage.setItem(DEFAULT_TC_KEY, tc); } catch {}
+    syncTcFilterUI();
     const displayUser = getMyUserId();
     if (cachedHomeGames.length > 0 && displayUser) {
         renderHomeGamesList(cachedHomeGames, displayUser);
@@ -548,6 +557,8 @@ export function initHome({ syncBottomNav, SCREENS, handlePgnReviewStart }) {
 
     // 무한 스크롤 — 게임 리스트 자체에서 스크롤 (프로필/헤더는 위에 고정).
     document.getElementById('homeRecentList')?.addEventListener('scroll', onHomeScroll, { passive: true });
+
+    syncTcFilterUI();
 
     // 시간대 필터 드롭다운
     document.getElementById('homeTcFilterBtn')?.addEventListener('click', (e) => {

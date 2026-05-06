@@ -26,8 +26,12 @@ export const APP_MODES = Object.freeze({
 export let appMode = APP_MODES.MAIN;
 export const explorationChess = new Chess();
 export let explorationEngineLines = [];
+// EXPLORE: < 로 undo한 변형 수를 보관 → > 로 재생. 새 변형 수를 두면 fork 발생 → 무효화.
+export let exploreRedoStack = [];
 export let simulationQueue = [];
 export let simulationIndex = -1;
+// SIMULATE 큐 끝에서 > 누를 때 단일 엔진으로 라인 확장 — null이면 idle.
+export let simExtendState = null;
 export let isPreviewMode = false;
 export let isReviewMode = false;
 
@@ -38,6 +42,12 @@ export function setIsReviewMode(b) { isReviewMode = b; }
 export function clearExplorationEngineLines() { explorationEngineLines = []; }
 export function setExplorationLineAt(i, line) { explorationEngineLines[i] = line; }
 
+export function clearExploreRedoStack() { exploreRedoStack = []; }
+export function pushExploreRedo(m) { exploreRedoStack.push(m); }
+export function popExploreRedo() { return exploreRedoStack.pop(); }
+
 export function setSimulationQueue(arr) { simulationQueue = arr; }
 export function pushSimulationQueueItem(item) { simulationQueue.push(item); }
 export function setSimulationIndex(i) { simulationIndex = i; }
+
+export function setSimExtendState(s) { simExtendState = s; }

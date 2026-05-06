@@ -7,6 +7,7 @@ export const ONBOARDING_KEY = 'blundermate_onboarding_done';
 export const COORDS_KEY = 'coordsEnabled';
 export const GEMINI_KEY = 'geminiEnabled';
 export const EVAL_MODE_KEY = 'evalDisplayMode';
+export const DEFAULT_TC_KEY = 'defaultTcFilter';
 
 export const PLATFORM_CHESSCOM = 'chesscom';
 export const PLATFORM_LICHESS = 'lichess';

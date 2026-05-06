@@ -81,6 +81,10 @@ export class StockfishEngine {
         this.worker.postMessage(`go depth ${depth}`);
     }
 
+    setMultiPV(n) {
+        this.worker.postMessage(`setoption name MultiPV value ${n}`);
+    }
+
     stop() {
         this.worker.postMessage('stop');
     }

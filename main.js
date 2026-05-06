@@ -1,5 +1,5 @@
 import { Chessground } from 'https://cdnjs.cloudflare.com/ajax/libs/chessground/9.0.0/chessground.min.js';
-import { initHome, refreshHomeCounts, showOnboarding } from './home.js';
+import { initHome, refreshHomeCounts, showOnboarding, setHomeTcFilter } from './home.js';
 import { initDialogs, showAlert, showConfirm, showToast } from './dialogs.js';
 import {
     initAnalysis, getEngine, getDepth, setDepth,
@@ -15,13 +15,14 @@ import {
 } from './board.js';
 import {
     APP_MODES,
-    appMode, explorationChess, explorationEngineLines, simulationQueue, simulationIndex, isPreviewMode, isReviewMode,
+    appMode, explorationChess, explorationEngineLines, exploreRedoStack, simulationQueue, simulationIndex, simExtendState, isPreviewMode, isReviewMode,
     setAppMode, setIsPreviewMode, setIsReviewMode, clearExplorationEngineLines, setExplorationLineAt,
-    setSimulationQueue, pushSimulationQueueItem, setSimulationIndex,
+    clearExploreRedoStack, pushExploreRedo, popExploreRedo,
+    setSimulationQueue, pushSimulationQueueItem, setSimulationIndex, setSimExtendState,
 } from './modes.js';
 import { parseEvalData, getDests, convertPvToSan, parseAndLoadPgn, isValidFen, escapeHtml, parseOpeningFromPgn, getTier, TIERS, classifyMove } from './utils.js';
 import { renderMovesTable, updateUIWithEval, highlightActiveMove, renderEngineLines, updateTopEvalDisplay, renderReviewReport, buildPreviewCardHtml } from './ui.js';
-import { addVaultItem, getMyUserId, ONBOARDING_KEY, COORDS_KEY, EVAL_MODE_KEY, computePgnHash, upsertAnalyzedGame, loadAnalysisCache, saveAnalysisCache, isCacheCompatible, ANALYSIS_CACHE_VERSION } from './storage.js';
+import { addVaultItem, getMyUserId, ONBOARDING_KEY, COORDS_KEY, EVAL_MODE_KEY, DEFAULT_TC_KEY, computePgnHash, upsertAnalyzedGame, loadAnalysisCache, saveAnalysisCache, isCacheCompatible, ANALYSIS_CACHE_VERSION } from './storage.js';
 import { collectAutoBlunders } from './autoBlunders.js';
 import { initVault, isVaultDetailActive, isVaultPuzzleActive, getVaultDetailIndex, setVaultDetailIndex, flipVaultBoard, setVaultCoords, redrawVaultBoard, loadVaultData, loadBlunderListData, redrawVaultPuzzleBoard } from './vault.js';
 import { initSavedGames, loadSavedGamesData } from './savedGames.js';
@@ -145,6 +146,8 @@ let vaultSnapshot = null; // 🔖 탭 시점의 수 데이터 스냅샷 (모달 
 const LIVE_INPUT_DEPTH = 12; // 라이브 입력 모드 엔진 depth 락 — 렉 방지용 고정값
 let lastEvalRenderTime = 0; // 엔진 UI 렌더링 스로틀링용 타임스탬프
 const EVAL_RENDER_THROTTLE = 100; // UI 업데이트 제한 시간(ms)
+const SIM_EXTEND_DEPTH = 12;
+const ENGINE_DEFAULT_MULTIPV = 3; // engine.js 의 DEFAULT_MULTIPV 와 일치 — extend 후 복원 값.
 // isGeminiLoading, geminiAbortController, isGeminiEnabled 는 gemini.js로 이전.
 let isCoordsEnabled = localStorage.getItem(COORDS_KEY) !== 'false';
 // home/onboarding 상태 (cachedHomeGames, homeTimeClassFilter, homeProfileRatings 등)는 home.js로 이전.
@@ -431,10 +434,16 @@ settingsBtn.addEventListener('click', () => {
     fetchLastPushTime();
     const depthSelect = document.getElementById('depthSelect');
     if (depthSelect) depthSelect.value = String(getDepth());
+    const tcSelect = document.getElementById('defaultTcSelect');
+    if (tcSelect) tcSelect.value = localStorage.getItem(DEFAULT_TC_KEY) || 'rapid';
 });
 
 document.getElementById('depthSelect')?.addEventListener('change', (e) => {
     setDepth(e.target.value);
+});
+
+document.getElementById('defaultTcSelect')?.addEventListener('change', (e) => {
+    setHomeTcFilter(e.target.value);
 });
 
 const logoutBtn = document.getElementById('logoutBtn');
@@ -593,15 +602,54 @@ document.getElementById('langEnBtn').addEventListener('click', () => {
 // 단일 엔진을 새 fen 위에서 재시작 + UI 표지를 'Exploring' 상태로 초기화.
 // stop() 먼저 — 직전 검색이 진행 중이라도 새 검색이 깔끔히 시작되게.
 // depth는 라이브 입력 모드면 12 고정(렉 방지), 그 외 explore는 사용자 설정 depth.
+function showEngineLoading(textKey) {
+    analysisStatus.className = 'tag engine-loading';
+    analysisStatus.textContent = t(textKey);
+}
+
+function hideEngineStatus() {
+    analysisStatus.className = 'tag engine-ready hidden';
+    analysisStatus.textContent = '';
+}
+
 function kickExploreEngine(fen) {
     getEngine().stop();
     clearExplorationEngineLines();
     updateTopEvalDisplay('...', 'Exploring', isUserWhite);
     engineLinesContainer.innerHTML = `<div class="container-message">${t('analysis_variation')}</div>`;
-    analysisStatus.className = 'tag engine-loading';
-    analysisStatus.textContent = t('analysis_exploring');
+    showEngineLoading('analysis_exploring');
     const depth = appMode === APP_MODES.LIVE_INPUT ? LIVE_INPUT_DEPTH : getDepth();
     getEngine().analyzeFen(fen, depth);
+}
+
+function clearSimExtend() {
+    if (!simExtendState) return;
+    setSimExtendState(null);
+    getEngine().stop();
+    getEngine().setMultiPV(ENGINE_DEFAULT_MULTIPV);
+    hideEngineStatus();
+}
+
+function finalizeSimExtend() {
+    const state = simExtendState;
+    clearSimExtend();
+    if (!state || !state.latestEval || !state.latestEval.pv) return;
+
+    const firstUci = state.latestEval.pv.split(' ')[0];
+    if (!firstUci || firstUci.length < 4) return;
+
+    const tmp = new Chess(state.fen);
+    const moveRes = tmp.move({
+        from: firstUci.slice(0, 2),
+        to: firstUci.slice(2, 4),
+        promotion: firstUci[4] || undefined,
+    });
+    if (!moveRes) return;
+
+    const { scoreStr } = parseEvalData(state.latestEval, state.fen.includes(' b '));
+    pushSimulationQueueItem({ fen: tmp.fen(), san: moveRes.san, scoreStr });
+    setSimulationIndex(simulationQueue.length - 1);
+    updateBoardForSimulation(simulationIndex);
 }
 
 function openLiveInput() {
@@ -633,8 +681,8 @@ function openLiveInput() {
     kickExploreEngine(START_FEN);
 }
 
-// 라이브 모드의 보드를 explorationChess의 현 상태로 동기.
-function syncLiveBoard() {
+// EXPLORE / LIVE_INPUT 보드를 explorationChess의 현 상태로 동기.
+function syncExploreBoard() {
     const turnColor = explorationChess.turn() === 'w' ? 'white' : 'black';
     const hist = explorationChess.history({ verbose: true });
     const lastMove = hist.length > 0 ? [hist[hist.length - 1].from, hist[hist.length - 1].to] : [];
@@ -656,7 +704,7 @@ function syncLiveStateToIndex(idx) {
         const m = analysisQueue[i];
         explorationChess.move({ from: m.from, to: m.to, promotion: m.promotion });
     }
-    syncLiveBoard();
+    syncExploreBoard();
     showPieceBadge(idx);
 
     const cached = idx >= 0 ? analysisQueue[idx]?.engineLines : null;
@@ -668,8 +716,7 @@ function syncLiveStateToIndex(idx) {
         renderEngineLines(engineLinesContainer, cached.filter(Boolean), drawEngineArrow, clearEngineArrow, handleEngineLineClick);
         const cls = analysisQueue[idx].classification || 'Exploring';
         updateTopEvalDisplay(cached[0].scoreStr, cls, isUserWhite);
-        analysisStatus.className = 'tag engine-ready hidden';
-        analysisStatus.textContent = '';
+        hideEngineStatus();
     } else {
         // 캐시 없음 (시작 포지션 또는 분석 미완료) → 엔진 재시작.
         kickExploreEngine(explorationChess.fen());
@@ -742,6 +789,7 @@ analyzeBtn.addEventListener('click', () => {
 // --- Move Navigation Helpers ---
 function handlePrevMove() {
     if (appMode === APP_MODES.SIMULATE) {
+        clearSimExtend();
         setSimulationIndex(Math.max(0, simulationIndex - 1));
         updateBoardForSimulation(simulationIndex);
         return;
@@ -753,10 +801,18 @@ function handlePrevMove() {
         return;
     }
     if (appMode === APP_MODES.EXPLORE) {
-        exitExplorationMode();
-        if (currentlyViewedIndex >= 0 && analysisQueue[currentlyViewedIndex]) {
-            updateBoardPosition(currentlyViewedIndex, analysisQueue[currentlyViewedIndex].fen);
+        // < = 변형 한 수 undo (redo 스택에 보관). 메인라인 복귀는 returnMainLineBtn 전담.
+        if (explorationChess.history().length > 0) {
+            pushExploreRedo(explorationChess.undo());
+            syncExploreBoard();
+            kickExploreEngine(explorationChess.fen());
+            return;
         }
+        // 변형 소진(=deviation 지점) → 메인라인으로 빠지면서 한 칸 더 뒤로.
+        exitExplorationMode();
+        const newIndex = Math.max(-1, currentlyViewedIndex - 1);
+        const fen = newIndex === -1 ? (chess.header().FEN || START_FEN) : analysisQueue[newIndex].fen;
+        updateBoardPosition(newIndex, fen);
         return;
     }
     if (analysisQueue.length === 0) return;
@@ -780,7 +836,19 @@ function handlePrevMove() {
 
 function handleNextMove() {
     if (appMode === APP_MODES.SIMULATE) {
-        setSimulationIndex(Math.min(simulationQueue.length - 1, simulationIndex + 1));
+        if (simulationIndex >= simulationQueue.length - 1) {
+            if (simExtendState) return; // 이미 분석 중. 무시.
+            const lastFen = simulationQueue[simulationIndex].fen;
+            const tmp = new Chess(lastFen);
+            if (tmp.game_over()) return; // 메이트/스테일메이트 → 더 진행 불가.
+            setSimExtendState({ fen: lastFen, latestEval: null });
+            showEngineLoading('analysis_exploring');
+            getEngine().stop();
+            getEngine().setMultiPV(1);
+            getEngine().analyzeFen(lastFen, SIM_EXTEND_DEPTH);
+            return;
+        }
+        setSimulationIndex(simulationIndex + 1);
         updateBoardForSimulation(simulationIndex);
         return;
     }
@@ -790,9 +858,14 @@ function handleNextMove() {
         return;
     }
     if (appMode === APP_MODES.EXPLORE) {
-        exitExplorationMode();
-        if (currentlyViewedIndex >= 0 && analysisQueue[currentlyViewedIndex]) {
-            updateBoardPosition(currentlyViewedIndex, analysisQueue[currentlyViewedIndex].fen);
+        // > = 따라가본 변형 수 redo. 끝나면 no-op — 메인라인 진행은 returnMainLineBtn 이후 처리.
+        if (exploreRedoStack.length > 0) {
+            const m = popExploreRedo();
+            const res = explorationChess.move({ from: m.from, to: m.to, promotion: m.promotion });
+            if (res) {
+                syncExploreBoard();
+                kickExploreEngine(explorationChess.fen());
+            }
         }
         return;
     }
@@ -1174,9 +1247,17 @@ window.addEventListener('resize', () => {
 
 function handleExplorationMove(orig, dest) {
     if (isPreviewMode) return;
+    // 새 변형 수를 두면 fork — redo 스택 무효화. (프로그램적 redo는 이 경로를 안 탄다.)
+    clearExploreRedoStack();
+    clearSimExtend();
     if (appMode === APP_MODES.SIMULATE) {
         setAppMode(APP_MODES.EXPLORE);
-        explorationChess.load(simulationQueue[simulationIndex].fen);
+        // sim 베이스부터 현재 simulationIndex까지의 PV 수를 explorationChess history에 replay.
+        // 안 하면 사용자가 둔 1수만 undo 가능하고 그 직후 history 소진 분기로 메인라인까지 튐.
+        explorationChess.load(simulationQueue[0].fen);
+        for (let i = 1; i <= simulationIndex; i++) {
+            explorationChess.move(simulationQueue[i].san);
+        }
     } else if (!isExploreLikeMode()) {
         // MAIN → EXPLORE 첫 진입: 메인 라인의 현재 위치를 base로 잡고 returnMainLine 버튼 표시.
         // LIVE_INPUT은 진입 시 이미 explorationChess에 START_FEN이 로드돼 있으므로 이 블록 건너뜀.
@@ -1232,14 +1313,15 @@ function handleExplorationMove(orig, dest) {
 }
 
 function exitExplorationMode() {
+    clearSimExtend();
     setAppMode(APP_MODES.MAIN);
     hideReturnBtn();
     clearExplorationEngineLines();
     setSimulationQueue([]);
+    clearExploreRedoStack();
 
     // 풀 기반 배치는 단일 엔진과 독립적으로 진행되므로 별도 재개 불필요.
-    analysisStatus.className = 'tag engine-ready hidden';
-    analysisStatus.textContent = '';
+    hideEngineStatus();
 }
 
 // ==========================================
@@ -1251,6 +1333,11 @@ const engineCallbacks = {
         console.error("Failed to load Stockfish worker:", e);
     },
     onEval: (evalData) => {
+        // SIMULATE 라인 확장 중: multipv=1 라인만 누적, bestmove에서 finalize.
+        if (appMode === APP_MODES.SIMULATE && simExtendState && evalData.multipv === 1) {
+            simExtendState.latestEval = evalData;
+            return;
+        }
         if (!isExploreLikeMode()) return;
 
         // Stale-info 필터: stop() 직후 워커가 OLD 포지션의 잔여 info를 emit하는 경우가 있음.
@@ -1285,9 +1372,12 @@ const engineCallbacks = {
         }
     },
     onBestMove: () => {
+        if (appMode === APP_MODES.SIMULATE && simExtendState) {
+            finalizeSimExtend();
+            return;
+        }
         if (!isExploreLikeMode()) return;
-        analysisStatus.className = 'tag engine-ready hidden';
-        analysisStatus.textContent = '';
+        hideEngineStatus();
 
         // 라이브 모드: 새 분석 완료 → 마지막 수 분류. 단, lines가 stale 필터 통과해 채워졌을 때만.
         if (appMode === APP_MODES.LIVE_INPUT && analysisQueue.length > 0 && explorationEngineLines[0]) {
@@ -1960,6 +2050,7 @@ function updateBoardForSimulation(index) {
 
     engineLinesContainer.querySelectorAll('.sim-move').forEach(el => {
         el.addEventListener('click', () => {
+            clearSimExtend();
             setSimulationIndex(parseInt(el.dataset.simIndex, 10));
             updateBoardForSimulation(simulationIndex);
         });
