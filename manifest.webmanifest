@@ -1,6 +1,7 @@
 {
   "name": "Blundermate — 체스 복기 분석",
   "short_name": "블런더메이트",
+  "description": "Chess.com과 Lichess 게임을 Stockfish 엔진으로 분석하고 블런더를 자동 수집. Gemini AI 한국어 해설.",
   "lang": "ko",
   "start_url": "/",
   "scope": "/",
@@ -8,6 +9,7 @@
   "orientation": "portrait",
   "background_color": "#F7F7F8",
   "theme_color": "#F7F7F8",
+  "categories": ["games", "entertainment"],
   "icons": [
     {
       "src": "/icon-192.png",
@@ -20,6 +22,12 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }
