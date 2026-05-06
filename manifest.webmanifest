@@ -1,6 +1,6 @@
 {
-  "name": "Blundermate — 체스 복기 분석",
-  "short_name": "블런더메이트",
+  "name": "blundermate — 모바일 체스 복기",
+  "short_name": "blundermate",
   "description": "Chess.com과 Lichess 게임을 Stockfish 엔진으로 분석하고 블런더를 자동 수집. Gemini AI 한국어 해설.",
   "lang": "ko",
   "start_url": "/",
