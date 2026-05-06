@@ -1932,6 +1932,7 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     font-size: 13px;
     font-weight: 500;
     text-align: left;
+    text-decoration: none;
     cursor: pointer;
     transition: background 0.15s ease;
 }
@@ -2605,8 +2606,17 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
 }
 
 .onboarding-middle {
-    margin-top: 48px;
+    margin-top: 120px;
     padding: 0 24px;
+}
+
+.onboarding-credit {
+    margin-top: auto;
+    padding: 16px 0 calc(16px + env(safe-area-inset-bottom));
+    text-align: center;
+    font-size: 12px;
+    color: var(--tx3);
+    letter-spacing: -0.005em;
 }
 
 /* Apple/Notion 결: text-tab. 라벨/위계가 더 중요하므로 pill보다 underline 강조. */
@@ -2636,13 +2646,6 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
 .onboarding-platform-tab.selected {
     color: var(--tx);
     border-bottom-color: var(--tx);
-}
-
-.onboarding-label {
-    display: block;
-    font-size: 13px;
-    color: var(--tx3);
-    margin-bottom: 8px;
 }
 
 /* Vault / Saved 카드 공용 base — 홈 카드는 자체 .home-game-card 정의를 사용. */

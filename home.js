@@ -60,7 +60,6 @@ let _onboardingView = null;
 let _onboardingUsernameInput = null;
 let _onboardingSubmitBtn = null;
 let _onboardingPlatformTabs = null;
-let _onboardingLabel = null;
 
 // ==========================================
 // Username log (익명 닉네임 fire-and-forget)
@@ -512,7 +511,6 @@ function applyOnboardingPlatformUI(platform) {
         });
     }
     const isLichess = platform === PLATFORM_LICHESS;
-    if (_onboardingLabel) _onboardingLabel.textContent = t(isLichess ? 'onboarding_label_lichess' : 'onboarding_label');
     if (_onboardingUsernameInput) _onboardingUsernameInput.placeholder = t(isLichess ? 'usernamePlaceholder_lichess' : 'usernamePlaceholder');
 }
 
@@ -547,7 +545,6 @@ export function initHome({ syncBottomNav, SCREENS, handlePgnReviewStart }) {
     _onboardingUsernameInput = document.getElementById('onboardingUsernameInput');
     _onboardingSubmitBtn = document.getElementById('onboardingSubmitBtn');
     _onboardingPlatformTabs = document.getElementById('onboardingPlatformTabs');
-    _onboardingLabel = document.querySelector('#onboardingView .onboarding-label');
 
     // 무한 스크롤 — 게임 리스트 자체에서 스크롤 (프로필/헤더는 위에 고정).
     document.getElementById('homeRecentList')?.addEventListener('scroll', onHomeScroll, { passive: true });

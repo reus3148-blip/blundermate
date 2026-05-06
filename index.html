@@ -1,16 +1,18 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ko">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1">
-    <title>Blundermate</title>
+    <title>Blundermate · 모바일 체스 복기</title>
+    <meta name="description" content="Chess.com과 Lichess 게임을 Stockfish 엔진으로 분석하고 블런더를 자동 수집. Gemini AI 한국어 해설로 모바일에서 게임을 복기하세요.">
+    <link rel="canonical" href="https://blundermate.app/">
     <link rel="manifest" href="/manifest.webmanifest">
     <meta name="theme-color" content="#F7F7F8">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="블런더메이트">
-    <link rel="apple-touch-icon" href="/logo.png">
-    <link rel="icon" href="/logo.png" type="image/png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/chessground@9.0.0/assets/chessground.base.css">
@@ -50,12 +52,12 @@
                     <button type="button" class="onboarding-platform-tab selected" data-platform="chesscom" role="tab" data-i18n="onboarding_platform_chesscom">Chess.com</button>
                     <button type="button" class="onboarding-platform-tab" data-platform="lichess" role="tab" data-i18n="onboarding_platform_lichess">Lichess</button>
                 </div>
-                <label class="onboarding-label" for="onboardingUsernameInput" data-i18n="onboarding_label">Chess.com 아이디를 입력하세요</label>
                 <div class="username-input-wrap">
                     <input type="text" id="onboardingUsernameInput" class="home-text-input" data-i18n-placeholder="usernamePlaceholder" placeholder="Chess.com 유저네임" />
                     <button id="onboardingSubmitBtn" class="home-submit-btn" title="시작하기">→</button>
                 </div>
             </div>
+            <div class="onboarding-credit">@bywxx</div>
         </div>
 
         <!-- Home View -->
@@ -468,6 +470,7 @@
                     <h3 class="settings-section-label" data-i18n="settings_section_support">Support</h3>
                     <button class="settings-row settings-row--nav" id="settingsFeedbackBtn" data-i18n="home_feedback">피드백</button>
                     <button class="settings-row settings-row--nav" id="settingsAboutBtn" data-i18n="settings_about">이 앱에 대해</button>
+                    <a class="settings-row settings-row--nav" href="/privacy.html" target="_blank" rel="noopener" data-i18n="settings_privacy">개인정보처리방침</a>
                 </section>
 
                 <!-- Account (destructive) -->
