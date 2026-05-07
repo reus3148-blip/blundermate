@@ -6,7 +6,7 @@
 
 import { getDepth, setDepth } from './analysis.js';
 import { getIsGeminiEnabled, setIsGeminiEnabled } from './gemini.js';
-import { setHomeTcFilter } from './home.js';
+import { setDefaultTcFilter } from './home.js';
 import { COORDS_KEY, DEFAULT_TC_KEY, clearIdentity } from './storage.js';
 import { setLocale, getLocale, t } from './strings.js';
 import { showConfirm, showToast } from './dialogs.js';
@@ -80,7 +80,7 @@ function wireSettingsPage() {
     document.getElementById('langEnBtn')?.addEventListener('click', () => applyLocaleChange('en'));
 
     document.getElementById('defaultTcSelect')?.addEventListener('change', (e) => {
-        setHomeTcFilter(e.target.value);
+        setDefaultTcFilter(e.target.value);
     });
 
     document.getElementById('depthSelect')?.addEventListener('change', (e) => {

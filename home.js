@@ -420,11 +420,12 @@ function syncTcFilterUI() {
     });
 }
 
+// 홈 드롭다운에서 호출 — 세션 한정 변경. localStorage 영속화 안 함 (앱 재시작 시 default로 복귀).
+// 설정에서 default를 바꾸려면 setDefaultTcFilter 사용.
 export function setHomeTcFilter(tc) {
     if (!VALID_TC.includes(tc)) return;
     if (tc === homeTimeClassFilter) return;
     homeTimeClassFilter = tc;
-    try { localStorage.setItem(DEFAULT_TC_KEY, tc); } catch {}
     syncTcFilterUI();
     const displayUser = getMyUserId();
     if (cachedHomeGames.length > 0 && displayUser) {
@@ -432,6 +433,13 @@ export function setHomeTcFilter(tc) {
         updateProfileCardRecord(cachedHomeGames, displayUser);
     }
     updateProfileCardRating();
+}
+
+// 설정에서 호출 — localStorage 영속 + 현재 홈 필터에도 즉시 반영.
+export function setDefaultTcFilter(tc) {
+    if (!VALID_TC.includes(tc)) return;
+    try { localStorage.setItem(DEFAULT_TC_KEY, tc); } catch {}
+    setHomeTcFilter(tc);
 }
 
 function toggleHomeTcMenu(forceState) {
