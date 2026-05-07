@@ -72,6 +72,16 @@ function normalizeGame(game) {
     };
 }
 
+// 사용자 존재 검증. 404 → false, 200 → true, 네트워크 에러 → throw.
+export async function verifyUserExists(username) {
+    if (!username) return false;
+    const safe = encodeURIComponent(username.trim());
+    const res = await fetch(`https://lichess.org/api/user/${safe}`, FETCH_OPTS);
+    if (res.status === 404) return false;
+    if (!res.ok) throw new Error(`API error: ${res.status}`);
+    return true;
+}
+
 export async function fetchPlayerProfile(username) {
     if (!username) return null;
     const lower = username.toLowerCase();

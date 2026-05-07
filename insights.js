@@ -1004,8 +1004,8 @@ function pairCards(...cards) {
 // 4탭 카드 빌더 (design_handoff_insights_dashboard §2 매핑).
 //   summary:  hero 요약 + 결과 흐름 + 레이팅 변화
 //   results:  by-color + termination + castling + trade activity
-//   openings: by-time-class + vs opp diff + top openings + first move
-//   patterns: 게임 길이 + 시간대/요일 + 시계(평균/압박/즉답) + 단계별 + 자주 만난 상대
+//   openings: by-time-class + top openings + first move
+//   patterns: 게임 길이 + 시간대/요일 + 시계 + 단계별 + 상대 레이팅 차이 + 자주 만난 상대
 function buildSummaryCards(insights, opts) {
     const { recent, prior, streaks, narrative, streakiness, ratingChange } = opts;
     const cards = [renderOverallCard(insights.overall, { recent, prior, streaks, narrative, streakiness })];
@@ -1030,7 +1030,6 @@ function buildOpeningsCards(insights, opts) {
     const { recent, prior } = opts;
     const cards = [];
     if (opts.showTimeClassCard !== false) cards.push(renderTimeClassCard(insights.byTimeClass, recent, prior));
-    cards.push(renderOpponentDiffCard(insights.byOppDiff));
     cards.push(renderOpeningsCard(insights.topOpenings, recent, prior));
     cards.push(renderFirstMoveCard(insights.firstMoveWhite));
     return cards;
@@ -1048,6 +1047,8 @@ function buildPatternsCards(insights, opts) {
             renderInstantMovesCard(insights.timeStats),
         ),
         renderPhaseTimeCard(insights.timeStats),
+        // 상대 관련 카드 묶음(레이팅 차이별 성적 + 자주 만난 상대) — 둘 다 "vs 상대" 관점.
+        renderOpponentDiffCard(insights.byOppDiff),
         renderOpponentsCard(insights.topOpponents),
     ];
 }

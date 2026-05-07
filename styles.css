@@ -2585,6 +2585,13 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     padding: 0 24px;
 }
 
+.onboarding-error {
+    margin-top: 12px;
+    font-size: 13px;
+    color: var(--blunder);
+    text-align: center;
+}
+
 .onboarding-credit {
     margin-top: auto;
     padding: 16px 0 calc(16px + env(safe-area-inset-bottom));
@@ -3837,6 +3844,18 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
 .insight-pair > .insight-card { padding: 14px 14px 12px; }
 .insight-pair > .insight-card .insight-big-value { font-size: 22px; }
 .insight-pair > .insight-card .insight-big-sub { font-size: 10px; }
+
+/* 3분할 카드: 좁은 폭(약 110px)에서 value+sub 가로 정렬은 sub가 단어 단위로 4~5줄
+   잘려 깨져 보임. column으로 풀어 value 위 / sub 아래 자연스럽게 흐르게. */
+.insight-pair--3 .insight-big-metric {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+}
+.insight-pair--3 .insight-big-sub {
+    text-align: left;
+    flex: none;
+}
 
 /* 컬럼 차트 — 분포 시각화 (요일/시간대/상대레이팅/첫수 등)
    막대 높이 = 표본 크기, 색 = 승률 (red→gray→green 그라데이션) */

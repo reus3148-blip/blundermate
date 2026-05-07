@@ -12,7 +12,7 @@
 //   syncBottomNav, SCREENS, handlePgnReviewStart })로 주입. refreshHomeCounts는
 //   main.js의 renderScreen(HOME)에서 직접 호출.
 
-import { fetchRecentGames, fetchPlayerProfile } from './chessApi.js';
+import { fetchRecentGames, fetchPlayerProfile, verifyUserExists } from './chessApi.js';
 import {
     getMyUserId, setMyUserId, getMyPlatform, setMyPlatform,
     PLATFORM_CHESSCOM, PLATFORM_LICHESS, ONBOARDING_KEY, DEFAULT_TC_KEY,
@@ -520,6 +520,50 @@ export function refreshHomeCounts() {
 // ==========================================
 // Onboarding
 // ==========================================
+function setOnboardingError(msg) {
+    const el = document.getElementById('onboardingError');
+    if (!el) return;
+    el.textContent = msg;
+    el.classList.remove('hidden');
+}
+function clearOnboardingError() {
+    const el = document.getElementById('onboardingError');
+    if (!el) return;
+    el.textContent = '';
+    el.classList.add('hidden');
+}
+// 검증 in-flight 가드 — 빠른 더블 submit 방지. UI 변화 없음(응답 100~300ms로 깜빡임만 발생).
+let _onboardingPending = false;
+
+async function submitOnboarding() {
+    if (_onboardingPending || !_onboardingUsernameInput) return;
+    const username = _onboardingUsernameInput.value.trim();
+    if (!username) {
+        _onboardingUsernameInput.focus();
+        return;
+    }
+    // verifyUserExists는 현재 platform을 기준으로 분배 — 검증 전에 미리 setMyPlatform.
+    setMyPlatform(onboardingPlatform);
+    clearOnboardingError();
+    _onboardingPending = true;
+    try {
+        const exists = await verifyUserExists(username);
+        if (!exists) {
+            setOnboardingError(t('onboarding_error_not_found'));
+            _onboardingUsernameInput.focus();
+            return;
+        }
+    } catch (_) {
+        setOnboardingError(t('onboarding_error_network'));
+        return;
+    } finally {
+        _onboardingPending = false;
+    }
+    setMyUserId(username);
+    logUsernameToServer(username, 'onboarding');
+    finishOnboarding();
+}
+
 function applyOnboardingPlatformUI(platform) {
     onboardingPlatform = platform;
     if (_onboardingPlatformTabs) {
@@ -600,24 +644,15 @@ export function initHome({ syncBottomNav, SCREENS, handlePgnReviewStart }) {
         if (platform !== PLATFORM_CHESSCOM && platform !== PLATFORM_LICHESS) return;
         if (platform === onboardingPlatform) return;
         applyOnboardingPlatformUI(platform);
+        clearOnboardingError();
     });
 
-    // 온보딩 — 제출
-    _onboardingSubmitBtn?.addEventListener('click', () => {
-        if (!_onboardingUsernameInput) return;
-        const username = _onboardingUsernameInput.value.trim();
-        if (!username) {
-            _onboardingUsernameInput.focus();
-            return;
-        }
-        setMyPlatform(onboardingPlatform);
-        setMyUserId(username);
-        logUsernameToServer(username, 'onboarding');
-        finishOnboarding();
-    });
+    _onboardingSubmitBtn?.addEventListener('click', submitOnboarding);
     _onboardingUsernameInput?.addEventListener('keyup', (e) => {
-        if (e.key === 'Enter') _onboardingSubmitBtn?.click();
+        if (e.key === 'Enter') submitOnboarding();
     });
+    // 입력 변경 시 직전 에러 메시지 자동 클리어 — 재시도 시 잔재 안 보이게.
+    _onboardingUsernameInput?.addEventListener('input', () => clearOnboardingError());
 
     // 온보딩 부트스트랩 — 첫 진입이면 온보딩 화면 노출, 아니면 홈 데이터 로드 + 캐시 사용자 로그.
     if (!localStorage.getItem(ONBOARDING_KEY)) {

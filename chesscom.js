@@ -10,6 +10,17 @@ let cachedGamesUser = null;
 
 const FETCH_OPTS = { method: 'GET', mode: 'cors', headers: { 'Accept': 'application/json' } };
 
+// 사용자 존재 검증. 404 → false, 200 → true, 네트워크 에러 → throw.
+// fetchPlayerProfile은 catch로 null 삼키고 ratings 빈값을 반환해서 not-found 구분 불가 — 별도로 분리.
+export async function verifyUserExists(username) {
+    if (!username) return false;
+    const safe = encodeURIComponent(username.trim());
+    const res = await fetch(`https://api.chess.com/pub/player/${safe}`, FETCH_OPTS);
+    if (res.status === 404) return false;
+    if (!res.ok) throw new Error(`API error: ${res.status}`);
+    return true;
+}
+
 export async function fetchPlayerProfile(username) {
     if (!username) return null;
     const lower = username.toLowerCase();
