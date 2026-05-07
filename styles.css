@@ -1859,12 +1859,21 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
 }
 .modal-close-btn:hover { color: var(--tx); }
 
-/* 설정 모달은 콘텐츠가 빽빽한 편이라 다른 모달보다 살짝 좁은 섹션 간격으로 cap fit */
-#settingsModal .modal-content {
+/* 페이지 view-container의 본문 영역. analysis-top-bar 아래 스크롤 컨테이너.
+   settings/about/feedback 페이지가 공유. 섹션 간격은 .page-scroll { gap }이 소유. */
+.page-scroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
     gap: 1.1rem;
 }
 
-/* 섹션 컨테이너 — 한 그룹의 row 묶음. 섹션 사이 간격은 .modal-content { gap } 이 소유 */
+/* 섹션 컨테이너 — 한 그룹의 row 묶음. 섹션 사이 간격은 .page-scroll { gap } 이 소유 */
 .settings-section {
     display: flex;
     flex-direction: column;
@@ -1945,24 +1954,6 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     font-size: 18px;
     line-height: 1;
     margin-left: 0.5rem;
-}
-
-/* 푸터 — 빌드/배포 메타. 위쪽 보더 한 줄로 본문과 구분 */
-.settings-footer {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    padding-top: 12px;
-    border-top: 1px solid var(--brd);
-    font-size: 11px;
-    color: var(--tx3);
-}
-.settings-footer-label {
-    font-weight: 500;
-}
-.settings-footer-value {
-    font-family: 'IBM Plex Mono', 'SF Mono', monospace;
-    color: var(--tx3);
 }
 
 /* Destructive row — iOS Sign Out 결. row 자체가 button, 빨간 텍스트만으로 위계 표현 */
@@ -2096,22 +2087,9 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
 }
 
 /* ==========================================
-   Feedback Modal Buttons
+   Feedback Page
    ========================================== */
-.feedback-cancel-btn {
-    background: none;
-    border: none;
-    color: var(--tx2);
-    font-size: 14px;
-    cursor: pointer;
-    font-family: inherit;
-    padding: 0 0.5rem;
-    transition: color 0.15s ease;
-}
-.feedback-cancel-btn:hover { color: var(--tx); }
-
 .feedback-send-btn {
-    flex: 1;
     height: 44px;
     border-radius: 8px;
     background: var(--ac);
@@ -2127,21 +2105,18 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
 .feedback-send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .feedback-textarea {
-    min-height: 120px;
+    min-height: 160px;
     font-family: inherit;
     font-size: 0.9rem;
     padding: 12px;
-    resize: none;
-}
-
-.feedback-status-row {
-    margin-top: 20px;
+    resize: vertical;
 }
 
 .feedback-status-text {
-    width: 100%;
     font-size: 0.85rem;
     color: var(--tx2);
+    min-height: 1.2em;
+    margin-top: 8px;
 }
 
 .feedback-action-row {

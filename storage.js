@@ -37,6 +37,17 @@ export function setMyPlatform(platform) {
     if (VALID_PLATFORMS.has(platform)) localStorage.setItem(PLATFORM_KEY, platform);
 }
 
+// 로그아웃: 계정 식별자 + 온보딩 플래그만 초기화. VAULT/SAVED는 유지 — 같은 ID로 재로그인 시 복구.
+export function clearIdentity() {
+    try {
+        localStorage.removeItem(USER_ID_KEY);
+        localStorage.removeItem(PLATFORM_KEY);
+        localStorage.removeItem(ONBOARDING_KEY);
+    } catch (e) {
+        console.error('clearIdentity failed:', e);
+    }
+}
+
 // ── Supabase proxy helper ──────────────────────────────────────────
 // callDB가 platform을 자동 주입 — 호출자는 신경 안 써도 (user_id, platform) 격리됨.
 // insert는 data row에도 platform을 박아 서버측 spoofing 검증을 통과시킨다.

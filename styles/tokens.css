@@ -96,7 +96,12 @@ body {
     height: 100dvh; /* 모바일 브라우저 하단 스크롤 잘림(100vh 버그) 완벽 방지 */
     background-color: var(--bg-base); /* PC 배경과 구분하기 위한 배경색 */
     box-shadow: 0 0 40px rgba(0, 0, 0, 0.12); /* 앱 영역 강조 그림자 — 라이트 배경에 맞춰 약화 */
-    overflow: hidden;
+    /* overflow:clip으로 scrollable container 자체를 차단. overflow:hidden은 클립만 하지만
+       scrollable이라서 자식 element가 focus될 때 브라우저가 자동 scrollIntoView로
+       .app-container.scrollTop을 변경할 수 있음. 페이지화 후 in-flow 콘텐츠가
+       moves-overlay-sheet의 transform:translateY(100%) 인접 영향으로 scrollHeight가
+       viewport보다 커지면서 발생. clip은 scrollable 컨테이너 자체를 무효화. */
+    overflow: clip;
     position: relative;
     /* 바텀 네비게이션이 보일 때는 nav가 자체 padding으로 safe-area 처리,
        숨겨져 있을 때(분석/입력 화면)만 .app-container가 safe-area 보정 */

@@ -1,8 +1,8 @@
 import { Chessground } from 'https://cdnjs.cloudflare.com/ajax/libs/chessground/9.0.0/chessground.min.js';
-import { initHome, refreshHomeCounts, showOnboarding, setHomeTcFilter } from './home.js';
+import { initHome, refreshHomeCounts, showOnboarding } from './home.js';
 import { initDialogs, showAlert, showConfirm, showToast } from './dialogs.js';
 import {
-    initAnalysis, getEngine, getDepth, setDepth,
+    initAnalysis, getEngine, getDepth,
     analysisQueue, setQueue,
     isRunning, isAwaitingRestart, scheduleRestart,
     runBatch, stopAndClear,
@@ -22,16 +22,17 @@ import {
 } from './modes.js';
 import { parseEvalData, getDests, convertPvToSan, parseAndLoadPgn, isValidFen, escapeHtml, parseOpeningFromPgn, getTier, TIERS, classifyMove } from './utils.js';
 import { renderMovesTable, updateUIWithEval, highlightActiveMove, renderEngineLines, updateTopEvalDisplay, renderReviewReport, buildPreviewCardHtml } from './ui.js';
-import { addVaultItem, getMyUserId, ONBOARDING_KEY, COORDS_KEY, EVAL_MODE_KEY, DEFAULT_TC_KEY, computePgnHash, upsertAnalyzedGame, loadAnalysisCache, saveAnalysisCache, isCacheCompatible, ANALYSIS_CACHE_VERSION } from './storage.js';
+import { addVaultItem, getMyUserId, COORDS_KEY, EVAL_MODE_KEY, computePgnHash, upsertAnalyzedGame, loadAnalysisCache, saveAnalysisCache, isCacheCompatible, ANALYSIS_CACHE_VERSION } from './storage.js';
 import { collectAutoBlunders } from './autoBlunders.js';
 import { initVault, isVaultDetailActive, isVaultPuzzleActive, getVaultDetailIndex, setVaultDetailIndex, flipVaultBoard, setVaultCoords, redrawVaultBoard, loadVaultData, loadBlunderListData, redrawVaultPuzzleBoard } from './vault.js';
 import { initSavedGames, loadSavedGamesData } from './savedGames.js';
 import { initInsights, loadInsightsData } from './insights.js';
+import { initSettings, onSettingsViewEnter, onFeedbackViewEnter } from './settings.js';
 import {
     initGemini, handleGeminiExplanation, renderAiTabContent,
-    getIsGeminiEnabled, setIsGeminiEnabled, abortPendingGemini,
+    abortPendingGemini,
 } from './gemini.js';
-import { t, setLocale, getLocale } from './strings.js';
+import { t, getLocale } from './strings.js';
 import { pickQuote, quotesReady } from './quotes.js';
 
 // 다이얼로그 헬퍼 (showToast/showAlert/showConfirm)는 dialogs.js로 이전.
@@ -113,24 +114,9 @@ const tierModal = document.getElementById('tierModal');
 const tierList = document.getElementById('tierList');
 const closeTierModalBtn = document.getElementById('closeTierModalBtn');
 
-// Settings Elements
+// Settings/About/Feedback are now pages — settings.js handles wiring.
+// Only the home top-bar entry point lives here.
 const settingsBtn = document.getElementById('homeSettingsBtn');
-const settingsModal = document.getElementById('settingsModal');
-const coordsToggle = document.getElementById('coordsToggle');
-const geminiToggle = document.getElementById('geminiToggle');
-
-// About Modal Elements
-const aboutModal = document.getElementById('aboutModal');
-const settingsAboutBtn = document.getElementById('settingsAboutBtn');
-
-// Feedback Elements
-const feedbackBtn = document.getElementById('settingsFeedbackBtn');
-const feedbackModal = document.getElementById('feedbackModal');
-const feedbackInput = document.getElementById('feedbackInput');
-const cancelFeedbackBtn = document.getElementById('cancelFeedbackBtn');
-const closeFeedbackBtn = document.getElementById('closeFeedbackBtn');
-const submitFeedbackBtn = document.getElementById('submitFeedbackBtn');
-const feedbackStatusText = document.getElementById('feedbackStatusText');
 
 // ==========================================
 // 2. Application State
@@ -163,6 +149,9 @@ const SCREENS = {
     VAULT_DETAIL: 'vault_detail',
     SAVED_GAMES: 'saved_games',
     INSIGHTS: 'insights',
+    SETTINGS: 'settings',
+    ABOUT: 'about',
+    FEEDBACK: 'feedback',
 };
 
 let _currentScreen = SCREENS.HOME;
@@ -207,6 +196,9 @@ function hideAllViews() {
     vaultDetailViewNav.classList.add('hidden');
     savedGamesViewNav.classList.add('hidden');
     if (insightsViewNav) insightsViewNav.classList.add('hidden');
+    document.getElementById('settingsView')?.classList.add('hidden');
+    document.getElementById('aboutView')?.classList.add('hidden');
+    document.getElementById('feedbackView')?.classList.add('hidden');
 }
 
 // 단일 엔진(stockfish)을 쓰는 모드들 — 분석 화면이 보드 자유 입력으로 동작.
@@ -266,6 +258,17 @@ function renderScreen(screen) {
         case SCREENS.INSIGHTS:
             if (insightsViewNav) insightsViewNav.classList.remove('hidden');
             loadInsightsData();
+            break;
+        case SCREENS.SETTINGS:
+            document.getElementById('settingsView')?.classList.remove('hidden');
+            onSettingsViewEnter();
+            break;
+        case SCREENS.ABOUT:
+            document.getElementById('aboutView')?.classList.remove('hidden');
+            break;
+        case SCREENS.FEEDBACK:
+            document.getElementById('feedbackView')?.classList.remove('hidden');
+            onFeedbackViewEnter();
             break;
         default:
             homeView.classList.remove('hidden');
@@ -378,20 +381,23 @@ applyLocale();
 // initVault() is called after showMovesOverlay/closeMovesOverlay are defined (see below)
 
 // ==========================================
-// 3-3. Settings UI
+// 3-3. Settings entry point + color choice modal
 // ==========================================
-geminiToggle.checked = getIsGeminiEnabled();
+// 설정/About/피드백은 settings.js가 페이지로 관리. 홈 ⚙ 클릭 → SETTINGS 페이지.
+settingsBtn.addEventListener('click', () => navigateTo(SCREENS.SETTINGS));
 
-geminiToggle.addEventListener('change', (e) => {
-    setIsGeminiEnabled(e.target.checked);
-});
-
-coordsToggle.checked = isCoordsEnabled;
-coordsToggle.addEventListener('change', (e) => {
-    isCoordsEnabled = e.target.checked;
-    localStorage.setItem(COORDS_KEY, isCoordsEnabled);
-    if (cg) cg.set({ coordinates: isCoordsEnabled });
-    setVaultCoords(isCoordsEnabled);
+initSettings({
+    navigateTo,
+    SCREENS,
+    applyLocale,
+    renderAiTabContentIfActive: () => {
+        if (!analysisView.classList.contains('hidden')) renderAiTabContent();
+    },
+    applyCoords: (enabled) => {
+        if (cg) cg.set({ coordinates: enabled });
+        setVaultCoords(enabled);
+    },
+    showOnboarding,
 });
 
 chooseWhiteBtn.addEventListener('click', () => {
@@ -402,71 +408,6 @@ chooseBlackBtn.addEventListener('click', () => {
     colorChoiceModal.classList.add('hidden');
     if (pendingAnalysisCallback) { pendingAnalysisCallback(false); pendingAnalysisCallback = null; }
 });
-
-let _lastPushFetched = false;
-async function fetchLastPushTime() {
-    const el = document.getElementById('lastPushTime');
-    if (!el) return;
-    if (_lastPushFetched) return;
-    el.textContent = '—';
-    try {
-        // /api/version은 Vercel env(VERCEL_GIT_COMMIT_AUTHOR_DATE)를 그대로 노출.
-        // GitHub API rate limit / 외부 의존 / "Failed to fetch" 메시지 폭주 회피.
-        const res = await fetch('/api/version');
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        const data = await res.json();
-        if (!data?.commitDate) {
-            // 로컬 dev나 미배포 환경 — 빈 값. 사용자에게 알 필요 없음.
-            _lastPushFetched = true;
-            return;
-        }
-        const d = new Date(data.commitDate);
-        el.textContent = d.toLocaleString();
-        _lastPushFetched = true;
-    } catch (e) {
-        // Edge Function 미배포 / 네트워크 단절. 조용히 폴백.
-        el.textContent = '—';
-    }
-}
-
-settingsBtn.addEventListener('click', () => {
-    settingsModal.classList.remove('hidden');
-    fetchLastPushTime();
-    const depthSelect = document.getElementById('depthSelect');
-    if (depthSelect) depthSelect.value = String(getDepth());
-    const tcSelect = document.getElementById('defaultTcSelect');
-    if (tcSelect) tcSelect.value = localStorage.getItem(DEFAULT_TC_KEY) || 'rapid';
-});
-
-document.getElementById('depthSelect')?.addEventListener('change', (e) => {
-    setDepth(e.target.value);
-});
-
-document.getElementById('defaultTcSelect')?.addEventListener('change', (e) => {
-    setHomeTcFilter(e.target.value);
-});
-
-const logoutBtn = document.getElementById('logoutBtn');
-if (logoutBtn) {
-    logoutBtn.addEventListener('click', async () => {
-        const ok = await showConfirm(t('settings_logout_confirm'), {
-            okLabel: t('settings_logout'),
-            destructive: true,
-        });
-        if (!ok) return;
-        // 내 계정 식별자 + 온보딩 완료 플래그만 초기화.
-        // VAULT_KEY / SAVED_GAMES_KEY는 유지 — 같은 ID로 재로그인 시 복구 가능해야 함.
-        try {
-            localStorage.removeItem('blundermate_user_id');
-            localStorage.removeItem('blundermate_platform');
-            localStorage.removeItem(ONBOARDING_KEY);
-        } catch (e) {
-            console.error('Logout cleanup failed:', e);
-        }
-        settingsModal.classList.add('hidden');
-        showOnboarding();
-    });
-}
 
 function closeModal(modal) {
     if (modal) modal.classList.add('hidden');
@@ -506,10 +447,6 @@ if (profileTierBtn && tierModal) {
 }
 
 const modalConfigs = [
-    { modal: settingsModal, closeBtn: document.getElementById('closeSettingsBtn') },
-    { modal: aboutModal, closeBtn: document.getElementById('closeAboutBtn') },
-    { modal: feedbackModal, closeBtn: cancelFeedbackBtn },
-    { modal: feedbackModal, closeBtn: closeFeedbackBtn },
     { modal: tierModal, closeBtn: closeTierModalBtn },
     { modal: saveChoiceModal, closeBtn: cancelChoiceBtn, noBg: true },
     { modal: saveModal, closeBtn: cancelSaveBtn, noBg: true },
@@ -520,80 +457,6 @@ modalConfigs.forEach(({ modal, closeBtn, noBg }) => {
     if (!modal) return;
     if (closeBtn) closeBtn.addEventListener('click', () => closeModal(modal));
     if (!noBg) modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(modal); });
-});
-
-// Feedback Logic — 설정 모달 안의 피드백 버튼. 클릭 시 설정 모달 닫고 피드백 모달 오픈.
-if (feedbackBtn) {
-    feedbackBtn.addEventListener('click', () => {
-        settingsModal.classList.add('hidden');
-        feedbackInput.value = '';
-        feedbackStatusText.textContent = '';
-        feedbackModal.classList.remove('hidden');
-    });
-}
-
-// About 모달 — 설정 → About 진입. 설정 닫고 About 열기.
-if (settingsAboutBtn && aboutModal) {
-    settingsAboutBtn.addEventListener('click', () => {
-        settingsModal.classList.add('hidden');
-        aboutModal.classList.remove('hidden');
-    });
-}
-// 피드백 진입점은 설정 모달 안의 #settingsFeedbackBtn으로 통일 (홈 FAB는 리디자인 v2에서 제거됨).
-if (submitFeedbackBtn) {
-    submitFeedbackBtn.addEventListener('click', async () => {
-        const content = feedbackInput.value.trim();
-        if (!content) {
-            feedbackStatusText.textContent = t('feedback_validation');
-            feedbackStatusText.style.color = 'var(--blunder)';
-            return;
-        }
-
-        submitFeedbackBtn.disabled = true;
-        submitFeedbackBtn.textContent = t('feedback_sending');
-        feedbackStatusText.textContent = '';
-
-        try {
-            const res = await fetch('/api/feedback', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ content })
-            });
-
-            if (res.ok) {
-                feedbackStatusText.textContent = t('feedback_success');
-                feedbackStatusText.style.color = 'var(--best)';
-                setTimeout(() => {
-                    feedbackModal.classList.add('hidden');
-                }, 1500);
-            } else {
-                let errText = t('feedback_error_label');
-                try {
-                    const errJson = await res.json();
-                    if (errJson.error) errText = errJson.error;
-                } catch(e) {}
-                feedbackStatusText.textContent = errText;
-                feedbackStatusText.style.color = 'var(--blunder)';
-            }
-        } catch (error) {
-            feedbackStatusText.textContent = t('feedback_error_network');
-            feedbackStatusText.style.color = 'var(--blunder)';
-        } finally {
-            submitFeedbackBtn.disabled = false;
-            submitFeedbackBtn.textContent = t('feedback_send');
-        }
-    });
-}
-
-document.getElementById('langKoBtn').addEventListener('click', () => {
-    setLocale('ko');
-    applyLocale();
-    if (!analysisView.classList.contains('hidden')) renderAiTabContent();
-});
-document.getElementById('langEnBtn').addEventListener('click', () => {
-    setLocale('en');
-    applyLocale();
-    if (!analysisView.classList.contains('hidden')) renderAiTabContent();
 });
 
 // ==========================================

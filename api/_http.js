@@ -6,7 +6,7 @@
 // 클라이언트는 credentials:'include' 안 씀 — 쿠키/Authorization 자동 전송 불필요.
 export const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'OPTIONS, GET, POST',
+    'Access-Control-Allow-Methods': 'OPTIONS, POST',
     'Access-Control-Allow-Headers': 'Content-Type'
 };
 
@@ -17,14 +17,12 @@ export function jsonResponse(body, status = 200) {
     });
 }
 
-// OPTIONS preflight 처리 + 메소드 화이트리스트.
-// 통과 → null. 그 외 → 즉시 응답해야 할 Response 객체.
-// allowed 기본값 ['POST'] — 기존 callers (db, analyze, feedback, log-username) 호환.
-export function methodGuard(req, allowed = ['POST']) {
+// OPTIONS preflight 처리 + POST 외 거절. 통과 → null, 그 외 → 즉시 응답할 Response.
+export function methodGuard(req) {
     if (req.method === 'OPTIONS') {
         return new Response(null, { status: 200, headers: corsHeaders });
     }
-    if (!allowed.includes(req.method)) {
+    if (req.method !== 'POST') {
         return jsonResponse({ error: 'Method Not Allowed' }, 405);
     }
     return null;

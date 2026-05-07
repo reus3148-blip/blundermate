@@ -403,34 +403,40 @@
             </div>
         </div>
 
-        <!-- Feedback Modal -->
-        <div id="feedbackModal" class="modal-overlay hidden">
-            <div class="modal-content modal-content--narrow">
-                <div class="modal-header">
-                    <h2 data-i18n="feedback_title">피드백</h2>
-                    <button id="closeFeedbackBtn" class="modal-close-btn">✕</button>
-                </div>
+        <!-- Feedback View (page) -->
+        <div id="feedbackView" class="view-container hidden">
+            <div class="analysis-top-bar">
+                <button id="feedbackBackBtn" class="back-btn">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                    <span data-i18n="back">Back</span>
+                </button>
+                <span class="top-bar-title" data-i18n="feedback_title">피드백</span>
+                <div class="top-bar-spacer"></div>
+            </div>
+
+            <div class="page-scroll">
                 <div class="form-group">
-                    <textarea id="feedbackInput" class="text-input feedback-textarea" placeholder="웹사이트에 대한 의견이나 버그를 자유롭게 남겨주세요..."></textarea>
+                    <textarea id="feedbackInput" class="text-input feedback-textarea" placeholder="웹사이트에 대한 의견이나 버그를 자유롭게 남겨주세요..." data-i18n-placeholder="feedback_placeholder"></textarea>
                 </div>
-                <div class="modal-actions modal-actions--spread feedback-status-row">
-                    <div id="feedbackStatusText" class="feedback-status-text"></div>
-                </div>
-                <div class="modal-actions feedback-action-row">
-                    <button id="cancelFeedbackBtn" class="feedback-cancel-btn" data-i18n="cancel">취소</button>
-                    <button id="submitFeedbackBtn" class="feedback-send-btn" data-i18n="feedback_send">전송</button>
+                <div id="feedbackStatusText" class="feedback-status-text"></div>
+                <div class="feedback-action-row">
+                    <button id="submitFeedbackBtn" class="feedback-send-btn btn-full" data-i18n="feedback_send">전송</button>
                 </div>
             </div>
         </div>
 
-        <!-- Settings Modal (app-container 내부에 배치하여 PC 환경에서 앱 영역 밖을 덮지 않도록 함) -->
-        <div id="settingsModal" class="modal-overlay hidden">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h2 data-i18n="settings">Settings</h2>
-                    <button id="closeSettingsBtn" class="modal-close-btn">&times;</button>
-                </div>
+        <!-- Settings View (page) -->
+        <div id="settingsView" class="view-container hidden">
+            <div class="analysis-top-bar">
+                <button id="settingsBackBtn" class="back-btn">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                    <span data-i18n="back">Back</span>
+                </button>
+                <span class="top-bar-title" data-i18n="settings">Settings</span>
+                <div class="top-bar-spacer"></div>
+            </div>
 
+            <div class="page-scroll">
                 <!-- General -->
                 <section class="settings-section">
                     <h3 class="settings-section-label" data-i18n="settings_section_general">General</h3>
@@ -513,23 +519,21 @@
                 <section class="settings-section settings-section--danger">
                     <button class="settings-row settings-row--destructive" id="logoutBtn" data-i18n="settings_logout">로그아웃</button>
                 </section>
-
-                <!-- Footer meta -->
-                <div class="settings-footer">
-                    <span class="settings-footer-label" data-i18n="settings_last_push">Last push</span>
-                    <span id="lastPushTime" class="settings-footer-value">—</span>
-                </div>
             </div>
         </div>
 
-        <!-- About Modal -->
-        <div id="aboutModal" class="modal-overlay hidden">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h2 data-i18n="about_title">Blundermate</h2>
-                    <button id="closeAboutBtn" class="modal-close-btn">&times;</button>
-                </div>
+        <!-- About View (page) -->
+        <div id="aboutView" class="view-container hidden">
+            <div class="analysis-top-bar">
+                <button id="aboutBackBtn" class="back-btn">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                    <span data-i18n="back">Back</span>
+                </button>
+                <span class="top-bar-title" data-i18n="about_title">Blundermate</span>
+                <div class="top-bar-spacer"></div>
+            </div>
 
+            <div class="page-scroll">
                 <p class="about-desc" data-i18n="about_desc">체스 게임 리뷰 웹앱. PGN 또는 Chess.com에서 게임을 불러와 Stockfish 분석과 Gemini 한국어 해설을 제공합니다.</p>
 
                 <div class="about-meta-row">
