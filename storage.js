@@ -157,6 +157,10 @@ function normalizeVaultItem(row) {
         cpLoss: row.cp_loss ?? null,
         mateIn: row.mate_in ?? null,
         playedDate: row.played_date || null,
+        // 퍼즐 시작 fen + 정답 시퀀스 (jsonb). 옛 row는 null → vault.js 단일 best_move 폴백.
+        prevFen: row.prev_fen || null,
+        solution: row.solution_json || null,
+        winChanceDrop: row.win_chance_drop ?? null,
     };
     if (typeof row.move_index === 'number') item.moveIndex = row.move_index;
     if (typeof row.move_number === 'number') {
@@ -177,6 +181,9 @@ function normalizeLocalVaultItem(it) {
         cpLoss: it.cpLoss ?? null,
         mateIn: it.mateIn ?? null,
         playedDate: it.playedDate || null,
+        prevFen: it.prevFen || null,
+        solution: it.solution || null,
+        winChanceDrop: it.winChanceDrop ?? null,
     };
 }
 
@@ -224,6 +231,11 @@ function _vaultRowFromItem(item, userId) {
         cp_loss: item.cpLoss ?? null,
         mate_in: item.mateIn ?? null,
         played_date: item.playedDate || null,
+        // 미마이그레이션 환경에선 PostgREST가 unknown column으로 INSERT 실패 → localStorage만 저장됨
+        // (데이터 손실 없음). 마이그레이션 SQL은 supabase-schema.md 참조.
+        prev_fen: item.prevFen || null,
+        solution_json: item.solution || null,
+        win_chance_drop: item.winChanceDrop ?? null,
     };
 }
 

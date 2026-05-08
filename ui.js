@@ -575,3 +575,54 @@ export function updateTopEvalDisplay(scoreStr, classification = '', isUserWhite 
     }
 }
 
+// 보드 위 분류 배지 — 분석 화면(showPieceBadge)과 vault 카드(renderBlunderVisualization) 공유.
+// CSS는 styles.css의 .piece-badge-square / .piece-badge.
+export const BADGE_MAP = {
+    'Brilliant':  { symbol: '!!', fontSize: '9px',  fontWeight: '900', color: '#fff',    bg: '#3A8560' },
+    'Great':      { symbol: '!',  fontSize: '13px', fontWeight: '900', color: '#fff',    bg: '#2D6E55' },
+    'Best':       { symbol: '✦', fontSize: '10px', fontWeight: '700', color: '#1C1D1F', bg: '#FFFFFF' },
+    'Excellent':  { symbol: '✓', fontSize: '11px', fontWeight: '900', color: '#fff',    bg: '#6B8C3A' },
+    'Inaccuracy': { symbol: '?!', fontSize: '8px',  fontWeight: '700', color: '#fff',    bg: '#C99B2D' },
+    'Mistake':    { symbol: '?',  fontSize: '13px', fontWeight: '900', color: '#fff',    bg: '#D97706' },
+    'Blunder':    { symbol: '??', fontSize: '9px',  fontWeight: '700', color: '#fff',    bg: '#D03832' },
+    'Forced':     { symbol: '□',  fontSize: '11px', fontWeight: '700', color: '#fff',    bg: '#62646A' },
+};
+
+/**
+ * 보드 컨테이너의 특정 칸 위에 분류 배지 div를 절대 위치로 띄움. 기존 배지 있으면 제거.
+ * @param {HTMLElement} boardEl - 보드 컨테이너 (.board-container, position 기준)
+ * @param {string} square - 칸 좌표 ('e4', 'h8' 등)
+ * @param {'white'|'black'} orientation - chessground 보드 방향
+ * @param {string} classification - BADGE_MAP 키 ('Mistake', 'Blunder' 등). 미스매치 시 배지 안 그림
+ */
+export function placePieceBadge(boardEl, square, orientation, classification) {
+    if (!boardEl) return;
+    const existing = boardEl.querySelector('.piece-badge-square');
+    if (existing) existing.remove();
+    if (!square || !classification) return;
+    const config = BADGE_MAP[classification];
+    if (!config) return;
+
+    const fileIndex = square.charCodeAt(0) - 97;
+    const rank = parseInt(square[1]);
+    let col, row;
+    if (orientation === 'white') { col = fileIndex; row = 8 - rank; }
+    else { col = 7 - fileIndex; row = rank - 1; }
+
+    const wrap = document.createElement('div');
+    wrap.className = 'piece-badge-square';
+    wrap.style.left = `${col / 8 * 100}%`;
+    wrap.style.top = `${row / 8 * 100}%`;
+
+    const badge = document.createElement('div');
+    badge.className = 'piece-badge';
+    badge.textContent = config.symbol;
+    badge.style.fontSize = config.fontSize;
+    badge.style.fontWeight = config.fontWeight;
+    badge.style.color = config.color;
+    badge.style.background = config.bg;
+
+    wrap.appendChild(badge);
+    boardEl.appendChild(wrap);
+}
+

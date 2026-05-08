@@ -47,6 +47,39 @@ export function getWhiteWinPct(engineLine) {
 }
 
 /**
+ * mover 관점 승률 (0~1). lineToEval()이 반환하는 white-relative {type,value}를 입력으로.
+ *
+ * cp 공식: 1 / (1 + exp(-0.00368208 · cp))  — Lichess Lila #11148 calibration (sigmoid).
+ * 등가: 0.5 + 0.5 · tanh(0.00184104 · cp). 0cp=0.5, +100cp≈0.59, +400cp≈0.83, +800cp≈0.95.
+ *
+ * mate: mover 유리하면 1, 불리하면 0 (스텝 수 무관 — vault 알고리즘은 mate를 별도 분기 처리).
+ *
+ * vault auto-blunder 알고리즘에서 "승률 N%p 이상 변화"의 표준 척도. cp 기반 컷보다 포지션
+ * 품질을 정확히 반영(이미 +500인 상태의 -100 손실은 작게, 동률에서의 -100은 크게).
+ */
+export function winChance(score, isWhiteMover = true) {
+    if (!score) return null;
+    const sign = isWhiteMover ? 1 : -1;
+    if (score.type === 'mate') {
+        const v = (score.value || 0) * sign;
+        return v > 0 ? 1 : (v < 0 ? 0 : 0.5);
+    }
+    if (score.type === 'cp') {
+        const cp = Math.max(-99900, Math.min(99900, (score.value || 0) * sign));
+        return 1 / (1 + Math.exp(-0.00368208 * cp));
+    }
+    return null;
+}
+
+/** 두 score(둘 다 white-relative) 간 mover 관점 승률 차이. a - b 부호 그대로. */
+export function winChanceDelta(scoreA, scoreB, isWhiteMover = true) {
+    const a = winChance(scoreA, isWhiteMover);
+    const b = winChance(scoreB, isWhiteMover);
+    if (a == null || b == null) return null;
+    return a - b;
+}
+
+/**
  * 체스판 위에서 합법적으로 움직일 수 있는 칸(Dests)을 계산합니다.
  */
 export function getDests(tempChess) {

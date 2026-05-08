@@ -6,6 +6,524 @@
 
 ---
 
+## Phase 45 — Phase 40~44 simplify 패스 (2026-05-08)
+
+오늘 작업한 vault 코드(Phase 40~44)에 대한 3-agent /simplify 리뷰 → 6건 픽스. 분석 화면은 이번 세션 동안 한 줄도 안 건드린다는 제약 유지.
+
+**적용:**
+- **`placePieceBadge` 공유 헬퍼 추출 ([ui.js](ui.js)):** main.js의 `BADGE_MAP` + `showPieceBadge`(~53줄)와 vault.js `renderBlunderVisualization`의 거의 동일한 logic 통합. 둘 다 같은 helper 호출. 분석 화면 동작 변경 없음 (호출 사이트만 wrapper로). vault.js 60줄 → 10줄
+- **`_replayGen` cancellation token ([vault.js](vault.js)):** `onLineClick`의 350ms × N replay loop과 `handleSequenceMove`의 250ms 응수 자동재생 — 사용자가 await 중 "다음 퍼즐"로 이동하면 stale loop이 새 puzzleChess를 오염시키던 실 버그. `renderSolvableItem` 진입 시 `_replayGen++`, async 가드로 stale 검출
+- **Phase 번호 narrative 주석 14곳 제거:** CLAUDE.md "WHAT 주석 금지" + 변경 narrative는 WORKLOG에 속함 원칙. WHY는 유지 (예: Chessground init/redraw가 board children을 wipe하므로 80ms 후 attach)
+- **`setTapZonesActive` no-op + 호출 4곳 제거:** Phase 42에서 좌/우 탭존 제거 후 호출 호환용으로 남겨뒀던 zombie 함수. 함수 통째 삭제
+- **`onLineClick` 변수 섀도잉(`r`):** for-loop 내부 `const r = tmp.move()`가 outer Promise param `r`과 충돌. `result` / `resolve`로 분리
+- **`showPlyOnBoard` 클린업 중복 → `clearBlunderVisualization()` 재사용:** 5줄 인라인 cleanup이 이미 존재하는 함수와 동일 → 호출로 대체
+
+**의도적 스킵:**
+- **`PUZZLE_CATEGORY` 상수 추출** — 'mistake'/'blunder'/'missed_mate'는 Supabase classification 컬럼 wire 값이라 상수화해도 wire 안 바뀜. 다파일 mass-replace 위험 vs 임팩트 작음
+- **`buildSequenceFromPv` + `trimTrailingForced` 중복 `new Chess(prevFen)`** — cold path (분석 onComplete 후 게임당 ~6회), sub-ms
+- **`setTimeout(80ms)` Chessground race hack** — 기능적으로 안정, 주석에 WHY 명시되어 있음
+- **`scoreNum: (winChance-0.5)*2` leaky encoding** — `renderEngineLines` API 변경하면 분석 화면도 영향. 가독성만 살짝 떨어지고 기능 정상
+
+**검증:**
+- 모듈 로드 에러 0
+- vault 진입 + 보드 / 화살표 / 배지 / unified-controls / 하단 액션바 / 필터 탭 모두 정상 렌더
+- placePieceBadge 공유 헬퍼 → vault 카드의 빨간 ?? 배지 정상 표시
+
+**파일별 라인 변화 (Phase 45만):**
+| 파일 | 변경 |
+|---|---|
+| [ui.js](ui.js) | +52 (BADGE_MAP + placePieceBadge export) |
+| [main.js](main.js) | −56 (BADGE_MAP/showPieceBadge body → 공유 호출) |
+| [vault.js](vault.js) | −80 (renderBlunderVisualization slim, setTapZonesActive 제거, narrative 주석 정리) |
+| [autoBlunders.js](autoBlunders.js) | −5 (narrative 주석 정리) |
+| [storage.js](storage.js) | −3 (narrative 주석 정리) |
+
+순 효과: ~92줄 감소 + 실 버그(replay cancellation) 1건 픽스 + 코드 중복 ~50줄 통합.
+
+---
+
+## Phase 44 — vault 풀이 후 "내가 둔 수" replay 엔트리 (2026-05-08)
+
+풀이 종료 후 정답 라인 패널에 한 줄 추가 — 사용자가 실제 게임에서 둔 수의 흐름을 step-by-step 재생. Phase 41에서 캐포처해둔 `gameContext.plies` 데이터를 처음 활용. UI 변경 한 곳, 클릭 핸들러 분기 한 곳.
+
+**왜:**
+- Phase 42에서 정답 라인은 engine-line UI로 풍부하게 표시했지만, "그래서 내가 어떻게 망쳤는지"는 텍스트로만 ("둔 수: Kb8") 보여줌
+- gameContext.plies는 실수 ±3수 윈도우를 갖고 있어서 실수 + 후속 흐름 재생 데이터가 이미 준비돼 있었음
+- 학습 가치: 정답 라인과 자기 라인을 나란히 비교해서 "왜 이 길이 더 좋은가" 직관 형성
+
+**변경 ([vault.js](vault.js)):**
+
+`renderAcceptableLines(item)`가 acceptable 라인 N개를 lines 배열로 변환한 뒤, `gameContext`가 있으면 ◾ 엔트리 추가:
+```js
+const gc = item?.solution?.gameContext;
+if (gc && gc.plies?.length > 0 && gc.blunderIndex < gc.plies.length) {
+    const userMoves = gc.plies.slice(gc.blunderIndex);
+    lines.push({
+        scoreNum: 0,
+        scoreStr: '◾',          // 사용자 마커 (★ 베스트, = 동급, ◾ 내 수)
+        pv: userMoves.map(m => m.san).join(' '),
+        uci: userMoves[0]?.uci || '',
+    });
+}
+```
+
+`onLineClick(index)`에 분기 추가 — index가 acceptable 범위 밖이면 gameContext에서 moves 빌드:
+```js
+let moves;
+if (index < acceptable.length) {
+    moves = acceptable[index].moves || [];
+} else {
+    moves = gc.plies.slice(gc.blunderIndex);
+}
+```
+
+이후 step-by-step replay 로직(`prevFen` 리셋 → 350ms 간격 chess.js move → chessground.set)은 정답 라인 클릭과 100% 동일.
+
+**시각:**
+```
+1.  ★    Kc8  Nf3  Bg7  Nxg5  Nf6      ← canonical 베스트
+2.  =    Kc6  Nf3  Bg7  Nxg5  Nf6      ← 동급 정답 (acceptable)
+3.  ◾    Kb8  Nf3  Bg7  ...             ← 내가 실제로 둔 수 (게임 흐름)
+```
+
+호버 시 첫 수만 paleGreen 화살표 미리보기 (정답 라인과 동일). 클릭 시 prevFen 리셋 후 350ms 간격 자동 재생.
+
+**옛 row 호환:**
+- Phase 40 이전 row: `solution` 없음 → acceptable 패널 자체 숨김 → ◾ 엔트리도 없음
+- Phase 40~41 row: `solution.acceptable`만 있음 (gameContext 부재) → acceptable 라인만 보이고 ◾ 미추가
+- Phase 41 이후 row: gameContext 있음 → ◾ 엔트리 자동 추가
+
+기존 vault에 쌓여 있는 옛 row들은 ◾ 표시 안 됨. 사용자가 새로 분석 한 판 돌리면 자연스럽게 ◾ 줄 등장. 옛 row를 다시 만들고 싶으면 [supabase-schema.md](supabase-schema.md)의 vault 비우기 SQL + 재분석.
+
+**검증:**
+- 옛 row(bywxx Memofhjk 카드) → ◾ 엔트리 미추가, 회귀 없음 ✓
+- 신 row 동작은 합성 데이터 주입이 Supabase 우선 정책으로 무력화돼 라이브 검증 미실시. 코드 추가는 if-guard로 격리돼 있어 옛 데이터엔 영향 0
+
+**남은 갭 (계속 미해결):**
+- **블런더 후속 수 동급 인정** — 첫 수 lock 후 user의 두 번째 수가 다른 동급 라인이면 오답. 엔진 매 수마다 호출이 필요한 무거운 작업이라 별도 phase
+
+---
+
+## Phase 43 — 메이트 퍼즐 엔진 검증 (시퀀스 lock 해제) (2026-05-08)
+
+메이트 카드의 풀이 검증을 시퀀스 매치에서 **엔진 기반**으로 전환. 사용자가 엔진 추천 1수와 다른 길로 같은 N수 메이트를 찾으면 정답 인정, 느려진 메이트(N+1, N+2)는 자동 거부. 변경은 [vault.js](vault.js)의 `onPuzzleUserMove` 분기 순서 한 줄.
+
+**왜:**
+- Phase 40에서 모든 카드(블런더/메이트)를 `handleSequenceMove`로 통일 → 메이트도 lock된 시퀀스만 정답 처리. 사용자가 합법적 대체 mate-in-N 길을 찾아도 시퀀스 미스매치로 오답
+- 사용자 명시 요구: "컴퓨터 추천 1수랑 조금 달라도 4수 메이트하면 성공", "4수 메이트를 5수 6수 메이트로 돌아가는 경우는 실패"
+- 인프라 이미 있음 — `handleMateMove` + `analyzeForMate` + `_puzzleEngine`은 Phase ?? (이전)에 비-solution 메이트 카드용으로 구현돼 있었음. solution 있는 메이트 카드만 시퀀스 path로 빠지던 게 문제
+
+**변경 ([vault.js:993](vault.js:993)):**
+
+이전:
+```js
+if (puzzleItem?.solution?.acceptable?.length > 0) {
+    await handleSequenceMove(played);     // 메이트도 시퀀스 lock 매치
+} else if (puzzleIsMate) {
+    await handleMateMove(played);          // 비-solution 메이트만 엔진
+} else { ... single-move legacy ... }
+```
+
+이후:
+```js
+// Phase 43: 메이트는 항상 엔진 검증 — solution 시퀀스에 lock되지 않음
+if (puzzleIsMate) {
+    await handleMateMove(played);
+} else if (puzzleItem?.solution?.acceptable?.length > 0) {
+    await handleSequenceMove(played);
+} else { ... single-move legacy ... }
+```
+
+**`handleMateMove`의 검증 로직 (변경 없음, 흐름 정리만):**
+1. 사용자 수 적용 → `puzzleUserMoves++`
+2. `puzzleChess.in_checkmate()` → 즉시 성공 (`mateDelivered: true`)
+3. `puzzleUserMoves >= puzzleMateBudget` → 예산 초과 실패. **이게 "느려진 메이트" 거부 메커니즘.** mate-in-2인데 user_moves가 2개 됐는데도 mate 안 떨어졌으면 fail
+4. `analyzeForMate(post-user fen, depth 14)` → 사용자 관점 mate가 여전히 보이는지 확인. 보이지 않으면 fail
+5. 보이면 엔진의 best 응수를 자동 재생 후 다음 user 수 대기
+
+**대체 라인 인정 시나리오 (예: mate-in-2에서):**
+- canonical: `Qh8+ Kf7 Qe8#`
+- 사용자: `Qa8+ Kf7 Qf8#` (a-h대각선으로 같은 위치 도달, 2수 메이트 유지)
+- Phase 42까지: U1 = `Qa8+`이 acceptable에 없으면 첫 수에서 오답
+- Phase 43: U1 후 엔진 분석 → mate-in-1 여전히 mover 측. continue. U2 후 in_checkmate → 성공
+
+**느려진 메이트 거부 시나리오:**
+- canonical mate-in-2
+- 사용자 U1 후 엔진 분석 → mate-in-? 길어짐 (예: mate-in-3로 늘어남)
+- engine still says mover mates → continue. 그러나 U2까지 둬도 in_checkmate 안 되면 `puzzleUserMoves(2) >= puzzleMateBudget(2)` 체크에서 fail
+
+**옛 row 호환:**
+- prevFen 없는 옛 mate row → `renderSolvableItem`의 PGN replay 폴백 경로로 puzzleChess 셋업
+- solution 없어도 `handleMateMove`는 `puzzleMateBudget`(item.mateIn)만 있으면 동작. Phase 40 이전 row는 `mate_in` 컬럼이 이미 있었음
+
+**검증:**
+- vault 진입 + 회귀 없음 (board 정상 렌더, header/subhead 정상) ✓
+- 라이브 메이트 케이스 검증은 Phase 41 이전 row엔 missed_mate 카드가 적어 합성 데이터 주입 시도했으나 Supabase 우선 정책 때문에 localStorage 인젝션 무력. 코드 변경은 단순 분기 재배치이고 `handleMateMove` 자체는 이전부터 비-solution 메이트 카드용으로 검증된 흐름이라 회귀 위험 낮음. 실제 메이트 퍼즐 풀이 시 자연스럽게 엔진 검증 경로 진입
+
+**남은 갭 (미해결):**
+- **블런더 후속 수 동급 인정** — 첫 수 lock 후 user의 두 번째 수가 다른 동급 라인이면 오답 처리. 엔진 매 수마다 분석으로 해결 가능하지만 부담 ↑
+- **"내가 둔 수" 자동 replay 버튼** — gameContext.plies 데이터는 있는데 자동 재생 UI 없음
+
+이 두 항목은 후속 phase에서 처리. 메이트 검증이 가장 큰 정답률 갭이었어서 그것만 우선 해결.
+
+---
+
+## Phase 42 — vault 시각 통일 (분석 chrome 채택) + 정답 라인 engine-line UI + 하단 액션바 (2026-05-08)
+
+vault 화면 chrome을 분석 화면과 같은 골격으로 통일. 분석 화면 자체는 한 줄도 안 건드림 — vault HTML이 같은 CSS 클래스(`analysis-top-bar` / `unified-controls` / `panel-content` / `live-action-bar`)를 차용하기만 함. 풀이 후 정답 라인은 분석 화면의 [`renderEngineLines`](ui.js:119)를 그대로 import해 시각 일관.
+
+**왜:**
+- vault가 자체 chrome(`vault-filter-row` / `vault-puzzle-prompt` / `vault-puzzle-actions`)을 갖고 있어서 분석 화면과 결이 달랐음
+- 사용자 피드백: 두 화면 사이에 "어디서 어떤 일이 가능한지"가 시각적으로 구분 안 돼 멘탈 모델 부하
+- 정답 시퀀스를 텍스트로만 보여주던 게(Phase 40) 분석 화면의 engine-line UI에 비해 풍부함이 떨어졌음
+
+**핵심 결정:**
+- **분석 화면 비건드림.** 같은 CSS 클래스를 vault HTML이 차용하는 일방향 의존만. CSS 셀렉터 점검 결과 `unified-controls` / `panel-content` / `live-action-bar` / `analysis-top-bar` 모두 generic이라 그대로 재사용 가능
+- **버튼은 < > 둘만.** 분석의 save / AI / 분류 라벨 / 평가 / 메인복귀 등은 vault에서 의미 없거나 다른 자리로 이동 (필터는 top-bar, 정답은 panel-content에 자동 표시). `vaultPrevPlyBtn` / `vaultNextPlyBtn` 새 ID로 분석의 prev/next 영향 없게
+- **이전/다음/다시 퍼즐은 별도 하단 액션바.** Phase 36 라이브 모드의 `live-action-bar` 스타일 재사용 — 이미 검증된 56px + safe-area 패턴
+
+### HTML 재구조 ([index.html](index.html))
+
+이전: `vault-filter-row` + `vault-puzzle-prompt` + `vault-puzzle-board-wrap`(탭존 포함) + `vault-puzzle-feedback` + `vault-puzzle-actions`
+이후:
+```
+#vaultPuzzlePane.vault-pane (flex column, padding-bottom로 bottom-nav 56px clearance)
+├─ .analysis-top-bar.vault-top-bar — 필터 탭 + ☰ 목록
+├─ #vaultPuzzleEmpty
+├─ #vaultPuzzleStage (flex column, scrollable)
+│  ├─ #vaultPuzzleIndicator
+│  ├─ .vault-puzzle-prompt (header + subhead)
+│  ├─ .board-wrapper > #vaultPuzzleBoard
+│  ├─ .unified-controls (vault: < >만, ctrl-center에 ply indicator)
+│  └─ .panel-content > [#vaultPuzzleFeedback, #vaultEngineLinesContainer]
+└─ .live-action-bar.vault-action-bar — 이전 / 다시 / 다음 퍼즐 (vault-pane 마지막 자식이라 자동 하단)
+```
+
+좌/우 탭존(`vaultPuzzleTapZones`) 제거 — 하단 명시 버튼이 같은 일을 더 명확히. `setTapZonesActive` 함수는 호출 호환을 위해 no-op로 유지.
+
+### vault.js 신규 핸들러 ([vault.js](vault.js))
+
+- `navigatePly(delta)` — `solution.gameContext.plies` 안에서 cursor 이동, `showPlyOnBoard`로 시각만 바꿈 (puzzleChess 미변경). cursor가 `puzzleStartPlyIdx`이면 드래그 활성, 아니면 비활성 — scrubbing 모드에서 실수 방지
+- `showPlyOnBoard(idx)` — idx<0이면 prevFen, 아니면 `plies[idx].fen` + `lastMove` 하이라이트. start로 돌아오면 블런더 시각화 자동 재표시
+- `updatePlyIndicator()` — 분석 화면의 `win-chance-display` 자리에 "실수 직전" / "+1수" / "-2수" 같은 상대 위치 표시
+- `renderAcceptableLines(item)` — 풀이 종료 시 `renderEngineLines(vaultEngineLinesContainer, lines, hover, leave, click)` 호출. lines는 `solution.acceptable`을 분석 화면 포맷(`{scoreNum, scoreStr, pv, uci}`)으로 변환. 베스트엔 `★`, 나머지 정답 라인엔 `=` 표시
+- `onLineHover(uci)` — 첫 수를 paleGreen 화살표로 미리보기
+- `onLineLeave()` — 화살표 해제
+- `onLineClick(index)` — 그 라인을 prevFen에서 시작해 350ms 간격으로 step-by-step replay (chess.js + chessground.set 조합)
+
+### `renderEngineLines` 그대로 재사용
+
+ui.js의 `renderEngineLines`는 처음부터 `(container, lines, onHover, onLeave, onClick)` 시그니처라 분석/vault 양쪽에서 차이 없이 호출 가능. setupEngineLinesDelegation의 mouseover/mouseout/click 위임 + `_onHover`/`_onLeave`/`_onClick` 컨테이너 프로퍼티 패턴이 격리돼 있어 모듈간 충돌 없음. 함수 자체엔 한 줄도 안 더 손댐.
+
+핸들러 시그니처 미스매치 디버깅: 처음 `onLineClick(uci, index)`로 작성했는데 실제 위임은 `_onClick(idx)` 단일 인자만 전달 → `index` undefined로 클릭 무반응. `onLineClick(index)`로 정정.
+
+### CSS 보정 ([styles.css](styles.css))
+
+- `.vault-pane`을 flex column + flex:1 + min-height:0 + padding-bottom으로 — 자식 [top-bar/empty/stage/action-bar] 수직 배치, 마지막 action-bar가 자동으로 하단. bottom-nav 56px + safe-area 가림 방지
+- `#vaultPuzzlePane .board-container` max-width 300px → 360px 빼는 걸로 — 추가된 unified-controls + panel + action-bar 공간 만큼
+
+다른 분석 한정 셀렉터 풀거나 alias 추가는 불필요 — generic 그대로 작동.
+
+### Chessground init 충돌 (Phase 41과 동일 회피)
+
+블런더 시각화 시점은 그대로 setTimeout 80ms — Chessground가 init/redraw 중 board children을 wipe하는 사이클 후에 안전하게 attach. Phase 41 디버깅 메모 그대로 적용.
+
+### 검증
+
+| 항목 | 결과 |
+|---|---|
+| top-bar 필터 + ☰ + 보드 + < > + 패널 + 이전/다시/다음 | ✓ 시각 |
+| 잘못된 첫 수 → 피드백 + engine-line 패널에 정답 라인 2개(`★ Kc8 Nf3 ...` / `= Kc6 Nf3 ...`) + 분석 hint 텍스트 | ✓ |
+| 라인 호버 → 첫 수 paleGreen 화살표 | ✓ (분석과 동일 동작) |
+| 라인 클릭 → 보드에 350ms 간격 replay | ✓ (시그니처 픽스 후) |
+| 하단 액션바 visible (bottom-nav 위) | ✓ (vault-pane padding-bottom 적용 후) |
+| < > scrub gameContext (Phase 41 row) | ✓ 데이터 있으면 동작. 옛 row는 자동 no-op |
+
+### 옛 row 호환
+
+vault에 이미 쌓여있는 Phase 39 이전 row는 `solution`/`gameContext` 없음 → `<>`는 no-op, engine-line 패널은 `vaultEngineLinesContainer.classList.contains('hidden')`로 숨김 유지. 시퀀스 풀이 안 되는 단일 수 카드만 fallback으로 동작 (Phase 40에서 이미 폴백 경로 보장).
+
+### 스코프 컷
+
+- 분석 화면 자체 변경 금지 (사용자 명시 요청)
+- `<` `>` 가 정답 시퀀스 navigate (option β)는 안 함 — 모드 충돌 회피, gameContext 한 가지 의미로 고정 (option α)
+- 미래 puzzle UX 폴리시 (success 애니메이션, length 힌트 헤더, 정답률 통계) 별도 phase
+
+---
+
+## Phase 41 — vault 카드 시각: 블런더 화살표 + 분류 배지 + 수동 저장 통합 + ±3수 게임 컨텍스트 (2026-05-08)
+
+Phase 40으로 풀이 알고리즘은 완성됐고, 41은 **vault 카드의 학습 컨텍스트** 보강. 카드 열면 사용자가 둔 실수 수가 빨간 화살표 + 분류 배지로 한눈에 보이고, 자동/수동 저장 모두 같은 시퀀스 풀이 + ±3수 게임 컨텍스트 데이터를 갖게 됨. 자동 카드 vs 수동 카드의 데이터 비대칭이 사라지면서 vault가 한 가지 카드 타입으로 통일.
+
+**왜 필요했나:**
+- Phase 40 직후 사용자 피드백: 카드 열어도 "여기서 뭐가 잘못된 거지?"가 즉시 안 보임 — 단순히 포지션만 떴음
+- 자동 수집은 시퀀스 풀이가 되는데 "Save This Move"로 수동 저장한 카드는 단일 best_move 옛 포맷이라 vault에 두 종류 카드가 섞임
+- 학습 가치: 실수가 어떤 흐름에서 일어났는지(±3수 컨텍스트) 보여주면 패턴 인식 ↑
+
+### ① 블런더 시각화 ([vault.js:680](vault.js:680))
+
+`renderSolvableItem` 끝에서 `renderBlunderVisualization(item)` 호출:
+- `item.san`을 `puzzlePrevFen` 위에서 chess.js로 replay → from/to 추출
+- Chessground `drawable.autoShapes`에 빨간 화살표 (`{ orig: from, dest: to, brush: 'red' }`)
+- `vaultPuzzleBoard` 위에 `.piece-badge-square` div 절대 위치 + `?` (Mistake) / `??` (Blunder) 배지 — 분석 화면 [main.js:1773](main.js:1773)의 `BADGE_MAP` 색/심볼 그대로 재사용 (결정: 미관 개선은 추후, 일관성 우선)
+- `missed_mate`는 배지 제외 — "실수했다"기보단 "메이트 못 봄"이라 같은 마크가 의미적으로 안 맞음 (화살표는 띄움)
+
+**setTimeout 80ms hack:** Chessground init/redraw가 board children을 일시적으로 wipe해서 sync 추가하면 사라짐. mutation observer로 추적해서 잡음 — `Chessground(...)` 호출 후 30ms 시점 `redrawAll()`이 cg-container를 제거+재추가하면서 형제 노드도 같이 사라짐. 80ms로 미루면 그 사이클 후라 안전하게 살아남.
+
+**자동 클리어:** 사용자가 첫 수 두는 순간(`onPuzzleUserMove` 진입 시) `clearBlunderVisualization()` — 보드 상태가 prevFen을 떠나면 화살표·배지가 떠 있을 square가 의미 잃기 때문.
+
+### ② 게임 컨텍스트 ±3수 캡처 (`buildGameContext` in [autoBlunders.js](autoBlunders.js))
+
+```js
+gameContext: {
+  plies: [{ san, uci, fen, side: 'user'|'opponent', classification }, ...],  // 최대 7개 (3+1+3)
+  blunderIndex: 3,  // 배열 내 실수 ply의 위치. 게임 시작/끝 부근이면 3 미만
+}
+```
+
+queue 인덱스 i 주변 윈도우 `queue.slice(max(0, i-3), min(len-1, i+3)+1)` — 게임 시작/끝 가까우면 자동으로 잘림. 각 ply는 post-move fen을 직접 저장(replay 비용 ↓, 7×80byte ≈ 560byte 추가).
+
+자동 수집(`extractAutoCandidates`): missed_mate / blunder 두 path 모두 `solution.gameContext`에 첨부.
+
+UI scrubbing(±3 navigate)은 Phase 41 스코프 밖 — 데이터만 캡처해두고 후속 phase에서 prev/next 버튼으로 윈도우 탐색.
+
+### ③ 수동 저장 통합 ([main.js:1053](main.js:1053) confirmSaveBtn)
+
+`buildAcceptableLines` + `buildGameContext`를 [autoBlunders.js](autoBlunders.js)에서 `export` → main.js의 confirmSaveBtn 핸들러에서 자동 수집과 같은 로직 호출:
+
+```js
+const acceptable = buildAcceptableLines(snap.prevFen, snap.engineLines, isUserWhite, ...);
+solution = { acceptable };
+if (appMode !== APP_MODES.LIVE_INPUT) {
+    solution.gameContext = buildGameContext(analysisQueue, snap.moveIndex, isUserWhite);
+}
+```
+
+vaultSnapshot이 이미 `prevFen` + `engineLines`를 갖고 있어서(Phase 36 라이브 모드 수정 시 추가됨) 추가 데이터 채집 불필요. **자동/수동 카드가 같은 데이터 모델로 vault에 들어옴.**
+
+라이브 입력 모드는 `analysisQueue`가 비어있어 gameContext 안 만듦 — solution.acceptable만 채움. 라이브엔 게임 컨텍스트 자체가 없으므로 자연스러움.
+
+### ④ Storage round-trip — 변경 없음
+
+`gameContext`가 `solution` 객체 안에 nested되어 있어서 Phase 40의 `solution_json` jsonb 컬럼 round-trip이 그대로 적용. `_vaultRowFromItem` / `normalizeVaultItem` 셋 다 추가 변경 없이 동작. Supabase 마이그레이션 SQL 추가 ALTER 불필요.
+
+### 데이터 흐름
+
+```
+분석 onComplete                      |  분석 화면 "Save This Move"
+  → extractAutoCandidates           |    → confirmSaveBtn handler
+       ├─ buildAcceptableLines      |         ├─ buildAcceptableLines
+       └─ buildGameContext          |         └─ buildGameContext (LIVE 모드 제외)
+  → vault row {                     |    → vault row { (동일 형태)
+       solution: { acceptable, gameContext },
+       prevFen, ...
+  → addVaultItem(s)Batch → Supabase + localStorage
+
+vault 카드 open
+  → renderSolvableItem
+       ├─ Chessground 보드 fen=prevFen 셋업
+       └─ setTimeout(80ms) → renderBlunderVisualization
+            ├─ chess.js replay item.san → from/to
+            ├─ autoShapes red arrow
+            └─ piece-badge-square div with category symbol
+  → 사용자 첫 수 → clearBlunderVisualization → handleSequenceMove (Phase 40 그대로)
+```
+
+### 검증
+
+| 항목 | 결과 |
+|---|---|
+| 카드 open: c7→b8 빨간 화살표 + ?? 빨간 배지 (Blunder) | ✓ 시각 확인 |
+| 사용자 첫 수 → 화살표/배지 자동 제거 | ✓ |
+| 자동 수집 row → solution.gameContext 정상 채움 (7 plies, blunderIndex=3) | ✓ extractAutoCandidates |
+| 수동 저장 → 자동과 동일 solution 구조 | ✓ confirmSaveBtn 통합 후 |
+| storage round-trip — gameContext 보존 | ✓ (nested in solution_json) |
+
+### 디버깅 메모 — Chessground init과 sync 충돌
+
+처음 sync로 `vaultPuzzleBoard.appendChild(badge)` 했더니 100ms 안에 사라짐. mutation observer로 추적: `[+badge, -CG-CONTAINER -badge, +CG-CONTAINER]` 순. Chessground 9.x가 `redrawAll()` 호출 시 cg-container를 단순 갱신이 아니라 remove+recreate하는데 sibling으로 attach된 우리 badge도 휩쓸려 나감.
+
+해결: 80ms 후 setTimeout. Chessground 자체 init이 sync 끝나는 30ms 후 redrawAll 한 번 fire한 다음 안정 상태가 되면 그때 attach. 깔끔하진 않지만 chessground 내부 동작에 의존하므로 어쩔 수 없음.
+
+옛 분석 화면 `showPieceBadge`는 같은 문제가 없는 이유: 분석 보드는 init 후 한참 뒤(분석 진행 중 classification 갱신 시점)에 배지를 추가하므로 Chessground 사이클이 이미 안정. vault는 init 직후 추가라 시점이 충돌.
+
+---
+
+## Phase 40 — vault 알고리즘 v2: 승률 기반 트리거 + 시퀀스 풀이 + 정답 라인 다중 인정 (2026-05-08)
+
+vault 자동 수집을 [Lichess 퍼즐 생성기](https://github.com/ornicar/lichess-puzzler) 방식으로 재설계. 그동안 vault는 "한 위치 + 한 정답 수"를 정적으로 보여주는 구조였는데, 풀이 시퀀스(여러 수 콤비네이션)와 다중 정답 라인까지 저장·재생하도록 확장.
+
+**왜 바뀌나:**
+- 기존 단일 수 비교는 "사용자가 둔 best PV 첫 수만" 정답으로 판정 → 거의 동급의 2등 후보를 골라도 오답 처리. "내 실수 vault" 컨셉엔 너무 엄격
+- 단일 수만 풀고 끝나는 UX는 메이트 콤비네이션(M2~M4)의 학습 가치를 살리지 못함
+- 정렬·필터에 raw cp 손실(cpLoss)을 쓰면 포지션 품질 무시: +500 → +400(-100cp 손실)이 0 → -100과 동일 가중
+
+**핵심 결정:**
+- **공개 퍼즐 DB의 "유일해" 게이트는 도입 안 함.** Lichess는 `winChance(best) - winChance(2nd) ≥ 0.5`가 기준이지만, 우리는 *내 학습용*이라 더 관대해도 됨 → "엔진 라인 안에 있으면 정답"
+- **명백히 떨어지는 라인은 제외.** 베스트 대비 사용자 관점 승률이 **−10%p 초과** 떨어지면 정답 후보에서 빠짐. multiPV=3 중 2~3개가 보통 통과
+- **메이트 / 우위 두 카테고리 분리.** 메이트 퍼즐은 끝까지(M2=3플라이, M3=5, M4=7) 전체 시퀀스 저장 + mate를 주는 라인만 정답. 우위 퍼즐은 5플라이 cap + 끝쪽 강제수 trim
+
+### ① 승률 변환 ([utils.js:50](utils.js:50))
+
+`winChance(score, isWhiteMover)` / `winChanceDelta(a, b, isWhiteMover)` 신규. Lichess Lila #11148 보정 시그모이드: `1 / (1 + exp(-0.00368208 · cp))`. mover 관점 0~1 반환, mate는 1/0으로 단순화.
+
+검증값: 0cp=0.5, +100cp=0.591, +400cp=0.813, +800cp=0.95 — Lichess 공식과 일치.
+
+기존 `cpToWhiteWinPct`(50~100, 백 관점)는 그대로 유지 — analysis 화면 윈%바가 이미 의존 중. 새 헬퍼는 mover 관점 + mate 처리가 추가된 vault 알고리즘 전용.
+
+### ② autoBlunders.js 재작성
+
+상수:
+- `MAX_BLUNDER_PLIES = 5` (우위 퍼즐 시퀀스 길이 cap)
+- `ACCEPT_GAP = 0.10` (베스트 대비 정답 후보 인정 갭)
+- `ALREADY_DECIDED_HI/LO = 0.9 / 0.1` (cp 600 ≈ win% 90/10 컷의 승률 버전)
+
+흐름:
+- **missed_mate (≤M4)**: prev top eval이 mover-favorable mate인데 사용자가 그 수를 안 뒀을 때 트리거. `buildAcceptableLines(prev.fen, prev.engineLines, isUserWhite, { requireMate: true })` — multiPV 중 mate 주는 라인만 채택. 시퀀스는 PV 전체, 체크메이트 도달 시 stop. trim 없음
+- **blunder/mistake**: classifyMove의 분류를 게이트로 유지(freechess 휴리스틱 보존). 추가 필터: 양쪽 승률 모두 ≥0.9 또는 ≤0.1 이면 skip(이미 결판). 정렬키는 `winChanceDrop = prevWc - postWc` (cpLoss 자리)
+- **시퀀스 빌드**: `buildSequenceFromPv(fen, pvSan, opts)` chess.js로 SAN 검증해 verbose move 추출, side='user'/'opponent' 교차 태그
+- **끝쪽 trim** (`trimTrailingForced`): 우위 퍼즐만 — 마지막 수가 `legal moves === 1` 위치에서 둔 강제수면 iterative pop. "정답이 한 수밖에 없는" 끝부분은 학습 가치 없음
+
+각 후보 형태:
+```js
+{
+  moveIndex, classification, winChanceDrop, prevFen,
+  bestSan, bestUci,                       // 첫 정답 수 (legacy best_move 칼럼용)
+  solution: { acceptable: [
+    { san, uci, winChance, moves: [{san, uci, side}, ...] },
+    ...
+  ] },
+  cpLoss, mateIn,                         // 표시 보조용 보존
+}
+```
+
+### ③ storage.js — Supabase 3개 신 컬럼 + 옛 row 폴백
+
+`vault_items`에 `prev_fen text` / `solution_json jsonb` / `win_chance_drop numeric` 추가. 마이그레이션 SQL은 [supabase-schema.md](supabase-schema.md). `_vaultRowFromItem` / `normalizeVaultItem` / `normalizeLocalVaultItem` 셋 다 신 필드 round-trip:
+- 신 row: 3개 필드 정상 직렬화/역직렬화
+- 옛 row: 필드 부재 → null로 정규화 → vault.js가 자동 폴백 (PGN 로드 + replay 경로)
+
+검증: 로컬 신/옛 row 둘 다 `getVaultItems()` round-trip 성공.
+
+### ④ vault.js — 시퀀스 플레이백 + 피드백 풀 시퀀스 표시
+
+`renderSolvableItem` 분기 추가:
+- **신 path**: `item.prevFen` 직접 사용 — `puzzleChess = new Chess(item.prevFen)` 으로 시작. PGN 로드 불필요
+- **옛 path**: `analyzedGameId`로 PGN 가져와 `moveIndex`까지 replay (변경 없음, 옛 row 호환)
+
+`onPuzzleUserMove` 분기:
+- **신 path** (`item.solution?.acceptable?.length > 0`): `handleSequenceMove(played)` → 첫 user 수가 acceptable 라인 첫 수와 매칭되면 그 라인 lock → `puzzleLineIndex`로 ply 진행. 다음이 opponent 수면 250ms 딜레이 후 자동 재생, user 수면 보드 재활성. 라인 끝 도달 시 solved
+- **옛 path**: 기존 `handleMateMove`(메이트는 엔진으로 검증) / 단일 best_move SAN 비교
+
+상태 변수 신규:
+- `puzzleLockedLine` — 사용자가 첫 수로 잠근 라인 (acceptable 중 하나)
+- `puzzleLineIndex` — lock된 라인 안의 다음 처리 ply 인덱스
+
+**피드백 카드 — 시퀀스 친화 표시:** `renderPuzzleFeedback`이 옛 단일 best_move만 보여주던 걸 풀 시퀀스로 교체. `item.solution?.acceptable?.[0]?.moves` 가 있으면 user/opponent 교차로 렌더 — 사용자 수는 굵게, 응수는 `puzzle-fb-opp` 클래스로 톤 다운(회색·얇음). 옛 row(solution 없음)는 single SAN 그대로 폴백.
+
+> 처음 출시 직후 사용자 피드백: "수순을 맞게 둬도 오답이라고 뜬다." 진단 결과 알고리즘은 정상(시퀀스 핸들러 검증 통과)이고, **피드백이 옛 포맷대로 첫 수만 표시**돼서 사용자가 "이게 한 수 퍼즐인데 왜 두 번 둬야 하지?"로 혼동한 게 원인. 풀 시퀀스 표시로 즉시 해소.
+
+### 데이터 흐름
+
+```
+분석 onComplete
+  → extractAutoCandidates(queue, isUserWhite)         // autoBlunders.js
+       ├─ missed_mate 체크 (mate-only filter)
+       └─ classifyMove 게이트 + 승률 필터 + winChanceDrop 정렬
+  → 각 후보에 buildAcceptableLines + buildSequenceFromPv → solution
+  → buildVaultRow → addVaultItemsBatch
+       ├─ localStorage: solution 객체 그대로 직렬화
+       └─ Supabase: solution_json jsonb 컬럼
+
+vault 진입
+  → getVaultItems → normalizeVaultItem (snake → camel, solution_json → solution)
+  → renderSolvableItem
+       ├─ prevFen 직접 사용 (신) or PGN replay (옛)
+       └─ Chessground init
+  → 사용자 첫 수 → handleSequenceMove
+       ├─ acceptable 매칭 → 라인 lock → opponent 응수 자동
+       └─ 라인 끝까지 진행 → solved
+```
+
+### 검증 (preview eval)
+
+| 케이스 | 기대 | 실측 |
+|---|---|---|
+| `winChance({type:'cp', value:100}, true)` | ≈ 0.59 (Lichess 공식) | **0.591** ✓ |
+| Missed M1: top=`+M1`, 2등=`+25cp` | mate-only 필터 → 1개만 인정 | **acceptable_count=1** ✓ |
+| Blunder: top `+30`(Nf3) / 2등 `+25`(e4) / 3등 `-100`(a3) | 1·2등 인정, 3등(13%p 갭) 거부 | **acceptable=[Nf3, e4]** ✓ |
+| 시퀀스 side 교차 | user/opponent/user/... | **`Nf3/user d5/opponent d4/user`** ✓ |
+| 신 row round-trip(localStorage) | prevFen·solution·winChanceDrop 보존 | ✓ |
+| 옛 row round-trip | 신 필드 = null, legacy 필드 그대로 | ✓ |
+| vercel dev e2e — Supabase round-trip | 신 컬럼 INSERT/SELECT | ✓ (vercel dev + 컬럼 마이그레이션 후) |
+| vault 진입 → 보드 렌더 | Chessground 정상 | ✓ |
+| **잘못된 첫 수 → 풀 시퀀스 피드백** | "정답수: Bxb5 *Bxe5* Bd7 *Bc7+* Ke8" | ✓ |
+| **올바른 시퀀스 끝까지 풀이** | "정답" verdict | ✓ (Kc8 → Bg7 → Nf6 user 차례 통과) |
+
+### 스코프 컷
+
+- master DB 교차 확인(Lichess가 2M 토너먼트 게임으로 SF 검증) — 우리 도메인 overkill
+- 게임 단위 dedup 1000 버퍼 — 분석당 ~30~80수 보면 됨
+- "tier" 시스템 — 단순 reject/accept만
+- 다중 user 수 사이의 fork (acceptable 첫 수 후 두 번째 user 수에서 또 다른 정답) — 첫 수에서만 라인 분기, 이후는 lock된 라인 따라가는 것으로 단순화. 추후 필요 시 확장
+
+### 마이그레이션 메모
+
+기존 운영 환경에 적용 시 [supabase-schema.md](supabase-schema.md) 하단의 ALTER TABLE 3개 컬럼 추가 SQL을 Supabase SQL Editor에서 실행. 이전에 수집된 vault row는 `prev_fen` / `solution_json` 둘 다 NULL → 자동으로 옛 path(단일 수 비교)로 동작 — 데이터 손실/표시 깨짐 없음.
+
+---
+
+## Phase 39 — 픽셀 로고 + SEO/보안 메타 + PWA 브랜딩 + 분석/설정 UX 정리 (2026-05-07)
+
+10개 커밋. 두 큰 줄기 — (1) 시각 정체성·SEO·보안·프라이버시 기초, (2) 분석 화면 네비/SIMULATE 확장 + 설정 모달→페이지 분리 + UX 픽스.
+
+**픽셀 룩 로고 + 브랜딩 통일 (`dbae851`, `82609c1`):**
+- favicon-32 / apple-touch-icon-180 / icon-192 / icon-512 픽셀 룩 (잉크 블루 #2B5BD7). `logo.png` → `logo-old.png` 백업
+- manifest `name` / `short_name` / `apple-mobile-web-app-title`을 영문 워드마크 'blundermate'로 통일 — 워드마크 자체는 lowercase 영문인데 PWA 설치 시만 한글 음차('블런더메이트')로 떠서 정체성이 어긋나 있던 상태
+- JSON-LD `alternateName: '블런더메이트'`는 한국어 검색 발견용으로 유지 — search visibility는 한글, install label은 영문으로 분리
+- 온보딩 정리: tagline 교체, 중복 라벨 제거, 입력창 가운데로, @bywxx 크레딧
+
+**SEO / 보안 헤더 / 프라이버시 (`ba23dd5`, `ece14e8`, `d98dafe`):**
+- [`vercel.json`](vercel.json): `X-Content-Type-Options` / `X-Frame-Options` / `Referrer-Policy` / `Permissions-Policy` 헤더 추가
+- [`index.html`](index.html): preconnect(fonts.googleapis/gstatic) + dns-prefetch(cdn.jsdelivr/unpkg/cdnjs) + JSON-LD WebApplication + canonical + `lang="ko"` + multi-size favicon 분리
+- [`robots.txt`](robots.txt) 신규: `Allow: /` + `Disallow: /api/`
+- `marked.min.js`: head sync → defer (초기 파싱 차단 제거)
+- `mask-icon.svg`: 296 단일 픽셀 rect (13.3KB) → 가로 run 병합 28 rect (1.38KB, **-90%**) — Safari 핀 탭용
+- OG/Twitter 메타 카피를 description meta와 통일 (Lichess 언급 추가, 'Stockfish + Gemini' 명시) — Phase 34 Lichess 지원 후 drift 상태였음. og:image / twitter:image PNG 갱신은 별도 phase
+- [`privacy.html`](privacy.html) 신규(7섹션 한국어 처리방침) + 연락처 이메일 평문 → `[at]` / `[dot]` 마스킹 (스팸봇 스크래핑 차단)
+
+**Maskable 아이콘 시도 → 제거 결정 (`73eee94`):**
+- 처음엔 `icon-maskable-512.png`(112px ~22% padding)을 manifest에 넣었으나 Android 설치 시 룩이 너무 작아 보여 제거. `icon-512.png`(any 단일)로 통일 — 룩이 캔버스의 ~66%를 차지해 대부분 어댑티브 마스크(원/스큐어클) 안에 자연 fit
+- 트레이드오프: 일부 공격적 원형 마스크 launcher에서 외곽 차콜 일부 잘림 가능 — 시각 크기 > 마스킹 안전 마진
+
+**분석 화면 — EXPLORE 네비 + SIMULATE 라인 무한 확장 (`733c558`):**
+- EXPLORE의 `<`: 이전엔 `returnMainLineBtn`과 기능 중복(메인라인까지 점프)이었음 → 변형 한 수씩 undo로 변경. 변형 소진 시에만 메인라인으로 빠져 한 칸 더 뒤로
+- EXPLORE의 `>`: 변형 redo 스택 — 따라가본 수 재생. 새 변형 수 두면 fork → 스택 클리어
+- SIMULATE→EXPLORE 전환 시 `simulationQueue`의 PV 수를 `explorationChess.history`에 replay — 변형 수 1번 undo 후 메인라인까지 튀던 버그 픽스
+- SIMULATE 큐 끝에서 `>` → 단일 엔진(depth 12, MultiPV=1) 즉석 분석으로 best move 한 수 추가. 클릭마다 라인 무한 확장. 분석 중 `<` / sim-move 클릭 / 변형 수 / 메인 복귀 모두 abort
+- 리팩토링: `syncExploreBoard` 통합(LIVE/EXPLORE 중복 제거), `showEngineLoading` / `hideEngineStatus` 헬퍼로 분산된 className/textContent 조작 7곳 통합, `exploreRedoStack` / `simExtendState`를 [modes.js](modes.js)로 이전
+- 설정 General에 "기본 시간대" select 추가(rapid/blitz/bullet/all). 홈 드롭다운과 같은 localStorage 키 공유로 출발했으나 이후 `bc6d156`에서 의미 분리
+
+**설정/About/피드백 모달 → 페이지 (`2dc7d8b`):**
+- 한 모달 안에 컨트롤 5 + 네비 3 + 로그아웃 + 푸터까지 빽빽해서 분리. [settings.js](settings.js) 신설(199줄), main.js −175줄
+- `SCREENS.SETTINGS/ABOUT/FEEDBACK` 추가, drilldown 패턴(back btn) 채용
+- `.app-container { overflow: clip }` — `moves-overlay-sheet`의 transform이 scrollHeight를 늘려 focus 자동 `scrollIntoView`가 컨테이너를 스크롤시키던 부작용 차단
+- `storage.clearIdentity()` 캡슐화 — settings에서 raw localStorage 키 접근 제거
+- 카피: "기본 시간대" → "기본 시간 컨트롤" (timezone 오해 방지)
+- **dead 제거:** Phase 38에서 추가했던 last push UI + `api/version.js`(삭제) + [_http.js](api/_http.js)의 GET 일반화를 원복. last push 표시 자체가 페이지 전환 후 무가치해져서 표면적 정보 줄임 — 38이 막 들어간 코드를 39에서 되돌리는 자연스러운 회귀 케이스
+
+**홈 TC 드롭다운 vs 설정 기본값 의미 분리 (`bc6d156`):**
+- 이전엔 둘이 같은 localStorage 키를 공유 — 홈에서 한 번 바꾸면 영구 default가 됐음. 사용자 멘탈 모델대로: **설정의 "기본" = 영속**(앱 재시작 시 초기값), **홈 드롭다운 = 메모리 한정**
+- `setHomeTcFilter`: localStorage 쓰기 제거, 메모리만 변경
+- `setDefaultTcFilter` 신설: localStorage 영속 + `setHomeTcFilter` 위임으로 즉시 sync
+
+**온보딩 ID 검증 + 통계 재배치 + 시계 카드 픽스 (`3892c9b`):**
+- `chessApi.verifyUserExists` 라우터 + chesscom/lichess 어댑터별 구현. 온보딩 submit 시 검증 → 404면 "존재하지 않는 ID 입니다" 빨간 인라인 에러. `_onboardingPending` 가드로 더블 submit 방지. 입력 변경 / 플랫폼 탭 전환 시 에러 자동 클리어
+- 통계: "상대 레이팅별 성적" 카드 openings → patterns 이동. 오프닝과 무관 — patterns 탭의 "자주 만난 상대" 바로 위에 배치해 "vs 상대" 묶음 자연 군집화
+- 시계 카드 sub 깨짐: 3분할 좁은 카드(~110px)에서 한글 sub가 단어 단위로 4~5줄 잘리던 문제 → column 레이아웃 + 텍스트 압축 ("잔여 ≤10초로 둔 수" → "≤10초 잔여:", "3초 안에 둔 수" → "<3초:")
+
+---
+
 ## Phase 38 — P0/P1 코드 위생 통합 + 2회 simplify 패스 (2026-05-05 ~ 06)
 
 코드 리뷰 도출 P0/P1 항목 한 번에 + 두 차례 `/simplify` 패스로 발견 14건 사전 해결. 기능 추가 없음 — 표면 정리만.

@@ -21,9 +21,9 @@ import {
     setSimulationQueue, pushSimulationQueueItem, setSimulationIndex, setSimExtendState,
 } from './modes.js';
 import { parseEvalData, getDests, convertPvToSan, parseAndLoadPgn, isValidFen, escapeHtml, parseOpeningFromPgn, getTier, TIERS, classifyMove } from './utils.js';
-import { renderMovesTable, updateUIWithEval, highlightActiveMove, renderEngineLines, updateTopEvalDisplay, renderReviewReport, buildPreviewCardHtml } from './ui.js';
+import { renderMovesTable, updateUIWithEval, highlightActiveMove, renderEngineLines, updateTopEvalDisplay, renderReviewReport, buildPreviewCardHtml, placePieceBadge } from './ui.js';
 import { addVaultItem, getMyUserId, COORDS_KEY, EVAL_MODE_KEY, computePgnHash, upsertAnalyzedGame, loadAnalysisCache, saveAnalysisCache, isCacheCompatible, ANALYSIS_CACHE_VERSION } from './storage.js';
-import { collectAutoBlunders } from './autoBlunders.js';
+import { collectAutoBlunders, buildAcceptableLines, buildGameContext } from './autoBlunders.js';
 import { initVault, isVaultDetailActive, isVaultPuzzleActive, getVaultDetailIndex, setVaultDetailIndex, flipVaultBoard, setVaultCoords, redrawVaultBoard, loadVaultData, loadBlunderListData, redrawVaultPuzzleBoard } from './vault.js';
 import { initSavedGames, loadSavedGamesData } from './savedGames.js';
 import { initInsights, loadInsightsData } from './insights.js';
@@ -1068,6 +1068,21 @@ confirmSaveBtn.addEventListener('click', () => {
     // 라이브 입력 모드는 chess(메인 게임)이 비어있고 explorationChess만 의미 있음.
     const sourcePgn = appMode === APP_MODES.LIVE_INPUT ? explorationChess.pgn() : chess.pgn();
 
+    // 수동 저장도 자동 수집과 같은 buildAcceptableLines + buildGameContext.
+    // snap.engineLines = 직전 위치의 multiPV. gameContext는 분석 모드에서만 (live input엔 게임 진행 없음).
+    let solution = null;
+    if (snap.prevFen && snap.engineLines?.length > 0) {
+        const acceptable = buildAcceptableLines(snap.prevFen, snap.engineLines, isUserWhite, {
+            maxPlies: 5, stopOnMate: true, requireMate: false,
+        });
+        if (acceptable.length > 0) {
+            solution = { acceptable };
+            if (appMode !== APP_MODES.LIVE_INPUT && Array.isArray(analysisQueue)) {
+                solution.gameContext = buildGameContext(analysisQueue, snap.moveIndex, isUserWhite);
+            }
+        }
+    }
+
     const vaultItem = {
         id: crypto.randomUUID(),
         date: new Date().toISOString(),
@@ -1085,6 +1100,7 @@ confirmSaveBtn.addEventListener('click', () => {
         notes: saveNotes.value.trim(),
         engineLines: snap.engineLines,
         playedDate,
+        solution,
     };
 
     addVaultItem(vaultItem);
@@ -1770,59 +1786,13 @@ function updateBoardPosition(index, fen) {
 // 8. Helpers
 // ==========================================
 
-const BADGE_MAP = {
-    'Brilliant':  { symbol: '!!', fontSize: '9px',  fontWeight: '900', color: '#fff',    bg: '#3A8560', borderColor: '#26614A' },
-    'Great':      { symbol: '!',  fontSize: '13px', fontWeight: '900', color: '#fff',    bg: '#2D6E55', borderColor: '#1F5240' },
-    'Best':       { symbol: '✦', fontSize: '10px', fontWeight: '700', color: '#1C1D1F', bg: '#FFFFFF', borderColor: '#D8DADE' },
-    'Excellent':  { symbol: '✓', fontSize: '11px', fontWeight: '900', color: '#fff',    bg: '#6B8C3A', borderColor: '#4F6A28' },
-    'Inaccuracy': { symbol: '?!', fontSize: '8px',  fontWeight: '700', color: '#fff',    bg: '#C99B2D', borderColor: '#9A7621' },
-    'Mistake':    { symbol: '?',  fontSize: '13px', fontWeight: '900', color: '#fff',    bg: '#D97706', borderColor: '#A85A05' },
-    'Blunder':    { symbol: '??', fontSize: '9px',  fontWeight: '700', color: '#fff',    bg: '#D03832', borderColor: '#A02828' },
-    'Forced':     { symbol: '□',  fontSize: '11px', fontWeight: '700', color: '#fff',    bg: '#62646A', borderColor: '#43454B' },
-};
-
 function showPieceBadge(index) {
-    const existing = boardContainer.querySelector('.piece-badge-square');
-    if (existing) existing.remove();
-
-    if (index < 0 || !analysisQueue[index]) return;
-
-    const move = analysisQueue[index];
-    if (!move.to || !move.classification) return;
-
-    const config = BADGE_MAP[move.classification];
-    if (!config) return; // 'Good' → no badge
-
-    const fileIndex = move.to.charCodeAt(0) - 97; // 'a'=0 … 'h'=7
-    const rank = parseInt(move.to[1]);             // 1-8
-
-    const orientation = cg.state.orientation;
-    let col, row;
-    if (orientation === 'white') {
-        col = fileIndex;
-        row = 8 - rank;
-    } else {
-        col = 7 - fileIndex;
-        row = rank - 1;
+    if (index < 0 || !analysisQueue[index]) {
+        placePieceBadge(boardContainer, null, null, null); // clear
+        return;
     }
-
-    // 정사각형 래퍼: overflow: visible이어야 배지가 클리핑되지 않음
-    const square = document.createElement('div');
-    square.className = 'piece-badge-square';
-    square.style.left = `${col / 8 * 100}%`;
-    square.style.top = `${row / 8 * 100}%`;
-
-    // 원형 배지 — border 대신 CSS box-shadow로 경계 표현 (iOS 알림 배지 스타일)
-    const badge = document.createElement('div');
-    badge.className = 'piece-badge';
-    badge.textContent = config.symbol;
-    badge.style.fontSize = config.fontSize;
-    badge.style.fontWeight = config.fontWeight;
-    badge.style.color = config.color;
-    badge.style.background = config.bg;
-
-    square.appendChild(badge);
-    boardContainer.appendChild(square);
+    const move = analysisQueue[index];
+    placePieceBadge(boardContainer, move.to, cg.state.orientation, move.classification);
 }
 
 function forceRedraw(instance) {

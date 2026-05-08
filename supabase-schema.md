@@ -29,11 +29,23 @@ create table public.vault_items (
   cp_loss numeric,
   mate_in integer,                   -- missed_mate 항목에만 있음 (M{N} 표시·budget 검증용)
   played_date text,                  -- 자동/수동 공통 정렬 키 (PGN UTCDate||Date)
+  -- Phase 40: 인터랙티브 퍼즐 풀이용 필드 (옛 row는 NULL — vault UI가 정적 표시로 폴백).
+  prev_fen text,                     -- 사용자가 수를 둘 차례인 위치 (실수 직전). position_fen은 실수 직후.
+  solution_json jsonb,               -- { acceptable: [{ san, uci, winChance, moves: [{san,uci,side}, ...] }, ...] }
+  win_chance_drop numeric,           -- 사용자 관점 승률 손실 (0~1). 정렬/표시용.
   created_at timestamptz not null default now()
 );
 
 create index vault_items_user_platform_idx on public.vault_items (user_id, platform);
 create index vault_items_played_date_idx on public.vault_items (user_id, platform, played_date desc);
+```
+
+**Phase 40 마이그레이션** (기존 환경에 추가):
+```sql
+alter table public.vault_items
+  add column if not exists prev_fen text,
+  add column if not exists solution_json jsonb,
+  add column if not exists win_chance_drop numeric;
 ```
 
 ---

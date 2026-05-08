@@ -3187,6 +3187,15 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     min-height: 0;
 }
 .vault-pane.hidden { display: none; }
+/* Phase 42: vault-pane을 flex column으로 — 자식 [top-bar / empty / stage / action-bar] 수직 배치.
+   action-bar는 마지막 자식이라 자동으로 하단. bottom-nav(56px) 가림 방지로 padding-bottom 확보. */
+.vault-pane {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    padding-bottom: calc(56px + env(safe-area-inset-bottom));
+}
 
 .vault-puzzle-stage {
     display: flex;
@@ -3197,10 +3206,10 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
 }
 .vault-puzzle-stage.hidden { display: none; }
 
-/* 보드 max-width — 100dvh에서 다른 chrome(filter-row + indicator + prompt + feedback
-   + actions + bottom-nav) 합산 약 300px를 빼서 일반 케이스에 스크롤 없이 다음 버튼까지 노출. */
+/* 보드 max-width — 100dvh에서 다른 chrome(top-bar + indicator + prompt + unified-controls
+   + panel-content + action-bar + bottom-nav) 합산 약 360px를 빼서 일반 케이스에 스크롤 없이 노출. */
 #vaultPuzzlePane .board-container {
-    max-width: calc(100dvh - 300px);
+    max-width: calc(100dvh - 360px);
 }
 
 /* Empty state */
@@ -3328,6 +3337,9 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     font-size: 12px;
     color: var(--tx2);
 }
+/* 응수(opponent) 수는 사용자 수와 시각 구분 — 톤 다운된 회색 */
+.puzzle-fb-opp { color: var(--tx3); font-weight: 500; }
+.puzzle-fb-opp strong { font-weight: 500; }
 
 /* Actions — 다음/다시 풀기/처음부터 버튼 */
 .vault-puzzle-actions {

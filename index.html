@@ -282,36 +282,78 @@
         </div>
     </div>
 
-    <!-- Vault View — bottom-nav root. 첫 chrome은 필터 행, 우측 끝에 보조 리스트 진입 버튼. -->
+    <!-- Vault View — bottom-nav root. Phase 42: 분석 화면 chrome 채택 (analysis-top-bar + unified-controls + panel-content + live-action-bar). -->
     <div id="vaultView" class="view-container hidden">
         <div id="vaultPuzzlePane" class="vault-pane">
-            <div class="vault-filter-row">
+            <!-- Top Bar — 카테고리 필터 탭 + 목록 진입 -->
+            <div class="analysis-top-bar vault-top-bar">
                 <div id="vaultPuzzleFilterTabs" class="vault-filter-tabs vault-filter-tabs--inline"><!-- populated from #vaultFilterTabsTemplate by vault.js --></div>
                 <button id="vaultListLink" class="topbar-icon-btn" type="button" title="목록" data-i18n-title="vault_list_link" aria-label="목록">
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg>
                 </button>
             </div>
+
+            <!-- Empty state -->
             <div id="vaultPuzzleEmpty" class="vault-puzzle-empty hidden">
                 <div class="vault-puzzle-empty-text" data-i18n="vault_puzzle_empty">분석을 돌리면 자동으로 모여요</div>
             </div>
+
+            <!-- Stage — 보드 + 컨트롤 + 패널 + 하단 액션바 -->
             <div id="vaultPuzzleStage" class="vault-puzzle-stage">
                 <div id="vaultPuzzleIndicator" class="vault-puzzle-indicator"></div>
+
+                <!-- 헤더 (간략한 프롬프트) -->
                 <div class="vault-puzzle-prompt">
                     <div id="vaultPuzzleHeader" class="vault-puzzle-header"></div>
                     <div id="vaultPuzzleSubhead" class="vault-puzzle-subhead"></div>
                 </div>
-                <div class="board-wrapper vault-puzzle-board-wrap">
+
+                <!-- Board -->
+                <div class="board-wrapper">
                     <div id="vaultPuzzleBoard" class="board-container"></div>
-                    <div id="vaultPuzzleTapZones" class="puzzle-tap-zones">
-                        <div class="puzzle-tap-zone" data-action="prev"></div>
-                        <div class="puzzle-tap-zone" data-action="next"></div>
+                </div>
+
+                <!-- Unified Controls — 분석 화면과 동일 chrome, 버튼은 < > 만 -->
+                <div class="unified-controls">
+                    <div class="unified-controls-inner">
+                        <div class="ctrl-group-left"></div>
+                        <div class="ctrl-center">
+                            <span id="vaultPlyIndicator" class="win-chance-display">—</span>
+                        </div>
+                        <div class="ctrl-group-right">
+                            <button id="vaultPrevPlyBtn" class="ctrl-btn ctrl-nav" type="button" title="이전 수">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                            </button>
+                            <button id="vaultNextPlyBtn" class="ctrl-btn ctrl-nav" type="button" title="다음 수">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                            </button>
+                        </div>
                     </div>
                 </div>
-                <div id="vaultPuzzleFeedback" class="vault-puzzle-feedback"></div>
-                <div class="vault-puzzle-actions">
-                    <button id="vaultPuzzleNextBtn" class="vault-puzzle-next" type="button" data-i18n="vault_puzzle_next">다음</button>
+
+                <!-- Panel Content — 풀이 전엔 피드백/안내, 풀이 후엔 정답 라인 (engine-line UI 재사용) -->
+                <div class="panel-content vault-panel-content">
+                    <div id="vaultPuzzleFeedback" class="vault-puzzle-feedback"></div>
+                    <div id="vaultEngineLinesContainer" class="engine-lines-container hidden"></div>
                 </div>
+
             </div>
+
+            <!-- Bottom Action Bar — vault-pane 마지막 형제로 항상 하단 고정. live-action-bar 스타일. -->
+            <nav class="live-action-bar vault-action-bar" aria-label="퍼즐 액션">
+                <button id="vaultPrevPuzzleBtn" class="live-action-tab" type="button">
+                    <svg class="live-action-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                    <span class="live-action-label" data-i18n="vault_puzzle_prev_short">이전</span>
+                </button>
+                <button id="vaultResetPuzzleBtn" class="live-action-tab" type="button">
+                    <svg class="live-action-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-15-6.7L3 13"/></svg>
+                    <span class="live-action-label" data-i18n="vault_puzzle_retry_short">다시</span>
+                </button>
+                <button id="vaultPuzzleNextBtn" class="live-action-tab" type="button">
+                    <svg class="live-action-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                    <span class="live-action-label" data-i18n="vault_puzzle_next_short">다음</span>
+                </button>
+            </nav>
         </div>
     </div>
 
