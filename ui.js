@@ -2,6 +2,25 @@ import { escapeHtml, getWhiteWinPct, cpToWhiteWinPct } from './utils.js';
 import { EVAL_MODE_KEY } from './storage.js';
 import { t } from './strings.js';
 
+// Screen-loading 오버레이 show/hide 래퍼. 캐시 hit으로 fetch가 매우 빠를 때 깜빡임 방지를 위해
+// 노출 시점부터 minDuration ms 지나기 전엔 숨기지 않음. 에러 발생해도 finally로 반드시 숨김.
+export async function withScreenLoading(overlayEl, asyncFn, { minDuration = 200 } = {}) {
+    if (!overlayEl) return asyncFn();
+    overlayEl.classList.remove('is-hidden');
+    const showAt = performance.now();
+    try {
+        return await asyncFn();
+    } finally {
+        const elapsed = performance.now() - showAt;
+        const remaining = Math.max(0, minDuration - elapsed);
+        if (remaining > 0) {
+            setTimeout(() => overlayEl.classList.add('is-hidden'), remaining);
+        } else {
+            overlayEl.classList.add('is-hidden');
+        }
+    }
+}
+
 /**
  * Renders the empty moves table for analysis.
  */

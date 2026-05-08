@@ -22,10 +22,10 @@ import {
 } from './modes.js';
 import { parseEvalData, getDests, convertPvToSan, parseAndLoadPgn, isValidFen, escapeHtml, parseOpeningFromPgn, getTier, TIERS, classifyMove } from './utils.js';
 import { renderMovesTable, updateUIWithEval, highlightActiveMove, renderEngineLines, updateTopEvalDisplay, renderReviewReport, buildPreviewCardHtml, placePieceBadge } from './ui.js';
-import { addVaultItem, getMyUserId, COORDS_KEY, EVAL_MODE_KEY, computePgnHash, upsertAnalyzedGame, loadAnalysisCache, saveAnalysisCache, isCacheCompatible, ANALYSIS_CACHE_VERSION } from './storage.js';
-import { collectAutoBlunders, buildAcceptableLines, buildGameContext } from './autoBlunders.js';
+import { getMyUserId, COORDS_KEY, EVAL_MODE_KEY, computePgnHash, upsertAnalyzedGame, loadAnalysisCache, saveAnalysisCache, isCacheCompatible, ANALYSIS_CACHE_VERSION } from './storage.js';
+import { collectAutoBlunders } from './autoBlunders.js';
 import { initVault, isVaultDetailActive, isVaultPuzzleActive, getVaultDetailIndex, setVaultDetailIndex, flipVaultBoard, setVaultCoords, redrawVaultBoard, loadVaultData, loadBlunderListData, redrawVaultPuzzleBoard } from './vault.js';
-import { initSavedGames, loadSavedGamesData } from './savedGames.js';
+import { initSavedGames, loadSavedGamesData, openSaveGameModal } from './savedGames.js';
 import { initInsights, loadInsightsData } from './insights.js';
 import { initSettings, onSettingsViewEnter, onFeedbackViewEnter } from './settings.js';
 import {
@@ -90,19 +90,6 @@ const loadingQuoteWrap = loadingQuoteText ? loadingQuoteText.parentElement : nul
 const loadingProgressFill = document.getElementById('loadingProgressFill');
 const loadingProgressText = document.getElementById('loadingProgressText');
 
-// Modal Elements
-const saveModal = document.getElementById('saveModal');
-const saveMoveText = document.getElementById('saveMoveText');
-const saveBestMoveText = document.getElementById('saveBestMoveText');
-const saveCategory = document.getElementById('saveCategory');
-const saveNotes = document.getElementById('saveNotes');
-const cancelSaveBtn = document.getElementById('cancelSaveBtn');
-const confirmSaveBtn = document.getElementById('confirmSaveBtn');
-
-const saveChoiceModal = document.getElementById('saveChoiceModal');
-const choiceSaveMoveBtn = document.getElementById('choiceSaveMoveBtn');
-const cancelChoiceBtn = document.getElementById('cancelChoiceBtn');
-
 // Color Choice Modal Elements
 const colorChoiceModal = document.getElementById('colorChoiceModal');
 const chooseWhiteBtn = document.getElementById('chooseWhiteBtn');
@@ -127,8 +114,6 @@ const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 // appMode, explorationChess, explorationEngineLines, simulationQueue, simulationIndex, isPreviewMode 는 modes.js로 이전.
 let currentEval = '';
 let isAnalysisLoading = false;
-let currentBestMoveForVault = ''; // 저장 시 함께 보관할 최선의 수
-let vaultSnapshot = null; // 🔖 탭 시점의 수 데이터 스냅샷 (모달 열린 동안 고정)
 const LIVE_INPUT_DEPTH = 12; // 라이브 입력 모드 엔진 depth 락 — 렉 방지용 고정값
 let lastEvalRenderTime = 0; // 엔진 UI 렌더링 스로틀링용 타임스탬프
 const EVAL_RENDER_THROTTLE = 100; // UI 업데이트 제한 시간(ms)
@@ -411,7 +396,6 @@ chooseBlackBtn.addEventListener('click', () => {
 
 function closeModal(modal) {
     if (modal) modal.classList.add('hidden');
-    if (modal === saveModal) vaultSnapshot = null;
 }
 
 // 티어 모달: TIERS를 순회하며 각 행의 범위를 동적으로 계산. 현재 rapid 레이팅이 속한 행은 강조.
@@ -448,8 +432,6 @@ if (profileTierBtn && tierModal) {
 
 const modalConfigs = [
     { modal: tierModal, closeBtn: closeTierModalBtn },
-    { modal: saveChoiceModal, closeBtn: cancelChoiceBtn, noBg: true },
-    { modal: saveModal, closeBtn: cancelSaveBtn, noBg: true },
     { modal: livePasteModal, closeBtn: cancelLivePasteBtn },
 ];
 
@@ -949,166 +931,18 @@ function hideReturnBtn() {
 }
 
 
-// --- Save Move to Vault Logic ---
+// 분석/라이브 화면 저장 버튼 → saved_games로 직접. vault 수동 저장은 폐지(자동 수집만).
 saveMoveBtn.addEventListener('click', () => {
-    saveChoiceModal.classList.remove('hidden');
-});
-
-choiceSaveMoveBtn.addEventListener('click', () => {
-    saveChoiceModal.classList.add('hidden');
-
-    // 라이브 입력 모드: explorationChess의 마지막 수를 저장 (분류 없음, bestMove는 현재 위치의 top PV).
     if (appMode === APP_MODES.LIVE_INPUT) {
-        const hist = explorationChess.history({ verbose: true });
-        if (hist.length === 0) {
+        if (explorationChess.history().length === 0) {
             showAlert(t('analysis_no_save_start'));
             return;
         }
-        const last = hist[hist.length - 1];
-        const moveIdx = hist.length - 1;
-        const isWhiteMove = moveIdx % 2 === 0;
-        const moveNumber = Math.floor(moveIdx / 2) + 1;
-        const moveNumberStr = moveNumber + (isWhiteMove ? '. ' : '... ');
-        saveMoveText.textContent = moveNumberStr + last.san;
-
-        // bestMove는 "이 수 다음에 둘 만한 수" — 현재 explorationEngineLines[0]의 첫 수.
-        // 메인 분석 모드의 "직전 포지션 best"와 의미가 다름(여기선 직전 캐시가 없음).
-        const liveBest = explorationEngineLines[0]?.pv?.split(' ')[0] || '';
-        currentBestMoveForVault = liveBest;
-        saveBestMoveText.textContent = liveBest ? t('vault_engine_suggested').replace('{move}', liveBest) : '';
-
-        // prevFen 복원 — 마지막 수만 빼고 나머지 history replay.
-        const tempChess = new Chess();
-        for (let i = 0; i < moveIdx; i++) {
-            tempChess.move({ from: hist[i].from, to: hist[i].to, promotion: hist[i].promotion });
-        }
-        vaultSnapshot = {
-            moveIndex: moveIdx,
-            move: { san: last.san, fen: explorationChess.fen() },
-            fen: explorationChess.fen(),
-            prevFen: tempChess.fen(),
-            san: last.san,
-            bestMove: liveBest,
-            moveNumber,
-            isWhite: isWhiteMove,
-            classification: null,
-            engineLines: explorationEngineLines.slice(),
-        };
-        saveCategory.value = 'positional';
-        saveNotes.value = '';
-        saveModal.classList.remove('hidden');
-        return;
-    }
-
-    if (currentlyViewedIndex < 0 || !analysisQueue[currentlyViewedIndex]) {
+    } else if (currentlyViewedIndex < 0 || !analysisQueue[currentlyViewedIndex]) {
         showAlert(t('analysis_no_save_start'));
         return;
     }
-
-    const snapIndex = currentlyViewedIndex;
-    const move = analysisQueue[snapIndex];
-    const moveNumberStr = move.moveNumber + (move.isWhite ? '. ' : '... ');
-    saveMoveText.textContent = moveNumberStr + move.san;
-
-    // Calculate Best Move from the previous position's engine lines
-    let bestMove = '';
-    if (snapIndex > 0) {
-        const prevMove = analysisQueue[snapIndex - 1];
-        if (prevMove && prevMove.engineLines && prevMove.engineLines[0] && prevMove.engineLines[0].pv) {
-            bestMove = prevMove.engineLines[0].pv.split(' ')[0];
-        }
-    }
-    currentBestMoveForVault = bestMove;
-    if (bestMove) saveBestMoveText.textContent = t('vault_engine_suggested').replace('{move}', bestMove);
-    else saveBestMoveText.textContent = '';
-
-    const initialMoveFen = chess?.header?.()?.FEN || START_FEN;
-    vaultSnapshot = {
-        moveIndex: snapIndex,
-        move,
-        fen: move.fen,
-        prevFen: snapIndex > 0 ? analysisQueue[snapIndex - 1].fen : initialMoveFen,
-        san: move.san,
-        bestMove,
-        moveNumber: move.moveNumber,
-        isWhite: move.isWhite,
-        classification: move.classification,
-        engineLines: move.engineLines
-    };
-
-    // Auto-select category based on engine classification
-    if (move.classification) {
-        const cls = move.classification.toLowerCase();
-        if (cls === 'blunder') saveCategory.value = 'blunder';
-        else if (cls === 'mistake') saveCategory.value = 'mistake';
-        else saveCategory.value = 'positional';
-    } else {
-        saveCategory.value = 'positional'; // Default fallback
-    }
-
-    saveNotes.value = '';
-    saveModal.classList.remove('hidden');
-});
-
-confirmSaveBtn.addEventListener('click', () => {
-    if (!vaultSnapshot) return;
-
-    const snap = vaultSnapshot;
-
-    let gameTitle = '';
-    let playedDate = null;
-    const h = chess?.header?.();
-    if (h) {
-        if (h.White && h.Black && h.White !== '?' && h.Black !== '?') {
-            gameTitle = `${h.White} vs ${h.Black}`;
-        }
-        playedDate = h.UTCDate || h.Date || null;
-    }
-
-    // 라이브 입력 모드는 chess(메인 게임)이 비어있고 explorationChess만 의미 있음.
-    const sourcePgn = appMode === APP_MODES.LIVE_INPUT ? explorationChess.pgn() : chess.pgn();
-
-    // 수동 저장도 자동 수집과 같은 buildAcceptableLines + buildGameContext.
-    // snap.engineLines = 직전 위치의 multiPV. gameContext는 분석 모드에서만 (live input엔 게임 진행 없음).
-    let solution = null;
-    if (snap.prevFen && snap.engineLines?.length > 0) {
-        const acceptable = buildAcceptableLines(snap.prevFen, snap.engineLines, isUserWhite, {
-            maxPlies: 5, stopOnMate: true, requireMate: false,
-        });
-        if (acceptable.length > 0) {
-            solution = { acceptable };
-            if (appMode !== APP_MODES.LIVE_INPUT && Array.isArray(analysisQueue)) {
-                solution.gameContext = buildGameContext(analysisQueue, snap.moveIndex, isUserWhite);
-            }
-        }
-    }
-
-    const vaultItem = {
-        id: crypto.randomUUID(),
-        date: new Date().toISOString(),
-        pgn: sourcePgn,
-        moveIndex: snap.moveIndex,
-        gameTitle,
-        isUserWhite,
-        fen: snap.fen,
-        prevFen: snap.prevFen,
-        san: snap.san,
-        bestMove: snap.bestMove,
-        moveNumber: snap.moveNumber,
-        isWhite: snap.isWhite,
-        category: saveCategory.value,
-        notes: saveNotes.value.trim(),
-        engineLines: snap.engineLines,
-        playedDate,
-        solution,
-    };
-
-    addVaultItem(vaultItem);
-
-    saveModal.classList.add('hidden');
-    vaultSnapshot = null;
-
-    showToast(t('saved_games_saved'));
+    openSaveGameModal();
 });
 
 // Redraw board on window resize or device rotation for better responsive behavior

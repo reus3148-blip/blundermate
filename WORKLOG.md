@@ -6,6 +6,165 @@
 
 ---
 
+## Phase 47 — PC 비율 / vault 화면 전반 재디자인 / 분석 결 eval 표시 / 한 수 풀이 (2026-05-09)
+
+vault 화면 전반을 한 세션에 재구성. PC 모드 비율 보정 → top bar segmented pill → 화면 4요소 위계 재정비(progress bar / category chip / board flash / action bar) → 분석 화면 결의 단일 eval display → 한 수 풀이로 정답 판정 단순화. 동시에 vault/saved 진입 시 supabase fetch 동안 빈 화면(naked) 가림용 로딩 오버레이 추가.
+
+### 1) PC 모니터 비율 9:16 (tokens.css)
+
+이전 `.app-container { max-width: 420px }` 고정으로 세로 긴 PC 모니터(1080+)에서 컨테이너가 홀쭉. height-driven 폭 계산으로 변경:
+```css
+.app-container { width: min(100vw, calc(100dvh * 9 / 16)); }
+```
+- 1080p → 컨테이너 폭 ~607px (vs 420)
+- 1440p → ~810px
+- aspect-ratio 대신 calc 명시 — 자식 min-content 가 폭을 밀어내던 케이스 회피
+- 모바일(<480px) breakpoint는 그대로 100% 폭
+
+### 2) vault top bar — segmented pill + 우측 ☰ ([styles.css](styles.css))
+
+3탭(블런더/메이트/기타) 좌측 정렬 underline 탭 + 정중앙 어정쩡한 ☰ → **iOS HIG segmented control pill** + 정중앙 정렬 + ☰ 우측 끝.
+
+- `.vault-filter-tabs--inline`을 둥근 컨테이너 (radius 9px, --bg-elevated 배경)로 재정의
+- 선택된 segment: 흰 배경 + subtle shadow + font 600
+- `1fr auto 1fr` 그리드에서 segmented는 `grid-column: 2 / justify-self: center`, ☰는 `grid-column: 3 / justify-self: end`
+- 보조 list 뷰의 `.vault-filter-tabs`(--inline 미적용)는 underline 스타일 보존
+
+레퍼런스: [Apple HIG Segmented Controls](https://developer.apple.com/design/human-interface-guidelines/segmented-controls), [iOS 26 tab bar accessory](https://designfornative.com/ui-changes-in-ios-26-thats-not-about-liquid-glass/) (search 액세서리 우측 분리 트렌드).
+
+### 3) vault 화면 전체 재구성 ([vault.js](vault.js), [styles.css](styles.css))
+
+- **Progress bar (Duolingo 결)**: indicator 12 segment dots → 단일 fill bar + `1/12` 카운트. `.puzzle-progress` + `.puzzle-progress-fill` (--ac 잉크블루 채움). 풀이 진행 시 width transition 0.3s
+- **Category chip**: prompt header 앞에 `[블런더]`(red 톤) / `[메이트]`(green 톤) chip을 inline. 카드 정체성 한눈에. CSS `.vault-cat-chip--blunder/mate` modifier
+- **Board flash**: 정답/오답 시 `.vault-puzzle-board-wrap`에 `.vault-flash-correct/wrong` 클래스 → 0.55s ring 애니메이션 (haptic 대안 시각 피드백). `flashBoard(correct)` 헬퍼가 `void offsetWidth` reflow로 동일 클래스 재트리거 처리
+- **Bottom action bar 위계**: 균등 회색 3개 → `다음`(primary 액션)을 잉크블루(`var(--ac)`) + 600 weight, 이전/다시는 `--tx3` 그대로. 사용 빈도 높은 액션 시각 강조
+
+레퍼런스: [Duolingo 진행률 바 + 마일스톤](https://userguiding.com/blog/duolingo-onboarding-ux), [Anki rating 위계](https://forums.ankiweb.net/t/material-based-anki-flashcard/29493), [모바일 게임 success/fail 피드백 best practice](https://medium.com/nerd-for-tech/haptics-for-mobile-the-best-practices-for-android-and-ios-d2aa72409bdd) (retention +30%).
+
+### 4) Eval transition display — 분석 화면 결의 단일 win-chance-display
+
+이전: unified-controls 중앙에 `vaultPlyIndicator`로 "실수 직전" / "+1수" 텍스트만. "왜 블런더인지" 임팩트 무.
+
+이후: 분석 화면의 `.win-chance-display`와 동일 element 재사용. **커서 위치에 따라 값 자체가 바뀜**:
+- ply scrub backward (cursor < blunderIdx): 직전 best 라인 winChance — 예) `66%` (회색 `--tx2`)
+- ply scrub forward (cursor ≥ blunderIdx): 드롭된 winChance — 예) `46%` (`--blunder` 빨강)
+- 메이트 카드: `M3` 표시 (변화 없음)
+- 옛 row(no winChance): `cpLoss` 폴백
+- gameContext 없는 옛 row도 가상 [-1: before / 0: after] cursor toggle로 작동 — < > 가 의미 있게
+
+데이터 우선순위: `solution.acceptable[0].winChance + winChanceDrop` → `mateIn` → `cpLoss` 폴백 → 빈 표시.
+
+`.vault-eval-dropped` 클래스 한 줄로 색만 빨강 토글. 분석 화면과 100% 동일한 위치/스타일 유지.
+
+### 5) Screen loading overlay (`withScreenLoading`)
+
+vault/saved 진입 시 supabase fetch (~3s 가능)동안 빈 home/카드 영역(naked)이 노출되던 이슈.
+
+- [ui.js](ui.js): `withScreenLoading(overlayEl, asyncFn, { minDuration = 200 })` export — 진입 시 overlay 노출, async 완료 시 (또는 캐시 hit 시 minDuration 만족 후) 자동 숨김
+- index.html: 각 `view-container` 첫 자식으로 `.screen-loading` 마크업 (워드마크 + bg-base 배경)
+- vault.js `loadVaultData` / `loadBlunderListData`, savedGames.js `loadSavedGamesData` 모두 wrapper로 변경
+
+minDuration 200ms로 캐시 hit(<50ms) 시 깜빡임 방지.
+
+### 6) 블런더 한 수 풀이 + feedback 슬림화
+
+이전: `handleSequenceMove`가 `puzzleLockedLine` + `puzzleLineIndex`로 시퀀스 끝까지 매칭 강제. canonical 라인의 4-5수를 정확히 둬야 정답 → 너무 어려움.
+
+이후 ([vault.js](vault.js)):
+- 첫 수가 `acceptable` 라인 중 어느 것이든 매칭 → 즉시 `puzzleSolved = true` + correct
+- 매칭 실패 → 즉시 fail
+- 시퀀스 lock 로직 50줄 + 상태 변수(`puzzleLockedLine`, `puzzleLineIndex`) 통째 삭제
+- `renderPuzzleFeedback`: head + (오답 시 "둔 수")만. 풀 시퀀스 + meta 라인 제거 — engine-line panel이 다중 라인을 더 잘 보여줌
+- `.vault-panel-content { overflow-y: auto }` 안전망 — 좁은 viewport에서 잘림 방지
+
+메이트 카드는 그대로 (`handleMateMove` 엔진 검증 path 유지) — 메이트 시퀀스는 학습 가치 있음.
+
+### 7) Simplify 패스 (3-agent 리뷰 → 5건 픽스)
+
+- **`withScreenLoading` 추출** (위 5번) — vault.js + savedGames.js 중복 제거 + minDuration 200ms 깜빡임 방지 한 번에
+- **Progress bar diff-update**: `renderIndicator`가 매번 innerHTML 재생성 → fill 노드 새로 생기면서 `transition: width 0.3s`가 매번 처음부터 시작 → 애니메이션 안 보이던 버그. fill/count 노드 재사용으로 width style만 업데이트
+- **`updatePlyIndicator`의 raw `'missed_mate'` 비교** → `categorize(item) === 'mate'`로 single source of truth
+- **`renderPuzzle` null-cat 분기에 stale state 누수**: puzzleSolved/Processing 상태가 다음 카드로 새는 가능성 → 진입 시 reset
+- **narrative 주석 정리** (3곳: index.html "Phase 42 채택", storage.js "수동 저장 폐지됨", savedGames.js 변경 narrative)
+
+### 검증
+
+| 항목 | 결과 |
+|---|---|
+| PC 1280×900: container 506×900, 비율 0.5625 | ✓ |
+| vault top bar: segmented pill 중앙 + ☰ 우측 끝 | ✓ |
+| 메이트 탭 전환: white pill bg 토글, font 600 | ✓ |
+| Progress bar fill 노드 persist + width 변경 (8.33% → 16.67%) | ✓ — transition 정상 |
+| eval display: 66% → 46% (cursor scrub forward) + 색 회색→빨강 | ✓ |
+| Loading overlay min-duration 200ms 보장 | show t=3ms, hide t=2590ms ✓ |
+| viewport 분포: top(46) + ind(26) + prompt(50) + board(488) + ctrls(52) + panel(116) + action(57) + nav(57) = 892/900 | ✓ 잘림 없음 |
+| 콘솔 에러 | 0건 |
+
+### 라인 변화 (Phase 47만)
+
+| 파일 | 변경 |
+|---|---|
+| [index.html](index.html) | −10 (split eval markup → 단일, narrative 주석 정리) + 6 (loading overlay 마크업 2개) |
+| [styles/tokens.css](styles/tokens.css) | +24 (PC 9:16 비율 + screen-loading 스타일) |
+| [styles.css](styles.css) | +90 (segmented pill / progress bar / chip / flash / eval / vault-panel-content scroll) |
+| [vault.js](vault.js) | −80 (시퀀스 lock 50줄 + 상태 + feedback 슬림 + dead 'other' deck 잔재) +60 (eval display + flash + chip + progress diff-update + virtual cursor + screen-loading 래퍼) |
+| [ui.js](ui.js) | +20 (`withScreenLoading` export) |
+| [savedGames.js](savedGames.js) | −10 (loading 인라인 → withScreenLoading 위임) |
+
+순 효과: ~80줄 감소(코드) + viewport 안 4-요소 위계 정돈 + "왜 블런더인지" 숫자로 시각화 + 풀이 진입 마찰 낮춤 + supabase 렉 로딩 오버레이 + 1 실 버그 픽스(progress 애니메이션).
+
+---
+
+## Phase 46 — vault 자동 전용 전환 + saved_games로 단일 저장 흐름 통합 (2026-05-08)
+
+vault에서 수동 저장 흐름을 통째 들어내고 자동 수집(블런더/메이트)만 남김. 분석/라이브 화면의 💾 저장 버튼은 더 이상 "vault vs game" 갈래 없이 곧바로 saved_games 모달로. vault top-bar는 3탭(블런더/메이트/기타) → 2탭으로.
+
+**왜:**
+- 사용자 명시: "복기 화면의 상단바는 블런더/메이트 둘만 남기고, 자동 저장만. 실수 저장은 saved_games로 통합"
+- '기타' deck은 Phase 27에서 수동 저장(positional 등) 흡수용으로 만든 자리였는데 실사용 빈도가 낮고 "정답 없는 감상" UX가 vault의 풀이 정체성과 어긋났음
+- 저장 흐름 갈래(수동 vault vs saved_games)도 사용자 입장에선 "한 수만 vs 게임 전체"가 멘탈 모델로 분리돼 있지 않았음 — saveChoiceModal에서 매번 한 번 더 결정해야 했던 마찰 제거
+
+**제거 ([index.html](index.html), [main.js](main.js), [savedGames.js](savedGames.js), [vault.js](vault.js)):**
+- `saveChoiceModal` (저장 갈래 picker) + `saveModal` (vault 카테고리 picker) HTML/CSS 잔재 + 핸들러 통째
+- main.js: `vaultSnapshot`, `currentBestMoveForVault` 상태 + `choiceSaveMoveBtn`/`confirmSaveBtn` 핸들러 + `addVaultItem`/`buildAcceptableLines`/`buildGameContext` import
+- vault.js: `deckState.other`, `categorize`의 `'other'` 분기 (→ null 반환 → deck/list에서 자연 제외), `renderOtherItem` 함수 통째, `puzzleIsOther` 상태 + 키보드 분기 (`puzzleSolved` 단일 가드로 단순화)
+- savedGames.js: `choiceSaveGameBtn` ref + 핸들러 (openSaveGameModal export로 흡수)
+- storage.js: `addVaultItem` (호출자 0). `_vaultRowFromItem`은 batch 전용으로 남김, source 디폴트 `'manual'` → `'auto'`
+- index.html template '기타' 버튼 1줄 + 두 모달 블록(saveChoiceModal/saveModal)
+- strings.js dead key 13개: `vault_filter_other`, `vault_puzzle_other_header/subhead`, `vault_engine_suggested`, `whatToSave`, `saveThisMove`, `saveToVault`, `category`, `notes_move_placeholder`, `saveMove` (KO+EN 양쪽)
+
+**재배선:**
+- saveMoveBtn 클릭 → `openSaveGameModal()` 직접 호출 (savedGames.js에서 신규 export). 라이브/분석 모드 분기는 그대로 — 빈 상태 가드만 main.js에서 처리하고 모달 본체는 savedGames 책임
+- modal close registry에서 saveChoiceModal/saveModal 항목 정리
+
+**옛 데이터 처리:**
+- 기존 vault에 `category: 'positional'` 등 수동 저장 row가 있으면 `categorize()`가 null을 반환 → deck 필터(`_itemsCache.filter(...)`)에서 자연 제외
+- localStorage/Supabase 행 자체는 보존 — 데이터 손실 없음. 사용자가 SQL로 정리하고 싶으면 `delete from vault_items where source='manual';`
+- 자동 수집 row(missed_mate/blunder/mistake classification)는 영향 0
+
+**검증 (preview):**
+- 모듈 로드 에러 0, 콘솔 에러 0
+- vault 진입 → 필터 탭 2개(블런더/메이트), 두 탭 전환 정상
+- 홈/저장/통계 탭 진입 정상
+
+**라인 변화:**
+| 파일 | 변경 |
+|---|---|
+| [index.html](index.html) | −44 (saveChoiceModal + saveModal 블록 + '기타' 버튼) |
+| [main.js](main.js) | −188 (DOM ref + 상태 + 두 핸들러 + import) |
+| [vault.js](vault.js) | −68 (renderOtherItem 53줄 + deck 분기 + puzzleIsOther) |
+| [savedGames.js](savedGames.js) | −2 (choiceSaveGameBtn → openSaveGameModal export로 이전) |
+| [storage.js](storage.js) | −15 (addVaultItem) |
+| [strings.js](strings.js) | −26 (KO+EN dead key 13개) |
+| [CLAUDE.md](CLAUDE.md) | +1 (vault = 자동 수집 전용 명시) |
+
+순 효과: ~340줄 감소 + 저장 흐름 갈래 1단 단순화 + vault 카드 분류 일관성 (자동 수집의 missed_mate/blunder/mistake만).
+
+**남은 갭 (계속 미해결):**
+- **블런더 후속 수 동급 인정** — Phase 44에서 이어진 항목. 무관
+
+---
+
 ## Phase 45 — Phase 40~44 simplify 패스 (2026-05-08)
 
 오늘 작업한 vault 코드(Phase 40~44)에 대한 3-agent /simplify 리뷰 → 6건 픽스. 분석 화면은 이번 세션 동안 한 줄도 안 건드린다는 제약 유지.

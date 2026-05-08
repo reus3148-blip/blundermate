@@ -2,6 +2,7 @@ import { getSavedGames, addSavedGame, removeSavedGame, updateSavedGame } from '.
 import { escapeHtml } from './utils.js';
 import { t } from './strings.js';
 import { showConfirm, showToast } from './dialogs.js';
+import { withScreenLoading } from './ui.js';
 
 // ==========================================
 // DOM Elements
@@ -18,8 +19,6 @@ const cancelSaveGameBtn = document.getElementById('cancelSaveGameBtn');
 const confirmSaveGameBtn = document.getElementById('confirmSaveGameBtn');
 const deleteSavedGameBtn = document.getElementById('deleteSavedGameBtn');
 
-const saveChoiceModal = document.getElementById('saveChoiceModal');
-const choiceSaveGameBtn = document.getElementById('choiceSaveGameBtn');
 
 // ==========================================
 // Category helpers
@@ -98,10 +97,33 @@ function renderSavedGamesList(container, savedGames, onLoad, onEdit) {
 // Core Functions
 // ==========================================
 // 데이터 로드만 담당. 뷰 가시성은 main.js의 renderScreen이 단독 관리.
+const _savedLoadingOverlay = document.getElementById('savedGamesLoadingOverlay');
+
 export async function loadSavedGamesData() {
     _activeFilter = 'all';
     syncFilterBar();
-    await updateSavedGamesView();
+    return withScreenLoading(_savedLoadingOverlay, () => updateSavedGamesView());
+}
+
+// 분석/라이브 화면의 저장 버튼 진입점. _getChess()가 모드별로 메인/exploration chess를 반환.
+export function openSaveGameModal() {
+    if (!_getChess) return;
+    _editingGameId = null;
+    deleteSavedGameBtn?.classList.add('hidden');
+    setSaveGameModalTitle(false);
+
+    let defaultTitle = t('saved_games_default_title');
+    const chess = _getChess();
+    const h = chess?.header?.();
+    if (h && h.White && h.Black && h.White !== '?' && h.Black !== '?') {
+        defaultTitle = `${h.White} vs ${h.Black}`;
+    }
+
+    saveGameTitle.value = defaultTitle;
+    saveGameNotes.value = '';
+    saveGameCategoryPicker.querySelectorAll('.pill-btn').forEach(b => b.classList.remove('selected'));
+    saveGameCategoryPicker.querySelector('[data-value="my_game"]').classList.add('selected');
+    saveGameModal.classList.remove('hidden');
 }
 
 // Dependencies injected via initSavedGames()
@@ -171,27 +193,6 @@ export function initSavedGames({ onLoadGame, getChess }) {
         _activeFilter = btn.dataset.filter;
         syncFilterBar();
         await updateSavedGamesView();
-    });
-
-    choiceSaveGameBtn.addEventListener('click', () => {
-        saveChoiceModal.classList.add('hidden');
-        _editingGameId = null;
-        deleteSavedGameBtn?.classList.add('hidden');
-        setSaveGameModalTitle(false);
-
-        let defaultTitle = t('saved_games_default_title');
-        const chess = _getChess();
-        const h = chess?.header?.();
-        if (h && h.White && h.Black && h.White !== '?' && h.Black !== '?') {
-            defaultTitle = `${h.White} vs ${h.Black}`;
-        }
-
-        saveGameTitle.value = defaultTitle;
-        saveGameNotes.value = '';
-        // Reset category picker to default
-        saveGameCategoryPicker.querySelectorAll('.pill-btn').forEach(b => b.classList.remove('selected'));
-        saveGameCategoryPicker.querySelector('[data-value="my_game"]').classList.add('selected');
-        saveGameModal.classList.remove('hidden');
     });
 
     confirmSaveGameBtn.addEventListener('click', async () => {

@@ -112,13 +112,45 @@ body {
     padding-bottom: env(safe-area-inset-bottom);
 }
 
-/* PC/태블릿(≥480px): 수직 중앙 정렬 + 프레임 효과. 모바일(<480px)은 기존 그대로. */
+/* 화면 로딩 오버레이 — vault/saved 진입 시 supabase fetch 동안 빈 화면(naked) 가림.
+   .view-container 내부에 absolute로 띄움. JS가 진입 직후 표시 → 데이터 도착 시 페이드아웃. */
+.screen-loading {
+    position: absolute;
+    inset: 0;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-base);
+    transition: opacity 180ms ease;
+    pointer-events: none;
+}
+.screen-loading.is-hidden {
+    opacity: 0;
+}
+.screen-loading-brand {
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    opacity: 0.55;
+}
+.screen-loading-brand .brand-blunder { color: var(--tx); }
+.screen-loading-brand .brand-mate    { color: var(--ac); }
+
+/* PC/태블릿(≥480px): 수직 중앙 정렬 + 프레임 효과. 모바일(<480px)은 기존 그대로.
+   너비는 viewport height × 9:16 비율로 계산 — 세로 긴 PC 모니터에서 420px 고정이
+   홀쭉하게 보이던 문제 해결. 폭이 viewport를 넘으면 vw로 캡(매우 짧고 넓은 창에서 안전). */
 @media (min-width: 480px) {
     body {
         align-items: center;
     }
     .app-container {
-        min-height: 100dvh;
+        height: 100dvh;
+        min-height: 0;
+        /* aspect-ratio는 자식 min-content가 더 크면 밀려 늘어남 — calc로 폭을 잠금 */
+        width: min(100vw, calc(100dvh * 9 / 16));
+        max-width: none;
         border: 1px solid var(--brd);
     }
 }

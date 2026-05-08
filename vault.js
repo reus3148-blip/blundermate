@@ -1,6 +1,6 @@
 import { Chessground } from 'https://cdnjs.cloudflare.com/ajax/libs/chessground/9.0.0/chessground.min.js';
 import { parseAndLoadPgn, escapeHtml, getDests } from './utils.js';
-import { renderEngineLines, placePieceBadge } from './ui.js';
+import { renderEngineLines, placePieceBadge, withScreenLoading } from './ui.js';
 import { getVaultItems, removeVaultItem, getAnalyzedGameById, COORDS_KEY } from './storage.js';
 import { renderMovesTable } from './ui.js';
 import { t } from './strings.js';
@@ -101,15 +101,9 @@ let _puzzleEngine = null;
 let _puzzleEngineReady = null;
 
 let puzzleIsMate = false;
-let puzzleIsOther = false;
 let puzzleMoverIsWhite = false;
 let puzzleUserMoves = 0;
 let puzzleMateBudget = null;
-
-// 정답 시퀀스 플레이백 — 첫 수가 acceptable 중 하나와 매칭되면 그 라인을 lock하고
-// puzzleLineIndex로 ply별 진행. 라인의 다음 ply가 opponent면 자동 재생.
-let puzzleLockedLine = null;
-let puzzleLineIndex = 0;
 
 // gameContext ±3수 scrub — 보드 표시만 변경, puzzleChess 상태는 미변경.
 // puzzleStartPlyIdx = blunderIndex - 1 (실수 직전 ply 위치, scrub 출발점).
@@ -124,7 +118,6 @@ let _replayGen = 0;
 const deckState = {
     mistake: { history: [], position: -1 },
     mate: { history: [], position: -1 },
-    other: { history: [], position: -1 },
 };
 
 // Dependencies injected via initVault()
@@ -135,13 +128,13 @@ let _navigateTo = null;
 // ==========================================
 // Categorization
 // ==========================================
-// 1차 분류: 풀이 모드 기준. 'mistake'/'blunder'(cp 실수) → mistake, 'missed_mate' → mate,
-// 그 외('positional' 직접저장 + 미상) → other (감상 전용, 정답 없음).
+// 1차 분류: 풀이 모드 기준. 'mistake'/'blunder'(cp 실수) → mistake, 'missed_mate' → mate.
+// 그 외(옛 'positional' 수동 저장 row 등)는 null 반환 — deck/list에서 자연 제외.
 function categorize(item) {
     const c = (item?.category || '').toLowerCase();
     if (c === 'mistake' || c === 'blunder') return 'mistake';
     if (c === 'missed_mate') return 'mate';
-    return 'other';
+    return null;
 }
 
 // 게임 날짜(playedDate) desc, null이면 created_at(date) desc로 폴백.
@@ -235,17 +228,21 @@ function findMoveIndexByFen(fens, targetFen) {
 // Core Functions
 // ==========================================
 
-// vault 진입 — 캐시 갱신 후 stories 시작.
+const _vaultLoadingOverlay = document.getElementById('vaultLoadingOverlay');
+
 export async function loadVaultData() {
-    await refreshItemsCache();
-    applyPuzzleFilter();
-    startPuzzleSession();
+    return withScreenLoading(_vaultLoadingOverlay, async () => {
+        await refreshItemsCache();
+        applyPuzzleFilter();
+        startPuzzleSession();
+    });
 }
 
-// 보조 리스트 뷰 진입.
 export async function loadBlunderListData() {
-    await refreshItemsCache();
-    renderBlunderListPane();
+    return withScreenLoading(_vaultLoadingOverlay, async () => {
+        await refreshItemsCache();
+        renderBlunderListPane();
+    });
 }
 
 function renderBlunderListPane() {
@@ -275,14 +272,12 @@ function filterItems(filter) {
 function getPuzzleEmptyText() {
     if (_itemsCache.length === 0) return t('vault_puzzle_empty');
     if (puzzleFilter === 'mate')  return t('vault_puzzle_empty_mate');
-    if (puzzleFilter === 'other') return t('vault_puzzle_empty_other');
     return t('vault_puzzle_empty_mistake');
 }
 
 function getBlunderListEmptyText() {
     if (_itemsCache.length === 0) return t('vault_blunder_list_empty');
     if (blunderListFilter === 'mate')  return t('vault_blunder_list_empty_mate');
-    if (blunderListFilter === 'other') return t('vault_blunder_list_empty_other');
     return t('vault_blunder_list_empty_mistake');
 }
 
@@ -452,8 +447,6 @@ function removeItemEverywhere(id) {
 
 // Stories indicator는 풀 사이즈에 비례해 segment를 그리지만, 큰 풀(50+)에선 1px 미만으로 압축돼
 // 가독성이 망가짐. MAX_INDICATOR_SEGS로 cap하고 초과 시 우측에 "현재/total" 카운터로 보강.
-const MAX_INDICATOR_SEGS = 12;
-
 function renderIndicator() {
     if (!vaultPuzzleIndicator) return;
     const total = puzzlePool.length;
@@ -463,19 +456,19 @@ function renderIndicator() {
     }
     const deck = getActiveDeck();
     const filled = Math.min(deck.position + 1, total);
-    const segs = Math.min(total, MAX_INDICATOR_SEGS);
-    const filledSegs = total <= MAX_INDICATOR_SEGS
-        ? filled
-        : Math.ceil((filled / total) * segs);
-
-    let html = '';
-    for (let i = 0; i < segs; i++) {
-        html += `<div class="puzzle-seg${i < filledSegs ? ' filled' : ''}"></div>`;
+    const pct = Math.max(0, Math.min(100, (filled / total) * 100));
+    // 첫 렌더만 mount, 이후엔 width/text만 업데이트 — innerHTML 재생성하면 fill 노드가 새로 생겨서
+    // CSS transition: width 0.3s가 매번 처음부터 시작되어 애니메이션이 보이지 않는 버그 회피.
+    let fill = vaultPuzzleIndicator.querySelector('.puzzle-progress-fill');
+    let count = vaultPuzzleIndicator.querySelector('.puzzle-progress-count');
+    if (!fill || !count) {
+        vaultPuzzleIndicator.innerHTML =
+            `<div class="puzzle-progress"><div class="puzzle-progress-fill" style="width:${pct}%"></div></div>` +
+            `<span class="puzzle-progress-count">${filled} / ${total}</span>`;
+    } else {
+        fill.style.width = `${pct}%`;
+        count.textContent = `${filled} / ${total}`;
     }
-    if (total > MAX_INDICATOR_SEGS) {
-        html += `<span class="puzzle-seg-count">${filled} / ${total}</span>`;
-    }
-    vaultPuzzleIndicator.innerHTML = html;
     updatePuzzleNextLabel();
 }
 
@@ -576,17 +569,22 @@ async function loadPrevPuzzle() {
     await renderPuzzle(item);
 }
 
-// 풀이 가능한 항목(mistake/mate)과 감상 항목(other)으로 분기.
 async function renderPuzzle(item) {
+    // terminal 상태(이전 카드의 puzzleSolved 등)가 next 카드로 새지 않도록 진입 시 reset.
+    puzzleSolved = false;
+    puzzleProcessing = false;
     if (!item) {
+        if (vaultPlyIndicator) {
+            vaultPlyIndicator.textContent = '—';
+            vaultPlyIndicator.classList.remove('vault-eval-dropped');
+        }
         showPuzzleEmpty(true);
         return;
     }
     puzzleItem = item;
     const cat = categorize(item);
-
-    if (cat === 'other') {
-        await renderOtherItem(item);
+    if (!cat) {
+        showPuzzleEmpty(true);
         return;
     }
     await renderSolvableItem(item, cat === 'mate');
@@ -596,9 +594,6 @@ async function renderSolvableItem(item, isMate) {
     _replayGen++; // 진행 중인 replay/응수 무효화
     puzzleSolved = false;
     puzzleProcessing = false;
-    puzzleIsOther = false;
-    puzzleLockedLine = null;
-    puzzleLineIndex = 0;
     const gc = item?.solution?.gameContext;
     puzzleStartPlyIdx = (gc && typeof gc.blunderIndex === 'number') ? gc.blunderIndex - 1 : -1;
     puzzlePlyCursor = puzzleStartPlyIdx;
@@ -652,7 +647,11 @@ async function renderSolvableItem(item, isMate) {
     if (vaultPuzzleHeader) {
         let txt = isMate ? t('vault_puzzle_find_mate') : t('vault_puzzle_find_best');
         if (puzzleMateBudget != null) txt += ` · M${puzzleMateBudget}`;
-        vaultPuzzleHeader.textContent = txt;
+        const chipCls = isMate ? 'vault-cat-chip--mate' : 'vault-cat-chip--blunder';
+        const chipLabel = isMate ? t('vault_filter_mate') : t('vault_filter_mistake');
+        vaultPuzzleHeader.innerHTML =
+            `<span class="vault-cat-chip ${chipCls}">${escapeHtml(chipLabel)}</span>` +
+            escapeHtml(txt);
     }
     if (vaultPuzzleSubhead) {
         const parts = [];
@@ -738,32 +737,40 @@ function clearBlunderVisualization() {
 }
 
 // gameContext.plies 안에서 보드 시각만 이동 — puzzleChess 미변경. scrub 중 드래그 비활성.
+// gameContext 없는 옛 row는 [-1: before / 0: after] 가상 toggle로 동작 — eval 값이 변함.
 function navigatePly(delta) {
     const ctx = puzzleItem?.solution?.gameContext;
-    if (!ctx || !Array.isArray(ctx.plies) || ctx.plies.length === 0) return;
+    const hasCtx = ctx && Array.isArray(ctx.plies) && ctx.plies.length > 0;
     const cur = puzzlePlyCursor != null ? puzzlePlyCursor : puzzleStartPlyIdx;
-    const next = Math.max(-1, Math.min(ctx.plies.length - 1, cur + delta));
+    const max = hasCtx ? ctx.plies.length - 1 : 0;
+    const next = Math.max(-1, Math.min(max, cur + delta));
     if (next === cur) return;
     puzzlePlyCursor = next;
     showPlyOnBoard(next);
     updatePlyIndicator();
 }
 
-// 특정 ply 인덱스 위치를 보드에 visualize. -1은 prevFen(puzzle 시작), 그 외는 plies[idx].fen.
-// scrubbing 중엔 드래그 비활성 (movable.color = undefined).
+// 특정 ply 인덱스 위치를 보드에 visualize. -1은 prevFen(puzzle 시작).
+// gameContext 있으면: idx ∈ [0..plies.length-1], plies[idx].fen
+// gameContext 없으면: idx 0 = post-blunder fen (item.fen), 그 외 < 0 = prevFen
 function showPlyOnBoard(idx) {
     if (!puzzleCg || !puzzleItem) return;
     const ctx = puzzleItem.solution?.gameContext;
+    const hasCtx = ctx && Array.isArray(ctx.plies);
     let fen, lastMove;
-    if (idx < 0 || !ctx) {
+    if (idx < 0) {
         fen = puzzlePrevFen || '';
         lastMove = undefined;
-    } else {
+    } else if (hasCtx) {
         const ply = ctx.plies[idx];
         fen = ply?.fen || '';
         if (ply?.uci && ply.uci.length >= 4) {
             lastMove = [ply.uci.slice(0, 2), ply.uci.slice(2, 4)];
         }
+    } else {
+        // 옛 row 폴백 — 블런더 후 fen만 표시. lastMove SAN으로 추론은 비용↑이라 생략.
+        fen = puzzleItem.fen || puzzlePrevFen || '';
+        lastMove = undefined;
     }
     // scrubbing: 드래그 비활성. puzzle 시작 위치(idx === startPlyIdx)일 때만 드래그 가능.
     const atStart = (idx === puzzleStartPlyIdx) && !puzzleSolved;
@@ -777,31 +784,51 @@ function showPlyOnBoard(idx) {
         } : { free: false, color: undefined, dests: new Map() },
     });
     // 시작 위치로 돌아왔고 아직 풀지 않았으면 블런더 시각화 재표시 — 그 외엔 클리어
-    if (atStart && !puzzleLockedLine) {
+    if (atStart) {
         renderBlunderVisualization(puzzleItem);
     } else {
         clearBlunderVisualization();
     }
 }
 
+// 분석 화면 결의 단일 win-chance-display. 커서가 블런더 ply 이상이면 떨어진 값(빨강)으로 자동 전환 →
+// 사용자가 < > 누를 때마다 88% → 37% 변화가 시각적으로 일어남. "왜 블런더인지" 숫자로 보임.
 function updatePlyIndicator() {
-    if (!vaultPlyIndicator) return;
-    const ctx = puzzleItem?.solution?.gameContext;
-    if (!ctx || !Array.isArray(ctx.plies)) {
-        vaultPlyIndicator.textContent = '—';
+    if (!vaultPlyIndicator || !puzzleItem) return;
+    const item = puzzleItem;
+
+    // 메이트 카드는 항상 mate-in 표시
+    if (categorize(item) === 'mate' && item.mateIn) {
+        vaultPlyIndicator.textContent = `M${item.mateIn}`;
+        vaultPlyIndicator.classList.remove('vault-eval-dropped');
         return;
     }
+
+    const wc = item.solution?.acceptable?.[0]?.winChance;
+    const drop = item.winChanceDrop;
+    const blunderIdx = item.solution?.gameContext?.blunderIndex;
     const cur = puzzlePlyCursor != null ? puzzlePlyCursor : puzzleStartPlyIdx;
-    // -1 → "시작", 0..n → "k / total"
-    const total = ctx.plies.length;
-    if (cur < 0) {
-        vaultPlyIndicator.textContent = `시작 / ${total}`;
-    } else {
-        // 사용자 친화: +N 형식 (실수 위치 기준 상대 표시)
-        const rel = cur - puzzleStartPlyIdx;
-        const sign = rel > 0 ? '+' : (rel < 0 ? '' : '·');
-        vaultPlyIndicator.textContent = rel === 0 ? '실수 직전' : `${sign}${rel}수`;
+    // gameContext 있으면 cursor가 blunderIdx에 도달했을 때, 없으면 cursor ≥ 0 (가상 after)일 때 드롭.
+    const dropped = (typeof blunderIdx === 'number')
+        ? cur >= blunderIdx
+        : cur >= 0;
+
+    if (typeof wc === 'number' && typeof drop === 'number') {
+        const value = dropped ? wc - drop : wc;
+        vaultPlyIndicator.textContent = `${Math.max(0, Math.round(value * 100))}%`;
+        vaultPlyIndicator.classList.toggle('vault-eval-dropped', dropped);
+        return;
     }
+
+    // 옛 row 폴백 — cpLoss만 있을 때
+    if (typeof item.cpLoss === 'number' && item.cpLoss > 0) {
+        vaultPlyIndicator.textContent = `−${item.cpLoss}cp`;
+        vaultPlyIndicator.classList.add('vault-eval-dropped');
+        return;
+    }
+
+    vaultPlyIndicator.textContent = '—';
+    vaultPlyIndicator.classList.remove('vault-eval-dropped');
 }
 
 // 풀이 종료 후 acceptable 라인들을 분석 화면 engine-line UI로 표시.
@@ -879,68 +906,8 @@ async function onLineClick(index) {
     }
 }
 
-// 'other' deck — 풀이 없이 감상. 보드 인터랙션 잠금, 노트 표시, 진입 즉시 좌/우 활성.
-async function renderOtherItem(item) {
-    puzzleSolved = true; // terminal 상태로 진입
-    puzzleProcessing = false;
-    puzzleIsMate = false;
-    puzzleIsOther = true;
-    renderIndicator();
-
-    if (vaultPuzzleHeader) {
-        vaultPuzzleHeader.textContent = t('vault_puzzle_other_header');
-    }
-    if (vaultPuzzleSubhead) {
-        const parts = [];
-        if (item.gameTitle) parts.push(item.gameTitle);
-        if (typeof item.moveNumber === 'number') {
-            parts.push(`${item.moveNumber}${item.isWhite ? '.' : '...'}`);
-        }
-        if (parts.length === 0) parts.push(t('vault_puzzle_other_subhead'));
-        vaultPuzzleSubhead.textContent = parts.join(' · ');
-    }
-
-    const isCoordsEnabled = localStorage.getItem(COORDS_KEY) !== 'false';
-    const orientation = (item.isUserWhite !== undefined ? item.isUserWhite : item.isWhite) ? 'white' : 'black';
-    const fen = item.fen || START_FEN;
-
-    if (!puzzleCg) {
-        puzzleCg = Chessground(vaultPuzzleBoard, {
-            fen,
-            orientation,
-            coordinates: isCoordsEnabled,
-            movable: { free: false, color: undefined, dests: new Map() },
-            draggable: { enabled: false },
-            animation: { enabled: true, duration: 200 },
-        });
-    } else {
-        puzzleCg.set({
-            fen,
-            orientation,
-            lastMove: undefined,
-            movable: { free: false, color: undefined, dests: new Map() },
-        });
-    }
-    setTimeout(() => puzzleCg && puzzleCg.redrawAll(), 30);
-
-    // 노트 + 수 메타
-    const lines = [];
-    if (item.notes) {
-        lines.push(`<div class="puzzle-fb-line puzzle-fb-notes">${escapeHtml(item.notes)}</div>`);
-    }
-    const movesPart = [];
-    if (item.san) movesPart.push(`<strong>${escapeHtml(item.san)}</strong>`);
-    if (item.bestMove) movesPart.push(`<span class="vault-card-arrow">→</span> <strong>${escapeHtml(item.bestMove)}</strong>`);
-    if (movesPart.length > 0) {
-        lines.push(`<div class="puzzle-fb-line">${movesPart.join(' ')}</div>`);
-    }
-    if (vaultPuzzleFeedback) {
-        vaultPuzzleFeedback.innerHTML = lines.join('');
-    }
-}
-
 async function onPuzzleUserMove(orig, dest, meta) {
-    if (puzzleSolved || puzzleProcessing || puzzleIsOther) return;
+    if (puzzleSolved || puzzleProcessing) return;
 
     let played;
     try {
@@ -985,90 +952,16 @@ async function onPuzzleUserMove(orig, dest, meta) {
 function normSan(s) { return (s || '').replace(/[+#]$/, ''); }
 
 // 시퀀스 플레이백 핸들러. acceptable 중 매칭 라인 lock → 응수 자동 → 다음 user 수 대기.
+// 블런더는 한 수만 두면 정답 처리. 시퀀스 끝까지 매칭은 너무 어려워 학습 가치 ↓ —
+// 첫 수가 acceptable 라인 중 어느 것이든 매칭하면 정답. 이후는 engine-line 패널로 다중 라인 노출.
 async function handleSequenceMove(played) {
     const playedSan = normSan(played.san);
-
-    // 1) 첫 user 수: acceptable 중 매칭하는 라인을 찾아 lock
-    if (!puzzleLockedLine) {
-        const matched = puzzleItem.solution.acceptable.find(L => {
-            const first = L.moves?.[0];
-            return first && first.side === 'user' && normSan(first.san) === playedSan;
-        });
-        if (!matched) {
-            puzzleSolved = true;
-            renderPuzzleFeedback({ correct: false, played });
-            return;
-        }
-        puzzleLockedLine = matched;
-        puzzleLineIndex = 1; // 첫 user 수는 방금 둠 → 다음은 응수 또는 종료
-    } else {
-        // 2) 후속 user 수: lock된 라인의 다음 user 수와 일치해야 함
-        const expected = puzzleLockedLine.moves[puzzleLineIndex];
-        if (!expected || expected.side !== 'user' || normSan(expected.san) !== playedSan) {
-            puzzleSolved = true;
-            renderPuzzleFeedback({ correct: false, played });
-            return;
-        }
-        puzzleLineIndex++;
-    }
-
-    // 라인 끝 도달 → solved
-    if (puzzleLineIndex >= puzzleLockedLine.moves.length) {
-        puzzleSolved = true;
-        renderPuzzleFeedback({ correct: true, played });
-        return;
-    }
-
-    // 3) 다음 ply가 응수면 약간의 딜레이 후 자동 재생
-    const next = puzzleLockedLine.moves[puzzleLineIndex];
-    if (next.side === 'opponent') {
-        const myGen = ++_replayGen;
-        await new Promise(resolve => setTimeout(resolve, 250));
-        if (myGen !== _replayGen) return; // 사용자가 다른 카드로 이동
-        let oppPlayed;
-        try {
-            const from = next.uci.slice(0, 2);
-            const to = next.uci.slice(2, 4);
-            const promo = next.uci.length > 4 ? next.uci[4] : 'q';
-            oppPlayed = puzzleChess.move({ from, to, promotion: promo });
-        } catch {
-            oppPlayed = null;
-        }
-        if (!oppPlayed) {
-            // 시퀀스 데이터가 손상 — solved로 안전 종료
-            puzzleSolved = true;
-            renderPuzzleFeedback({ correct: true, played });
-            return;
-        }
-        puzzleLineIndex++;
-        // 응수 후 라인 끝 → solved
-        if (puzzleLineIndex >= puzzleLockedLine.moves.length) {
-            puzzleCg.set({
-                fen: puzzleChess.fen(),
-                turnColor: puzzleChess.turn() === 'w' ? 'white' : 'black',
-                lastMove: [oppPlayed.from, oppPlayed.to],
-            });
-            puzzleSolved = true;
-            renderPuzzleFeedback({ correct: true, played });
-            return;
-        }
-    }
-
-    // 4) 다음 user 수 대기 — 보드 재활성
-    const userColor = puzzleMoverIsWhite ? 'white' : 'black';
-    const dests = getDests(puzzleChess);
-    const lastUci = puzzleChess.history({ verbose: true }).slice(-1)[0];
-    puzzleCg.set({
-        fen: puzzleChess.fen(),
-        turnColor: puzzleChess.turn() === 'w' ? 'white' : 'black',
-        lastMove: lastUci ? [lastUci.from, lastUci.to] : undefined,
-        movable: {
-            free: false,
-            color: userColor,
-            dests,
-            events: { after: onPuzzleUserMove },
-        },
+    const matched = puzzleItem.solution.acceptable.some(L => {
+        const first = L.moves?.[0];
+        return first && first.side === 'user' && normSan(first.san) === playedSan;
     });
+    puzzleSolved = true;
+    renderPuzzleFeedback({ correct: matched, played });
 }
 
 async function handleMateMove(played) {
@@ -1130,11 +1023,18 @@ async function handleMateMove(played) {
     });
 }
 
+// 보드 외곽에 정/오답 ring 플래시 (haptic 대안 시각 피드백, ~550ms)
+function flashBoard(correct) {
+    const wrap = vaultPuzzleBoard?.parentElement;
+    if (!wrap) return;
+    wrap.classList.remove('vault-flash-correct', 'vault-flash-wrong');
+    void wrap.offsetWidth; // 같은 클래스 재트리거 시 애니메이션이 다시 돌도록 reflow
+    wrap.classList.add(correct ? 'vault-flash-correct' : 'vault-flash-wrong');
+}
+
 function renderPuzzleFeedback({ correct, played, mateDelivered }) {
     if (!vaultPuzzleFeedback || !puzzleItem) return;
-    const cls = (puzzleItem.category || '').toLowerCase();
-    const isMate = cls === 'missed_mate';
-
+    flashBoard(correct || mateDelivered);
     let headLabel, headColor;
     if (mateDelivered) {
         headLabel = t('vault_puzzle_mate_solved');
@@ -1143,48 +1043,15 @@ function renderPuzzleFeedback({ correct, played, mateDelivered }) {
         headLabel = correct ? t('vault_puzzle_correct') : t('vault_puzzle_incorrect');
         headColor = correct ? 'var(--best)' : 'var(--blunder)';
     }
+    // verdict head + 오답 시 "둔 수"만. 정답 시퀀스는 engine-line panel이 다중 라인으로 보여줌.
+    const youPlayed = !correct && played?.san
+        ? `<div class="puzzle-fb-line"><span class="puzzle-fb-label">${t('vault_puzzle_you_played')}</span> <strong>${escapeHtml(played.san)}</strong></div>`
+        : '';
+    vaultPuzzleFeedback.innerHTML =
+        `<div class="puzzle-fb-head" style="color:${headColor};">${escapeHtml(headLabel)}</div>` + youPlayed;
 
-    // 시퀀스 퍼즐은 풀 시퀀스로 표시 (콤비네이션임을 한눈에). 옛 row는 단일 best_move 폴백.
-    const acceptable = puzzleItem.solution?.acceptable;
-    const canonicalLine = acceptable?.[0]?.moves;
-    const formatLine = (moves) => moves.map((m, idx) => {
-        const sanHtml = `<strong>${escapeHtml(m.san)}</strong>`;
-        // 사용자 수와 응수를 시각 구분 — 응수는 회색 inline으로
-        return m.side === 'opponent'
-            ? `<span class="puzzle-fb-opp">${sanHtml}</span>`
-            : sanHtml;
-    }).join(' ');
-
-    const lines = [];
-    if (!correct) {
-        lines.push(`<div class="puzzle-fb-line"><span class="puzzle-fb-label">${t('vault_puzzle_you_played')}</span> <strong>${escapeHtml(played.san)}</strong></div>`);
-        if (canonicalLine && canonicalLine.length > 1) {
-            lines.push(`<div class="puzzle-fb-line"><span class="puzzle-fb-label">${t('vault_puzzle_best')}</span> ${formatLine(canonicalLine)}</div>`);
-        } else {
-            lines.push(`<div class="puzzle-fb-line"><span class="puzzle-fb-label">${t('vault_puzzle_best')}</span> <strong>${escapeHtml(puzzleItem.bestMove || '')}</strong></div>`);
-        }
-    } else if (!mateDelivered) {
-        if (canonicalLine && canonicalLine.length > 1) {
-            lines.push(`<div class="puzzle-fb-line"><span class="puzzle-fb-label">${t('vault_puzzle_best')}</span> ${formatLine(canonicalLine)}</div>`);
-        } else {
-            lines.push(`<div class="puzzle-fb-line"><span class="puzzle-fb-label">${t('vault_puzzle_best')}</span> <strong>${escapeHtml(puzzleItem.bestMove || played.san)}</strong></div>`);
-        }
-    }
-    let meta = '';
-    if (isMate) meta = t('vault_puzzle_mate_label');
-    else if (cls === 'blunder') meta = `${t('class_blunder')}${puzzleItem.cpLoss != null ? ` · +${puzzleItem.cpLoss} CPL` : ''}`;
-    else if (cls === 'mistake') meta = `${t('class_mistake')}${puzzleItem.cpLoss != null ? ` · +${puzzleItem.cpLoss} CPL` : ''}`;
-
-    vaultPuzzleFeedback.innerHTML = `
-        <div class="puzzle-fb-head" style="color:${headColor};">${headLabel}</div>
-        ${lines.join('')}
-        ${meta ? `<div class="puzzle-fb-meta">${escapeHtml(meta)}</div>` : ''}
-    `;
-
-    // terminal — 정답 라인을 engine-line UI로 표시 (호버=화살표, 클릭=replay).
+    // 정답 라인을 engine-line UI로 표시 (호버=화살표, 클릭=replay).
     renderAcceptableLines(puzzleItem);
-
-    // terminal — 좌/우 탭존 활성, 사용자가 직접 넘김 (자동 다음 없음).
 }
 
 export function redrawVaultPuzzleBoard() {
@@ -1297,11 +1164,11 @@ export function initVault({ showMovesOverlay, closeMovesOverlay, navigateTo }) {
         vaultNextPlyBtn.addEventListener('click', () => navigatePly(1));
     }
 
-    // 키보드 화살표 — stories 활성 상태에서만. 풀이 deck은 풀이 완료 후, other deck은 항상.
+    // 키보드 화살표 — 풀이 완료 후에만 다음/이전 카드로.
     document.addEventListener('keydown', (e) => {
         if (!vaultPuzzlePane || vaultPuzzlePane.classList.contains('hidden')) return;
         if (!vaultView || vaultView.classList.contains('hidden')) return;
-        if (!puzzleIsOther && !puzzleSolved) return;
+        if (!puzzleSolved) return;
         if (e.key === 'ArrowRight') {
             e.preventDefault();
             loadNextPuzzle();

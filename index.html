@@ -282,8 +282,12 @@
         </div>
     </div>
 
-    <!-- Vault View — bottom-nav root. Phase 42: 분석 화면 chrome 채택 (analysis-top-bar + unified-controls + panel-content + live-action-bar). -->
+    <!-- Vault View — bottom-nav root. analysis-top-bar + unified-controls + panel-content + live-action-bar 재사용. -->
     <div id="vaultView" class="view-container hidden">
+        <!-- 데이터 로딩 오버레이 — vault.js loadVaultData 진입 시 노출, 데이터 도착 시 페이드아웃 -->
+        <div id="vaultLoadingOverlay" class="screen-loading is-hidden" aria-hidden="true">
+            <div class="screen-loading-brand"><span class="brand-blunder">blunder</span><span class="brand-mate">mate</span></div>
+        </div>
         <div id="vaultPuzzlePane" class="vault-pane">
             <!-- Top Bar — 카테고리 필터 탭 + 목록 진입 -->
             <div class="analysis-top-bar vault-top-bar">
@@ -313,7 +317,8 @@
                     <div id="vaultPuzzleBoard" class="board-container"></div>
                 </div>
 
-                <!-- Unified Controls — 분석 화면과 동일 chrome, 버튼은 < > 만 -->
+                <!-- Unified Controls — 분석 화면과 동일 chrome, 버튼은 < > 만.
+                     중앙: 분석 화면의 win-chance-display와 동일 — 현재 ply 위치의 eval을 단일 값으로. -->
                 <div class="unified-controls">
                     <div class="unified-controls-inner">
                         <div class="ctrl-group-left"></div>
@@ -412,6 +417,9 @@
 
     <!-- Saved Games View — bottom-nav root. 첫 chrome은 필터바. -->
     <div id="savedGamesView" class="view-container hidden">
+        <div id="savedGamesLoadingOverlay" class="screen-loading is-hidden" aria-hidden="true">
+            <div class="screen-loading-brand"><span class="brand-blunder">blunder</span><span class="brand-mate">mate</span></div>
+        </div>
         <div id="savedGamesFilterBar" class="pill-filter-bar pill-filter-bar--scope">
             <button type="button" class="pill-btn selected" data-filter="all" data-i18n="saved_games_filter_all">전체</button>
             <button type="button" class="pill-btn" data-filter="my_game" data-i18n="saved_games_cat_my_game">내 실전 게임</button>
@@ -617,18 +625,6 @@
             </div>
         </div>
 
-        <!-- Save Choice Modal -->
-        <div id="saveChoiceModal" class="modal-overlay hidden">
-            <div class="modal-content modal-content--narrow">
-                <h2 class="modal-title-center" data-i18n="whatToSave">What to save?</h2>
-                <div class="modal-actions modal-actions--col">
-                    <button id="choiceSaveMoveBtn" class="primary-btn btn-full" data-i18n="saveThisMove">Save This Move (Vault)</button>
-                    <button id="choiceSaveGameBtn" class="control-btn btn-full" data-i18n="saveEntireGame">Save Entire Game</button>
-                    <button id="cancelChoiceBtn" class="text-btn" data-i18n="cancel">Cancel</button>
-                </div>
-            </div>
-        </div>
-
         <!-- Save Game Modal -->
         <div id="saveGameModal" class="modal-overlay hidden">
             <div class="modal-content">
@@ -654,33 +650,6 @@
                     <button id="deleteSavedGameBtn" class="modal-destructive-btn hidden" data-i18n="saved_games_delete">삭제</button>
                     <button id="cancelSaveGameBtn" class="text-btn" data-i18n="cancel">Cancel</button>
                     <button id="confirmSaveGameBtn" class="primary-btn" data-i18n="saveGame">Save Game</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Save Move Modal -->
-        <div id="saveModal" class="modal-overlay hidden">
-            <div class="modal-content">
-                <h2 data-i18n="saveToVault">Save to Vault</h2>
-                <p id="saveMoveText" class="save-move-text"></p>
-                <p id="saveBestMoveText" class="save-best-move-text"></p>
-                <div class="form-group">
-                    <label for="saveCategory" data-i18n="category">Category</label>
-                    <select id="saveCategory" class="text-input select-auto">
-                        <option value="blunder">Blunder (??)</option>
-                        <option value="mistake">Mistake (?)</option>
-                        <option value="missed">Missed Win (?!)</option>
-                        <option value="tactic">Tactical Error</option>
-                        <option value="positional">Positional Error</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="saveNotes" data-i18n="notesOptional">Notes (Optional)</label>
-                    <textarea id="saveNotes" class="textarea-short" placeholder="Why did you play this? What was the right move?" data-i18n-placeholder="notes_move_placeholder"></textarea>
-                </div>
-                <div class="modal-actions">
-                    <button id="cancelSaveBtn" class="text-btn" data-i18n="cancel">Cancel</button>
-                    <button id="confirmSaveBtn" class="primary-btn" data-i18n="saveMove">Save Move</button>
                 </div>
             </div>
         </div>
@@ -722,11 +691,10 @@
             </div>
         </div>
 
-        <!-- Shared template: vault filter tabs (블런더/메이트/기타) — used by #vaultPuzzleFilterTabs and #vaultBlunderFilterTabs -->
+        <!-- Shared template: vault filter tabs (블런더/메이트) — used by #vaultPuzzleFilterTabs and #vaultBlunderFilterTabs -->
         <template id="vaultFilterTabsTemplate">
             <button type="button" class="vault-filter-tab selected" data-filter="mistake" data-i18n="vault_filter_mistake">블런더</button>
             <button type="button" class="vault-filter-tab" data-filter="mate" data-i18n="vault_filter_mate">메이트</button>
-            <button type="button" class="vault-filter-tab" data-filter="other" data-i18n="vault_filter_other">기타</button>
         </template>
 
         <!-- Confirm Modal — alert()/confirm() 대체용. main.js의 showAlert/showConfirm 헬퍼가 제어. -->

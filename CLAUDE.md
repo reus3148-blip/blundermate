@@ -24,7 +24,7 @@
 - `main.js` — 앱 컨트롤러, 이벤트 와이어링, 뷰 네비, 분석 큐 오케스트레이션
 - `home.js` — 홈/온보딩 화면 (프로필 카드, 게임 카드 무한 스크롤, 미니보드 SVG, 시간대 필터, 온보딩)
 - `analysis.js` / `board.js` / `modes.js` — 분석 / 보드 / 동작 모드 상태
-- `vault.js` / `savedGames.js` / `insights.js` — 화면 모듈
+- `vault.js` / `savedGames.js` / `insights.js` — 화면 모듈. **vault는 자동 수집 전용** (블런더/메이트만), 분석 화면 저장은 saved_games로 통합
 - `dialogs.js` — 토스트 + 확인 모달 (showToast/showAlert/showConfirm). OS alert/confirm 대체
 - `autoBlunders.js` — 분석 직후 자동 블런더 수집 (fire-and-forget)
 - `utils.js` — 순수 헬퍼 (parseAndLoadPgn, classifyMove, escapeHtml 등)

@@ -210,7 +210,6 @@ export async function getVaultItems(options = {}) {
     }
 }
 
-// vault_items row 페이로드 빌더 — addVaultItem과 addVaultItemsBatch가 공유.
 function _vaultRowFromItem(item, userId) {
     return {
         id: item.id,
@@ -226,7 +225,7 @@ function _vaultRowFromItem(item, userId) {
         best_move: item.bestMove || null,
         game_title: item.gameTitle || null,
         is_user_white: item.isUserWhite ?? null,
-        source: item.source || 'manual',
+        source: item.source || 'auto',
         analyzed_game_id: item.analyzedGameId || null,
         cp_loss: item.cpLoss ?? null,
         mate_in: item.mateIn ?? null,
@@ -237,22 +236,6 @@ function _vaultRowFromItem(item, userId) {
         solution_json: item.solution || null,
         win_chance_drop: item.winChanceDrop ?? null,
     };
-}
-
-export function addVaultItem(item) {
-    const platform = getMyPlatform();
-    try {
-        const vault = _getVaultItemsSync();
-        vault.push({ ...item, platform });
-        localStorage.setItem(VAULT_KEY, JSON.stringify(vault));
-    } catch (e) {
-        console.error('Failed to save to Vault:', e);
-    }
-
-    const userId = getMyUserId();
-    if (!userId) return;
-    callDB('insert', 'vault_items', { user_id: userId, data: _vaultRowFromItem(item, userId) })
-        .catch(e => _warnDb('Supabase vault save failed, using localStorage', e));
 }
 
 // 자동 수집 일괄 추가 — N회 read/write 대신 단일 read+write로 localStorage thrashing 방지.

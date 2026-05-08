@@ -1040,6 +1040,14 @@ th {
     overflow: hidden;
 }
 
+/* vault: 짧은 viewport(PC 9:16, 모바일 일부)에서 feedback + engine-line 합산이 viewport를
+   넘으면 콘텐츠가 잘리던 문제 — 안전망으로 vault-panel-content만 스크롤 허용. */
+.vault-panel-content {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+}
+
 .tab-panel {
     display: none;
     flex-direction: column;
@@ -3136,7 +3144,9 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     flex-shrink: 0;
 }
 
-/* 카테고리 sub-filter — 블런더 / 메이트 / 기타. 보조 리스트 뷰(#vaultBlunderListView)에서는 단독 사용. */
+/* 카테고리 sub-filter — 블런더 / 메이트.
+   list 뷰(#vaultBlunderListView)는 폭 전체 underline-tab 스타일 (그대로 두고 보조 리스트 결 유지),
+   stories top-bar(--inline 모디파이어)는 iOS segmented pill로 — 필터임을 시각적으로 강조 */
 .vault-filter-tabs {
     display: flex;
     align-items: center;
@@ -3144,12 +3154,6 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     padding: 4px 16px;
     height: 30px;
     box-sizing: border-box;
-}
-/* 필터 행 안에 들어갈 때는 행이 패딩/높이를 책임지므로 자체 패딩/높이 제거. */
-.vault-filter-tabs--inline {
-    flex: 1;
-    padding: 0;
-    height: auto;
 }
 .vault-filter-tab {
     position: relative;
@@ -3177,6 +3181,46 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     height: 2px;
     border-radius: 1px;
     background: var(--tx);
+}
+
+/* Segmented pill (vault stories top bar 전용) — 필터 정체성 명시. iOS HIG segmented control 결.
+   --inline 모디파이어 안에서만 적용 — list 뷰의 underline-tab 스타일은 보존. */
+.vault-filter-tabs--inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 3px;
+    height: 32px;
+    background: var(--bg-elevated);
+    border-radius: 9px;
+    box-sizing: border-box;
+}
+.vault-filter-tabs--inline .vault-filter-tab {
+    padding: 4px 14px;
+    height: 26px;
+    border-radius: 6px;
+    font-size: 12.5px;
+    line-height: 18px;
+    transition: color 0.15s ease, background 0.18s ease, box-shadow 0.18s ease;
+}
+.vault-filter-tabs--inline .vault-filter-tab:hover { color: var(--tx2); }
+.vault-filter-tabs--inline .vault-filter-tab.selected {
+    background: var(--bg-surface);
+    color: var(--tx);
+    font-weight: 600;
+    box-shadow: 0 1px 3px rgba(28, 29, 31, 0.08), 0 0 0 0.5px rgba(28, 29, 31, 0.04);
+}
+/* underline은 segmented pill에선 중복 — 숨김 */
+.vault-filter-tabs--inline .vault-filter-tab.selected::after { display: none; }
+
+/* vault-top-bar 그리드 재배치 — 좌측 빈 칸, 중앙 segmented, 우측 ☰ */
+.analysis-top-bar.vault-top-bar > #vaultPuzzleFilterTabs {
+    grid-column: 2;
+    justify-self: center;
+}
+.analysis-top-bar.vault-top-bar > #vaultListLink {
+    grid-column: 3;
+    justify-self: end;
 }
 
 /* Pane / Stage 컨테이너 */
@@ -3227,34 +3271,39 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     text-align: center;
 }
 
-/* Stories indicator — 풀 크기에 비례한 segment bar.
-   풀 ≤12: segment만. 풀 >12: 12 segment + 우측 카운터(현재/total). */
+/* Stories indicator — Duolingo 결의 단일 fill bar + "현재/총" 카운터.
+   12개+ 풀에서 segment 분할이 못 보일 정도로 작아지던 문제 해결. */
 .vault-puzzle-indicator {
     display: flex;
     align-items: center;
-    gap: 4px;
-    padding: 8px 16px 4px;
+    gap: 10px;
+    padding: 10px 16px 6px;
     height: 26px;
     box-sizing: border-box;
 }
-.puzzle-seg {
+.puzzle-progress {
     flex: 1;
-    min-width: 4px;
-    height: 2px;
-    border-radius: 1px;
+    height: 4px;
     background: var(--bg-elevated);
-    transition: background 0.2s ease;
+    border-radius: 2px;
+    overflow: hidden;
 }
-.puzzle-seg.filled { background: var(--tx); }
-.puzzle-seg-count {
+.puzzle-progress-fill {
+    height: 100%;
+    background: var(--ac);
+    border-radius: 2px;
+    transition: width 0.3s ease;
+}
+.puzzle-progress-count {
     flex-shrink: 0;
-    margin-left: 8px;
     font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: 11px;
     line-height: 14px;
-    font-weight: 500;
+    font-weight: 600;
     letter-spacing: 0.02em;
-    color: var(--tx3);
+    color: var(--tx2);
+    min-width: 36px;
+    text-align: right;
 }
 
 /* Prompt = 50px 박스 (padding 12 + header 20 + gap 2 + subhead 16). */
@@ -3275,6 +3324,22 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     overflow: hidden;
     text-overflow: ellipsis;
 }
+/* 카테고리 chip — header 앞에 인라인 박힘. blunder=red, mate=green 의미적 색 */
+.vault-cat-chip {
+    display: inline-flex;
+    align-items: center;
+    height: 16px;
+    padding: 0 7px;
+    border-radius: 4px;
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-right: 8px;
+    vertical-align: 2px;
+}
+.vault-cat-chip--blunder { background: rgba(208, 56, 50, 0.10); color: var(--blunder); }
+.vault-cat-chip--mate    { background: rgba(45, 110, 85, 0.12); color: var(--great); }
 .vault-puzzle-subhead {
     height: 16px;
     line-height: 16px;
@@ -3303,6 +3368,26 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     flex: 1;
     cursor: pointer;
 }
+
+/* vault eval — 분석 화면의 .win-chance-display 그대로 재사용 + 블런더 후 위치(scrub forward)에선 색만 빨강 */
+#vaultPlyIndicator { width: auto; min-width: 44px; padding: 0 4px; }
+#vaultPlyIndicator.vault-eval-dropped { color: var(--blunder); }
+
+/* Board flash — 정답/오답 시 vault-puzzle-board-wrap에 클래스 추가, 부드러운 ring. */
+.vault-puzzle-board-wrap.vault-flash-correct { animation: vaultFlashCorrect 0.55s ease-out; }
+.vault-puzzle-board-wrap.vault-flash-wrong   { animation: vaultFlashWrong   0.55s ease-out; }
+@keyframes vaultFlashCorrect {
+    0%   { box-shadow: 0 0 0 0   rgba(45, 110, 85, 0.55); }
+    100% { box-shadow: 0 0 0 14px rgba(45, 110, 85, 0); }
+}
+@keyframes vaultFlashWrong {
+    0%   { box-shadow: 0 0 0 0   rgba(208, 56, 50, 0.55); }
+    100% { box-shadow: 0 0 0 14px rgba(208, 56, 50, 0); }
+}
+
+/* 하단 액션바 위계 — "다음"이 가장 자주 쓰이는 액션이라 primary 톤 (잉크블루) */
+.vault-action-bar #vaultPuzzleNextBtn { color: var(--ac); }
+.vault-action-bar #vaultPuzzleNextBtn .live-action-label { font-weight: 600; }
 
 /* Feedback — 정/오답 안내. 'other' 카테고리는 진입 즉시 노트/수 메타 노출. */
 .vault-puzzle-feedback {
