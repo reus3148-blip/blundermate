@@ -8,7 +8,7 @@
 
 - 모바일 우선 (`100dvh` 기준, 터치 친화). PC에선 `width: min(100vw, calc(100dvh * 9 / 16))`로 9:16 비율 컨테이너
 - UI 한국어 기본 ([strings.js](strings.js)). EN은 fallback. 화면 텍스트는 모두 `t(key)` 경유 — 한국어/영어 하드코드 금지
-- Pure ES6 modules, 빌드 도구 없음. Chessground/Chess.js는 CDN, Stockfish는 [engine/](engine/) static
+- Pure ES6 modules, 빌드 도구 없음. Chessground는 CDN(global), Chess.js는 jsDelivr ESM(`+esm` 1.4.0), Stockfish는 [engine/](engine/) static
 - 프론트엔드 npm 의존성 0 — package.json 없음
 - Gemini API 키 클라이언트 노출 0 — 모든 호출은 [api/analyze.js](api/analyze.js) Edge proxy 경유. 키는 `process.env.GOOGLE_API_KEY`로 서버에만
 - 사용자 입력 + 외부 API 닉네임 / PGN 헤더는 `escapeHtml()` ([utils.js](utils.js)) 통과 후 innerHTML. `textContent`로 충분하면 그것이 우선
@@ -58,7 +58,6 @@
 - **다크 모드 0** — tokens.css 변수 체계는 있지만 dark palette 미결정
 - **빈 상태 일러스트 0** — vault/saved/insights 빈 상태가 회색 텍스트 1줄. 디자이너 외주 영역
 - **`EnginePool.destroy()` 와이어링 0** — `initAnalysis`가 한 번만 호출되는 사이트라 실 leak은 없지만 unmount 훅 부재
-- **`utils.js parseAndLoadPgn` 폴백** — chess.js가 거부한 PGN을 raw token으로 재시도하는 폴백이 헤더 첫 토큰에서 break. 정상 PGN은 chess.js가 처리하니 실 영향 미미
 
 ## 라이선스
 

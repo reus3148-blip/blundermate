@@ -6,6 +6,86 @@
 
 ---
 
+## Phase 50 — chess.js 0.10.3 → 1.4.0 ESM 마이그레이션 (2026-05-10)
+
+8년 정체된 chess.js 0.10.3 글로벌 `<script>`를 1.4.0 ES module로 교체. 누적 ~43줄 net 감소 + PGN 코멘트 우회 / 그림자 상태 / parseAndLoadPgn 폴백 제거. user-visible 효과 0, 코드 명료성 + 향후 chess.js 활발한 유지보수 트랙 합류가 ROI.
+
+### 단계 0 사전 검증으로 plan 축소
+
+원 plan은 NAG export + 변형(variations) export 후속 작업의 사전 단계로 마이그레이션을 정당화했으나, 1.4.0 소스 정적 검증 결과:
+
+- ❌ NAG API 부재 (`setNag` 등 없음, README 0건)
+- ❌ public 변형 API 부재 (`loadPgn` 내부에서만 `node.variations[0]` 참조)
+- ⚠️ `setComment(text, fen)` 시그니처 가정도 틀림 — v1은 `setComment(text)` (현재 위치 한정)
+
+→ NAG / 변형 export 명분 무효, plan 축소 후 진행. 잔여 ROI: 코드 단순화 + 그림자 상태 + parseAndLoadPgn 폴백 제거.
+
+검증 메서드: WebFetch (정적) — jsDelivr `+esm` URL 본문 + GitHub `v1.4.0` 태그 `src/chess.ts` + README. preview server 실 검증은 단계 1부터.
+
+### 단계별 narrative
+
+| 단계 | commit | net 변화 | 핵심 |
+|------|--------|----------|------|
+| 1 | `3475b33` | +22 / -14 | `<script>` 제거 + 9 파일에 ESM import + window.Chess→Chess 교체 |
+| 2 | `93db22f` | +28 / -23 | snake_case→camelCase + safeLoad helper(13 사이트 try/catch wrap) + validateFen top-level |
+| 3 | `e67ec93` | +31 / -62 | parseNotesFromPgn/SAN_TOKEN_RE 삭제, buildQueueFromPgn 단일 인자, getComments fen맵 사용 |
+| 4 | `fd0c414` | +1 / -26 | parseAndLoadPgn raw-token 폴백 삭제 (50건 chess.com PGN 100% 통과 확인 후) |
+| 5 | (이 commit) | docs only | CLAUDE.md / NOTICE.md / WORKLOG / migration-chess-js.md 정리 |
+
+**누적**: ~43줄 net 감소.
+
+### 핵심 호환성 처리
+
+**v1 의미론 변화 (0.10 → 1.4.0)**:
+- `loadPgn` / `load`: boolean 반환 → void + invalid input 시 throw
+- `validateFen`: Chess 인스턴스 메서드 → top-level export 함수
+- `validateFen` 반환: `{ valid }` → `{ ok }`
+- `setComment`: 0.10/v1 모두 현재 위치 한정 — 매수 navigate 후 호출 패턴. 0.10에선 우회로 PGN 문자열 직접 조작하던 코드를 v1에선 표준 API로 교체
+- `history({verbose:true})`: 기존 키(`color/from/to/piece/captured?/promotion?/flags/san`) 보존 + `before`/`after`(FEN) / `lan` 추가
+
+**`safeLoad` helper ([utils.js](utils.js))** — v1의 throw 패턴을 0.10의 boolean 반환 의미로 wrap:
+
+```js
+function safeLoad(c, fen) {
+    try { c.load(fen); return true; } catch { return false; }
+}
+```
+
+13 사이트(getAttackers/getDefenders/isPieceHanging/classifyMove/convertPvToSan)에서 사용. `if (!c.load(fen)) return ...` 패턴 → `if (!safeLoad(c, fen)) return ...`.
+
+**`buildQueueFromPgn` 그림자 상태 제거 ([analysis.js](analysis.js))** — chess instance가 단일 진실 소스. `originalPgn` 두 번째 인자 제거 + `getComments()` → `Map<fen, comment>` 변환 후 queue.fen 매칭으로 note 채움.
+
+**`buildPgnWithNotes` 표준 API 전환 ([main.js](main.js))** — `SAN_RE` 토큰 walk(~25줄) 제거. tempChess에서 매수 replay하며 `setComment(note)` 호출. 헤더는 명시적 복사.
+
+### 검증
+
+- **단계 0**: jsDelivr `+esm` URL fetch + GitHub `v1.4.0` 태그 정적 분석
+- **단계 1-4 spot-check**: preview eval로 핵심 함수 호출 — parseAndLoadPgn / buildQueueFromPgn / isValidFen / countMovesFromPgn / getAttackers / getDefenders / classifyMove 의존 헬퍼 모두 정상
+- **단계 3 round-trip**: 메모 입력 → setComment → pgn() → loadPgn → getComments — 코멘트 보존 + 수정한 메모 round-trip 동작
+- **단계 4 통과율**: bywxx의 chess.com 최근 50건 PGN으로 v1 직접 호출 통과율 — **50/50 (100%)**, garbage 입력은 `success:false`로 정상 거부
+
+### baseline 비교 결정
+
+원 plan은 단계 1 시작 전 분석 1게임 baseline 캡처 + 단계 2 후 비교를 명시. 그러나 사용자와의 논의로 baseline 검증을 light 수준으로 축소:
+
+> classifyMove는 Stockfish 평가(chess.js 무관)와 chess.js 보드 헬퍼(`get`/`board`/`turn`/`isCheck`/`isCheckmate`)에 의존. 보드 헬퍼는 체스 규칙 표준이라 0.10/v1 의미 변화 없음. 따라서 회귀 가능성 거의 0.
+
+→ strict baseline 캡처 스킵. spot-check + round-trip + chess.com PGN 통과율 100%로 충분히 검증.
+
+### 본 phase에서 보류한 트랙
+
+- **NAG / 변형 export** — v1 1.4.0에 미지원. PGN 문자열 직접 조작이 필요. 별 phase 또는 후속 chess.js 버전(1.5+)에서 검토
+- **parseAndLoadPgn 폴백 제거의 lichess 검증** — bywxx는 chess.com 단독 사용자라 lichess PGN 통과율은 미검증. lichess 사용자가 추가되면 재평가
+
+### 문서 정리
+
+- [CLAUDE.md](CLAUDE.md) "강제되는 invariants" — chess.js는 jsDelivr ESM 1.4.0 명시
+- [CLAUDE.md](CLAUDE.md) "알려진 갭" — `parseAndLoadPgn 폴백` 항목 제거
+- [NOTICE.md](NOTICE.md) — chess.js 사용 위치를 cdnjs 0.10.3 → jsDelivr 1.4.0 ESM로 갱신
+- `migration-chess-js.md` 삭제 — narrative는 본 phase로 흡수
+
+---
+
 ## Phase 49 — Vault + Saved Games 디자인 시스템 정렬 (2026-05-09)
 
 Apple HIG / Notion / Lichess / chess.com 4개 시스템을 병렬 리서치 → 합성 → vault + saved-games 화면을 "premium calm" 톤으로 정렬. 카드 패턴, empty state, 분류 chip, 필터 탭, 터치 타겟을 통합. 기능 신규 0, 시각·UX 개선만. 8 파일 변경.
