@@ -899,7 +899,8 @@ movesOverlayBtn.addEventListener('click', () => {
     const isFenOnly = analysisQueue.length === 1 && analysisQueue[0]?.isFenOnly;
     const canReview = !isPreviewMode && !isAnalysisLoading && analysisQueue.length > 0 && !isFenOnly;
     showMovesOverlay({
-        getPgn: () => chess.pgn(),
+        // 메모(`{...}` 코멘트) 포함 PGN — 단순 chess.pgn()은 chess.js 0.10이 코멘트를 strip함.
+        getPgn: () => buildPgnWithNotes(),
         reviewable: canReview,
         renderBody: () => {
             renderMovesTable(movesBody, analysisQueue, (index) => {
