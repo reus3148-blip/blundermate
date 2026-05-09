@@ -192,7 +192,7 @@ export function highlightActiveMove(index) {
 /**
  * Renders the top engine recommended lines (MultiPV).
  */
-export function renderEngineLines(container, lines, onHover, onLeave, onClick) {
+export function renderEngineLines(container, lines, onHover, onLeave, onClick, opts = {}) {
     // 항상 최신 콜백 함수를 참조하도록 컨테이너의 속성으로 저장합니다 (클로저 버그 해결)
     container._onHover = onHover;
     container._onLeave = onLeave;
@@ -208,7 +208,7 @@ export function renderEngineLines(container, lines, onHover, onLeave, onClick) {
         container.innerHTML = '';
         return;
     }
-    
+
     const linesHtml = lines.map((line, index) => {
         const scoreClass = line.scoreNum > 0.3 ? 'positive' : line.scoreNum < -0.3 ? 'negative' : '';
         const moves = line.pv ? line.pv.split(' ').slice(0, 5).join('  ') : '';
@@ -234,7 +234,23 @@ export function renderEngineLines(container, lines, onHover, onLeave, onClick) {
         `;
     }
 
-    container.innerHTML = linesHtml + placeholderHtml + `<p class="engine-hint">${t('ui_engine_hint')}</p>`;
+    // 메모 입력 영역 (선택적). opts.note: 현 위치 메모 / opts.onNoteChange: input 콜백.
+    // PGN comment(`{note}`)에 동기화 — 외부에서 chess.set_comment / pgn 재생성 담당.
+    const noteHtml = opts.notes !== false
+        ? `<div class="engine-note">
+               <textarea class="engine-note-input" rows="2" maxlength="500" placeholder="${escapeHtml(t('engine_note_placeholder'))}">${escapeHtml(opts.note || '')}</textarea>
+           </div>`
+        : '';
+
+    container.innerHTML = linesHtml + placeholderHtml + noteHtml;
+
+    if (opts.notes !== false && typeof opts.onNoteChange === 'function') {
+        const ta = container.querySelector('.engine-note-input');
+        if (ta) {
+            ta.addEventListener('input', () => opts.onNoteChange(ta.value));
+            ta.addEventListener('blur', () => opts.onNoteChange(ta.value, { commit: true }));
+        }
+    }
 }
 
 function setupEngineLinesDelegation(container) {

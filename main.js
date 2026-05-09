@@ -550,7 +550,7 @@ function syncLiveStateToIndex(idx) {
         getEngine().stop();
         clearExplorationEngineLines();
         for (let i = 0; i < cached.length; i++) setExplorationLineAt(i, cached[i]);
-        renderEngineLines(engineLinesContainer, cached.filter(Boolean), drawEngineArrow, clearEngineArrow, handleEngineLineClick);
+        renderEngineLines(engineLinesContainer, cached.filter(Boolean), drawEngineArrow, clearEngineArrow, handleEngineLineClick, noteOptsFor(idx));
         const cls = analysisQueue[idx].classification || 'Exploring';
         updateTopEvalDisplay(cached[0].scoreStr, cls, isUserWhite);
         hideEngineStatus();
@@ -829,9 +829,52 @@ initSavedGames({
     },
     // 라이브 입력 모드는 메인 chess가 비어 있고 explorationChess만 의미 있음.
     getChess: () => appMode === APP_MODES.LIVE_INPUT ? explorationChess : chess,
+    // PGN 추출 시 analysisQueue의 per-move note를 `{...}` comment로 주입. 라이브 입력 모드는
+    // analysisQueue가 비어있는 경우가 잦아 plain PGN으로 fallback.
+    getPgn: () => {
+        if (appMode === APP_MODES.LIVE_INPUT) return explorationChess.pgn();
+        return buildPgnWithNotes();
+    },
     // Empty state CTA → 홈 화면으로 이동 (사용자가 게임 카드를 골라 분석 시작 가능).
     onEmptyCta: () => navigateTo('home'),
 });
+
+// chess.pgn() + analysisQueue[i].note → PGN string with `{note}` after each SAN.
+// chess.js 0.13에 set_comment API가 없어 movetext 토큰 walk로 직접 주입.
+// SAN 정규식은 표준 PGN: piece, file/rank disambig, capture, promotion, check/mate, castling.
+const SAN_RE = /^(?:[KQRBN]?[a-h]?[1-8]?x?[a-h][1-8](?:=[QRBN])?[+#]?|O-O(?:-O)?[+#]?)$/;
+
+function buildPgnWithNotes() {
+    const basePgn = chess ? chess.pgn() : '';
+    if (!basePgn || !analysisQueue || analysisQueue.length === 0) return basePgn;
+    // PGN: headers + 빈 줄 + movetext. 헤더 영역은 그대로 두고 movetext만 토큰 walk.
+    const splitIdx = basePgn.indexOf('\n\n');
+    if (splitIdx < 0) return basePgn;
+    const head = basePgn.slice(0, splitIdx + 2);
+    const movetext = basePgn.slice(splitIdx + 2);
+    const tokens = movetext.split(/\s+/).filter(Boolean);
+    const out = [];
+    let moveIdx = 0;
+    for (const tok of tokens) {
+        out.push(tok);
+        if (SAN_RE.test(tok)) {
+            const note = (analysisQueue[moveIdx]?.note || '').trim();
+            if (note) out.push(`{${note.replace(/[{}]/g, '')}}`);
+            moveIdx++;
+        }
+    }
+    return head + out.join(' ');
+}
+
+// renderEngineLines에 넘길 note 옵션. queue[idx]에 기록된 note를 보여주고, 입력 시 제자리 갱신.
+function noteOptsFor(idx) {
+    const item = analysisQueue[idx];
+    if (!item) return { notes: false };
+    return {
+        note: item.note || '',
+        onNoteChange: (val) => { item.note = val; },
+    };
+}
 initInsights();
 
 function buildExplorationMovesQueue() {
@@ -1073,7 +1116,7 @@ const engineCallbacks = {
         if (explorationEngineLines[0] && now - lastEvalRenderTime > EVAL_RENDER_THROTTLE) {
             lastEvalRenderTime = now;
             requestAnimationFrame(() => {
-                renderEngineLines(engineLinesContainer, explorationEngineLines.filter(Boolean), drawEngineArrow, clearEngineArrow, handleEngineLineClick);
+                renderEngineLines(engineLinesContainer, explorationEngineLines.filter(Boolean), drawEngineArrow, clearEngineArrow, handleEngineLineClick, { notes: false });
                 // 라이브 모드에서 분류 산출 전엔 Exploring 메타 라벨로 라벨 영역 비움.
                 // 분류는 onBestMove에서 fix됨.
                 const cls = (appMode === APP_MODES.LIVE_INPUT && analysisQueue.length > 0)
@@ -1126,7 +1169,8 @@ function handlePgnReviewStart(e = null, isWhiteGame = null, targetIndex = null, 
         pgnInput.value = result.pgn;
     }
 
-    const newQueue = buildQueueFromPgn(chess);
+    // 원본 pgnText를 그대로 넘김 — chess.js가 재생성한 result.pgn은 `{...}` 코멘트가 strip됨.
+    const newQueue = buildQueueFromPgn(chess, pgnText);
 
     // Preview mode: show analysis view without starting engine
     if (previewOnly) {
@@ -1453,7 +1497,7 @@ function _finalizeAnalysisRun({ fromCache }) {
         const topLine = move.engineLines && move.engineLines[0] ? move.engineLines[0] : null;
         updateTopEvalDisplay(topLine?.scoreStr || '', move.classification, isUserWhite);
         if (move.engineLines && move.engineLines.length > 0) {
-            renderEngineLines(engineLinesContainer, move.engineLines.filter(Boolean), drawEngineArrow, clearEngineArrow, handleEngineLineClick);
+            renderEngineLines(engineLinesContainer, move.engineLines.filter(Boolean), drawEngineArrow, clearEngineArrow, handleEngineLineClick, noteOptsFor(0));
         }
     }
 }
@@ -1601,7 +1645,7 @@ function updateBoardPosition(index, fen) {
     // 화면이 바뀔 때, 해당 수에 저장된 엔진 추천 라인이 있다면 화면에 다시 렌더링
     if (analysisQueue[index] && analysisQueue[index].engineLines && analysisQueue[index].engineLines.length > 0) {
         const topLine = analysisQueue[index].engineLines[0];
-        renderEngineLines(engineLinesContainer, analysisQueue[index].engineLines.filter(Boolean), drawEngineArrow, clearEngineArrow, handleEngineLineClick);
+        renderEngineLines(engineLinesContainer, analysisQueue[index].engineLines.filter(Boolean), drawEngineArrow, clearEngineArrow, handleEngineLineClick, noteOptsFor(index));
         updateTopEvalDisplay(topLine.scoreStr, analysisQueue[index].classification, isUserWhite);
     } else if (index === -1 && analysisQueue.length > 0) {
         // 분석 후 0수(시작 포지션) — 게임 목록에서 누른 직후 모습과 동일하게 미리보기 카드 표시

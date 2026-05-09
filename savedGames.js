@@ -138,6 +138,7 @@ export function openSaveGameModal() {
 // Dependencies injected via initSavedGames()
 let _onLoadGame = null;
 let _getChess = null;
+let _getPgn = null;
 let _onEmptyCta = null;
 
 async function updateSavedGamesView() {
@@ -160,11 +161,12 @@ function syncFilterBar() {
 // Public API
 // ==========================================
 let _savedGamesInitialized = false;
-export function initSavedGames({ onLoadGame, getChess, onEmptyCta }) {
+export function initSavedGames({ onLoadGame, getChess, getPgn, onEmptyCta }) {
     if (_savedGamesInitialized) return;
     _savedGamesInitialized = true;
     _onLoadGame = onLoadGame;
     _getChess = getChess;
+    _getPgn = getPgn || null;
     _onEmptyCta = onEmptyCta || null;
 
     if (cancelSaveGameBtn) {
@@ -228,7 +230,7 @@ export function initSavedGames({ onLoadGame, getChess, onEmptyCta }) {
             title: title,
             notes: notes,
             category: category,
-            pgn: _getChess().pgn()
+            pgn: _getPgn ? _getPgn() : _getChess().pgn(),
         };
 
         addSavedGame(savedGameItem);
