@@ -3162,8 +3162,7 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     100% { box-shadow: 0 0 0 14px rgba(208, 56, 50, 0); }
 }
 
-/* 하단 액션바 위계 — "다음"이 가장 자주 쓰이는 액션이라 primary 톤 (잉크블루) */
-.vault-action-bar #vaultPuzzleNextBtn { color: var(--ac); }
+/* 다음 버튼은 가장 자주 쓰는 액션 — weight 600으로 미세 강조 (색은 형제와 동일 회색 유지). */
 .vault-action-bar #vaultPuzzleNextBtn .live-action-label { font-weight: 600; }
 
 /* Feedback — 정/오답 안내. 'other' 카테고리는 진입 즉시 노트/수 메타 노출. */

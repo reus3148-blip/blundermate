@@ -512,7 +512,10 @@ function updatePuzzleNextLabel() {
     let key = 'vault_puzzle_next';
     if (total === 1) key = 'vault_puzzle_retry';
     else if (allSeen) key = 'vault_puzzle_restart';
-    vaultPuzzleNextBtn.textContent = t(key);
+    // label span만 갱신 — buttonText 전체를 textContent로 덮으면 SVG 아이콘이 날아간다.
+    const labelEl = vaultPuzzleNextBtn.querySelector('.live-action-label');
+    if (labelEl) labelEl.textContent = t(key);
+    else vaultPuzzleNextBtn.textContent = t(key);
 }
 
 async function startPuzzleSession() {
