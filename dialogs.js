@@ -67,11 +67,14 @@ export function showConfirm(message, opts = {}) {
     });
 }
 
+let _dialogsInitialized = false;
 export function initDialogs() {
+    if (_dialogsInitialized) return;
     const modal = document.getElementById('confirmModal');
     const okBtn = document.getElementById('confirmOkBtn');
     const cancelBtn = document.getElementById('confirmCancelBtn');
     if (!modal || !okBtn || !cancelBtn) return;
+    _dialogsInitialized = true;
     const close = (result) => {
         modal.classList.add('hidden');
         const r = _confirmResolve;

@@ -91,25 +91,34 @@ export default async function handler(req) {
         }
 
         if (action === 'update') {
-            // analyzed_games 캐시 PATCH 전용. (user_id, pgn_hash) 조합으로 행 식별.
-            // 화이트리스트로 캐시 컬럼만 갱신 — pgn/headers_json/id 등 다른 컬럼은 클라이언트에서 변경 불가.
-            // 호출자가 행 존재를 보장(collectAutoBlunders가 먼저 INSERT 완료)해야 의미 있는 작업.
-            if (table !== 'analyzed_games') {
-                return jsonResponse({ error: 'update only supported on analyzed_games' }, 400);
+            // 테이블별로 화이트리스트된 컬럼만 갱신 — 임의 컬럼(예: id, user_id, platform) 변경 차단.
+            // 행 식별 필터도 테이블별 화이트리스트 — analyzed_games는 (user_id, pgn_hash), saved_games는 id.
+            const UPDATE_SCHEMA = {
+                analyzed_games: {
+                    cols: ['analysis_json', 'analysis_depth', 'analysis_version'],
+                    filterCol: 'pgn_hash',
+                },
+                saved_games: {
+                    cols: ['title', 'notes', 'category'],
+                    filterCol: 'id',
+                },
+            };
+            const schema = UPDATE_SCHEMA[table];
+            if (!schema) {
+                return jsonResponse({ error: 'update not supported on this table' }, 400);
             }
-            const pgnHash = filter?.pgn_hash;
-            if (!user_id || !pgnHash || !data) {
-                return jsonResponse({ error: 'user_id, filter.pgn_hash and data required' }, 400);
+            const filterVal = filter?.[schema.filterCol];
+            if (!user_id || !filterVal || !data) {
+                return jsonResponse({ error: `user_id, filter.${schema.filterCol} and data required` }, 400);
             }
-            const ALLOWED_UPDATE_COLS = ['analysis_json', 'analysis_depth', 'analysis_version'];
             const patch = {};
             for (const [col, val] of Object.entries(data)) {
-                if (ALLOWED_UPDATE_COLS.includes(col)) patch[col] = val;
+                if (schema.cols.includes(col)) patch[col] = val;
             }
             if (Object.keys(patch).length === 0) {
                 return jsonResponse({ error: 'no allowed columns to update' }, 400);
             }
-            const url = `${supabaseUrl}/rest/v1/${table}?user_id=eq.${encodeURIComponent(user_id)}&platform=eq.${encodeURIComponent(platform)}&pgn_hash=eq.${encodeURIComponent(pgnHash)}`;
+            const url = `${supabaseUrl}/rest/v1/${table}?user_id=eq.${encodeURIComponent(user_id)}&platform=eq.${encodeURIComponent(platform)}&${schema.filterCol}=eq.${encodeURIComponent(filterVal)}`;
             const res = await fetch(url, {
                 method: 'PATCH',
                 headers: { ...sbHeaders, 'Prefer': 'return=minimal' },

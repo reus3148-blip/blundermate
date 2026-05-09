@@ -863,8 +863,7 @@ function renderInstantMovesCard(timeStats) {
 
 function renderTimeOfDayCard(timeBuckets) {
     const order = ['morning', 'afternoon', 'evening', 'night'];
-    // 차트용 짧은 라벨
-    const labelMap = { morning: '아침', afternoon: '낮', evening: '저녁', night: '밤' };
+    const labelMap = Object.fromEntries(order.map(k => [k, t(`insights_tod_short_${k}`)]));
     return renderColumnChartCard(t('insights_time_of_day'),
         bucketToColumnItems(timeBuckets, order, labelMap));
 }
@@ -875,19 +874,14 @@ function renderTimeOfDayCard(timeBuckets) {
 
 function renderDayOfWeekCard(byDayOfWeek) {
     const order = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
-    // 짧은 라벨로 (월/화/수/목/금/토/일)
-    const labelMap = { mon: '월', tue: '화', wed: '수', thu: '목', fri: '금', sat: '토', sun: '일' };
+    const labelMap = Object.fromEntries(order.map(k => [k, t(`insights_dow_short_${k}`)]));
     return renderColumnChartCard(t('insights_day_of_week'),
         bucketToColumnItems(byDayOfWeek, order, labelMap));
 }
 
 function renderOpponentDiffCard(byOppDiff) {
     const order = ['much_lower', 'lower', 'similar', 'higher', 'much_higher'];
-    // 차트 헤더에 적합한 짧은 라벨 (−200 / −100 / 0 / +100 / +200 식)
-    const labelMap = {
-        much_lower: '≤−200', lower: '−100', similar: '비슷',
-        higher: '+100', much_higher: '≥+200',
-    };
+    const labelMap = Object.fromEntries(order.map(k => [k, t(`insights_opp_short_${k}`)]));
     return renderColumnChartCard(t('insights_opp_diff'),
         bucketToColumnItems(byOppDiff, order, labelMap));
 }

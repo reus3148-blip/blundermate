@@ -1,5 +1,5 @@
 import { escapeHtml, getWhiteWinPct, cpToWhiteWinPct } from './utils.js';
-import { EVAL_MODE_KEY } from './storage.js';
+import { EVAL_MODE_KEY, lsGet } from './storage.js';
 import { t } from './strings.js';
 
 // Screen-loading 오버레이 show/hide 래퍼. 캐시 hit으로 fetch가 매우 빠를 때 깜빡임 방지를 위해
@@ -49,7 +49,7 @@ export function renderMovesTable(container, queue, onMoveClick) {
             wTd.id = `move-${i}`;
             wTd.className = 'interactive-move';
             wTd.style.cursor = 'pointer';
-            wTd.innerHTML = `<div class="move-cell"><span class="san">${move.san}</span><span class="eval-badge"></span></div>`;
+            wTd.innerHTML = `<div class="move-cell"><span class="san">${escapeHtml(move.san || '')}</span><span class="eval-badge"></span></div>`;
             wTd.onclick = () => onMoveClick(i);
             
             const bTd = document.createElement('td');
@@ -65,7 +65,7 @@ export function renderMovesTable(container, queue, onMoveClick) {
                 const bTd = tr.querySelector(`#move-${i}`);
                 if (bTd) {
                     bTd.style.cursor = 'pointer';
-                    bTd.innerHTML = `<div class="move-cell"><span class="san">${move.san}</span><span class="eval-badge"></span></div>`;
+                    bTd.innerHTML = `<div class="move-cell"><span class="san">${escapeHtml(move.san || '')}</span><span class="eval-badge"></span></div>`;
                     bTd.onclick = () => onMoveClick(i);
                 }
             }
@@ -156,10 +156,10 @@ export function renderEngineLines(container, lines, onHover, onLeave, onClick) {
         const scoreClass = line.scoreNum > 0.3 ? 'positive' : line.scoreNum < -0.3 ? 'negative' : '';
         const moves = line.pv ? line.pv.split(' ').slice(0, 5).join('  ') : '';
         return `
-            <div class="engine-line${index === 0 ? ' engine-line--best' : ''}" data-uci="${line.uci || ''}" data-index="${index}">
+            <div class="engine-line${index === 0 ? ' engine-line--best' : ''}" data-uci="${escapeHtml(line.uci || '')}" data-index="${index}">
                 <span class="el-rank">${index + 1}</span>
-                <span class="el-score ${scoreClass}">${line.scoreStr}</span>
-                <span class="el-moves">${moves}</span>
+                <span class="el-score ${scoreClass}">${escapeHtml(line.scoreStr || '')}</span>
+                <span class="el-moves">${escapeHtml(moves)}</span>
             </div>
         `;
     }).join('');
@@ -569,7 +569,7 @@ export function updateTopEvalDisplay(scoreStr, classification = '', isUserWhite 
     el.dataset.scoreStr = scoreStr || '';
     el.dataset.classification = classification || '';
 
-    const mode = localStorage.getItem(EVAL_MODE_KEY) || 'percent';
+    const mode = lsGet(EVAL_MODE_KEY, 'percent');
     const whitePct = evalToWinChance(scoreStr);
     const rawPct = whitePct === null ? null : isUserWhite ? whitePct : 100 - whitePct;
     const pct = rawPct === null ? null : Math.round(rawPct);

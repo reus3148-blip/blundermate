@@ -7,7 +7,7 @@
 import { getDepth, setDepth } from './analysis.js';
 import { getIsGeminiEnabled, setIsGeminiEnabled } from './gemini.js';
 import { setDefaultTcFilter } from './home.js';
-import { COORDS_KEY, DEFAULT_TC_KEY, clearIdentity } from './storage.js';
+import { DEFAULT_TC_KEY, clearIdentity, lsGet, getIsCoordsEnabled, setIsCoordsEnabled } from './storage.js';
 import { setLocale, getLocale, t } from './strings.js';
 import { showConfirm, showToast } from './dialogs.js';
 
@@ -24,11 +24,11 @@ export function onSettingsViewEnter() {
     const depthSelect = document.getElementById('depthSelect');
     if (depthSelect) depthSelect.value = String(getDepth());
     const tcSelect = document.getElementById('defaultTcSelect');
-    if (tcSelect) tcSelect.value = localStorage.getItem(DEFAULT_TC_KEY) || 'rapid';
+    if (tcSelect) tcSelect.value = lsGet(DEFAULT_TC_KEY, 'rapid');
     const gemini = document.getElementById('geminiToggle');
     if (gemini) gemini.checked = getIsGeminiEnabled();
     const coords = document.getElementById('coordsToggle');
-    if (coords) coords.checked = localStorage.getItem(COORDS_KEY) !== 'false';
+    if (coords) coords.checked = getIsCoordsEnabled();
     const locale = getLocale();
     document.getElementById('langKoBtn')?.classList.toggle('active', locale === 'ko');
     document.getElementById('langEnBtn')?.classList.toggle('active', locale === 'en');
@@ -93,7 +93,7 @@ function wireSettingsPage() {
 
     document.getElementById('coordsToggle')?.addEventListener('change', (e) => {
         const enabled = e.target.checked;
-        localStorage.setItem(COORDS_KEY, enabled);
+        setIsCoordsEnabled(enabled);
         _applyCoords?.(enabled);
     });
 

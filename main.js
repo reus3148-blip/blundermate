@@ -1,5 +1,5 @@
 import { Chessground } from 'https://cdnjs.cloudflare.com/ajax/libs/chessground/9.0.0/chessground.min.js';
-import { initHome, refreshHomeCounts, showOnboarding } from './home.js';
+import { initHome, refreshHomeCounts, showOnboarding, homeProfileRatings } from './home.js';
 import { initDialogs, showAlert, showConfirm, showToast } from './dialogs.js';
 import {
     initAnalysis, getEngine, getDepth,
@@ -22,7 +22,7 @@ import {
 } from './modes.js';
 import { parseEvalData, getDests, convertPvToSan, parseAndLoadPgn, isValidFen, escapeHtml, parseOpeningFromPgn, getTier, TIERS, classifyMove } from './utils.js';
 import { renderMovesTable, updateUIWithEval, highlightActiveMove, renderEngineLines, updateTopEvalDisplay, renderReviewReport, buildPreviewCardHtml, placePieceBadge } from './ui.js';
-import { getMyUserId, COORDS_KEY, EVAL_MODE_KEY, computePgnHash, upsertAnalyzedGame, loadAnalysisCache, saveAnalysisCache, isCacheCompatible, ANALYSIS_CACHE_VERSION } from './storage.js';
+import { EVAL_MODE_KEY, computePgnHash, upsertAnalyzedGame, loadAnalysisCache, saveAnalysisCache, isCacheCompatible, ANALYSIS_CACHE_VERSION, getIsCoordsEnabled, lsGet, lsSet } from './storage.js';
 import { collectAutoBlunders } from './autoBlunders.js';
 import { initVault, isVaultDetailActive, isVaultPuzzleActive, getVaultDetailIndex, setVaultDetailIndex, flipVaultBoard, setVaultCoords, redrawVaultBoard, loadVaultData, loadBlunderListData, redrawVaultPuzzleBoard } from './vault.js';
 import { initSavedGames, loadSavedGamesData, openSaveGameModal } from './savedGames.js';
@@ -82,8 +82,6 @@ const confirmLivePasteBtn = document.getElementById('confirmLivePasteBtn');
 
 const previewStartBtn = document.getElementById('previewStartBtn');
 const ctrlCenter = document.querySelector('.ctrl-center');
-const analysisLoadingText = document.getElementById('analysisLoadingText');
-const analysisLoadingCard = document.getElementById('analysisLoadingCard');
 const loadingQuoteText = document.getElementById('loadingQuoteText');
 const loadingQuoteAuthor = document.getElementById('loadingQuoteAuthor');
 const loadingQuoteWrap = loadingQuoteText ? loadingQuoteText.parentElement : null;
@@ -109,19 +107,13 @@ const settingsBtn = document.getElementById('homeSettingsBtn');
 // 2. Application State
 // ==========================================
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
-// 엔진/풀 상태(stockfish, _pool, analysisQueue, 배치 라이프사이클)는 analysis.js 모듈에서 관리.
-// chess, cg, currentlyViewedIndex, isUserWhite, persistentShapes 는 board.js로 이전.
-// appMode, explorationChess, explorationEngineLines, simulationQueue, simulationIndex, isPreviewMode 는 modes.js로 이전.
-let currentEval = '';
 let isAnalysisLoading = false;
 const LIVE_INPUT_DEPTH = 12; // 라이브 입력 모드 엔진 depth 락 — 렉 방지용 고정값
 let lastEvalRenderTime = 0; // 엔진 UI 렌더링 스로틀링용 타임스탬프
 const EVAL_RENDER_THROTTLE = 100; // UI 업데이트 제한 시간(ms)
 const SIM_EXTEND_DEPTH = 12;
 const ENGINE_DEFAULT_MULTIPV = 3; // engine.js 의 DEFAULT_MULTIPV 와 일치 — extend 후 복원 값.
-// isGeminiLoading, geminiAbortController, isGeminiEnabled 는 gemini.js로 이전.
-let isCoordsEnabled = localStorage.getItem(COORDS_KEY) !== 'false';
-// home/onboarding 상태 (cachedHomeGames, homeTimeClassFilter, homeProfileRatings 등)는 home.js로 이전.
+let isCoordsEnabled = getIsCoordsEnabled();
 
 // ==========================================
 // 2-2. History-based Navigation
@@ -799,9 +791,9 @@ previewStartBtn.addEventListener('click', () => {
 // Win% / eval score toggle
 document.getElementById('winChanceDisplay').addEventListener('click', () => {
     const el = document.getElementById('winChanceDisplay');
-    const current = localStorage.getItem(EVAL_MODE_KEY) || 'percent';
+    const current = lsGet(EVAL_MODE_KEY, 'percent');
     const next = current === 'percent' ? 'score' : 'percent';
-    localStorage.setItem(EVAL_MODE_KEY, next);
+    lsSet(EVAL_MODE_KEY, next);
     el.style.opacity = '0';
     setTimeout(() => {
         updateTopEvalDisplay(el.dataset.scoreStr || '', el.dataset.classification || '', isUserWhite);
@@ -895,11 +887,16 @@ movesOverlay.addEventListener('click', (e) => {
     if (e.target === movesOverlay) closeMovesOverlay();
 });
 
-copyPgnBtn.addEventListener('click', () => {
+copyPgnBtn.addEventListener('click', async () => {
     const pgn = _overlayGetPgn ? _overlayGetPgn() : chess.pgn();
     if (!pgn) return;
-    navigator.clipboard.writeText(pgn).catch(() => prompt('PGN', pgn));
-    showToast(t('copied'));
+    try {
+        await navigator.clipboard.writeText(pgn);
+        showToast(t('copied'));
+    } catch (_) {
+        // 클립보드 권한 거부 / HTTP origin 등 실패 시 토스트로 알림.
+        showToast(t('feedback_error_network'));
+    }
 });
 
 // --- Gemini AI Coach Logic ---
@@ -1633,8 +1630,6 @@ function forceRedraw(instance) {
     if (!instance) return;
     setTimeout(() => instance.redrawAll(), 50);
 }
-
-// parseAndLoadPgn moved to utils.js
 
 function drawEngineArrow(orig, dest) {
     if (!cg) return;

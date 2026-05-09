@@ -43,7 +43,6 @@ function buildCard(item, onLoad, onEdit) {
     el.dataset.category = VALID_CATEGORIES.includes(item.category) ? item.category : 'my_game';
 
     const notes = (item.notes || '').trim();
-    // 카테고리는 섹션 헤더(전체) · 필터 핀(필터) · 색바(상시) 세 채널로 이미 전달 — 카드 라벨 중복 제거
     el.innerHTML = `
         <div class="saved-game-card-info">
             <span class="saved-game-card-title">${escapeHtml(item.title)}</span>
@@ -87,7 +86,6 @@ function renderSavedGamesList(container, savedGames, onLoad, onEdit) {
     }
     container.classList.remove('saved-games-list--empty');
 
-    // 평면 chronological — 카테고리 네비게이션은 필터 핀이 담당, 섹션 그룹은 노이즈
     [...filtered]
         .sort((a, b) => new Date(b.date) - new Date(a.date))
         .forEach(item => container.appendChild(buildCard(item, onLoad, onEdit)));
@@ -149,7 +147,10 @@ function syncFilterBar() {
 // ==========================================
 // Public API
 // ==========================================
+let _savedGamesInitialized = false;
 export function initSavedGames({ onLoadGame, getChess }) {
+    if (_savedGamesInitialized) return;
+    _savedGamesInitialized = true;
     _onLoadGame = onLoadGame;
     _getChess = getChess;
 
@@ -161,7 +162,6 @@ export function initSavedGames({ onLoadGame, getChess }) {
         });
     }
 
-    // 편집 모달 내 destructive 삭제 — 카드 외부 휴지통 아이콘 대신 management context에 통합
     if (deleteSavedGameBtn) {
         deleteSavedGameBtn.addEventListener('click', async () => {
             if (!_editingGameId) return;
@@ -246,7 +246,6 @@ function openEditModal(item) {
     const target = saveGameCategoryPicker.querySelector(`[data-value="${item.category || 'my_game'}"]`);
     if (target) target.classList.add('selected');
 
-    // 편집 모드에선 destructive 삭제 노출
     deleteSavedGameBtn?.classList.remove('hidden');
     saveGameModal.classList.remove('hidden');
 }

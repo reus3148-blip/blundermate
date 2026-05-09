@@ -1,3 +1,5 @@
+import { lsGet, lsSet } from './storage.js';
+
 const STRINGS = {
   ko: {
     heroTitle: '어떤 게임을 분석할까요?',
@@ -8,7 +10,6 @@ const STRINGS = {
     archive_saved_games_btn: '저장된 게임',
     vault_title: '복기',
     vault_empty: '저장된 항목이 없습니다',
-    vault_count: '{count}개 저장됨',
     vault_delete_confirm: '이 저장된 수를 삭제할까요?',
     vault_legacy_error: '이전 버전의 저장 데이터로 열 수 없습니다. 삭제해주세요.',
     vault_pgn_error: '저장된 PGN을 불러올 수 없습니다.',
@@ -39,10 +40,7 @@ const STRINGS = {
     vault_puzzle_next_short: '다음',
     tab_engine: 'Engine',
     tab_ai: 'AI',
-    vault_delete_title: '삭제',
     vault_delete_btn: '삭제',
-    saved_games_count: '{count}개 저장됨',
-    saved_games_empty: '저장된 게임이 없습니다',
     saved_games_empty_title: '저장된 게임이 없어요',
     saved_games_empty_desc: '분석 화면에서 인상적인 게임을 저장해두면 여기서 다시 만날 수 있어요.',
     saved_games_category_label: '카테고리',
@@ -73,7 +71,6 @@ const STRINGS = {
     chooseBlack: '흑 (Black)',
     settings: 'Settings',
     home_feedback: '피드백',
-    home_settings: '설정',
     nav_home: '홈',
     nav_vault: '복기',
     nav_saved: '저장',
@@ -113,6 +110,10 @@ const STRINGS = {
     insights_tod_afternoon: '낮 (12–18시)',
     insights_tod_evening: '저녁 (18–23시)',
     insights_tod_night: '밤 (23–5시)',
+    insights_tod_short_morning: '아침',
+    insights_tod_short_afternoon: '낮',
+    insights_tod_short_evening: '저녁',
+    insights_tod_short_night: '밤',
     // 요일별
     insights_day_of_week: '요일별 성적',
     insights_dow_mon: '월요일',
@@ -122,6 +123,13 @@ const STRINGS = {
     insights_dow_fri: '금요일',
     insights_dow_sat: '토요일',
     insights_dow_sun: '일요일',
+    insights_dow_short_mon: '월',
+    insights_dow_short_tue: '화',
+    insights_dow_short_wed: '수',
+    insights_dow_short_thu: '목',
+    insights_dow_short_fri: '금',
+    insights_dow_short_sat: '토',
+    insights_dow_short_sun: '일',
     // 상대 레이팅 차이
     insights_opp_diff: '상대 레이팅별 성적',
     insights_opp_much_lower: '나보다 200↓',
@@ -129,6 +137,11 @@ const STRINGS = {
     insights_opp_similar: '비슷한 레벨',
     insights_opp_higher: '나보다 50–200↑',
     insights_opp_much_higher: '나보다 200↑',
+    insights_opp_short_much_lower: '≤−200',
+    insights_opp_short_lower: '−100',
+    insights_opp_short_similar: '비슷',
+    insights_opp_short_higher: '+100',
+    insights_opp_short_much_higher: '≥+200',
     // 첫 수
     insights_first_move: '첫 수 (백)',
     insights_first_move_other: '기타',
@@ -194,7 +207,6 @@ const STRINGS = {
     insights_flow_extremes_w_only: '최장 {w}연승',
     insights_flow_extremes_l_only: '최장 {l}연패',
     aria_settings: '설정',
-    aria_search: '검색',
     aria_new_analysis: '수 입력',
     settings_depth: '엔진 분석 깊이',
     settings_depth_hint: '기본 14. 저사양 모바일은 12, PC는 16 이상도 OK. 높을수록 정확하지만 느려집니다.',
@@ -213,7 +225,6 @@ const STRINGS = {
     notesOptional: '메모 (선택)',
     notesGamePlaceholder: '멋진 공격 게임...',
     saveGame: '게임 저장',
-    savedGames: 'Saved Games',
     returnMainLine: '메인 라인으로 돌아가기',
     analysis_start_btn: '분석 시작',
     analysis_no_moves: '수를 하나 이상 두거나 PGN을 붙여넣어 주세요.',
@@ -341,7 +352,6 @@ const STRINGS = {
     archive_saved_games_btn: 'Saved Games',
     vault_title: 'Vault',
     vault_empty: 'Your Vault is empty. Analyze some games and save your mistakes!',
-    vault_count: '{count} saved',
     vault_delete_confirm: 'Delete this saved move from your Vault?',
     vault_legacy_error: 'This saved move is from an older version and cannot be opened. Please delete it.',
     vault_pgn_error: 'Saved PGN could not be parsed.',
@@ -372,10 +382,7 @@ const STRINGS = {
     vault_puzzle_next_short: 'Next',
     tab_engine: 'Engine',
     tab_ai: 'AI',
-    vault_delete_title: 'Delete',
     vault_delete_btn: 'Delete',
-    saved_games_count: '{count} saved',
-    saved_games_empty: 'No saved games',
     saved_games_empty_title: 'No saved games yet',
     saved_games_empty_desc: 'Save memorable games from the analysis screen and revisit them here.',
     saved_games_category_label: 'Category',
@@ -406,7 +413,6 @@ const STRINGS = {
     chooseBlack: 'Black',
     settings: 'Settings',
     home_feedback: 'Feedback',
-    home_settings: 'Settings',
     nav_home: 'Home',
     nav_vault: 'Vault',
     nav_saved: 'Saved',
@@ -446,6 +452,10 @@ const STRINGS = {
     insights_tod_afternoon: 'Afternoon (12–18)',
     insights_tod_evening: 'Evening (18–23)',
     insights_tod_night: 'Night (23–5)',
+    insights_tod_short_morning: 'AM',
+    insights_tod_short_afternoon: 'Day',
+    insights_tod_short_evening: 'Eve',
+    insights_tod_short_night: 'Night',
     // Day of week
     insights_day_of_week: 'By day of week',
     insights_dow_mon: 'Monday',
@@ -455,6 +465,13 @@ const STRINGS = {
     insights_dow_fri: 'Friday',
     insights_dow_sat: 'Saturday',
     insights_dow_sun: 'Sunday',
+    insights_dow_short_mon: 'Mon',
+    insights_dow_short_tue: 'Tue',
+    insights_dow_short_wed: 'Wed',
+    insights_dow_short_thu: 'Thu',
+    insights_dow_short_fri: 'Fri',
+    insights_dow_short_sat: 'Sat',
+    insights_dow_short_sun: 'Sun',
     // Opponent rating diff
     insights_opp_diff: 'By opponent strength',
     insights_opp_much_lower: '200+ below',
@@ -462,6 +479,11 @@ const STRINGS = {
     insights_opp_similar: 'Similar level',
     insights_opp_higher: '50–200 above',
     insights_opp_much_higher: '200+ above',
+    insights_opp_short_much_lower: '≤−200',
+    insights_opp_short_lower: '−100',
+    insights_opp_short_similar: 'Even',
+    insights_opp_short_higher: '+100',
+    insights_opp_short_much_higher: '≥+200',
     // First move
     insights_first_move: 'First move (white)',
     insights_first_move_other: 'Other',
@@ -525,7 +547,6 @@ const STRINGS = {
     insights_flow_extremes_w_only: 'Longest: {w}W',
     insights_flow_extremes_l_only: 'Longest: {l}L',
     aria_settings: 'Settings',
-    aria_search: 'Search',
     aria_new_analysis: 'New Analysis',
     settings_depth: 'Engine Analysis Depth',
     settings_depth_hint: 'Default 14. Low-end mobile: 12, PC: 16+ also fine. Higher is more accurate but slower.',
@@ -544,7 +565,6 @@ const STRINGS = {
     notesOptional: 'Notes (Optional)',
     notesGamePlaceholder: 'Great attacking game...',
     saveGame: 'Save Game',
-    savedGames: 'Saved Games',
     returnMainLine: 'Return to Main Line',
     analysis_start_btn: 'Start Analysis',
     analysis_no_moves: 'Please play at least one move or paste a PGN to analyze.',
@@ -666,7 +686,7 @@ const STRINGS = {
 };
 
 function detectLocale() {
-  const stored = localStorage.getItem('locale');
+  const stored = lsGet('locale');
   if (stored) return stored;
   if (navigator.language && navigator.language.startsWith('ko')) return 'ko';
   return 'en';
@@ -676,6 +696,6 @@ let locale = detectLocale();
 export const t = (key) => STRINGS[locale]?.[key] ?? STRINGS['ko']?.[key] ?? key;
 export const setLocale = (lang) => {
   locale = lang;
-  localStorage.setItem('locale', lang);
+  lsSet('locale', lang);
 };
 export const getLocale = () => locale;

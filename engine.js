@@ -207,9 +207,12 @@ export class EnginePool {
         this._cancelled = false;
     }
 
-    /** 풀 전체가 UCI 초기화 끝날 때까지 대기. */
+    /** 풀이 사용 가능해질 때까지 대기 — 일부 워커가 실패해도 살아남은 워커가 있으면 진행.
+     *  전부 실패하면 reject. */
     async ready() {
-        await Promise.all(this.engines.map(e => e.ready()));
+        const results = await Promise.allSettled(this.engines.map(e => e.ready()));
+        const anyAlive = results.some(r => r.status === 'fulfilled');
+        if (!anyAlive) throw new Error('All engines failed to initialize');
     }
 
     /**
@@ -257,23 +260,41 @@ export class EnginePool {
         this._idle = [];
     }
 
+    _retireFailed(engine) {
+        engine.terminate();
+        const i = this.engines.indexOf(engine);
+        if (i >= 0) this.engines.splice(i, 1);
+    }
+
     _dispatch() {
+        // 실패한 워커는 idle에서 영구 제외 — 회전시키면 모든 task가 즉시 null로 resolve되며 분석 결과가 silently 깨짐.
+        this._idle = this._idle.filter(e => !e._failed);
+        if (this._taskQueue.length > 0 && this._idle.length === 0 && this._activeTasks.size === 0) {
+            const dead = this._taskQueue.splice(0);
+            for (const t of dead) t.reject(new Error('All engines failed'));
+            return;
+        }
         while (this._idle.length > 0 && this._taskQueue.length > 0 && !this._cancelled) {
             const engine = this._idle.pop();
             const task = this._taskQueue.shift();
             this._activeTasks.add(engine);
             engine.run(task.fen, task.depth).then((result) => {
                 this._activeTasks.delete(engine);
-                this._idle.push(engine);
-                if (this._cancelled) {
+                if (engine._failed) {
+                    this._retireFailed(engine);
+                    task.reject(new Error('Engine failed'));
+                } else if (this._cancelled) {
+                    this._idle.push(engine);
                     task.reject(new Error('cancelled'));
                 } else {
+                    this._idle.push(engine);
                     task.resolve(result);
                 }
                 this._dispatch();
             }).catch((err) => {
                 this._activeTasks.delete(engine);
-                this._idle.push(engine);
+                if (engine._failed) this._retireFailed(engine);
+                else this._idle.push(engine);
                 task.reject(err);
                 this._dispatch();
             });

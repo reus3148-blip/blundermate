@@ -280,7 +280,10 @@ export async function collectAutoBlunders({ pgn, queue, isUserWhite, headers }) 
         try {
             const existing = await getVaultItems({ source: 'auto' });
             existingFens = new Set(existing.map(it => it.fen));
-        } catch {}
+        } catch (e) {
+            // dedup 조회 실패 시 빈 set으로 진행 — 동일 게임 재분석 시 중복 row 가능.
+            console.warn('Auto blunder dedup lookup failed (proceeding without dedup):', e);
+        }
 
         const items = [];
         const seenFens = new Set();

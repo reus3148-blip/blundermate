@@ -13,28 +13,46 @@ export const PLATFORM_CHESSCOM = 'chesscom';
 export const PLATFORM_LICHESS = 'lichess';
 const VALID_PLATFORMS = new Set([PLATFORM_CHESSCOM, PLATFORM_LICHESS]);
 
+// ── localStorage 안전 래퍼 ────────────────────────────────────────
+// Safari private mode / 디스크 풀 / disabled storage에서 throw 가능 — 모든 접근은 이 두 함수를 통과해야 한다.
+export function lsGet(key, fallback = null) {
+    try { const v = localStorage.getItem(key); return v === null ? fallback : v; }
+    catch (_) { return fallback; }
+}
+export function lsSet(key, value) {
+    try { localStorage.setItem(key, value); return true; }
+    catch (_) { return false; }
+}
+
 // ── User ID ────────────────────────────────────────────────────────
 // 주의: 여기서 관리하는 값은 "내 계정"(myUserId)이다.
 // 다른 유저 검색(viewing) 상태는 이 파일과 무관하며 localStorage에 저장되면 안 된다.
 // 모든 vault/saved_games 저장·조회는 getMyUserId() + getMyPlatform()만 사용한다.
 
 export function getMyUserId() {
-    const raw = localStorage.getItem(USER_ID_KEY);
-    return raw ? raw.toLowerCase() : null;
+    return lsGet(USER_ID_KEY)?.toLowerCase() ?? null;
 }
 
 export function setMyUserId(id) {
-    if (id) localStorage.setItem(USER_ID_KEY, id.toLowerCase());
+    if (id) lsSet(USER_ID_KEY, id.toLowerCase());
 }
 
 // 미설정(legacy chesscom-only 사용자)은 chesscom 폴백 — DB DEFAULT 'chesscom'과 일치.
 export function getMyPlatform() {
-    const raw = localStorage.getItem(PLATFORM_KEY);
+    const raw = lsGet(PLATFORM_KEY);
     return VALID_PLATFORMS.has(raw) ? raw : PLATFORM_CHESSCOM;
 }
 
 export function setMyPlatform(platform) {
-    if (VALID_PLATFORMS.has(platform)) localStorage.setItem(PLATFORM_KEY, platform);
+    if (VALID_PLATFORMS.has(platform)) lsSet(PLATFORM_KEY, platform);
+}
+
+// 보드 좌표 표시 토글 — Gemini Coach 토글과 동일한 패턴(getter/setter + storage 캡슐화).
+export function getIsCoordsEnabled() {
+    return lsGet(COORDS_KEY) !== 'false';
+}
+export function setIsCoordsEnabled(on) {
+    lsSet(COORDS_KEY, on ? 'true' : 'false');
 }
 
 // 로그아웃: 계정 식별자 + 온보딩 플래그만 초기화. VAULT/SAVED는 유지 — 같은 ID로 재로그인 시 복구.
@@ -78,19 +96,21 @@ async function callDB(action, table, params = {}) {
         if (Date.now() < _dbBreakerUntil) throw _silentDbError();
     }
 
-    const promise = _doCallDB(action, table, params);
+    // platform을 함수 진입 시점에 스냅샷 — fetch 도중 setMyPlatform이 호출돼도 이 호출은 진입 시점 platform을 유지.
+    const platform = getMyPlatform();
+    const promise = _doCallDB(action, table, params, platform);
     if (!_dbPilot) {
         _dbPilot = promise.finally(() => { _dbPilot = null; });
     }
     return promise;
 }
 
-async function _doCallDB(action, table, params) {
-    const platform = getMyPlatform();
+async function _doCallDB(action, table, params, platform) {
     const body = { action, table, platform, ...params };
     if (action === 'insert' && body.data && typeof body.data === 'object') {
         body.data = { ...body.data, platform };
     }
+    const startedAt = Date.now();
     let res;
     try {
         res = await fetch('/api/db', {
@@ -117,8 +137,9 @@ async function _doCallDB(action, table, params) {
         }
         throw err;
     }
-    // 성공 — 브레이커 리셋
-    _dbBreakerUntil = 0;
+    // 이 호출이 시작된 이후로 다른 동시 호출이 breaker를 trip시켰을 수 있음 — 그 trip을 덮어쓰지 않도록
+    // startedAt 이전에 설정된 cooldown만 reset. 이렇게 하면 "성공 응답이 5xx 동시 trip을 무력화"하는 race 방지.
+    if (_dbBreakerUntil <= startedAt) _dbBreakerUntil = 0;
     return res.json();
 }
 
@@ -176,7 +197,7 @@ function normalizeLocalVaultItem(it) {
     return {
         ...it,
         source: it.source || 'manual',
-        platform: it.platform || 'chesscom',
+        platform: it.platform || PLATFORM_CHESSCOM,
         analyzedGameId: it.analyzedGameId || null,
         cpLoss: it.cpLoss ?? null,
         mateIn: it.mateIn ?? null,
@@ -298,7 +319,7 @@ function normalizeSavedGame(row) {
 export async function getSavedGames() {
     const platform = getMyPlatform();
     // platform 미설정 row(legacy)는 'chesscom' fallback — 마이그레이션 없이 호환.
-    const filterLocal = (arr) => arr.filter(g => (g.platform || 'chesscom') === platform);
+    const filterLocal = (arr) => arr.filter(g => (g.platform || PLATFORM_CHESSCOM) === platform);
 
     const userId = getMyUserId();
     if (!userId) return filterLocal(_getSavedGamesSync());
@@ -352,12 +373,26 @@ export function removeSavedGame(id) {
 }
 
 export function updateSavedGame(id, updates) {
+    const platform = getMyPlatform();
     try {
-        const games = _getSavedGamesSync().map(g => g.id === id ? { ...g, ...updates } : g);
+        // platform 격리 — 다른 플랫폼의 동일 id row는 건드리지 않음.
+        const games = _getSavedGamesSync().map(g => {
+            if (g.id !== id) return g;
+            if ((g.platform || PLATFORM_CHESSCOM) !== platform) return g;
+            return { ...g, ...updates };
+        });
         localStorage.setItem(SAVED_GAMES_KEY, JSON.stringify(games));
     } catch (e) {
         console.error('Failed to update saved game:', e);
     }
+
+    const userId = getMyUserId();
+    if (!userId) return;
+    callDB('update', 'saved_games', {
+        user_id: userId,
+        filter: { id },
+        data: updates,
+    }).catch(e => _warnDb('Supabase saved_games update failed', e));
 }
 
 // ── Analyzed Games (자동 수집된 블런더의 PGN 보관소) ─────────────────
@@ -414,7 +449,7 @@ export async function upsertAnalyzedGame({ pgn, pgnHash, headersJson, playedDate
     // localStorage 우선 — 비로그인 사용자도 동작
     const local = _getAnalyzedGamesSync();
     // legacy local row(platform 없음)는 'chesscom'으로 간주 — 마이그레이션 없이 호환.
-    const existingLocal = local.find(g => g.pgn_hash === pgnHash && (g.platform || 'chesscom') === platform);
+    const existingLocal = local.find(g => g.pgn_hash === pgnHash && (g.platform || PLATFORM_CHESSCOM) === platform);
     if (existingLocal) {
         return existingLocal.id;
     }
@@ -468,7 +503,9 @@ export async function upsertAnalyzedGame({ pgn, pgnHash, headersJson, playedDate
 
 export async function getAnalyzedGameById(id) {
     if (!id) return null;
-    const local = _getAnalyzedGamesSync().find(g => g.id === id);
+    const platform = getMyPlatform();
+    // platform 격리 — 다른 플랫폼 row가 같은 id로 캐시에 있어도 현재 플랫폼 게임만 반환.
+    const local = _getAnalyzedGamesSync().find(g => g.id === id && (g.platform || PLATFORM_CHESSCOM) === platform);
     const userId = getMyUserId();
     if (!userId) return local || null;
 
@@ -516,7 +553,7 @@ export async function loadAnalysisCache(pgnHash) {
     if (!pgnHash) return null;
     const platform = getMyPlatform();
 
-    const local = _getAnalyzedGamesSync().find(g => g.pgn_hash === pgnHash && (g.platform || 'chesscom') === platform);
+    const local = _getAnalyzedGamesSync().find(g => g.pgn_hash === pgnHash && (g.platform || PLATFORM_CHESSCOM) === platform);
     if (local && local.analysis_json) return local.analysis_json;
 
     const userId = getMyUserId();
@@ -529,7 +566,7 @@ export async function loadAnalysisCache(pgnHash) {
         if (Array.isArray(data) && data.length > 0 && data[0].analysis_json) {
             // 다음 hit을 빠르게 — Supabase에서 받은 row를 local cache에 머지.
             const cache = _getAnalyzedGamesSync();
-            const idx = cache.findIndex(g => g.pgn_hash === pgnHash && (g.platform || 'chesscom') === platform);
+            const idx = cache.findIndex(g => g.pgn_hash === pgnHash && (g.platform || PLATFORM_CHESSCOM) === platform);
             if (idx >= 0) cache[idx] = { ...cache[idx], ...data[0] };
             else cache.push(data[0]);
             try { localStorage.setItem(ANALYZED_GAMES_KEY, JSON.stringify(cache)); } catch {}
@@ -562,7 +599,7 @@ export async function saveAnalysisCache({ pgnHash, payload }) {
     const platform = getMyPlatform();
     try {
         const cache = _getAnalyzedGamesSync();
-        const idx = cache.findIndex(g => g.pgn_hash === pgnHash && (g.platform || 'chesscom') === platform);
+        const idx = cache.findIndex(g => g.pgn_hash === pgnHash && (g.platform || PLATFORM_CHESSCOM) === platform);
         if (idx >= 0) {
             cache[idx] = { ...cache[idx], ...cachePatch };
             localStorage.setItem(ANALYZED_GAMES_KEY, JSON.stringify(cache));

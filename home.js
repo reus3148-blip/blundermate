@@ -16,7 +16,7 @@ import { fetchRecentGames, fetchPlayerProfile, verifyUserExists } from './chessA
 import {
     getMyUserId, setMyUserId, getMyPlatform, setMyPlatform,
     PLATFORM_CHESSCOM, PLATFORM_LICHESS, ONBOARDING_KEY, DEFAULT_TC_KEY,
-    computePgnHash, loadAnalysisCache,
+    computePgnHash, loadAnalysisCache, lsGet, lsSet,
 } from './storage.js';
 import {
     escapeHtml, parseOpeningFromPgn, rootOpeningName, formatRelativeDate,
@@ -30,10 +30,11 @@ import { t, getLocale } from './strings.js';
 // 헤더 드롭다운 / 설정 양쪽이 같은 키를 공유 — 마지막 선택이 다음 로드의 기본값.
 const VALID_TC = ['rapid', 'blitz', 'bullet', 'all'];
 let homeTimeClassFilter = (() => {
-    try { const v = localStorage.getItem(DEFAULT_TC_KEY); return VALID_TC.includes(v) ? v : 'rapid'; }
-    catch { return 'rapid'; }
+    const v = lsGet(DEFAULT_TC_KEY);
+    return VALID_TC.includes(v) ? v : 'rapid';
 })();
-let homeProfileRatings = null;
+// main.js의 tier 모달이 live binding으로 직접 read — board.js / modes.js의 export let 패턴과 동일.
+export let homeProfileRatings = null;
 let homeProfileAvatar = null;
 let homeProfileDisplayName = null;
 let cachedHomeGames = [];
@@ -543,17 +544,21 @@ async function submitOnboarding() {
         return;
     }
     // verifyUserExists는 현재 platform을 기준으로 분배 — 검증 전에 미리 setMyPlatform.
+    // 검증 실패 시 platform이 잘못 mutate된 상태로 남지 않도록 직전 값을 보존해 롤백.
+    const prevPlatform = getMyPlatform();
     setMyPlatform(onboardingPlatform);
     clearOnboardingError();
     _onboardingPending = true;
     try {
         const exists = await verifyUserExists(username);
         if (!exists) {
+            setMyPlatform(prevPlatform);
             setOnboardingError(t('onboarding_error_not_found'));
             _onboardingUsernameInput.focus();
             return;
         }
     } catch (_) {
+        setMyPlatform(prevPlatform);
         setOnboardingError(t('onboarding_error_network'));
         return;
     } finally {
@@ -576,7 +581,7 @@ function applyOnboardingPlatformUI(platform) {
 }
 
 function finishOnboarding() {
-    localStorage.setItem(ONBOARDING_KEY, 'true');
+    lsSet(ONBOARDING_KEY, 'true');
     _onboardingView.classList.add('hidden');
     _homeView.classList.remove('hidden');
     _syncBottomNav(_SCREENS.HOME);
@@ -655,7 +660,7 @@ export function initHome({ syncBottomNav, SCREENS, handlePgnReviewStart }) {
     _onboardingUsernameInput?.addEventListener('input', () => clearOnboardingError());
 
     // 온보딩 부트스트랩 — 첫 진입이면 온보딩 화면 노출, 아니면 홈 데이터 로드 + 캐시 사용자 로그.
-    if (!localStorage.getItem(ONBOARDING_KEY)) {
+    if (!lsGet(ONBOARDING_KEY)) {
         _homeView.classList.add('hidden');
         _onboardingView.classList.remove('hidden');
         _bottomNav.classList.add('hidden');

@@ -1,7 +1,7 @@
 import { Chessground } from 'https://cdnjs.cloudflare.com/ajax/libs/chessground/9.0.0/chessground.min.js';
 import { parseAndLoadPgn, escapeHtml, getDests } from './utils.js';
 import { renderEngineLines, placePieceBadge, withScreenLoading } from './ui.js';
-import { getVaultItems, removeVaultItem, getAnalyzedGameById, COORDS_KEY } from './storage.js';
+import { getVaultItems, removeVaultItem, getAnalyzedGameById, getIsCoordsEnabled } from './storage.js';
 import { renderMovesTable } from './ui.js';
 import { t } from './strings.js';
 import { EnginePool } from './engine.js';
@@ -53,7 +53,7 @@ const vaultPrevPuzzleBtn = document.getElementById('vaultPrevPuzzleBtn');
 const vaultResetPuzzleBtn = document.getElementById('vaultResetPuzzleBtn');
 const vaultEngineLinesContainer = document.getElementById('vaultEngineLinesContainer');
 
-// 두 vault 필터 탭 컨테이너에 동일한 옵션(블런더/메이트/기타)을 #vaultFilterTabsTemplate에서 clone.
+// 두 vault 필터 탭 컨테이너에 동일한 옵션(블런더/메이트)을 #vaultFilterTabsTemplate에서 clone.
 // HTML 중복 제거 — 옵션 변경 시 template 한 곳만 수정.
 {
     const tpl = document.getElementById('vaultFilterTabsTemplate');
@@ -354,7 +354,7 @@ async function openVaultItem(item) {
     });
 
     vaultDetailChess = new Chess();
-    const isCoordsEnabled = localStorage.getItem(COORDS_KEY) !== 'false';
+    const isCoordsEnabled = getIsCoordsEnabled();
     if (!vaultDetailCg) {
         vaultDetailCg = Chessground(vaultDetailBoard, {
             fen: vaultDetailStartFen,
@@ -584,8 +584,9 @@ async function renderPuzzle(item) {
     puzzleItem = item;
     const cat = categorize(item);
     if (!cat) {
-        showPuzzleEmpty(true);
-        return;
+        // 분류 불가능한 legacy row는 자동으로 다음 카드로 넘김 (categorize() 스키마 변경 후 잔존 데이터).
+        removeItemEverywhere(item.id);
+        return loadNextPuzzle();
     }
     await renderSolvableItem(item, cat === 'mate');
 }
@@ -663,7 +664,7 @@ async function renderSolvableItem(item, isMate) {
     }
     if (vaultPuzzleFeedback) vaultPuzzleFeedback.innerHTML = '';
 
-    const isCoordsEnabled = localStorage.getItem(COORDS_KEY) !== 'false';
+    const isCoordsEnabled = getIsCoordsEnabled();
     const orientation = moverIsWhite ? 'white' : 'black';
     const movableColor = moverIsWhite ? 'white' : 'black';
     const dests = getDests(puzzleChess);
@@ -979,7 +980,11 @@ async function handleMateMove(played) {
         return;
     }
 
+    // 엔진 호출 전 generation token을 캡처. await 도중 사용자가 "다음 퍼즐"로 넘어가면 stale 응수가 새 보드에 반영되지 않도록 가드.
+    const gen = _replayGen;
     const line = await analyzeForMate(puzzleChess.fen());
+    if (gen !== _replayGen) return;
+
     const stmIsMover = (puzzleChess.turn() === 'w') === puzzleMoverIsWhite;
     if (!lineSaysMoverMates(line, stmIsMover)) {
         puzzleSolved = true;
@@ -1117,7 +1122,7 @@ export function initVault({ showMovesOverlay, closeMovesOverlay, navigateTo }) {
         });
     }
 
-    // Stories 카테고리 탭 (실수/메이트/기타)
+    // 카테고리 탭 (블런더/메이트)
     if (vaultPuzzleFilterTabs) {
         vaultPuzzleFilterTabs.addEventListener('click', (e) => {
             const btn = e.target.closest('.vault-filter-tab');

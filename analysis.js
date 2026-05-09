@@ -1,5 +1,6 @@
 import { StockfishEngine, EnginePool, getDefaultPoolSize } from './engine.js';
 import { parseEvalData, convertPvToSan, classifyMove } from './utils.js';
+import { lsGet, lsSet } from './storage.js';
 
 // ==========================================
 // Module state
@@ -13,7 +14,7 @@ export let analysisQueue = [];
 // 두 경로는 서로 독립이며, 동일 wasm 워커 파일을 공유한다.
 let _stockfish = null;
 let _pool = null;
-let _depth = parseInt(localStorage.getItem('blundermate_depth')) || 14;
+let _depth = parseInt(lsGet('blundermate_depth')) || 14;
 
 // 배치 라이프사이클: 동시에 1개만 활성. 새 분석 요청 시 기존 배치를 abort하고 완료 대기.
 // _activeBatch.completed가 settle되면 _activeBatch는 null이 되고, 보류된 restart runner가 호출된다.
@@ -38,7 +39,7 @@ export function getEngine() { return _stockfish; }
 export function getDepth() { return _depth; }
 export function setDepth(d) {
     _depth = parseInt(d) || 14;
-    try { localStorage.setItem('blundermate_depth', _depth); } catch {}
+    lsSet('blundermate_depth', _depth);
 }
 
 // ==========================================

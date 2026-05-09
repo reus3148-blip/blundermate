@@ -1,4 +1,4 @@
-import { t } from './strings.js';
+import { t, getLocale } from './strings.js';
 
 /**
  * 엔진 평가값(CP, Mate)을 백 기준 관례(+ = 백 유리)로 파싱합니다.
@@ -539,8 +539,8 @@ export function classifyMove(index, analysisQueue) {
  * HTML 특수문자를 이스케이프하여 XSS 공격을 방지합니다.
  */
 export function escapeHtml(unsafe) {
-    if (!unsafe) return '';
-    return unsafe.toString()
+    if (unsafe === null || unsafe === undefined) return '';
+    return String(unsafe)
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;")
@@ -782,7 +782,8 @@ export function formatRelativeDate(dateStr, strings) {
     if (diffDays === 0) return strings.dateToday;
     if (diffDays === 1) return strings.dateYesterday;
     if (diffDays < 8) return strings.dateDaysAgo.replace('{n}', diffDays);
-    return d.toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' });
+    const localeTag = getLocale() === 'en' ? 'en-US' : 'ko-KR';
+    return d.toLocaleDateString(localeTag, { month: 'numeric', day: 'numeric' });
 }
 
 export const TIERS = [
