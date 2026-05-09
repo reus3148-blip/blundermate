@@ -1371,19 +1371,29 @@ th {
 }
 
 /* Scope 필터바 (Saved Games 등): 전폭 text-tab 패턴 — vault-filter-tabs와 결 동일.
-   space-between으로 첫 버튼 좌측 rail, 마지막 버튼 우측 rail에 정렬되어 시각적 가로 균형. */
+   5탭이 mobile 375px 폭을 넘어서므로 가로 스크롤 허용 (chess.com / lichess 멀티탭 패턴).
+   우측 fade gradient로 "더 있다" 시각 cue 제공. */
 .pill-filter-bar--scope {
     padding: 0 12px;
-    gap: 4px;
+    gap: 16px;
     box-sizing: border-box;
     align-items: stretch;
-    justify-content: space-between;
+    justify-content: flex-start;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    -webkit-overflow-scrolling: touch;
+    position: relative;
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
+            mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
 }
+.pill-filter-bar--scope::-webkit-scrollbar { display: none; }
 /* HIG 44px 터치 타겟 + typography 토큰. */
 .pill-filter-bar--scope .pill-btn {
     height: auto;
     min-height: var(--list-row-min-h-compact);
-    padding: 11px 4px;
+    padding: 11px 0;
     border: none;
     border-radius: 0;
     background: transparent;
@@ -1393,6 +1403,8 @@ th {
     line-height: 22px;
     letter-spacing: -0.01em;
     position: relative;
+    flex-shrink: 0;
+    white-space: nowrap;
     -webkit-tap-highlight-color: transparent;
 }
 .pill-filter-bar--scope .pill-btn:hover {
@@ -2991,40 +3003,17 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     background: var(--tx);
 }
 
-/* Segmented pill (vault stories top bar 전용) — 필터 정체성 명시. iOS HIG segmented control 결.
-   --inline 모디파이어 안에서만 적용 — list 뷰의 underline-tab 스타일은 보존. */
-.vault-filter-tabs--inline {
-    display: inline-flex;
-    align-items: center;
-    gap: 2px;
-    padding: 3px;
-    height: 32px;
-    background: var(--bg-elevated);
-    border-radius: 9px;
-    box-sizing: border-box;
-}
-.vault-filter-tabs--inline .vault-filter-tab {
-    padding: 4px 14px;
-    height: 26px;
-    border-radius: 6px;
-    font-size: 12.5px;
-    line-height: 18px;
-    transition: color 0.15s ease, background 0.18s ease, box-shadow 0.18s ease;
-}
-.vault-filter-tabs--inline .vault-filter-tab:hover { color: var(--tx2); }
-.vault-filter-tabs--inline .vault-filter-tab.selected {
-    background: var(--bg-surface);
-    color: var(--tx);
-    font-weight: 600;
-    box-shadow: 0 1px 3px rgba(28, 29, 31, 0.08), 0 0 0 0.5px rgba(28, 29, 31, 0.04);
-}
-/* underline은 segmented pill에선 중복 — 숨김 */
-.vault-filter-tabs--inline .vault-filter-tab.selected::after { display: none; }
-
-/* vault-top-bar 그리드 재배치 — 좌측 빈 칸, 중앙 segmented, 우측 ☰ */
+/* vault main / list 양쪽 1차 필터를 동일한 text-tab underline으로 통일. */
 .analysis-top-bar.vault-top-bar > #vaultPuzzleFilterTabs {
-    grid-column: 2;
-    justify-self: center;
+    grid-column: 1;
+    justify-self: start;
+    align-self: stretch;
+    padding: 0;
+    gap: 8px;
+}
+.analysis-top-bar.vault-top-bar > #vaultPuzzleFilterTabs .vault-filter-tab {
+    padding: 11px 0;
+    margin-right: 12px;
 }
 .analysis-top-bar.vault-top-bar > #vaultListLink {
     grid-column: 3;
