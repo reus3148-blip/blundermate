@@ -4145,6 +4145,9 @@ main {
     box-shadow: 0 0 0 0.5px var(--list-divider);
     display: flex;
     flex-direction: column;
+    /* flex column 부모 안에서 자연 크기 유지 — 부모(.games-list)의 overflow-y:auto가 스크롤 담당.
+       이게 없으면 그룹이 부모 높이에 맞춰 압축되고 overflow:hidden이 안쪽 row들을 잘라버림. */
+    flex-shrink: 0;
 }
 
 .list-row {
