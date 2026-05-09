@@ -840,31 +840,29 @@ initSavedGames({
     onEmptyCta: () => navigateTo('home'),
 });
 
-// chess.pgn() + analysisQueue[i].note → PGN string with `{note}` after each SAN.
-// chess.js 0.13에 set_comment API가 없어 movetext 토큰 walk로 직접 주입.
-// SAN 정규식은 표준 PGN: piece, file/rank disambig, capture, promotion, check/mate, castling.
-const SAN_RE = /^(?:[KQRBN]?[a-h]?[1-8]?x?[a-h][1-8](?:=[QRBN])?[+#]?|O-O(?:-O)?[+#]?)$/;
-
+// queue의 메모를 chess.js v1 setComment로 PGN에 영속한다.
+// v1 setComment는 현재 위치 한정이라 별도 인스턴스에서 매수 replay하며 호출.
 function buildPgnWithNotes() {
-    const basePgn = chess ? chess.pgn() : '';
-    if (!basePgn || !analysisQueue || analysisQueue.length === 0) return basePgn;
-    // PGN: headers + 빈 줄 + movetext. 헤더 영역은 그대로 두고 movetext만 토큰 walk.
-    const splitIdx = basePgn.indexOf('\n\n');
-    if (splitIdx < 0) return basePgn;
-    const head = basePgn.slice(0, splitIdx + 2);
-    const movetext = basePgn.slice(splitIdx + 2);
-    const tokens = movetext.split(/\s+/).filter(Boolean);
-    const out = [];
-    let moveIdx = 0;
-    for (const tok of tokens) {
-        out.push(tok);
-        if (SAN_RE.test(tok)) {
-            const note = (analysisQueue[moveIdx]?.note || '').trim();
-            if (note) out.push(`{${note.replace(/[{}]/g, '')}}`);
-            moveIdx++;
-        }
+    if (!chess || !analysisQueue || analysisQueue.length === 0) {
+        return chess ? chess.pgn() : '';
     }
-    return head + out.join(' ');
+    // FEN-only 큐(분석 1포지션)는 코멘트 영속 대상 아님
+    if (analysisQueue.length === 1 && analysisQueue[0]?.isFenOnly) {
+        return chess.pgn();
+    }
+    const tmp = new Chess();
+    const startFen = chess.header().FEN;
+    if (startFen) tmp.load(startFen);
+    // 헤더 복사 (FEN 포함)
+    const headers = chess.header();
+    Object.entries(headers).forEach(([k, v]) => tmp.header(k, v));
+
+    analysisQueue.forEach((q) => {
+        tmp.move({ from: q.from, to: q.to, promotion: q.promotion });
+        const note = (q.note || '').trim();
+        if (note) tmp.setComment(note.replace(/[{}]/g, ''));
+    });
+    return tmp.pgn();
 }
 
 // renderEngineLines에 넘길 note 옵션. queue[idx]에 기록된 note를 보여주고, 입력 시 제자리 갱신.
@@ -1171,8 +1169,7 @@ function handlePgnReviewStart(e = null, isWhiteGame = null, targetIndex = null, 
         pgnInput.value = result.pgn;
     }
 
-    // 원본 pgnText를 그대로 넘김 — chess.js가 재생성한 result.pgn은 `{...}` 코멘트가 strip됨.
-    const newQueue = buildQueueFromPgn(chess, pgnText);
+    const newQueue = buildQueueFromPgn(chess);
 
     // Preview mode: show analysis view without starting engine
     if (previewOnly) {

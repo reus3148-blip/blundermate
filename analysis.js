@@ -138,51 +138,23 @@ export function stopAndClear() {
 // PGN이 이미 로드된 chess.js 인스턴스로부터 분석 큐를 만든다.
 // 각 엔트리는 그 수가 둔 직후의 FEN과 메타데이터 (san, from, to, turn, moveNumber, isWhite)를 가진다.
 // startFen 헤더가 있으면 그 위치부터 출발 (Chess960이나 중간 위치에서 시작한 게임).
-// movetext 토큰 walk로 SAN 다음 `{...}` 코멘트를 move index에 매핑.
-// chess.js 0.13은 PGN 코멘트 API가 없어 raw 문자열 파싱.
-const SAN_TOKEN_RE = /^(?:[KQRBN]?[a-h]?[1-8]?x?[a-h][1-8](?:=[QRBN])?[+#]?|O-O(?:-O)?[+#]?)$/;
-function parseNotesFromPgn(pgn) {
-    if (!pgn) return [];
-    const splitIdx = pgn.indexOf('\n\n');
-    const movetext = splitIdx < 0 ? pgn : pgn.slice(splitIdx + 2);
-    // `{...}` 블록을 sentinel로 보존하면서 토큰 분할.
-    const notes = [];
-    let i = 0;
-    let moveIdx = 0;
-    while (i < movetext.length) {
-        const ch = movetext[i];
-        if (ch === '{') {
-            const end = movetext.indexOf('}', i);
-            if (end < 0) break;
-            const note = movetext.slice(i + 1, end).trim();
-            if (moveIdx > 0) notes[moveIdx - 1] = note;
-            i = end + 1;
-            continue;
-        }
-        if (/\s/.test(ch)) { i++; continue; }
-        // 다음 공백/`{`까지가 토큰
-        let j = i;
-        while (j < movetext.length && !/\s/.test(movetext[j]) && movetext[j] !== '{') j++;
-        const tok = movetext.slice(i, j);
-        if (SAN_TOKEN_RE.test(tok)) moveIdx++;
-        i = j;
-    }
-    return notes;
-}
-
-export function buildQueueFromPgn(chessInstance, originalPgn) {
+// 코멘트는 chess.js v1의 getComments() — fen → comment 맵으로 queue.note 채움.
+export function buildQueueFromPgn(chessInstance) {
     const queue = [];
     const tempChess = new Chess();
     const startFen = chessInstance.header().FEN;
     if (startFen) tempChess.load(startFen);
 
-    // 원본 PGN이 주어지면 `{note}`를 파싱해 move index에 매핑.
-    const noteByIdx = originalPgn ? parseNotesFromPgn(originalPgn) : [];
+    const commentByFen = new Map();
+    for (const { fen, comment } of chessInstance.getComments()) {
+        commentByFen.set(fen, comment);
+    }
 
     chessInstance.history({ verbose: true }).forEach((move, index) => {
         tempChess.move(move);
+        const fen = tempChess.fen();
         queue.push({
-            fen: tempChess.fen(),
+            fen,
             san: move.san,
             from: move.from,
             to: move.to,
@@ -191,7 +163,7 @@ export function buildQueueFromPgn(chessInstance, originalPgn) {
             moveNumber: Math.floor(index / 2) + 1,
             isWhite: index % 2 === 0,
             engineLines: [],
-            note: noteByIdx[index] || '',
+            note: commentByFen.get(fen) || '',
         });
     });
     return queue;
