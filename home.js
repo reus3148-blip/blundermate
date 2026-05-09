@@ -207,7 +207,7 @@ function parsePgnSummary(pgn) {
     if (!pgn) return { moves: 0, cells: null, lastMove: null };
     try {
         const c = new Chess();
-        if (!c.load_pgn(pgn)) return { moves: 0, cells: null, lastMove: null };
+        c.loadPgn(pgn);
         const verbose = c.history({ verbose: true });
         const last = verbose[verbose.length - 1];
         return {

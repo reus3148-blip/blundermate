@@ -678,7 +678,7 @@ function handleNextMove() {
             if (simExtendState) return; // 이미 분석 중. 무시.
             const lastFen = simulationQueue[simulationIndex].fen;
             const tmp = new Chess(lastFen);
-            if (tmp.game_over()) return; // 메이트/스테일메이트 → 더 진행 불가.
+            if (tmp.isGameOver()) return; // 메이트/스테일메이트 → 더 진행 불가.
             setSimExtendState({ fen: lastFen, latestEval: null });
             showEngineLoading('analysis_exploring');
             getEngine().stop();
@@ -1196,10 +1196,11 @@ function handleFenReviewStart(fenText, isWhiteGame) {
     setIsUserWhite(isWhiteGame !== null ? isWhiteGame : true);
 
     resetMainGame();
-    if (!chess.load(fenText)) {
+    if (!isValidFen(fenText)) {
         showAlert(t('analysis_invalid_pgn'));
         return;
     }
+    chess.load(fenText);
     pgnInput.value = chess.pgn();
 
     const newQueue = buildSinglePositionQueue(fenText);

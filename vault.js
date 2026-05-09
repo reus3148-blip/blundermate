@@ -1015,7 +1015,7 @@ async function handleSequenceMove(played) {
 async function handleMateMove(played) {
     puzzleUserMoves++;
 
-    if (puzzleChess.in_checkmate()) {
+    if (puzzleChess.isCheckmate()) {
         puzzleSolved = true;
         renderPuzzleFeedback({ correct: true, played, mateDelivered: true });
         return;

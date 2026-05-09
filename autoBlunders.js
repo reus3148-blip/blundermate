@@ -46,7 +46,7 @@ function buildSequenceFromPv(prevFen, pvSan, { maxPlies, stopOnMate, firstSide =
             uci: r.from + r.to + (r.promotion || ''),
             side,
         });
-        if (stopOnMate && tmp.in_checkmate()) break;
+        if (stopOnMate && tmp.isCheckmate()) break;
     }
     return moves;
 }
