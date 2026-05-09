@@ -13,6 +13,7 @@
 //   - 직전·이후 모두 user 승률 ≥0.9 또는 ≤0.1 이면 우위 후보 스킵 (이미 결판난 포지션).
 //   - position_fen 기준 dedup — 같은 포지션이 다른 게임에서 재발해도 한 번만.
 
+import { Chess } from 'https://cdn.jsdelivr.net/npm/chess.js@1.4.0/+esm';
 import { computePgnHash, upsertAnalyzedGame, addVaultItemsBatch, getVaultItems } from './storage.js';
 import { lineToEval, winChance } from './utils.js';
 

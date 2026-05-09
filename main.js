@@ -1,4 +1,5 @@
 import { Chessground } from 'https://cdnjs.cloudflare.com/ajax/libs/chessground/9.0.0/chessground.min.js';
+import { Chess } from 'https://cdn.jsdelivr.net/npm/chess.js@1.4.0/+esm';
 import { initHome, refreshHomeCounts, showOnboarding, homeProfileRatings } from './home.js';
 import { initDialogs, showAlert, showConfirm, showToast } from './dialogs.js';
 import {

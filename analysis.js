@@ -1,3 +1,4 @@
+import { Chess } from 'https://cdn.jsdelivr.net/npm/chess.js@1.4.0/+esm';
 import { StockfishEngine, EnginePool, getDefaultPoolSize } from './engine.js';
 import { parseEvalData, convertPvToSan, classifyMove } from './utils.js';
 import { lsGet, lsSet } from './storage.js';

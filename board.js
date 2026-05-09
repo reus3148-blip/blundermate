@@ -1,4 +1,5 @@
 import { Chessground } from 'https://cdnjs.cloudflare.com/ajax/libs/chessground/9.0.0/chessground.min.js';
+import { Chess } from 'https://cdn.jsdelivr.net/npm/chess.js@1.4.0/+esm';
 
 // 분석 화면의 "지금 보고 있는 위치" 상태를 보유한다.
 // chess: Chess.js 인스턴스 (메인 게임의 PGN/현재 상태)

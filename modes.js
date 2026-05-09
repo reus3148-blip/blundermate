@@ -1,3 +1,5 @@
+import { Chess } from 'https://cdn.jsdelivr.net/npm/chess.js@1.4.0/+esm';
+
 // 분석 화면의 동작 모드 상태.
 // appMode:
 //   'main'        — 기보 분석(분석된 큐를 따라 navigate)

@@ -1,3 +1,4 @@
+import { Chess, validateFen } from 'https://cdn.jsdelivr.net/npm/chess.js@1.4.0/+esm';
 import { t, getLocale } from './strings.js';
 
 /**
@@ -91,7 +92,7 @@ export function getDests(tempChess) {
     return dests;
 }
 
-const pvChess = new window.Chess(); // 매번 생성하지 않고 재사용하여 메모리 최적화
+const pvChess = new Chess(); // 매번 생성하지 않고 재사용하여 메모리 최적화
 
 /**
  * 엔진이 보내준 UCI 형식의 경로를 보기 쉬운 SAN 형식 기보로 변환합니다.
@@ -141,13 +142,13 @@ export const pieceValues = {
 const promotions = [undefined, 'b', 'n', 'r', 'q'];
 
 // 모듈 레벨 재사용 인스턴스 — 함수별로 독립.
-const _atkChess     = new window.Chess();
-const _defChess     = new window.Chess();
-const _hangA        = new window.Chess();
-const _hangB        = new window.Chess();
-const _classifyA    = new window.Chess(); // classifyMove의 prev 보드
-const _classifyB    = new window.Chess(); // classifyMove의 curr 보드
-const _captureChess = new window.Chess(); // Brilliant 검사 capture 시뮬레이터
+const _atkChess     = new Chess();
+const _defChess     = new Chess();
+const _hangA        = new Chess();
+const _hangB        = new Chess();
+const _classifyA    = new Chess(); // classifyMove의 prev 보드
+const _classifyB    = new Chess(); // classifyMove의 curr 보드
+const _captureChess = new Chess(); // Brilliant 검사 capture 시뮬레이터
 
 function flipStmInFen(fen, color) {
     return fen
@@ -653,7 +654,7 @@ export function isValidFen(text) {
     const trimmed = (text || '').trim();
     if (!trimmed) return false;
     try {
-        const c = new window.Chess();
+        const c = new Chess();
         const res = c.validate_fen(trimmed);
         return !!(res && res.valid);
     } catch { return false; }

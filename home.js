@@ -12,6 +12,7 @@
 //   syncBottomNav, SCREENS, handlePgnReviewStart })로 주입. refreshHomeCounts는
 //   main.js의 renderScreen(HOME)에서 직접 호출.
 
+import { Chess } from 'https://cdn.jsdelivr.net/npm/chess.js@1.4.0/+esm';
 import { fetchRecentGames, fetchPlayerProfile, verifyUserExists } from './chessApi.js';
 import {
     getMyUserId, setMyUserId, getMyPlatform, setMyPlatform,
@@ -163,7 +164,7 @@ function _cellsFromBoard(board) {
 }
 
 // 시작 포지션 — PGN 파싱 실패/빈 PGN 폴백용. 매번 chess.js 인스턴스 만들 필요 없도록 모듈 로드 시 1회 계산.
-const _START_CELLS = _cellsFromBoard(new window.Chess().board());
+const _START_CELLS = _cellsFromBoard(new Chess().board());
 
 function _squareToIdx(sq) {
     const f = 'abcdefgh'.indexOf(sq[0]);
@@ -205,7 +206,7 @@ function renderMiniBoardSvgHtml(cells, size, lastMove, flipped) {
 function parsePgnSummary(pgn) {
     if (!pgn) return { moves: 0, cells: null, lastMove: null };
     try {
-        const c = new window.Chess();
+        const c = new Chess();
         if (!c.load_pgn(pgn)) return { moves: 0, cells: null, lastMove: null };
         const verbose = c.history({ verbose: true });
         const last = verbose[verbose.length - 1];

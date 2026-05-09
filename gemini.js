@@ -1,3 +1,4 @@
+import { Chess } from 'https://cdn.jsdelivr.net/npm/chess.js@1.4.0/+esm';
 import { formatMarkdownToHtml, escapeHtml } from './utils.js';
 import { t } from './strings.js';
 import { GEMINI_KEY, lsGet, lsSet } from './storage.js';
@@ -105,7 +106,7 @@ export async function handleGeminiExplanation() {
     let punishment_pv = '';
 
     try {
-        ascii_board = new window.Chess(move.fen).ascii();
+        ascii_board = new Chess(move.fen).ascii();
     } catch (e) {}
 
     if (currentlyViewedIndex > 0) {
