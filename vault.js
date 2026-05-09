@@ -1,7 +1,7 @@
 import { Chessground } from 'https://cdnjs.cloudflare.com/ajax/libs/chessground/9.0.0/chessground.min.js';
-import { parseAndLoadPgn, escapeHtml, getDests } from './utils.js';
+import { parseAndLoadPgn, escapeHtml, getDests, formatRelativeDate, getDateStrings } from './utils.js';
 import { renderEngineLines, placePieceBadge, withScreenLoading, renderEmptyState, classificationChipHtml } from './ui.js';
-import { getVaultItems, removeVaultItem, getAnalyzedGameById, getIsCoordsEnabled } from './storage.js';
+import { getVaultItems, removeVaultItem, getAnalyzedGameById, getIsCoordsEnabled, getMyUserId } from './storage.js';
 import { renderMovesTable } from './ui.js';
 import { t } from './strings.js';
 import { EnginePool } from './engine.js';
@@ -172,6 +172,21 @@ function categoryLabel(rawCategory) {
     return (rawCategory || '').toUpperCase();
 }
 
+// 자신의 ID는 사용자가 이미 알고 있으므로 "vs 상대"만 노출. gameTitle은 보통 "{white} vs {black}".
+function opponentLabel(item, myUserId) {
+    const title = item.gameTitle || '';
+    if (!title) return '';
+    if (typeof item.isUserWhite === 'boolean') {
+        const parts = title.split(' vs ');
+        if (parts.length === 2) return `vs ${parts[item.isUserWhite ? 1 : 0]}`;
+    }
+    if (myUserId) {
+        const re = new RegExp(`(?:^${myUserId}\\s+vs\\s+|\\s+vs\\s+${myUserId}$)`, 'i');
+        if (re.test(title)) return `vs ${title.replace(re, '').trim()}`;
+    }
+    return title;
+}
+
 function renderVaultList(container, vaultItems, onOpen, opts = {}) {
     const { emptyText, emptyDesc, onEmptyCta } = opts;
     container.innerHTML = '';
@@ -188,20 +203,23 @@ function renderVaultList(container, vaultItems, onOpen, opts = {}) {
 
     const group = document.createElement('div');
     group.className = 'list-group';
+    const myUserId = getMyUserId();
+    const dateStrings = getDateStrings();
 
     sortByPlayedDate(vaultItems).forEach(item => {
         const isLegacy = item.source !== 'auto' && !item.pgn;
-        const chip = classificationChipHtml(item.category, { mateIn: item.mateIn });
 
         const sanHtml = escapeHtml(item.san || '');
         const titleHtml = item.bestMove
             ? `${sanHtml} <span class="vault-row-arrow" aria-hidden="true">→</span> ${escapeHtml(item.bestMove)}`
             : sanHtml;
 
-        const movesPart = typeof item.moveNumber === 'number' ? `${item.moveNumber}${t('moves_suffix')}` : '';
-        const metaText = [item.gameTitle || '', movesPart].filter(Boolean).join(' · ');
+        const opp = opponentLabel(item, myUserId);
+        const dateText = item.playedDate || item.date
+            ? formatRelativeDate(item.playedDate || item.date, dateStrings)
+            : '';
+        const metaText = [opp, dateText].filter(Boolean).join(' · ');
 
-        // 외곽은 div role=button — 내부에 nested 버튼이 없지만 일관성 + a11y 위해 동일 패턴.
         const el = document.createElement('div');
         el.className = 'list-row vault-row';
         el.setAttribute('role', 'button');
@@ -209,7 +227,6 @@ function renderVaultList(container, vaultItems, onOpen, opts = {}) {
         if (isLegacy) el.classList.add('list-row--legacy');
 
         el.innerHTML = `
-            ${chip}
             <div class="list-row-body">
                 <div class="list-row-title">${titleHtml}</div>
                 ${metaText ? `<div class="list-row-meta">${escapeHtml(metaText)}</div>` : ''}
