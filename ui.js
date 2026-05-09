@@ -2,6 +2,63 @@ import { escapeHtml, getWhiteWinPct, cpToWhiteWinPct } from './utils.js';
 import { EVAL_MODE_KEY, lsGet } from './storage.js';
 import { t } from './strings.js';
 
+// ==========================================
+// Empty state — icon + 헤드라인 + body + 선택적 CTA.
+// 화면별 empty state 마크업 일원화 (1-line italic / 평문 / 풀스택 3종이 한 컴포넌트로).
+// ==========================================
+const EMPTY_STATE_ICONS = {
+    bookmark: `<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>`,
+    puzzle:   `<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M19.439 7.85c-.049.322.059.648.289.878l1.568 1.568c.47.47.706 1.087.706 1.704s-.235 1.233-.706 1.704l-1.611 1.611a.98.98 0 0 1-.837.276c-.47-.07-.802-.48-.968-.925a2.501 2.501 0 1 0-3.214 3.214c.446.166.855.497.925.968a.979.979 0 0 1-.276.837l-1.61 1.61a2.404 2.404 0 0 1-1.705.707 2.402 2.402 0 0 1-1.704-.706l-1.568-1.568a1.026 1.026 0 0 0-.877-.29c-.493.074-.84.504-1.02.968a2.5 2.5 0 1 1-3.237-3.237c.464-.18.894-.527.967-1.02a1.026 1.026 0 0 0-.289-.877l-1.568-1.568A2.402 2.402 0 0 1 1.998 12c0-.617.236-1.234.706-1.704L4.23 8.77c.24-.24.581-.353.917-.303.515.077.877.528 1.073 1.01a2.5 2.5 0 1 0 3.259-3.259c-.482-.196-.933-.558-1.01-1.073-.05-.336.062-.676.303-.917l1.525-1.525A2.402 2.402 0 0 1 12 1.998c.617 0 1.234.236 1.704.706l1.568 1.568c.23.23.556.338.877.29.493-.074.84-.504 1.02-.968a2.5 2.5 0 1 1 3.237 3.237c-.464.18-.894.527-.967 1.02z"/></svg>`,
+    inbox:    `<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>`,
+};
+
+// title/desc/cta는 미리 t() 통과한 문자열 (호출자 책임). icon은 EMPTY_STATE_ICONS 키.
+// onCta가 있으면 CTA 버튼 노출 + 클릭 핸들러 바인딩.
+export function renderEmptyState(container, { icon = 'inbox', title, desc, ctaLabel, onCta } = {}) {
+    if (!container) return;
+    const iconSvg = EMPTY_STATE_ICONS[icon] || EMPTY_STATE_ICONS.inbox;
+    const ctaHtml = (ctaLabel && onCta)
+        ? `<button type="button" class="empty-state-cta">${escapeHtml(ctaLabel)}</button>`
+        : '';
+    container.innerHTML = `
+        <div class="empty-state-v2">
+            <div class="empty-state-icon" aria-hidden="true">${iconSvg}</div>
+            ${title ? `<h3 class="empty-state-title">${escapeHtml(title)}</h3>` : ''}
+            ${desc ? `<p class="empty-state-desc">${escapeHtml(desc)}</p>` : ''}
+            ${ctaHtml}
+        </div>
+    `;
+    if (ctaLabel && onCta) {
+        const btn = container.querySelector('.empty-state-cta');
+        if (btn) btn.addEventListener('click', onCta);
+    }
+}
+
+// ==========================================
+// Move classification chip — chess.com / lichess 도메인 표준 글리프(?? / ? / ?! / ! / !! / ✓).
+// 색은 tokens.css의 분류 토큰 그대로 — 12% alpha 배경 + 풀 채도 텍스트.
+// ==========================================
+const CLS_CHIP_MAP = {
+    blunder:     { glyph: '??', label: 'cls_chip_blunder',     varClass: 'cls-chip--blunder' },
+    mistake:     { glyph: '?',  label: 'cls_chip_mistake',     varClass: 'cls-chip--mistake' },
+    inaccuracy:  { glyph: '?!', label: 'cls_chip_inaccuracy',  varClass: 'cls-chip--inaccuracy' },
+    missed_mate: { glyph: 'M',  label: 'cls_chip_missed_mate', varClass: 'cls-chip--blunder' },
+    best:        { glyph: '✓',  label: 'cls_chip_best',        varClass: 'cls-chip--best' },
+};
+
+// rawCategory: vault item의 category 문자열 그대로. mateIn이 있으면 'M3' 식으로 숫자 부착.
+// 반환: 안전한 HTML 문자열 (escapeHtml 통과 — 호출자가 innerHTML로 직접 삽입 가능).
+export function classificationChipHtml(rawCategory, { mateIn } = {}) {
+    const c = (rawCategory || '').toLowerCase();
+    const meta = CLS_CHIP_MAP[c];
+    if (!meta) return '';
+    let glyph = meta.glyph;
+    if (c === 'missed_mate' && typeof mateIn === 'number' && mateIn > 0) {
+        glyph = `M${mateIn}`;
+    }
+    return `<span class="cls-chip ${meta.varClass}" title="${escapeHtml(t(meta.label))}">${escapeHtml(glyph)}</span>`;
+}
+
 // Screen-loading 오버레이 show/hide 래퍼. 캐시 hit으로 fetch가 매우 빠를 때 깜빡임 방지를 위해
 // 노출 시점부터 minDuration ms 지나기 전엔 숨기지 않음. 에러 발생해도 finally로 반드시 숨김.
 export async function withScreenLoading(overlayEl, asyncFn, { minDuration = 200 } = {}) {

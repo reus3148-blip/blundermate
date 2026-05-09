@@ -1,6 +1,6 @@
 import { Chessground } from 'https://cdnjs.cloudflare.com/ajax/libs/chessground/9.0.0/chessground.min.js';
 import { parseAndLoadPgn, escapeHtml, getDests } from './utils.js';
-import { renderEngineLines, placePieceBadge, withScreenLoading } from './ui.js';
+import { renderEngineLines, placePieceBadge, withScreenLoading, renderEmptyState, classificationChipHtml } from './ui.js';
 import { getVaultItems, removeVaultItem, getAnalyzedGameById, getIsCoordsEnabled } from './storage.js';
 import { renderMovesTable } from './ui.js';
 import { t } from './strings.js';
@@ -124,6 +124,7 @@ const deckState = {
 let _showMovesOverlay = null;
 let _closeMovesOverlay = null;
 let _navigateTo = null;
+let _onEmptyCta = null;
 
 // ==========================================
 // Categorization
@@ -152,57 +153,79 @@ function sortByPlayedDate(items) {
 // ==========================================
 // Rendering
 // ==========================================
-function categoryVisual(rawCategory) {
+// detail view의 vaultInfoCategory 색 라벨용 — chess 도메인 의미 보존을 위해 chip과 별도 유지.
+function categoryColor(rawCategory) {
     const c = (rawCategory || '').toLowerCase();
-    const upper = (rawCategory || '').toUpperCase();
-    // 사이트 정체성 (블런더+메이트) 우선. 그 외 8-tier 분류는 영어 그대로.
-    if (c === 'blunder')                    return { label: t('vault_filter_mistake'), color: 'var(--blunder)' };
-    if (c === 'mistake' || c === 'missed')  return { label: t('class_mistake'), color: 'var(--mistake)' };
-    if (c === 'missed_mate')                return { label: t('vault_puzzle_mate_label'), color: 'var(--blunder)' };
-    if (c === 'inaccuracy')                 return { label: t('class_inaccuracy'), color: 'var(--inaccuracy)' };
-    if (c === 'best' || c === 'excellent')  return { label: upper, color: 'var(--best)' };
-    return { label: upper, color: 'var(--tx2)' };
+    if (c === 'blunder' || c === 'missed_mate') return 'var(--blunder)';
+    if (c === 'mistake' || c === 'missed')      return 'var(--mistake)';
+    if (c === 'inaccuracy')                     return 'var(--inaccuracy)';
+    if (c === 'best' || c === 'excellent')      return 'var(--best)';
+    return 'var(--tx2)';
+}
+
+function categoryLabel(rawCategory) {
+    const c = (rawCategory || '').toLowerCase();
+    if (c === 'blunder')                    return t('vault_filter_mistake');
+    if (c === 'mistake' || c === 'missed')  return t('class_mistake');
+    if (c === 'missed_mate')                return t('vault_puzzle_mate_label');
+    if (c === 'inaccuracy')                 return t('class_inaccuracy');
+    return (rawCategory || '').toUpperCase();
 }
 
 function renderVaultList(container, vaultItems, onOpen, opts = {}) {
-    const { emptyText } = opts;
+    const { emptyText, emptyDesc, onEmptyCta } = opts;
     container.innerHTML = '';
     if (vaultItems.length === 0) {
-        container.innerHTML = `<div class="empty-state">${emptyText || t('vault_empty')}</div>`;
+        renderEmptyState(container, {
+            icon: 'puzzle',
+            title: emptyText || t('vault_empty'),
+            desc: emptyDesc || t('vault_blunder_list_empty_desc'),
+            ctaLabel: onEmptyCta ? t('vault_empty_cta') : undefined,
+            onCta: onEmptyCta,
+        });
         return;
     }
 
+    const group = document.createElement('div');
+    group.className = 'list-group';
+
     sortByPlayedDate(vaultItems).forEach(item => {
-        const { label: catLabel, color: catColor } = categoryVisual(item.category);
         const isLegacy = item.source !== 'auto' && !item.pgn;
+        const chip = classificationChipHtml(item.category, { mateIn: item.mateIn });
 
         const sanHtml = escapeHtml(item.san || '');
-        const movesHtml = item.bestMove
-            ? `${sanHtml} <span class="vault-card-arrow">→</span> ${escapeHtml(item.bestMove)}`
+        const titleHtml = item.bestMove
+            ? `${sanHtml} <span class="vault-row-arrow" aria-hidden="true">→</span> ${escapeHtml(item.bestMove)}`
             : sanHtml;
 
         const movesPart = typeof item.moveNumber === 'number' ? `${item.moveNumber}${t('moves_suffix')}` : '';
         const metaText = [item.gameTitle || '', movesPart].filter(Boolean).join(' · ');
 
+        // 외곽은 div role=button — 내부에 nested 버튼이 없지만 일관성 + a11y 위해 동일 패턴.
         const el = document.createElement('div');
-        el.className = 'vault-card';
-        if (isLegacy) el.classList.add('vault-card--legacy');
-        el.style.setProperty('--vault-card-accent', catColor);
+        el.className = 'list-row vault-row';
+        el.setAttribute('role', 'button');
+        el.tabIndex = 0;
+        if (isLegacy) el.classList.add('list-row--legacy');
 
         el.innerHTML = `
-            <div class="vault-card-info">
-                <div class="vault-card-top">
-                    <div class="vault-card-moves">${movesHtml}</div>
-                    <div class="vault-card-cat" style="color: ${catColor};">${escapeHtml(catLabel)}</div>
-                </div>
-                ${metaText ? `<div class="vault-card-meta">${escapeHtml(metaText)}</div>` : ''}
-                ${item.notes ? `<div class="vault-card-notes">${escapeHtml(item.notes)}</div>` : ''}
+            ${chip}
+            <div class="list-row-body">
+                <div class="list-row-title">${titleHtml}</div>
+                ${metaText ? `<div class="list-row-meta">${escapeHtml(metaText)}</div>` : ''}
+                ${item.notes ? `<div class="list-row-notes">${escapeHtml(item.notes)}</div>` : ''}
             </div>
+            <span class="list-row-chevron" aria-hidden="true">›</span>
         `;
 
         el.addEventListener('click', () => onOpen(item));
-        container.appendChild(el);
+        el.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(item); }
+        });
+        group.appendChild(el);
     });
+
+    container.appendChild(group);
 }
 
 // ==========================================
@@ -249,6 +272,8 @@ function renderBlunderListPane() {
     const items = filterItems(blunderListFilter);
     renderVaultList(vaultBlunderList, items, openVaultItem, {
         emptyText: getBlunderListEmptyText(),
+        emptyDesc: t('vault_blunder_list_empty_desc'),
+        onEmptyCta: _onEmptyCta || null,
     });
     if (vaultBlunderFilterTabs) {
         vaultBlunderFilterTabs.querySelectorAll('.vault-filter-tab').forEach(btn => {
@@ -515,8 +540,13 @@ function showPuzzleEmpty(empty) {
     if (vaultPuzzleEmpty) {
         vaultPuzzleEmpty.classList.toggle('hidden', !empty);
         if (empty) {
-            const txt = vaultPuzzleEmpty.querySelector('.vault-puzzle-empty-text');
-            if (txt) txt.textContent = getPuzzleEmptyText();
+            renderEmptyState(vaultPuzzleEmpty, {
+                icon: 'puzzle',
+                title: getPuzzleEmptyText(),
+                desc: t('vault_puzzle_empty_desc'),
+                ctaLabel: _onEmptyCta ? t('vault_empty_cta') : undefined,
+                onCta: _onEmptyCta || null,
+            });
         }
     }
     if (vaultPuzzleStage) vaultPuzzleStage.classList.toggle('hidden', empty);
@@ -648,11 +678,11 @@ async function renderSolvableItem(item, isMate) {
     if (vaultPuzzleHeader) {
         let txt = isMate ? t('vault_puzzle_find_mate') : t('vault_puzzle_find_best');
         if (puzzleMateBudget != null) txt += ` · M${puzzleMateBudget}`;
-        const chipCls = isMate ? 'vault-cat-chip--mate' : 'vault-cat-chip--blunder';
-        const chipLabel = isMate ? t('vault_filter_mate') : t('vault_filter_mistake');
+        const chipCategory = isMate ? 'missed_mate' : (item.category || 'blunder');
+        const chipMateIn = isMate ? puzzleMateBudget : null;
         vaultPuzzleHeader.innerHTML =
-            `<span class="vault-cat-chip ${chipCls}">${escapeHtml(chipLabel)}</span>` +
-            escapeHtml(txt);
+            classificationChipHtml(chipCategory, { mateIn: chipMateIn }) +
+            ' ' + escapeHtml(txt);
     }
     if (vaultPuzzleSubhead) {
         const parts = [];
@@ -1100,10 +1130,14 @@ export function redrawVaultBoard() {
 // ==========================================
 // Initialization
 // ==========================================
-export function initVault({ showMovesOverlay, closeMovesOverlay, navigateTo }) {
+let _vaultInitialized = false;
+export function initVault({ showMovesOverlay, closeMovesOverlay, navigateTo, onEmptyCta }) {
+    if (_vaultInitialized) return;
+    _vaultInitialized = true;
     _showMovesOverlay = showMovesOverlay;
     _closeMovesOverlay = closeMovesOverlay;
     _navigateTo = navigateTo || null;
+    _onEmptyCta = onEmptyCta || null;
 
     vaultDetailBackBtn.addEventListener('click', () => {
         history.back();

@@ -1,8 +1,8 @@
 import { getSavedGames, addSavedGame, removeSavedGame, updateSavedGame } from './storage.js';
-import { escapeHtml } from './utils.js';
+import { escapeHtml, formatRelativeDate, getDateStrings } from './utils.js';
 import { t } from './strings.js';
 import { showConfirm, showToast } from './dialogs.js';
-import { withScreenLoading } from './ui.js';
+import { withScreenLoading, renderEmptyState } from './ui.js';
 
 // ==========================================
 // DOM Elements
@@ -37,29 +37,38 @@ let _editingGameId = null;
 // Rendering
 // ==========================================
 
-function buildCard(item, onLoad, onEdit) {
-    const el = document.createElement('div');
-    el.className = 'saved-game-card';
-    el.dataset.category = VALID_CATEGORIES.includes(item.category) ? item.category : 'my_game';
+function buildCard(item, onLoad, onEdit, ctx) {
+    const cat = VALID_CATEGORIES.includes(item.category) ? item.category : 'my_game';
+    const catLabel = t(`saved_games_cat_${cat}`);
+    const dateText = item.date ? formatRelativeDate(item.date, ctx.dateStrings) : '';
+    const metaParts = [catLabel, dateText].filter(Boolean);
 
     const notes = (item.notes || '').trim();
+
+    // 외곽은 div role=button — 내부의 ⋯ 액션 버튼이 nested button 위반을 일으키지 않도록.
+    const el = document.createElement('div');
+    el.className = 'list-row saved-game-row';
+    el.setAttribute('role', 'button');
+    el.tabIndex = 0;
+    el.dataset.category = cat;
     el.innerHTML = `
-        <div class="saved-game-card-info">
-            <span class="saved-game-card-title">${escapeHtml(item.title)}</span>
-            ${notes ? `<span class="saved-game-card-notes">${escapeHtml(notes)}</span>` : ''}
+        <div class="list-row-body">
+            <div class="list-row-title">${escapeHtml(item.title)}</div>
+            ${notes ? `<div class="list-row-notes">${escapeHtml(notes)}</div>` : ''}
+            ${metaParts.length ? `<div class="list-row-meta">${escapeHtml(metaParts.join(' · '))}</div>` : ''}
         </div>
-        <div class="saved-game-card-actions">
-            <button class="edit-btn" title="${t('saved_games_edit')}" aria-label="${t('saved_games_edit')}">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
-            </button>
-        </div>
+        <button type="button" class="list-row-action" aria-label="${ctx.editLabel}" title="${ctx.editLabel}">⋯</button>
+        <span class="list-row-chevron" aria-hidden="true">›</span>
     `;
 
-    el.querySelector('.edit-btn').addEventListener('click', (e) => {
+    el.querySelector('.list-row-action').addEventListener('click', (e) => {
         e.stopPropagation();
         onEdit(item);
     });
     el.addEventListener('click', () => onLoad(item.pgn));
+    el.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onLoad(item.pgn); }
+    });
     return el;
 }
 
@@ -72,23 +81,25 @@ function renderSavedGamesList(container, savedGames, onLoad, onEdit) {
         : savedGames.filter(g => g.category === _activeFilter);
 
     if (filtered.length === 0) {
-        container.innerHTML = `
-            <div class="saved-games-empty">
-                <div class="saved-games-empty-icon" aria-hidden="true">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
-                </div>
-                <h3 class="saved-games-empty-title">${t('saved_games_empty_title')}</h3>
-                <p class="saved-games-empty-desc">${t('saved_games_empty_desc')}</p>
-            </div>
-        `;
         container.classList.add('saved-games-list--empty');
+        renderEmptyState(container, {
+            icon: 'bookmark',
+            title: t('saved_games_empty_title'),
+            desc: t('saved_games_empty_desc'),
+            ctaLabel: t('saved_games_empty_cta'),
+            onCta: _onEmptyCta || (() => {}),
+        });
         return;
     }
     container.classList.remove('saved-games-list--empty');
 
+    const group = document.createElement('div');
+    group.className = 'list-group';
+    const ctx = { dateStrings: getDateStrings(), editLabel: escapeHtml(t('saved_games_edit')) };
     [...filtered]
         .sort((a, b) => new Date(b.date) - new Date(a.date))
-        .forEach(item => container.appendChild(buildCard(item, onLoad, onEdit)));
+        .forEach(item => group.appendChild(buildCard(item, onLoad, onEdit, ctx)));
+    container.appendChild(group);
 }
 
 // ==========================================
@@ -127,6 +138,7 @@ export function openSaveGameModal() {
 // Dependencies injected via initSavedGames()
 let _onLoadGame = null;
 let _getChess = null;
+let _onEmptyCta = null;
 
 async function updateSavedGamesView() {
     const games = await getSavedGames();
@@ -148,11 +160,12 @@ function syncFilterBar() {
 // Public API
 // ==========================================
 let _savedGamesInitialized = false;
-export function initSavedGames({ onLoadGame, getChess }) {
+export function initSavedGames({ onLoadGame, getChess, onEmptyCta }) {
     if (_savedGamesInitialized) return;
     _savedGamesInitialized = true;
     _onLoadGame = onLoadGame;
     _getChess = getChess;
+    _onEmptyCta = onEmptyCta || null;
 
     if (cancelSaveGameBtn) {
         cancelSaveGameBtn.addEventListener('click', () => {

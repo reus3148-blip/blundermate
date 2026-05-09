@@ -1373,25 +1373,27 @@ th {
 /* Scope 필터바 (Saved Games 등): 전폭 text-tab 패턴 — vault-filter-tabs와 결 동일.
    space-between으로 첫 버튼 좌측 rail, 마지막 버튼 우측 rail에 정렬되어 시각적 가로 균형. */
 .pill-filter-bar--scope {
-    padding: 12px 16px 6px;
-    gap: 16px;
-    height: 40px;
+    padding: 0 12px;
+    gap: 4px;
     box-sizing: border-box;
-    align-items: center;
+    align-items: stretch;
     justify-content: space-between;
 }
+/* HIG 44px 터치 타겟 + typography 토큰. */
 .pill-filter-bar--scope .pill-btn {
     height: auto;
-    padding: 4px 0 6px;
+    min-height: var(--list-row-min-h-compact);
+    padding: 11px 4px;
     border: none;
     border-radius: 0;
     background: transparent;
     color: var(--tx3);
     font-weight: 500;
-    font-size: 13px;
-    line-height: 20px;
+    font-size: var(--fs-body);
+    line-height: 22px;
     letter-spacing: -0.01em;
     position: relative;
+    -webkit-tap-highlight-color: transparent;
 }
 .pill-filter-bar--scope .pill-btn:hover {
     color: var(--tx2);
@@ -1486,120 +1488,20 @@ th {
 }
 
 /* ==========================================
-   Saved Games: Card Style
+   Saved Games: List Container
    ========================================== */
-/* Saved Game 카드 — 홈/Vault 카드와 공유 base (.home-recent-card, .vault-card, .saved-game-card 그룹), 노트 있으면 자연 확장 */
-/* hover/active는 그룹 셀렉터에서 정의됨 — 여기선 saved-game 전용 속성만 */
-.saved-game-card {
-    min-height: var(--game-card-height);
-}
-
-/* 카테고리별 색바 — 한눈에 카테고리 인식 (홈은 win/loss로, vault는 카테고리로 코딩) */
-.saved-game-card::before                          { background: var(--brd2); }
-.saved-game-card[data-category="my_game"]::before { background: var(--ac); }
-.saved-game-card[data-category="otb"]::before     { background: var(--mistake); }
-.saved-game-card[data-category="opening"]::before { background: var(--great); }
-.saved-game-card[data-category="pro"]::before     { background: var(--tx2); }
-
-.saved-game-card-info {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-.saved-game-card-title {
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--tx);
-    line-height: 1.3;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-/* 노트 프리뷰 — 있는 카드만 italic 2번째 줄로 (홈 카드의 opp row 위치와 동일) */
-.saved-game-card-notes {
-    font-size: 12px;
-    font-style: italic;
-    color: var(--tx2);
-    line-height: 1.35;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.saved-game-card-actions {
-    display: flex;
-    align-items: center;
-    gap: 2px;
-    flex-shrink: 0;
-}
-
-.saved-game-card .edit-btn {
-    width: 32px;
-    height: 32px;
-    padding: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: none;
-    border: none;
-    color: var(--tx3);
-    cursor: pointer;
-    border-radius: 6px;
-    transition: color 0.15s ease, background 0.15s ease;
-}
-
-.saved-game-card .edit-btn:hover {
-    color: var(--ac);
-    background: var(--ac-lo);
-}
+/* 카드 마크업은 .list-row 패턴으로 마이그레이션. 본 블록엔 컨테이너 padding + empty 정렬만. */
 
 .saved-games-list {
     display: flex;
     flex-direction: column;
-    gap: 10px;
     padding: 14px 16px 20px;
 }
 
-/* Empty state — Notion/Linear 결: 큰 아이콘 + 타이틀 + 설명 */
 .saved-games-list--empty {
-    padding: 0 24px;
+    padding: 0;
     flex: 1;
     justify-content: center;
-}
-
-.saved-games-empty {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    padding: 40px 0 80px;
-    gap: 14px;
-}
-
-.saved-games-empty-icon {
-    color: var(--tx3);
-    opacity: 0.5;
-    line-height: 0;
-}
-
-.saved-games-empty-title {
-    margin: 0;
-    font-size: 16px;
-    font-weight: 600;
-    color: var(--tx);
-}
-
-.saved-games-empty-desc {
-    margin: 0;
-    max-width: 280px;
-    font-size: 13px;
-    color: var(--tx2);
-    line-height: 1.55;
 }
 
 @keyframes fadeInUp {
@@ -2638,51 +2540,8 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     border-bottom-color: var(--tx);
 }
 
-/* Vault / Saved 카드 공용 base — 홈 카드는 자체 .home-game-card 정의를 사용. */
-.vault-card,
-.saved-game-card {
-    padding: 0 14px 0 18px;
-    background: var(--bg-surface);
-    border: none;
-    border-radius: 10px;
-    box-shadow:
-        0 1px 2px rgba(28, 29, 31, 0.04),
-        0 0 0 1px rgba(28, 29, 31, 0.04);
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    cursor: pointer;
-    -webkit-tap-highlight-color: transparent;
-    position: relative;
-    overflow: hidden;
-    transition: box-shadow 0.15s ease, transform 0.15s ease;
-}
-
-.vault-card::before,
-.saved-game-card::before {
-    content: '';
-    position: absolute;
-    top: 10px;
-    left: 0;
-    bottom: 10px;
-    width: 3px;
-    border-radius: 0 2px 2px 0;
-}
-
-.vault-card:hover,
-.saved-game-card:hover {
-    box-shadow:
-        0 2px 6px rgba(28, 29, 31, 0.06),
-        0 0 0 1px rgba(28, 29, 31, 0.08);
-}
-
-.vault-card:active,
-.saved-game-card:active {
-    transform: scale(0.997);
-    box-shadow:
-        0 1px 2px rgba(28, 29, 31, 0.04),
-        0 0 0 1px rgba(43, 91, 215, 0.18);
-}
+/* .vault-card / .saved-game-card 공용 base는 .list-row로 대체. 본 블록은 의도적으로 비워둠 —
+   회귀 발견 시 .list-row 정의 참조. */
 
 /* ──────────────────────────────────────────────────────────────────
    Home: Recent Games (리디자인 v2 — 미니보드 + 결과 칩 + 분석 메트릭)
@@ -3039,72 +2898,19 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
 }
 
 /* ── Vault Card (홈 카드와 시각 통일, 2~3줄) ─────────────────────── */
-.vault-card {
-    min-height: var(--game-card-height);
-    padding-top: 10px;
-    padding-bottom: 10px;
-}
+/* .vault-card / .vault-card-* 는 .list-row.vault-row 마크업으로 대체.
+   .list-row--legacy: 자체 PGN/analyzed_game 없는 옛 row를 흐리게. */
+.list-row--legacy { opacity: 0.55; }
 
-.vault-card::before { background: var(--vault-card-accent, var(--tx2)); }
-
-.vault-card--legacy { opacity: 0.55; }
-
-.vault-card-info {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-.vault-card-top {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 10px;
-    min-width: 0;
-}
-
-.vault-card-moves {
+.vault-row .list-row-title {
     font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-size: 14px;
     font-weight: 700;
-    color: var(--tx);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    min-width: 0;
-    flex: 1;
 }
 
-.vault-card-arrow {
+.vault-row-arrow {
     color: var(--tx3);
     font-weight: 400;
     margin: 0 2px;
-}
-
-.vault-card-cat {
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    flex-shrink: 0;
-}
-
-.vault-card-meta {
-    font-size: 11px;
-    color: var(--tx2);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.vault-card-notes {
-    font-size: 11px;
-    color: var(--tx2);
-    font-style: italic;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
 }
 
 /* ── Vault Detail: 삭제 버튼 ────────────────────────────────────── */
@@ -3150,23 +2956,25 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
 .vault-filter-tabs {
     display: flex;
     align-items: center;
-    gap: 16px;
-    padding: 4px 16px;
-    height: 30px;
+    gap: 8px;
+    padding: 0 16px;
     box-sizing: border-box;
 }
+/* list view 필터 탭: HIG 44px 터치 타겟. */
 .vault-filter-tab {
     position: relative;
     border: none;
     background: transparent;
-    padding: 4px 0 6px;
+    padding: 11px 4px;
+    min-height: var(--list-row-min-h-compact);
     font-family: inherit;
-    font-size: 13px;
-    line-height: 20px;
+    font-size: var(--fs-body);
+    line-height: 22px;
     font-weight: 500;
     color: var(--tx3);
     letter-spacing: -0.01em;
     cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
     transition: color 0.15s ease;
 }
 .vault-filter-tab:hover { color: var(--tx2); }
@@ -3256,20 +3064,14 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     max-width: calc(100dvh - 360px);
 }
 
-/* Empty state */
+/* Empty state 컨테이너 — 내용은 ui.js renderEmptyState가 .empty-state-v2 마크업으로 채움. */
 .vault-puzzle-empty {
     display: flex;
-    align-items: center;
-    justify-content: center;
+    flex-direction: column;
     flex: 1;
-    padding: 40px 24px;
+    min-height: 0;
 }
 .vault-puzzle-empty.hidden { display: none; }
-.vault-puzzle-empty-text {
-    font-size: 14px;
-    color: var(--tx2);
-    text-align: center;
-}
 
 /* Stories indicator — Duolingo 결의 단일 fill bar + "현재/총" 카운터.
    12개+ 풀에서 segment 분할이 못 보일 정도로 작아지던 문제 해결. */
@@ -3324,22 +3126,8 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     overflow: hidden;
     text-overflow: ellipsis;
 }
-/* 카테고리 chip — header 앞에 인라인 박힘. blunder=red, mate=green 의미적 색 */
-.vault-cat-chip {
-    display: inline-flex;
-    align-items: center;
-    height: 16px;
-    padding: 0 7px;
-    border-radius: 4px;
-    font-size: 9.5px;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    margin-right: 8px;
-    vertical-align: 2px;
-}
-.vault-cat-chip--blunder { background: rgba(208, 56, 50, 0.10); color: var(--blunder); }
-.vault-cat-chip--mate    { background: rgba(45, 110, 85, 0.12); color: var(--great); }
+/* header inline 위치 — vault-puzzle-header 안의 cls-chip에만 right margin. */
+.vault-puzzle-header .cls-chip { margin-right: 8px; vertical-align: 2px; }
 .vault-puzzle-subhead {
     height: 16px;
     line-height: 16px;
@@ -4353,3 +4141,237 @@ main {
     white-space: nowrap;
     border: 0;
 }
+
+/* =====================================================================
+   디자인 시스템 컴포넌트 (Apple HIG inset grouped + Notion 절제)
+   tokens.css의 --fs-*, --press-*, --list-* 토큰을 소비.
+   ===================================================================== */
+
+/* ---- Inset grouped list (Apple Mail/Notes 결) -----------------------
+   여러 row를 단일 컨테이너 안에 묶고 hairline divider로 분리.
+   per-card shadow + accent strip 패턴을 대체함. */
+.list-group {
+    background: var(--bg-surface);
+    border-radius: var(--list-container-radius);
+    overflow: hidden;
+    box-shadow: 0 0 0 0.5px var(--list-divider);
+    display: flex;
+    flex-direction: column;
+}
+
+.list-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: var(--list-row-pad-y) var(--list-row-pad-x);
+    min-height: var(--list-row-min-h);
+    background: transparent;
+    border: 0;
+    border-top: 1px solid var(--list-divider);
+    width: 100%;
+    text-align: left;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: background 0.12s ease;
+}
+.list-row:first-child { border-top: 0; }
+.list-row:hover { background: var(--press-fill); }
+.list-row:active { background: var(--press-fill-active); }
+
+/* row 본문 (제목 + notes + meta 세로 스택) */
+.list-row-body {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.list-row-title {
+    font-size: var(--fs-title);
+    font-weight: var(--fw-title);
+    color: var(--tx);
+    letter-spacing: -0.01em;
+    line-height: 1.3;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.list-row-notes {
+    font-size: var(--fs-body);
+    font-weight: var(--fw-body);
+    color: var(--tx2);
+    line-height: 1.4;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.list-row-meta {
+    font-size: var(--fs-meta);
+    font-weight: var(--fw-body);
+    color: var(--tx3);
+    line-height: 1.3;
+    margin-top: 2px;
+}
+
+/* row 우측 액션 (⋯ 편집 진입). 항상 보이는 pencil 대체. */
+.list-row-action {
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    border: 0;
+    background: transparent;
+    border-radius: 8px;
+    color: var(--tx3);
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    -webkit-tap-highlight-color: transparent;
+    transition: background 0.12s ease, color 0.12s ease;
+}
+.list-row-action:hover { background: var(--press-fill); color: var(--tx2); }
+.list-row-action:active { background: var(--press-fill-active); }
+
+/* row 우측 chevron (Apple 표준 ›) — push-to-detail 시그널 */
+.list-row-chevron {
+    flex-shrink: 0;
+    color: var(--tx3);
+    font-size: 18px;
+    line-height: 1;
+    margin-left: -4px;
+}
+
+/* 카드 시각 액센트 (블런더 등) — accent strip 대신 우측 small color dot.
+   화면 좌측 패딩을 깔끔하게 유지하면서 분류 시각 구분 보존.
+   .list-row가 좌측 padding부터 텍스트로 바로 시작 — Apple/Notion 결. */
+.list-row-accent-dot {
+    flex-shrink: 0;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--list-row-accent, var(--tx3));
+}
+
+/* ---- Move classification chip (chess.com / lichess 표준 글리프) -----
+   ?? / ? / ?! / ! / !! / ✓ / M3 — 도메인 표준. tokens.css 분류 색 그대로. */
+.cls-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 18px;
+    min-width: 22px;
+    padding: 0 6px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    line-height: 1;
+    background: var(--cls-chip-bg, var(--bg-elevated));
+    color: var(--cls-chip-fg, var(--tx2));
+    flex-shrink: 0;
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+}
+.cls-chip--blunder    { --cls-chip-bg: rgba(208, 56, 50, 0.12);  --cls-chip-fg: var(--blunder); }
+.cls-chip--mistake    { --cls-chip-bg: rgba(217, 119, 6, 0.12);  --cls-chip-fg: var(--mistake); }
+.cls-chip--inaccuracy { --cls-chip-bg: rgba(201, 155, 45, 0.14); --cls-chip-fg: var(--inaccuracy); }
+.cls-chip--best       { --cls-chip-bg: rgba(90, 122, 58, 0.14);  --cls-chip-fg: var(--best); }
+
+/* ---- Empty state v2 (Apple HIG: icon + 헤드라인 + body + 선택적 CTA) -- */
+.empty-state-v2 {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 24px;
+    gap: 14px;
+    text-align: center;
+    min-height: 0;
+}
+.empty-state-icon {
+    color: var(--tx3);
+    opacity: 0.7;
+    line-height: 0;
+}
+.empty-state-title {
+    font-size: var(--fs-title);
+    font-weight: var(--fw-title);
+    color: var(--tx);
+    letter-spacing: -0.01em;
+    margin: 0;
+}
+.empty-state-desc {
+    font-size: 13px;
+    font-weight: var(--fw-body);
+    color: var(--tx2);
+    line-height: 1.55;
+    max-width: 280px;
+    margin: 0;
+}
+.empty-state-cta {
+    margin-top: 6px;
+    min-height: 44px;
+    padding: 0 20px;
+    border: 0;
+    border-radius: 10px;
+    background: var(--ac);
+    color: #fff;
+    font-family: inherit;
+    font-size: var(--fs-body);
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: background 0.12s ease, opacity 0.12s ease;
+}
+.empty-state-cta:hover { opacity: 0.92; }
+.empty-state-cta:active { opacity: 0.85; }
+
+/* ---- Text tab (44px 보장된 single-axis 필터) -----------------------
+   pill-filter-bar / vault-filter-tabs 의 후속 컴포넌트.
+   text + bottom underline, 44px min-height — Apple HIG 터치 타겟 만족. */
+.text-tab-row {
+    display: flex;
+    align-items: stretch;
+    gap: 4px;
+    border-bottom: 1px solid var(--brd);
+    padding: 0 8px;
+    flex-shrink: 0;
+}
+.text-tab {
+    background: none;
+    border: 0;
+    padding: 11px 12px;
+    min-height: var(--list-row-min-h-compact);
+    font-family: inherit;
+    font-size: var(--fs-body);
+    font-weight: 500;
+    line-height: 22px;
+    color: var(--tx3);
+    cursor: pointer;
+    position: relative;
+    -webkit-tap-highlight-color: transparent;
+    transition: color 0.12s ease;
+}
+.text-tab:hover { color: var(--tx2); }
+.text-tab.is-selected,
+.text-tab[aria-selected="true"] {
+    color: var(--tx);
+    font-weight: 600;
+}
+.text-tab.is-selected::after,
+.text-tab[aria-selected="true"]::after {
+    content: '';
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    bottom: -1px;
+    height: 2px;
+    background: var(--tx);
+    border-radius: 1px;
+}
+

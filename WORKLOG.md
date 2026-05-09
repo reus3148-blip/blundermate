@@ -6,6 +6,148 @@
 
 ---
 
+## Phase 49 — Vault + Saved Games 디자인 시스템 정렬 (2026-05-09)
+
+Apple HIG / Notion / Lichess / chess.com 4개 시스템을 병렬 리서치 → 합성 → vault + saved-games 화면을 "premium calm" 톤으로 정렬. 카드 패턴, empty state, 분류 chip, 필터 탭, 터치 타겟을 통합. 기능 신규 0, 시각·UX 개선만. 8 파일 변경.
+
+### 톱-레벨 합성 결정
+
+| 결정 | 채택 출처 | 거부 출처 |
+|------|----------|----------|
+| 3-tier 타이포 (15/14/12) | Notion 3-weight + Apple iOS 17/15/13 (모바일 9:16에 맞춰 한 단계 축소) | chess.com 1.6× 숫자 hero |
+| Inset grouped 리스트 (단일 컨테이너 + hairline 디바이더) | Apple HIG (Mail/Notes 표준) | 카드별 shadow + accent strip (chess.com 결) |
+| Press = invisible row + gray fill, no scale | Notion + Apple | chess.com scale 0.97 |
+| 필터 = text+underline 단일 패턴 | Notion + Lichess single-axis | chess.com pill 가득 |
+| Move classification glyph chip (??/?/?!/M3) | chess.com + lichess 공통 표준 | 신규 글리프 발명 |
+| Empty state = icon 80px + 헤드라인 + body + CTA | Apple HIG + chess.com | Notion 평문 / Lichess 1-line |
+| 터치 타겟 ≥ 44px | Apple HIG 강제 | — |
+
+### 1) 디자인 토큰 ([styles/tokens.css](styles/tokens.css))
+
+새 토큰 8개 추가 — typography scale + press affordance + inset grouped 치수.
+
+```css
+--fs-title:15px --fs-body:14px --fs-meta:12px --fw-title:600 --fw-body:400
+--press-fill:rgba(28,29,31,0.05) --press-fill-active:rgba(28,29,31,0.08)
+--list-container-radius:14px --list-divider:rgba(28,29,31,0.06)
+--list-row-pad-x:16px --list-row-pad-y:12px
+--list-row-min-h:60px (standard) / 76px (spacious) / 44px (compact)
+```
+
+### 2) Empty state 통합 helper ([ui.js](ui.js))
+
+`renderEmptyState(container, { icon, title, desc, ctaLabel?, onCta? })` 신규. SVG icon dictionary (`bookmark` / `puzzle` / `inbox`) 내장.
+
+이전: 3종 분산 — `.empty-state` (italic 1-line) / `.vault-puzzle-empty` (평문) / `.saved-games-empty` (icon+title+desc 풀스택).
+이후: 모두 `.empty-state-v2` 마크업으로 통합 — 80px outline icon + 헤드라인(15px/600) + body(13px/tx2) + 선택적 CTA (44px / `var(--ac)` / 잉크블루).
+
+### 3) Move classification chip ([ui.js](ui.js))
+
+`classificationChipHtml(rawCategory, { mateIn })` — chess.com·lichess 표준 글리프(??/?/?!/!/!!/✓/M{n})를 인라인 chip으로. tokens.css의 분류 색을 12% alpha 배경 + 풀 채도 텍스트로 매핑.
+
+`vault-cat-chip`(2개 modifier)을 `.cls-chip`(4 modifier: blunder/mistake/inaccuracy/best)로 통합. `vault.js`의 `renderSolvableItem` header도 같은 helper 사용 — vault 카드와 puzzle header가 동일한 chip 시각.
+
+### 4) Inset grouped list ([styles.css](styles.css) 끝부분 신규 + 1493+/2641+/3042+ 정리)
+
+신규 클래스: `.list-group` / `.list-row` / `.list-row-body` / `.list-row-title` / `.list-row-notes` / `.list-row-meta` / `.list-row-action` / `.list-row-chevron`.
+
+`.list-group` 단일 컨테이너에 `.list-row` 들이 hairline divider(rgba(28,29,31,0.06))로 분리. per-card shadow + 좌측 4색 accent strip 패턴 제거. `.list-row:hover`는 `--press-fill` (rgba 5%), `:active`는 `--press-fill-active` (rgba 8%) — Notion gray-fill 패턴. transform: scale 사용 안 함.
+
+대체된 legacy:
+- `.vault-card` + `.vault-card-info/top/moves/arrow/cat/meta/notes` (3042-3110) → `.list-row.vault-row`
+- `.saved-game-card` + `::before` accent strip + `.saved-game-card-title/notes/actions` + `.edit-btn` (1493-1558) → `.list-row.saved-game-row`
+- `.saved-games-empty*` (1574-1608) → `.empty-state-v2`
+- `.vault-puzzle-empty-text` → `.empty-state-v2` (HTML 정적 마크업도 [index.html:300-303](index.html) 정리)
+- `.vault-card--legacy` → `.list-row--legacy`
+
+### 5) Saved Games 카드 마크업 변경 ([savedGames.js](savedGames.js))
+
+`buildCard`:
+- 외곽: `<div class="saved-game-card">` → `<div class="list-row saved-game-row" role="button" tabindex="0">` (nested button 위반 회피 — 내부에 `<button class="list-row-action">` 가 있으므로 outer는 div + ARIA)
+- 본문: 제목(15/600) + notes(14/regular tx2 — italic 제거) + meta line ("내 실전 게임 · 어제" 식 middot — Lichess 패턴)
+- 항상 보이던 edit pencil → trailing **⋯ ellipsis** (HIG 결, edit modal 진입은 동일)
+- trailing **›** chevron (Apple push-to-detail 시그널)
+
+`renderSavedGamesList`:
+- 컨테이너 wrapping: rows를 `<div class="list-group">`에 한 번 감싸 inset grouped 시각 부여
+- empty state: 정적 HTML → `renderEmptyState` helper 호출 (icon: bookmark + CTA: "게임 분석하기" → `onEmptyCta` 콜백)
+- 날짜는 `formatRelativeDate` (utils.js, 이미 home.js에서 사용중) 재사용
+
+`initSavedGames`에 `onEmptyCta` 옵션 추가 — main.js가 `() => navigateTo('home')` 주입.
+
+### 6) Vault 카드 + puzzle header ([vault.js](vault.js))
+
+`renderVaultList`:
+- 좌측 색 accent strip(`--vault-card-accent`) 제거
+- 메인 라인: SAN + classification chip + → bestMove (chess.com 결: 잘못 둔 수 vs 정답수)
+- meta: `gameTitle · 23수` (Lichess middot)
+- empty state: helper 호출 (icon: puzzle + emptyDesc + CTA)
+- legacy 카드 (`source !== 'auto' && !pgn`) → `list-row--legacy` opacity 0.55 보존
+- `categoryVisual` (label + color 객체 반환) → `categoryColor` + `categoryLabel` 두 함수로 분리. detail view의 `vaultInfoCategory` 색 라벨 보존을 위해 유지.
+
+`renderSolvableItem`:
+- `<span class="vault-cat-chip ${chipCls}">` 마크업 → `classificationChipHtml(chipCategory, { mateIn })` — vault 카드와 동일한 chip 컴포넌트.
+
+`initVault`에 `onEmptyCta` 옵션 추가.
+
+### 7) 필터 탭 44px 보강 ([styles.css](styles.css))
+
+3개 분산 패턴 중 list-view 1차 필터를 44px로 통일:
+- `.vault-filter-tab` (28px → 44px min-height) — vault list 보조 뷰
+- `.pill-filter-bar--scope .pill-btn` (auto / line-height 20px → 44px min-height + line-height 22) — saved games 5탭
+- 본문 폰트 13px → `var(--fs-body)` (14px)
+- 새 통합 클래스 `.text-tab-row` / `.text-tab` (신규 컴포넌트로 정의 — 추후 컴포넌트 마이그레이션 시 사용)
+
+iOS segmented pill (`.vault-filter-tabs--inline` 32px, `.pill-filter-bar--insights .pill-btn` 26px)은 다른 컨트롤 type이라 그대로 유지 — Apple 자체가 segmented control은 ~32pt 허용.
+
+### 8) i18n 키 ([strings.js](strings.js))
+
+신규 KO+EN 7쌍:
+- `vault_blunder_list_empty_desc`, `vault_puzzle_empty_desc`, `vault_empty_cta` (vault empty 구조화)
+- `saved_games_empty_cta` (saved empty CTA)
+- `cls_chip_blunder/mistake/inaccuracy/missed_mate/best` (chip aria-label용)
+
+기존 `vault_puzzle_empty` 카피는 "분석을 돌리면 자동으로 모여요" → "아직 풀어볼 퍼즐이 없어요" (헤드라인 → 별도 desc로 분리).
+
+### 비-목표 (의도적 보류)
+
+- 다크 모드 — 토큰 체계는 사용하지만 dark 팔레트 미정.
+- Insights / Home / 분석 화면 시각 — 본 phase 범위 외 (별 phase).
+- 빈 상태 SVG 일러스트 외주 — 본 phase는 80px outline icon으로 마무리. 디자이너 시안 들어오면 교체.
+- Vault detail view의 색 라벨 (`vaultInfoCategory`) — chess 도메인 의미 유지.
+
+### 검증
+
+수동 — preview server (vercel dev :3000) 4개 화면 직접 확인:
+
+| 화면 | 결과 |
+|------|------|
+| 홈 | 변경 없음 (회귀 0) |
+| Vault 빈 상태 | 80px puzzle icon + 헤드라인 + desc + 잉크블루 CTA — Apple HIG 패턴 정확 |
+| Vault 리스트 보조 뷰 | 4개 글리프 chip(??/?/?!/M3) + inset grouped + middot meta — 4개 시스템 합성 확인 |
+| Saved 빈 상태 | 80px bookmark icon + 헤드라인 + desc + CTA — vault과 동일 톤 |
+| Saved 데이터 상태 | inset grouped + 좌측 strip 제거 + ⋯ + › 트레일링 — Apple Mail 결 |
+| 필터 탭 터치 | preview_inspect 결과 — pill-filter-bar--scope: min-height 44px ✓ / vault-filter-tab: 44px ✓ |
+| chip 색 | rgba(208,56,50,0.12) bg + var(--blunder) color — IBM Plex Mono 11px ✓ |
+| 콘솔 | 에러 0 |
+
+테스트 슈트 부재(CLAUDE.md "알려진 갭")로 자동 검증 없음 — preview server 시각 확인 + DOM inspect로 토큰 적용 검증.
+
+### 영향받은 파일 (8 files)
+
+| 파일 | 변경 |
+|------|------|
+| [styles/tokens.css](styles/tokens.css) | +20 (Phase 49 토큰 8개) |
+| [ui.js](ui.js) | +60 (renderEmptyState + classificationChipHtml + 3 SVG icon) |
+| [styles.css](styles.css) | +200 신규 / -180 legacy 정리 (.list-* / .cls-chip / .text-tab / .empty-state-v2 추가, .vault-card / .saved-game-card / .saved-games-empty / .vault-cat-chip 등 제거) |
+| [strings.js](strings.js) | +14 (KO+EN 7쌍) |
+| [savedGames.js](savedGames.js) | buildCard 마크업 + renderSavedGamesList 컨테이너 + renderEmptyState 호출 + initSavedGames signature |
+| [vault.js](vault.js) | renderVaultList 마크업 + classificationChipHtml 통합 + categoryVisual 분리 + showPuzzleEmpty + initVault signature |
+| [main.js](main.js) | initVault / initSavedGames에 `onEmptyCta: () => navigateTo('home')` 주입 |
+| [index.html](index.html) | `#vaultPuzzleEmpty` 정적 마크업 정리 (renderEmptyState가 동적 렌더) |
+
+---
+
 ## Phase 48 — 코드 건강 점검: 버그/보안 sweep + simplify (2026-05-09)
 
 27개 .js 파일 / ~13k 라인 전수 점검(6 병렬 에이전트 → 약 100건 발견). 우선순위 critical/security만 픽스 후 simplify 패스(3 병렬 에이전트)로 헬퍼 추출 + 데드 코드 정리. 16 파일 / +220 -123. 기능 신규 0, 신뢰성 개선만.

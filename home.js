@@ -19,7 +19,7 @@ import {
     computePgnHash, loadAnalysisCache, lsGet, lsSet,
 } from './storage.js';
 import {
-    escapeHtml, parseOpeningFromPgn, rootOpeningName, formatRelativeDate,
+    escapeHtml, parseOpeningFromPgn, rootOpeningName, formatRelativeDate, getDateStrings,
     classifyGameResult, isWhitePlayer, cpToWhiteWinPct,
 } from './utils.js';
 import { t, getLocale } from './strings.js';
@@ -310,8 +310,7 @@ function renderHomeGamesList(games, displayUser) {
         return;
     }
 
-    const dateStrings = { dateToday: t('dateToday'), dateYesterday: t('dateYesterday'), dateDaysAgo: t('dateDaysAgo') };
-    homeRecentRenderState = { container: list, filtered, displayUser, dateStrings, visible: 0 };
+    homeRecentRenderState = { container: list, filtered, displayUser, dateStrings: getDateStrings(), visible: 0 };
     appendHomeRecentBatch(0, Math.min(HOME_RECENT_PAGE, filtered.length, HOME_RECENT_MAX));
 }
 

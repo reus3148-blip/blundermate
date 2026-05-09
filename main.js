@@ -821,7 +821,7 @@ function closeMovesOverlay() {
     document.body.classList.remove('moves-overlay-open');
 }
 
-initVault({ showMovesOverlay, closeMovesOverlay, navigateTo });
+initVault({ showMovesOverlay, closeMovesOverlay, navigateTo, onEmptyCta: () => navigateTo('home') });
 initSavedGames({
     onLoadGame: (pgn) => {
         pgnInput.value = pgn;
@@ -829,6 +829,8 @@ initSavedGames({
     },
     // 라이브 입력 모드는 메인 chess가 비어 있고 explorationChess만 의미 있음.
     getChess: () => appMode === APP_MODES.LIVE_INPUT ? explorationChess : chess,
+    // Empty state CTA → 홈 화면으로 이동 (사용자가 게임 카드를 골라 분석 시작 가능).
+    onEmptyCta: () => navigateTo('home'),
 });
 initInsights();
 

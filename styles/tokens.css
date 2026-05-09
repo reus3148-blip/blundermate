@@ -50,6 +50,26 @@
   --topbar-height: 46px;
   --game-card-height: 64px;
   --game-card-gap:    6px;
+
+  /* Type scale (mobile 9:16 컨테이너용 — Apple iOS 17/15/13에서 한 단계 축소) */
+  --fs-title:  15px;
+  --fs-body:   14px;
+  --fs-meta:   12px;
+  --fw-title:  600;
+  --fw-body:   400;
+
+  /* Press affordance (Notion gray-fill 패턴 — transform: scale 사용 안 함) */
+  --press-fill:        rgba(28, 29, 31, 0.05);
+  --press-fill-active: rgba(28, 29, 31, 0.08);
+
+  /* Inset grouped list (Apple HIG Mail/Notes/Files 표준) */
+  --list-container-radius: 14px;
+  --list-divider:          rgba(28, 29, 31, 0.06);
+  --list-row-pad-x:        16px;
+  --list-row-pad-y:        12px;
+  --list-row-min-h:           60px;  /* Apple "standard" — 텍스트만 */
+  --list-row-min-h-spacious:  76px;  /* mini-board 동반 */
+  --list-row-min-h-compact:   44px;  /* 필터 탭 — HIG 최소 */
 }
 
 html {

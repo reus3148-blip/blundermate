@@ -786,6 +786,15 @@ export function formatRelativeDate(dateStr, strings) {
     return d.toLocaleDateString(localeTag, { month: 'numeric', day: 'numeric' });
 }
 
+// formatRelativeDate에 넘기는 i18n 묶음. 한 render당 1회 컴포즈하여 row 루프에서 재사용.
+export function getDateStrings() {
+    return {
+        dateToday: t('dateToday'),
+        dateYesterday: t('dateYesterday'),
+        dateDaysAgo: t('dateDaysAgo'),
+    };
+}
+
 export const TIERS = [
     { key: 'pawn',    min: 0,    glyph: '\u265F' },
     { key: 'knight',  min: 400,  glyph: '\u265E' },
