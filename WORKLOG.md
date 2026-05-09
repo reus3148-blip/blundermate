@@ -6,6 +6,138 @@
 
 ---
 
+## Phase 48 — 코드 건강 점검: 버그/보안 sweep + simplify (2026-05-09)
+
+27개 .js 파일 / ~13k 라인 전수 점검(6 병렬 에이전트 → 약 100건 발견). 우선순위 critical/security만 픽스 후 simplify 패스(3 병렬 에이전트)로 헬퍼 추출 + 데드 코드 정리. 16 파일 / +220 -123. 기능 신규 0, 신뢰성 개선만.
+
+### 1) Engine pool 워커 수명주기 ([engine.js](engine.js))
+
+이전: `worker.onerror` 후 `_idle.push(engine)`이 죽은 워커를 풀에 다시 넣음 → 그 워커가 다시 dispatch되면 `if (this._failed) resolve({ lines: nulls })`로 즉시 null 반환 → 분석 결과 silently 깨짐. 사용자는 "빈 라인" 이상 진단 불가.
+
+이후:
+- `_dispatch()` 진입 시 `_idle = _idle.filter(e => !e._failed)`로 영구 제외
+- 모든 워커 실패 시 task queue를 즉시 reject (이전엔 hang)
+- 실패 워커는 `_retireFailed()` 헬퍼로 `engine.terminate()` + `this.engines.splice()` 같이 정리 (Web Worker 스레드 leak 방지)
+- `EnginePool.ready()`는 `Promise.all` → `Promise.allSettled` — 일부 워커 실패해도 살아남은 워커가 있으면 진행. 전부 실패 시에만 reject
+- 부산물: `_pool.ready()`가 한 번 reject되면 캐시된 rejected promise가 재사용돼 모든 후속 `runBatch`가 즉시 실패하던 경로도 부분 실패 시점부터 막힘
+
+### 2) Storage 격리 / race 4건 ([storage.js](storage.js))
+
+- **Platform snapshot at callDB entry**: `_doCallDB` 내부에서 `getMyPlatform()`을 read하던 걸 `callDB` 진입 시점 스냅샷으로 이동. fetch 도중 `setMyPlatform`이 호출돼도 in-flight 호출의 platform 태깅이 바뀌지 않음.
+- **Breaker reset race**: 성공 응답이 동시 5xx의 trip을 무력화하던 race. `startedAt = Date.now()`를 캡처하고 `if (_dbBreakerUntil <= startedAt)`일 때만 reset → "내 호출이 시작되기 전에 trip된 cooldown만 reset, 내 호출 진행 중 다른 호출이 trip시킨 건 보존".
+- **Cross-platform leak in `getAnalyzedGameById`**: 로컬 캐시 lookup이 platform 필터 없이 `id`만으로 검색 → chesscom row가 lichess 게임으로 반환 가능. `(id, platform)` 쌍으로 매칭.
+- **`updateSavedGame` Supabase sync 누락**: 노트/타이틀 편집이 로컬에만 남고 Supabase 동기화 안 됨 (다른 디바이스 보존 안 됨). callDB('update', 'saved_games', ...) 추가 + 로컬 update에도 platform 격리 가드.
+
+CLAUDE.md "(user_id, platform) 페어 격리"가 4 경로에서 모두 어긋나 있던 거 일괄 픽스.
+
+### 3) Gemini 모듈 안정성 ([gemini.js](gemini.js))
+
+- **모듈 로드 시 throw**: 최상단의 `let _isGeminiEnabled = localStorage.getItem(GEMINI_KEY) !== 'false'`가 Safari private mode에서 throw → 전체 모듈 import 실패 → 분석 화면 백지. `lsGet` 헬퍼로 교체.
+- **Reflected XSS**: `error.message`를 `escapeHtml` 없이 `innerHTML`로 박던 거 → escape 추가. proxy가 헤더 echo하거나 fetch URL을 에러 메시지에 넣으면 트리거 가능.
+- **Reader leak**: SSE 스트리밍 루프가 throw할 때 `reader.releaseLock()` 호출 안 됨 → ReadableStream 핸들 leak. `try/finally`로 감쌈.
+
+### 4) Vault 풀이 race + stuck ([vault.js](vault.js))
+
+- **`handleMateMove` _replayGen 가드 누락**: `await analyzeForMate()` 도중 사용자가 "다음 퍼즐"로 넘어가면 stale 응수가 새 보드에 박힘. 엔진 호출 전 `const gen = _replayGen` 캡처 → 복귀 시 `if (gen !== _replayGen) return`으로 차단. 블런더 path에는 이미 가드 있었음.
+- **null-cat 카드 자동 skip**: `categorize(item) === null` (legacy 'positional' 등)일 때 `showPuzzleEmpty(true)`만 하고 멈춤 → 사용자 stuck. `removeItemEverywhere(item.id) + loadNextPuzzle()`로 자동 진행.
+- **COORDS_KEY 누락 픽스**: vault.js의 두 사이트(`openVaultItem`, `renderSolvableItem`)가 직접 `localStorage.getItem(COORDS_KEY)`로 읽고 있어 try/catch 부재. `getIsCoordsEnabled()` accessor로 통합.
+
+### 5) localStorage 헬퍼 추출 ([storage.js](storage.js))
+
+13곳 inline `try { localStorage... } catch (_) {}` 보일러플레이트 → `lsGet/lsSet` 두 함수로 통합:
+
+```js
+export function lsGet(key, fallback = null) {
+    try { const v = localStorage.getItem(key); return v === null ? fallback : v; }
+    catch (_) { return fallback; }
+}
+export function lsSet(key, value) {
+    try { localStorage.setItem(key, value); return true; }
+    catch (_) { return false; }
+}
+```
+
+부수 효과:
+- `getMyUserId/setMyUserId/getMyPlatform/setMyPlatform`이 4 one-liner로 압축
+- `getIsCoordsEnabled/setIsCoordsEnabled` accessor 추가 (gemini의 getIsGeminiEnabled 패턴과 대칭) — main.js + settings.js + vault.js 4 사이트 통합
+- analysis.js / gemini.js / home.js / ui.js / settings.js / strings.js / main.js 전부 `lsGet/lsSet` import
+
+### 6) 기타 픽스 / 정리
+
+- **`homeProfileRatings` ReferenceError** ([main.js:427](main.js:427)): main.js가 home.js의 module-level `let`을 직접 참조 → 클릭 시 `ReferenceError`. `export let`으로 변환 (board.js / modes.js 패턴 일관) → main.js는 live binding으로 import.
+- **escapeHtml(0) 버그** ([utils.js:541](utils.js:541)): `if (!unsafe) return ''`가 0/false/empty도 빈 문자열 반환. `null/undefined` 명시 체크로 수정 → 64개 호출 사이트에 자동 propagate.
+- **formatRelativeDate locale** ([utils.js:783](utils.js:783)): `'ko-KR'` 하드코드 → `getLocale()` 기반 `en-US`/`ko-KR` 분기.
+- **Insights i18n 우회 3건** ([insights.js](insights.js)): `renderTimeOfDayCard/DayOfWeekCard/OpponentDiffCard`의 한국어 하드코드 labelMap → 신규 short i18n 키 16개 (KO+EN). EN UI에서 한국어 노출되던 거 차단.
+- **`api/db.js` update saved_games 화이트리스트**: 기존 analyzed_games 전용 → 테이블별 schema(`UPDATE_SCHEMA`) 분기로 saved_games(title/notes/category) 추가. 임의 컬럼 변경 차단 유지.
+- **OS prompt 제거** ([main.js:899](main.js:899)): `navigator.clipboard.writeText.catch(() => prompt('PGN', pgn))` → `showToast(t('feedback_error_network'))`. CLAUDE.md "OS alert/confirm 대체" 위반 정리.
+- **XSS escape 4곳 추가** ([ui.js](ui.js)): `move.san`, `line.uci`, `line.scoreStr`, `line.pv` 모두 escapeHtml 적용. 현재는 chess.js/Stockfish 출력이라 안전 범위지만 defense-in-depth.
+- **Dead code**: `_hasUsableEngine()` (호출 0), `currentEval` 변수, `analysisLoadingText/Card` ref, `getMyUserId` import, `// parseAndLoadPgn moved to utils.js` 코멘트.
+- **Dead i18n 키 7개** ([strings.js](strings.js)): `vault_count`, `vault_delete_title`, `saved_games_count`, `saved_games_empty`, `home_settings`, `aria_search`, `savedGames` (KO+EN 양쪽). grep으로 사용처 0건 검증.
+- **Phase 46 narrative 코멘트**: vault.js 2곳, savedGames.js 3곳, main.js 4곳 정리. CLAUDE.md "Phase narrative 강제 제거" 적용.
+- **init guard 비대칭**: `dialogs.js`, `savedGames.js`에 `_initialized` 가드 추가 (settings.js와 일치).
+- **'chesscom' 리터럴 8곳 → `PLATFORM_CHESSCOM`** ([storage.js](storage.js)).
+- **`platform` typo** → `platform` ([home.js](home.js)).
+
+### 7) Simplify 패스 (3-agent 리뷰 → 핵심만 적용)
+
+- **`lsGet/lsSet` 추출** (위 5번)
+- **`getIsCoordsEnabled` accessor** (4 사이트 통합)
+- **`homeProfileRatings` getter 제거** → `export let` (codebase 컨벤션)
+- **dead `_hasUsableEngine`** 메서드 삭제
+- **gemini reader.releaseLock 중복 try/catch** 제거 (외부 try/finally가 이미 감쌈)
+- **insights.js shortLabelMap pattern**은 유지 — 3 사이트 추출 시 헬퍼 비용이 더 큼 (마이크로 최적화 스킵)
+
+### 의도적 스킵 (인프라/의존성 결정 필요)
+
+- **API rate limiting** — 4 엔드포인트(analyze/db/feedback/log-username)가 rate limit 0. Vercel KV 또는 외부 서비스 필요 → 인프라 결정.
+- **CORS Origin allowlist** — dev 환경 깨질 위험. 운영 도메인 결정 필요.
+- **Gemini 본문 sanitization** — `marked`가 raw HTML escape 안 함. DOMPurify 의존성 필요한데 "no npm" 제약과 충돌 → 별도 결정 필요.
+- **`EnginePool.destroy()` 와이어링** — `initAnalysis`는 한 번만 호출되는 사이트 → 회귀 가능성 vs 변경 비용 trade-off로 보류.
+- **utils.js `parseAndLoadPgn` 폴백 헤더 처리** — chess.js가 거부한 PGN을 raw token으로 재시도하는데 헤더 첫 토큰에서 break. 정상 PGN은 chess.js가 전부 처리하니 실 영향 미미 → 기능 추가 형태로 별도 phase.
+
+### 검증
+
+| 항목 | 결과 |
+|---|---|
+| 모듈 로드 에러 (전체 화면 진입) | 0 |
+| 콘솔 에러 (홈/복기/저장/통계/설정/About) | 0 |
+| 분석 파이프라인 (5수 PGN) | 분류 + eval + 정확도 정상 |
+| Settings 페이지 진입 | tc=rapid, coords/gemini=on 정상 표시 |
+| EnginePool ready/dispatch | 실패 워커 격리 + retire 정상 |
+
+### 라인 변화 (Phase 48만)
+
+| 파일 | 변경 |
+|---|---|
+| [storage.js](storage.js) | +73 −19 (lsGet/lsSet/getIsCoordsEnabled + platform race 3 + updateSavedGame sync) |
+| [strings.js](strings.js) | +35 −17 (insights short i18n 16개 + dead 키 7개 제거 + lsGet 사용) |
+| [engine.js](engine.js) | +27 −4 (worker retire + ready allSettled + dispatch 격리) |
+| [main.js](main.js) | +14 −31 (dead refs/imports/var 정리 + lsGet 통합 + OS prompt 제거) |
+| [api/db.js](api/db.js) | +20 −11 (UPDATE_SCHEMA 추가) |
+| [vault.js](vault.js) | +12 −7 (mate replay 가드 + null-cat skip + COORDS 헬퍼) |
+| [home.js](home.js) | +10 −5 (export let homeProfileRatings + lsGet/lsSet + platform 롤백) |
+| [gemini.js](gemini.js) | +14 −10 (lsGet/escapeHtml/reader try-finally) |
+| [ui.js](ui.js) | +7 −7 (escapeHtml 4곳 + lsGet) |
+| [settings.js](settings.js) | +4 −4 (lsGet + accessor) |
+| [insights.js](insights.js) | +3 −9 (i18n short 키 변환) |
+| [savedGames.js](savedGames.js) | +3 −4 (init guard + dead 코멘트) |
+| [utils.js](utils.js) | +5 −4 (escapeHtml falsy + locale) |
+| [analysis.js](analysis.js) | +3 −2 (lsGet/lsSet) |
+| [autoBlunders.js](autoBlunders.js) | +4 −1 (dedup error 로그) |
+| [dialogs.js](dialogs.js) | +3 (init guard) |
+
+순 효과: +220 −123 = +97 라인. 보일러플레이트 제거(−)보다 race/leak 가드 추가(+)가 약간 더 큼. 신규 기능 0, 신뢰성 5건(워커 leak / breaker race / cross-platform leak / mate replay race / module load throw) + XSS 차단 1 + 보안 hardening 다수.
+
+### 남은 갭 (계속 미해결 — 별 트랙)
+
+- **테스트 슈트 부재** — 동시성/오류 경로 검증은 여전히 수동 + preview server. callDB pilot/breaker race, mate replay race 같은 건 production 모니터링으로만 잡힘.
+- **DOMPurify** — Gemini 본문 sanitization. prompt injection으로 `<script>` 흘릴 위험 이론적 잔존.
+- **Rate limiting** — 인프라 결정.
+- **다크 모드** — 0 진행.
+- **빈 상태 일러스트** — 디자이너 외주 영역.
+
+---
+
 ## Phase 47 — PC 비율 / vault 화면 전반 재디자인 / 분석 결 eval 표시 / 한 수 풀이 (2026-05-09)
 
 vault 화면 전반을 한 세션에 재구성. PC 모드 비율 보정 → top bar segmented pill → 화면 4요소 위계 재정비(progress bar / category chip / board flash / action bar) → 분석 화면 결의 단일 eval display → 한 수 풀이로 정답 판정 단순화. 동시에 vault/saved 진입 시 supabase fetch 동안 빈 화면(naked) 가림용 로딩 오버레이 추가.
