@@ -698,19 +698,15 @@ async function renderSolvableItem(item, isMate) {
     if (vaultPuzzleHeader) {
         let txt = isMate ? t('vault_puzzle_find_mate') : t('vault_puzzle_find_best');
         if (puzzleMateBudget != null) txt += ` · M${puzzleMateBudget}`;
-        const chipCategory = isMate ? 'missed_mate' : (item.category || 'blunder');
-        const chipMateIn = isMate ? puzzleMateBudget : null;
-        vaultPuzzleHeader.innerHTML =
-            classificationChipHtml(chipCategory, { mateIn: chipMateIn }) +
-            ' ' + escapeHtml(txt);
+        // chip 제거 — 헤더 텍스트("최선수를 찾으세요"/"메이트를 찾으세요")가 카테고리 전달.
+        vaultPuzzleHeader.textContent = txt;
     }
     if (vaultPuzzleSubhead) {
-        const parts = [];
-        if (item.gameTitle) parts.push(item.gameTitle);
-        if (typeof item.moveNumber === 'number') {
-            parts.push(`${item.moveNumber}${moverIsWhite ? '.' : '...'}`);
-        }
-        vaultPuzzleSubhead.textContent = parts.join(' · ');
+        const opp = opponentLabel(item, getMyUserId());
+        const dateText = item.playedDate || item.date
+            ? formatRelativeDate(item.playedDate || item.date, getDateStrings())
+            : '';
+        vaultPuzzleSubhead.textContent = [opp, dateText].filter(Boolean).join(' · ');
     }
     if (vaultPuzzleFeedback) vaultPuzzleFeedback.innerHTML = '';
 
