@@ -1,4 +1,4 @@
-import { Chess, validateFen } from 'https://cdn.jsdelivr.net/npm/chess.js@1.4.0/+esm';
+import { Chess, SQUARES, validateFen } from 'https://cdn.jsdelivr.net/npm/chess.js@1.4.0/+esm';
 import { t, getLocale } from './strings.js';
 
 /**
@@ -85,7 +85,7 @@ export function winChanceDelta(scoreA, scoreB, isWhiteMover = true) {
  */
 export function getDests(tempChess) {
     const dests = new Map();
-    tempChess.SQUARES.forEach(s => {
+    SQUARES.forEach(s => {
         const ms = tempChess.moves({ square: s, verbose: true });
         if (ms.length) dests.set(s, ms.map(m => m.to));
     });
