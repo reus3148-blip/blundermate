@@ -513,102 +513,72 @@
             </div>
 
             <div class="page-scroll">
-                <!-- General -->
                 <section class="settings-section">
                     <h3 class="settings-section-label" data-i18n="settings_section_general">General</h3>
-                    <div class="form-group settings-row">
-                        <div class="settings-row-inner">
-                            <span class="settings-label" data-i18n="language">언어</span>
-                            <div class="lang-toggle">
-                                <button id="langKoBtn" class="lang-btn">KO</button>
-                                <button id="langEnBtn" class="lang-btn">EN</button>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="form-group settings-row">
-                        <div class="settings-row-inner">
-                            <span class="settings-label" data-i18n="settings_default_tc">기본 시간대</span>
-                            <select id="defaultTcSelect" class="select-auto">
-                                <option value="rapid" data-i18n="home_filter_rapid">래피드</option>
-                                <option value="blitz" data-i18n="home_filter_blitz">블리츠</option>
-                                <option value="bullet" data-i18n="home_filter_bullet">불렛</option>
-                                <option value="all" data-i18n="home_filter_all">전체</option>
-                            </select>
-                        </div>
+                    <div class="settings-group">
+                        <button type="button" class="settings-row settings-row--nav" id="settingsLangRow">
+                            <span class="settings-row-label" data-i18n="language">언어</span>
+                            <span class="settings-row-value" id="settingsLangValue"></span>
+                        </button>
+                        <button type="button" class="settings-row settings-row--nav" id="settingsTcRow">
+                            <span class="settings-row-label" data-i18n="settings_default_tc">기본 시간대</span>
+                            <span class="settings-row-value" id="settingsTcValue"></span>
+                        </button>
                     </div>
                 </section>
 
-                <!-- Analysis -->
                 <section class="settings-section">
                     <h3 class="settings-section-label" data-i18n="settings_section_analysis">Analysis</h3>
-                    <div class="form-group settings-row">
-                        <div class="settings-row-inner">
-                            <span class="settings-label" data-i18n="settings_depth">엔진 분석 깊이</span>
-                            <select id="depthSelect" class="select-auto">
-                                <option value="8">8</option>
-                                <option value="10">10</option>
-                                <option value="12">12</option>
-                                <option value="14" selected>14</option>
-                                <option value="16">16</option>
-                                <option value="18">18</option>
-                                <option value="20">20</option>
-                            </select>
+                    <div class="settings-group">
+                        <div class="settings-row">
+                            <span class="settings-row-label" data-i18n="settings_depth">엔진 분석 깊이</span>
+                            <div class="stepper" id="depthStepper" role="group" aria-label="Engine depth">
+                                <button type="button" class="stepper-btn" data-action="dec" id="depthDecBtn" aria-label="−">−</button>
+                                <span class="stepper-val" id="depthVal">14</span>
+                                <button type="button" class="stepper-btn" data-action="inc" id="depthIncBtn" aria-label="+">+</button>
+                            </div>
                         </div>
-                        <span class="settings-hint" data-i18n="settings_depth_hint">기본 14. 저사양 모바일은 12, PC는 16 이상도 OK. 높을수록 정확하지만 느려집니다.</span>
-                    </div>
-                    <div class="form-group settings-row">
-                        <div class="settings-row-inner">
-                            <span class="settings-label" id="geminiCoachLabel" data-i18n="geminiCoach">Gemini AI Coach</span>
+                        <div class="settings-row">
+                            <span class="settings-row-label" id="geminiCoachLabel" data-i18n="geminiCoach">Gemini AI Coach</span>
                             <label class="switch">
                                 <input type="checkbox" id="geminiToggle" aria-labelledby="geminiCoachLabel">
                                 <span class="slider round"></span>
                             </label>
                         </div>
-                        <span class="settings-hint" data-i18n="geminiCoachHint">Toggle real AI analysis (ON) or dummy test data (OFF).</span>
                     </div>
+                    <p class="settings-section-hint" data-i18n="settings_depth_hint">기본 14. 저사양 모바일은 12, PC는 16 이상도 OK. 높을수록 정확하지만 느려집니다.</p>
                 </section>
 
-                <!-- Appearance -->
                 <section class="settings-section">
                     <h3 class="settings-section-label" data-i18n="settings_section_appearance">외형</h3>
-                    <div class="form-group settings-row">
-                        <div class="settings-row-inner">
-                            <span class="settings-label" id="themeLabel" data-i18n="settings_theme">테마</span>
-                            <div class="lang-toggle" role="radiogroup" aria-labelledby="themeLabel">
-                                <button id="themeSystemBtn" class="lang-btn" data-i18n="theme_system">자동</button>
-                                <button id="themeLightBtn" class="lang-btn" data-i18n="theme_light">라이트</button>
-                                <button id="themeDarkBtn" class="lang-btn" data-i18n="theme_dark">다크</button>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- Board -->
-                <section class="settings-section">
-                    <h3 class="settings-section-label" data-i18n="settings_section_board">Board</h3>
-                    <div class="form-group settings-row">
-                        <div class="settings-row-inner">
-                            <span class="settings-label" id="boardCoordsLabel" data-i18n="boardCoords">Board Coordinates</span>
+                    <div class="settings-group">
+                        <button type="button" class="settings-row settings-row--nav" id="settingsThemeRow">
+                            <span class="settings-row-label" data-i18n="settings_theme">테마</span>
+                            <span class="settings-row-value" id="settingsThemeValue"></span>
+                        </button>
+                        <div class="settings-row">
+                            <span class="settings-row-label" id="boardCoordsLabel" data-i18n="boardCoords">Board Coordinates</span>
                             <label class="switch">
                                 <input type="checkbox" id="coordsToggle" aria-labelledby="boardCoordsLabel">
                                 <span class="slider round"></span>
                             </label>
                         </div>
-                        <span class="settings-hint" data-i18n="boardCoordsHint">Show algebraic coordinates (a-h, 1-8) on the board.</span>
                     </div>
                 </section>
 
-                <!-- Support -->
                 <section class="settings-section">
                     <h3 class="settings-section-label" data-i18n="settings_section_support">Support</h3>
-                    <button class="settings-row settings-row--nav" id="settingsFeedbackBtn" data-i18n="home_feedback">피드백</button>
-                    <button class="settings-row settings-row--nav" id="settingsAboutBtn" data-i18n="settings_about">이 앱에 대해</button>
-                    <a class="settings-row settings-row--nav" href="/privacy.html" target="_blank" rel="noopener" data-i18n="settings_privacy">개인정보처리방침</a>
+                    <div class="settings-group">
+                        <button type="button" class="settings-row settings-row--nav" id="settingsFeedbackBtn" data-i18n="home_feedback">피드백</button>
+                        <button type="button" class="settings-row settings-row--nav" id="settingsAboutBtn" data-i18n="settings_about">이 앱에 대해</button>
+                        <a class="settings-row settings-row--nav" href="/privacy.html" target="_blank" rel="noopener" data-i18n="settings_privacy">개인정보처리방침</a>
+                    </div>
                 </section>
 
-                <!-- Account (destructive) -->
-                <section class="settings-section settings-section--danger">
-                    <button class="settings-row settings-row--destructive" id="logoutBtn" data-i18n="settings_logout">로그아웃</button>
+                <section class="settings-section">
+                    <div class="settings-group">
+                        <button type="button" class="settings-row settings-row--destructive" id="logoutBtn" data-i18n="settings_logout">로그아웃</button>
+                    </div>
                 </section>
             </div>
         </div>
@@ -745,6 +715,14 @@
                     <button id="confirmCancelBtn" class="text-btn"></button>
                     <button id="confirmOkBtn" class="primary-btn"></button>
                 </div>
+            </div>
+        </div>
+
+        <!-- Option Sheet — settings disclosure row의 단일 선택 시트. dialogs.js의 showOptionSheet 헬퍼가 제어. -->
+        <div id="optionSheetModal" class="modal-overlay hidden">
+            <div class="modal-content modal-content--narrow option-sheet">
+                <h2 id="optionSheetTitle" class="option-sheet-title"></h2>
+                <ul id="optionSheetList" class="option-sheet-list" role="listbox"></ul>
             </div>
         </div>
 

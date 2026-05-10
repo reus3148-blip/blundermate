@@ -5,9 +5,11 @@
 //   showToast(message, durationMs?) — 하단 검정 pill, 자동 사라짐
 //   showAlert(message)              — 토스트 1:1 매핑. 호출 의도 분리용 별칭
 //   showConfirm(message, opts?)     — Promise<boolean>. opts: { okLabel, cancelLabel, destructive }
+//   showOptionSheet({ title, options, current }) — Promise<value|null>. 단일 선택. 옵션 탭 즉시 resolve, 외부/Esc는 null.
 //   initDialogs()                   — main.js에서 한 번 호출. 모달 close 핸들러 + 키보드 와이어링.
 
 import { t } from './strings.js';
+import { escapeHtml } from './utils.js';
 
 const TOAST_DEFAULT_MS = 2600;
 
@@ -67,6 +69,44 @@ export function showConfirm(message, opts = {}) {
     });
 }
 
+let _optionResolve = null;
+
+// 단일 선택 시트. options: [{ value, label }]. current는 value(선택된 항목 표시용).
+// 옵션 탭 → 해당 value resolve + close. 외부 영역 / Escape → null.
+export function showOptionSheet({ title, options, current } = {}) {
+    const modal = document.getElementById('optionSheetModal');
+    const titleEl = document.getElementById('optionSheetTitle');
+    const listEl = document.getElementById('optionSheetList');
+    if (!modal || !titleEl || !listEl || !Array.isArray(options)) {
+        return Promise.resolve(null);
+    }
+
+    if (_optionResolve) {
+        const stale = _optionResolve;
+        _optionResolve = null;
+        stale(null);
+    }
+
+    titleEl.textContent = title || '';
+    listEl.innerHTML = options.map(opt => {
+        const isSelected = opt.value === current;
+        return `
+            <li>
+                <button type="button" class="option-sheet-item${isSelected ? ' is-selected' : ''}" data-value="${escapeHtml(opt.value)}" role="option" aria-selected="${isSelected ? 'true' : 'false'}">
+                    <span class="option-sheet-item-label">${escapeHtml(opt.label)}</span>
+                    <span class="option-sheet-item-check" aria-hidden="true"></span>
+                </button>
+            </li>
+        `;
+    }).join('');
+
+    modal.classList.remove('hidden');
+
+    return new Promise(resolve => {
+        _optionResolve = resolve;
+    });
+}
+
 let _dialogsInitialized = false;
 export function initDialogs() {
     if (_dialogsInitialized) return;
@@ -87,10 +127,32 @@ export function initDialogs() {
     modal.addEventListener('click', (e) => {
         if (e.target === modal) close(false);
     });
+
+    // Option sheet 와이어링 — 옵션 list는 동적이라 위임으로.
+    const sheet = document.getElementById('optionSheetModal');
+    const list = document.getElementById('optionSheetList');
+    const closeSheet = (value) => {
+        sheet?.classList.add('hidden');
+        const r = _optionResolve;
+        _optionResolve = null;
+        if (r) r(value);
+    };
+    if (sheet && list) {
+        sheet.addEventListener('click', (e) => {
+            if (e.target === sheet) closeSheet(null);
+        });
+        list.addEventListener('click', (e) => {
+            const btn = e.target.closest('.option-sheet-item');
+            if (!btn) return;
+            closeSheet(btn.dataset.value);
+        });
+    }
+
     // Escape만 글로벌. Enter는 cancelBtn focus + native activation으로 처리 — global Enter 핸들러는
     // 모달 밖 input에 focus가 남아있을 때 의도치 않은 OK를 유발할 수 있어 의도적으로 제거.
     document.addEventListener('keydown', (e) => {
-        if (modal.classList.contains('hidden')) return;
-        if (e.key === 'Escape') close(false);
+        if (e.key !== 'Escape') return;
+        if (!modal.classList.contains('hidden')) close(false);
+        else if (sheet && !sheet.classList.contains('hidden')) closeSheet(null);
     });
 }

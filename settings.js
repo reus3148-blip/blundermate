@@ -9,21 +9,31 @@ import { getIsGeminiEnabled, setIsGeminiEnabled } from './gemini.js';
 import { setDefaultTcFilter } from './home.js';
 import { DEFAULT_TC_KEY, clearIdentity, lsGet, getIsCoordsEnabled, setIsCoordsEnabled, getTheme } from './storage.js';
 import { setLocale, getLocale, t } from './strings.js';
-import { showConfirm, showToast } from './dialogs.js';
+import { showConfirm, showToast, showOptionSheet } from './dialogs.js';
 import { THEMES, setAndApplyTheme } from './theme.js';
 
-const THEME_BTNS = [
-    ['themeSystemBtn', THEMES.SYSTEM],
-    ['themeLightBtn',  THEMES.LIGHT],
-    ['themeDarkBtn',   THEMES.DARK],
-];
+// 엔진 깊이 stepper 범위. analysis.js의 lsGet 기본값과 일치하는 14를 중앙에 두고 ±6, step 2.
+const DEPTH_MIN = 8;
+const DEPTH_MAX = 20;
+const DEPTH_STEP = 2;
 
-function syncThemeButtons() {
-    const cur = getTheme();
-    for (const [id, theme] of THEME_BTNS) {
-        document.getElementById(id)?.classList.toggle('active', theme === cur);
-    }
-}
+const LANG_OPTIONS = ['ko', 'en'];
+const LANG_LABEL_KEY = { ko: 'settings_lang_ko', en: 'settings_lang_en' };
+
+const TC_OPTIONS = ['rapid', 'blitz', 'bullet', 'all'];
+const TC_LABEL_KEY = {
+    rapid: 'home_filter_rapid',
+    blitz: 'home_filter_blitz',
+    bullet: 'home_filter_bullet',
+    all:   'home_filter_all',
+};
+
+const THEME_OPTIONS = [THEMES.SYSTEM, THEMES.LIGHT, THEMES.DARK];
+const THEME_LABEL_KEY = {
+    [THEMES.SYSTEM]: 'theme_system',
+    [THEMES.LIGHT]:  'theme_light',
+    [THEMES.DARK]:   'theme_dark',
+};
 
 let _navigateTo = null;
 let _SCREENS = null;
@@ -34,19 +44,29 @@ let _showOnboarding = null;
 
 let _initialized = false;
 
+function setText(id, text) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = text;
+}
+
+function syncDepthStepper(depth) {
+    setText('depthVal', String(depth));
+    const dec = document.getElementById('depthDecBtn');
+    const inc = document.getElementById('depthIncBtn');
+    if (dec) dec.disabled = depth <= DEPTH_MIN;
+    if (inc) inc.disabled = depth >= DEPTH_MAX;
+}
+
 export function onSettingsViewEnter() {
-    const depthSelect = document.getElementById('depthSelect');
-    if (depthSelect) depthSelect.value = String(getDepth());
-    const tcSelect = document.getElementById('defaultTcSelect');
-    if (tcSelect) tcSelect.value = lsGet(DEFAULT_TC_KEY, 'rapid');
+    setText('settingsLangValue', t(LANG_LABEL_KEY[getLocale()]));
+    setText('settingsTcValue', t(TC_LABEL_KEY[lsGet(DEFAULT_TC_KEY, 'rapid')]));
+    setText('settingsThemeValue', t(THEME_LABEL_KEY[getTheme()]));
+    syncDepthStepper(getDepth());
+
     const gemini = document.getElementById('geminiToggle');
     if (gemini) gemini.checked = getIsGeminiEnabled();
     const coords = document.getElementById('coordsToggle');
     if (coords) coords.checked = getIsCoordsEnabled();
-    syncThemeButtons();
-    const locale = getLocale();
-    document.getElementById('langKoBtn')?.classList.toggle('active', locale === 'ko');
-    document.getElementById('langEnBtn')?.classList.toggle('active', locale === 'en');
 }
 
 export function onFeedbackViewEnter() {
@@ -88,18 +108,65 @@ function applyLocaleChange(locale) {
     _renderAiTabContentIfActive?.();
 }
 
+function wireDisclosure({ rowId, valueId, titleKey, options, labelKey, get, set }) {
+    document.getElementById(rowId)?.addEventListener('click', async () => {
+        const cur = get();
+        const picked = await showOptionSheet({
+            title: t(titleKey),
+            options: options.map(v => ({ value: v, label: t(labelKey[v]) })),
+            current: cur,
+        });
+        if (!picked || picked === cur) return;
+        set(picked);
+        setText(valueId, t(labelKey[picked]));
+    });
+}
+
 function wireSettingsPage() {
     wireBackBtn('settingsBackBtn');
 
-    document.getElementById('langKoBtn')?.addEventListener('click', () => applyLocaleChange('ko'));
-    document.getElementById('langEnBtn')?.addEventListener('click', () => applyLocaleChange('en'));
-
-    document.getElementById('defaultTcSelect')?.addEventListener('change', (e) => {
-        setDefaultTcFilter(e.target.value);
+    wireDisclosure({
+        rowId: 'settingsLangRow',
+        valueId: 'settingsLangValue',
+        titleKey: 'settings_sheet_lang_title',
+        options: LANG_OPTIONS,
+        labelKey: LANG_LABEL_KEY,
+        get: getLocale,
+        // disclosure 값 텍스트는 data-i18n 바인딩이 아니라 imperative 렌더 — applyLocale이 못 잡으니 직접 갱신.
+        set: (locale) => { applyLocaleChange(locale); onSettingsViewEnter(); },
     });
 
-    document.getElementById('depthSelect')?.addEventListener('change', (e) => {
-        setDepth(e.target.value);
+    wireDisclosure({
+        rowId: 'settingsTcRow',
+        valueId: 'settingsTcValue',
+        titleKey: 'settings_sheet_tc_title',
+        options: TC_OPTIONS,
+        labelKey: TC_LABEL_KEY,
+        get: () => lsGet(DEFAULT_TC_KEY, 'rapid'),
+        set: setDefaultTcFilter,
+    });
+
+    wireDisclosure({
+        rowId: 'settingsThemeRow',
+        valueId: 'settingsThemeValue',
+        titleKey: 'settings_sheet_theme_title',
+        options: THEME_OPTIONS,
+        labelKey: THEME_LABEL_KEY,
+        get: getTheme,
+        set: setAndApplyTheme,
+    });
+
+    document.getElementById('depthDecBtn')?.addEventListener('click', () => {
+        const next = Math.max(DEPTH_MIN, getDepth() - DEPTH_STEP);
+        if (next === getDepth()) return;
+        setDepth(next);
+        syncDepthStepper(next);
+    });
+    document.getElementById('depthIncBtn')?.addEventListener('click', () => {
+        const next = Math.min(DEPTH_MAX, getDepth() + DEPTH_STEP);
+        if (next === getDepth()) return;
+        setDepth(next);
+        syncDepthStepper(next);
     });
 
     document.getElementById('geminiToggle')?.addEventListener('change', (e) => {
@@ -111,13 +178,6 @@ function wireSettingsPage() {
         setIsCoordsEnabled(enabled);
         _applyCoords?.(enabled);
     });
-
-    for (const [id, theme] of THEME_BTNS) {
-        document.getElementById(id)?.addEventListener('click', () => {
-            setAndApplyTheme(theme);
-            syncThemeButtons();
-        });
-    }
 
     document.getElementById('settingsFeedbackBtn')?.addEventListener('click', () => {
         _navigateTo(_SCREENS.FEEDBACK);

@@ -33,7 +33,7 @@ import {
     initGemini, handleGeminiExplanation, renderAiTabContent,
     abortPendingGemini,
 } from './gemini.js';
-import { t, getLocale } from './strings.js';
+import { t } from './strings.js';
 import { pickQuote, quotesReady } from './quotes.js';
 
 // 다이얼로그 헬퍼 (showToast/showAlert/showConfirm)는 dialogs.js로 이전.
@@ -341,10 +341,6 @@ function applyLocale() {
     document.querySelectorAll('[data-i18n-aria]').forEach(el => {
         el.setAttribute('aria-label', t(el.dataset.i18nAria));
     });
-    // Sync lang button active state
-    const locale = getLocale();
-    document.getElementById('langKoBtn')?.classList.toggle('active', locale === 'ko');
-    document.getElementById('langEnBtn')?.classList.toggle('active', locale === 'en');
 }
 
 // 홈/온보딩 — home.js로 이전. handlePgnReviewStart는 hoisted function declaration이라 안전.
@@ -1314,6 +1310,8 @@ function applyPreviewControls() {
     tabToggleBtn.classList.add('hidden');
     previewStartBtn.classList.remove('hidden');
     previewStartBtn.textContent = t('analysis_start_btn');
+    // 미리보기 카드에 닉네임 중복.
+    setPlayersBarHidden(true);
 }
 
 function removePreviewControls() {
@@ -1323,6 +1321,7 @@ function removePreviewControls() {
     if (ctrlCenter) ctrlCenter.classList.remove('hidden');
     tabToggleBtn.classList.remove('hidden');
     previewStartBtn.classList.add('hidden');
+    refreshPlayersBar();
 }
 
 // 분석 로딩 상태: 보드 자리에 명언 카드 + 진행 바, 패널/네비/상태바 숨김.
@@ -1557,12 +1556,11 @@ function applyReviewView() {
     const on = isReviewMode && canShowReview();
     analysisView.classList.toggle('view-review', on);
     if (on) {
-        // 보드 자리(summaryGraph) = 5단계 카드(헤더/Hero/차트/통계/CTA) 한 묶음.
+        // 보드 자리(summaryGraph) = 카드 묶음(차트/통계/CTA). 게임 식별은 players-bar로 충분.
         // 중간바와 패널은 CSS에서 숨김 처리하므로 여기서 별도로 건드리지 않는다.
         summaryGraphEl.innerHTML = renderReviewReport({
             analysisQueue,
             isUserWhite,
-            gameInfo: buildGameHeaderInfo(),
         });
 
         // CTA 핸들러 와이어링: "분석 시작" → 0수(시작 포지션) 이동.

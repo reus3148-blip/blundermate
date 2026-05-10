@@ -349,15 +349,6 @@ function computePlayerAccuracy(analysisQueue, forWhitePlayer) {
     return sum / accuracies.length;
 }
 
-const MARKER_COLOR = {
-    'Brilliant':  'var(--brilliant)',
-    'Great':      'var(--great)',
-    'Excellent':  'var(--excellent)',
-    'Blunder':    'var(--blunder)',
-    'Mistake':    'var(--mistake)',
-    'Inaccuracy': 'var(--inaccuracy)',
-};
-
 /**
  * 승률 그래프를 SVG 문자열로만 빌드한다 (DOM 삽입은 호출자 책임).
  * 외부 차트 라이브러리를 쓰지 않고 viewBox 기반으로 순수 구현.
@@ -384,7 +375,7 @@ function buildSummaryGraphSvgHtml(analysisQueue, isUserWhite) {
         const whitePct = getWhiteWinPct(move.engineLines[0]);
         if (whitePct === null) continue;
         const pct = isUserWhite ? whitePct : 100 - whitePct;
-        points.push({ moveNum: i + 1, pct, classification: move.classification });
+        points.push({ moveNum: i + 1, pct });
     }
 
     if (points.length === 0) return null;
@@ -398,14 +389,6 @@ function buildSummaryGraphSvgHtml(analysisQueue, isUserWhite) {
     const areaD = `M ${xFor(points[0].moveNum).toFixed(1)} ${baseY.toFixed(1)} `
         + points.map(p => `L ${xFor(p.moveNum).toFixed(1)} ${yFor(p.pct).toFixed(1)}`).join(' ')
         + ` L ${xFor(points[points.length - 1].moveNum).toFixed(1)} ${baseY.toFixed(1)} Z`;
-
-    const markers = points
-        .filter(p => MARKER_COLOR[p.classification])
-        .map(p => {
-            const x = xFor(p.moveNum).toFixed(1);
-            const y = yFor(p.pct).toFixed(1);
-            return `<circle cx="${x}" cy="${y}" r="2.6" fill="${MARKER_COLOR[p.classification]}" stroke="var(--bg-surface)" stroke-width="1"/>`;
-        }).join('');
 
     const ticks = [];
     for (let k = 10; k < total; k += 10) ticks.push(k);
@@ -421,7 +404,6 @@ function buildSummaryGraphSvgHtml(analysisQueue, isUserWhite) {
             <path d="${areaD}" fill="var(--ac-lo)"/>
             <polyline points="${linePts}" fill="none" stroke="var(--ac)" stroke-width="2"
                       stroke-linecap="round" stroke-linejoin="round"/>
-            ${markers}
             ${tickLabels}
         </svg>
     `;
@@ -440,7 +422,7 @@ function renderSummaryGraph(container, analysisQueue, isUserWhite) {
     container.innerHTML = svg;
 }
 
-const CLASS_ORDER = ['Brilliant', 'Great', 'Best', 'Excellent', 'Good', 'Inaccuracy', 'Mistake', 'Blunder', 'Forced'];
+const CLASS_ORDER = ['Brilliant', 'Great', 'Best', 'Excellent', 'Good', 'Inaccuracy', 'Mistake', 'Blunder'];
 const CLASS_I18N = {
     'Brilliant':  'class_brilliant',
     'Great':      'class_great',
@@ -516,20 +498,25 @@ function renderStatsCardHtml(analysisQueue, isUserWhite = true) {
     const wColCls = isUserWhite ? ' is-you' : '';
     const bColCls = isUserWhite ? '' : ' is-you';
 
+    const buildBadge = (c) => {
+        const b = BADGE_MAP[c];
+        if (!b) return `<span class="review-stats-badge review-stats-badge--good"></span>`;
+        return `<span class="review-stats-badge" style="background:${b.bg};color:${b.color};font-size:${b.fontSize};font-weight:${b.fontWeight};">${escapeHtml(b.symbol)}</span>`;
+    };
+    const numClass = (n) => n === 0 ? ' is-zero' : '';
     const classRows = CLASS_ORDER.map((c, idx) => `
         <tr${idx === 0 ? ' class="review-stats-class-first"' : ''}>
             <td class="review-stats-label">
-                <span class="review-stats-dot" style="background:${CLASS_DOT_COLOR[c]};"></span>
-                <span>${escapeHtml(t(CLASS_I18N[c]))}</span>
+                ${buildBadge(c)}
+                <span class="review-stats-label-text">${escapeHtml(t(CLASS_I18N[c]))}</span>
             </td>
-            <td class="review-stats-num${wColCls}">${counts.white[c]}</td>
-            <td class="review-stats-num${bColCls}">${counts.black[c]}</td>
+            <td class="review-stats-num${wColCls}${numClass(counts.white[c])}" style="color:${CLASS_DOT_COLOR[c]};">${counts.white[c]}</td>
+            <td class="review-stats-num${bColCls}${numClass(counts.black[c])}" style="color:${CLASS_DOT_COLOR[c]};">${counts.black[c]}</td>
         </tr>
     `).join('');
 
     return `
         <div class="review-card review-stats-card">
-            <div class="review-card-title">${escapeHtml(t('review_move_quality'))}</div>
             <table class="review-stats-table">
                 <thead>
                     <tr>
@@ -558,43 +545,21 @@ function renderStatsCardHtml(analysisQueue, isUserWhite = true) {
 }
 
 /**
- * 리포트 화면(분석 완료 후 리뷰)의 5단계 카드 HTML을 한 번에 빌드한다.
- * gameInfo: { title, metaLine, openingName, eco, result } — main.js의 buildGameHeaderInfo 결과
- * 결과(result): 'win' | 'loss' | 'draw' | null
+ * 리포트 화면(분석 완료 후 리뷰)의 카드 HTML을 한 번에 빌드한다.
+ * 게임 식별 정보(닉/오프닝/메타)는 players-bar + 홈 카드 진입 컨텍스트로 이미 노출되어 헤더 카드는 두지 않음.
  *
  * 구조 (위→아래):
- *   1. 게임 헤더 카드 (오프닝 / vs / 메타+결과)
- *   2. 차트 카드 (수별 평가 그래프)
- *   3. 통계 표 카드 (정확도 + 수 분류 — renderStatsCardHtml 활용)
- *   4. CTA 버튼 (#reviewStartBtn — 핸들러는 호출자가 와이어링)
+ *   1. 차트 카드 (평가 그래프)
+ *   2. 통계 표 카드 (정확도 + 수 분류 — renderStatsCardHtml 활용)
+ *   3. CTA 버튼 (#reviewStartBtn — 핸들러는 호출자가 와이어링)
  */
-export function renderReviewReport({ analysisQueue, isUserWhite, gameInfo }) {
+export function renderReviewReport({ analysisQueue, isUserWhite }) {
     const graphSvg = buildSummaryGraphSvgHtml(analysisQueue, isUserWhite)
         || `<div class="summary-empty">${escapeHtml(t('report_empty'))}</div>`;
 
-    // 헤더 메타 라인에 결과 단어 추가 (이미 main.js에서 만든 metaLine 뒤에 결과 붙임)
-    let metaWithResult = gameInfo.metaLine || '';
-    let resultClass = '';
-    if (gameInfo.result) {
-        const resultWord = t(`game_result_${gameInfo.result}`);
-        metaWithResult = metaWithResult ? `${metaWithResult} · ${resultWord}` : resultWord;
-        resultClass = `is-${gameInfo.result}`;
-    }
-
-    const openingLine = gameInfo.openingName
-        ? `<div class="review-header-opening">${escapeHtml(gameInfo.openingName)}${gameInfo.eco ? ` · <span class="review-header-eco">${escapeHtml(gameInfo.eco)}</span>` : ''}</div>`
-        : (gameInfo.eco ? `<div class="review-header-opening"><span class="review-header-eco">ECO ${escapeHtml(gameInfo.eco)}</span></div>` : '');
-
     return `
         <div class="review-report">
-            <div class="review-card review-header-card">
-                ${openingLine}
-                ${gameInfo.title ? `<div class="review-header-title">${escapeHtml(gameInfo.title)}</div>` : ''}
-                ${metaWithResult ? `<div class="review-header-meta ${resultClass}">${escapeHtml(metaWithResult)}</div>` : ''}
-            </div>
-
             <div class="review-card review-chart-card">
-                <div class="review-card-title">${escapeHtml(t('review_eval_over_time'))}</div>
                 <div class="review-chart-svg-wrap">${graphSvg}</div>
             </div>
 

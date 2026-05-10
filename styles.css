@@ -29,8 +29,10 @@
 
 .home-brand-text {
     text-align: center;
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
     font-size: 15px;
-    letter-spacing: -0.01em;
+    font-weight: 700;
+    letter-spacing: -0.02em;
     line-height: 1;
     margin: 0;
 }
@@ -45,6 +47,11 @@
     color: var(--tx);
     font-weight: 400;
 }
+
+/* home/analysis top-bar 워드마크 — screen-loading transition과 톤 통일.
+   blunder=tx / mate=accent, weight 700, IBM Plex Mono. opacity는 빼서 활성 텍스트로. */
+.home-brand-text .brand-blunder { color: var(--tx); font-weight: 700; }
+.home-brand-text .brand-mate    { color: var(--ac); font-weight: 700; }
 
 /* ==========================================
    Home View: States
@@ -1855,13 +1862,15 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     gap: 1.1rem;
 }
 
-/* 섹션 컨테이너 — 한 그룹의 row 묶음. 섹션 사이 간격은 .page-scroll { gap } 이 소유 */
+/* iOS HIG inset-grouped 패턴. 섹션 = 라벨 + 둥근 카드(.settings-group) + 옵션 hint.
+   섹션 사이 간격은 .page-scroll { gap }이 소유, row 사이 분리는 그룹이 소유. */
 .settings-section {
     display: flex;
     flex-direction: column;
 }
 .settings-section-label {
-    margin: 0 0 10px;
+    margin: 0 0 8px;
+    padding: 0 4px;
     font-size: 11px;
     font-weight: 600;
     letter-spacing: 0.06em;
@@ -1869,94 +1878,126 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     text-transform: uppercase;
     line-height: 1;
 }
-/* 섹션 내부 row 간격은 섹션이 소유 — 첫 row의 외곽 margin 제거, 같은 섹션 내 row끼리만 간격 */
-.settings-section .settings-row {
-    margin-top: 0;
-}
-.settings-section .settings-row + .settings-row {
-    margin-top: 0.5rem;
-}
-/* 섹션 마지막 row의 보더는 시각적 군더더기 — 섹션 간격이 이미 분리 역할 */
-.settings-section .settings-row:last-child {
-    border-bottom: none;
-}
-/* 로그아웃은 destructive — 섹션 헤더 없이 단독, modal-content { gap } 만으로 분리 */
 
+/* 둥근 카드 컨테이너. overflow: hidden — 내부 row의 hover 배경이 모서리 밖으로 새는 걸 차단. */
+.settings-group {
+    background: var(--bg-surface);
+    border: 1px solid var(--brd);
+    border-radius: var(--list-container-radius);
+    overflow: hidden;
+}
+
+/* 그룹 내 row — div/button/a 모두에 공통 베이스. */
 .settings-row {
-    border-bottom: 1px solid var(--brd);
-}
-
-.settings-row-inner {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    height: 44px;
-}
-
-.settings-label {
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--tx);
-}
-
-.settings-hint {
-    font-size: 11px;
-    color: var(--tx2);
-    margin-top: 2px;
-    display: block;
-    line-height: 1.5;
-    padding-bottom: 8px;
-}
-
-/* Navigation row — 버튼이 row 자체. 좌측 라벨 + 우측 chevron pseudo. */
-.settings-row--nav {
     display: flex;
     align-items: center;
     justify-content: space-between;
     width: 100%;
-    height: 44px;
-    padding: 0;
+    min-height: 44px;
+    padding: 8px 14px;
+    gap: 10px;
     background: transparent;
     border: none;
-    border-bottom: 1px solid var(--brd);
     color: var(--tx);
     font-size: 13px;
-    font-weight: 500;
+    font-family: inherit;
     text-align: left;
     text-decoration: none;
+}
+.settings-row + .settings-row {
+    border-top: 1px solid var(--list-divider);
+}
+
+/* tappable row(button/a)만 cursor + press feedback. div row(toggle/stepper만 들어있는 행)는 자체 컨트롤이 처리. */
+button.settings-row,
+a.settings-row {
     cursor: pointer;
     transition: background 0.15s ease;
 }
-.settings-row--nav:hover {
-    background: var(--bg-elevated);
+button.settings-row:hover,
+a.settings-row:hover {
+    background: var(--press-fill);
 }
+button.settings-row:active,
+a.settings-row:active {
+    background: var(--press-fill-active);
+}
+
+.settings-row-label {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--tx);
+    flex: 1;
+    min-width: 0;
+}
+.settings-row-value {
+    color: var(--tx3);
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+/* Disclosure chevron — nav row 우측 끝에 글리프. flex 마지막 자식이라 자동으로 끝에 붙음. */
 .settings-row--nav::after {
-    content: '\203A'; /* › */
+    content: '\203A';
     color: var(--tx3);
     font-size: 18px;
     line-height: 1;
-    margin-left: 0.5rem;
+    flex-shrink: 0;
 }
 
-/* Destructive row — iOS Sign Out 결. row 자체가 button, 빨간 텍스트만으로 위계 표현 */
+/* Destructive row — 단독 그룹. 버튼 자체가 빨강 + hover만 위험 톤. */
 .settings-row--destructive {
-    display: flex;
-    align-items: center;
-    width: 100%;
-    height: 44px;
-    padding: 0;
-    background: transparent;
-    border: none;
-    border-bottom: 1px solid var(--brd);
     color: var(--blunder);
-    font-size: 13px;
-    font-weight: 500;
-    text-align: left;
-    cursor: pointer;
-    transition: background 0.15s ease;
 }
-.settings-row--destructive:hover {
-    background: rgba(154, 58, 42, 0.05);
+button.settings-row--destructive:hover {
+    background: rgba(208, 56, 50, 0.05);
+}
+
+/* 그룹 아래 보조 설명 — row 안이 아니라 그룹 바깥 아래. */
+.settings-section-hint {
+    font-size: 11px;
+    color: var(--tx2);
+    line-height: 1.5;
+    margin: 6px 8px 0;
+}
+
+/* Stepper — 엔진 깊이용. −/값/+ */
+.stepper {
+    display: inline-flex;
+    align-items: center;
+    background: var(--bg-elevated);
+    border-radius: 8px;
+    padding: 2px;
+    flex-shrink: 0;
+}
+.stepper-btn {
+    width: 26px;
+    height: 26px;
+    border: none;
+    background: transparent;
+    color: var(--tx2);
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    border-radius: 6px;
+    font-family: inherit;
+    transition: color 0.15s ease;
+}
+.stepper-btn:hover { color: var(--tx); }
+.stepper-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+.stepper-val {
+    min-width: 28px;
+    text-align: center;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--tx);
+    font-variant-numeric: tabular-nums;
 }
 
 /* ==========================================
@@ -2047,27 +2088,6 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     font-weight: 500;
 }
 
-.lang-toggle {
-    display: flex;
-    gap: 0.25rem;
-}
-
-.lang-btn {
-    padding: 0.25rem 0.6rem;
-    border: 1px solid var(--brd);
-    border-radius: 4px;
-    background: transparent;
-    color: var(--tx2);
-    font-size: 0.8rem;
-    cursor: pointer;
-}
-
-.lang-btn.active {
-    background: var(--ac);
-    border-color: var(--ac);
-    color: #fff;
-}
-
 /* ==========================================
    Feedback Page
    ========================================== */
@@ -2128,9 +2148,6 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
 
 /* Short textarea (80px) */
 .textarea-short { height: 80px; }
-
-/* Native select appearance */
-.select-auto { appearance: auto; }
 
 /* Best move hint in Save modal */
 .save-best-move-text {
@@ -2276,6 +2293,62 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
 }
 #confirmModal .primary-btn.confirm-ok-destructive:hover {
     filter: brightness(0.92);
+}
+
+/* Option sheet — settings disclosure 단일 선택 시트. confirmModal과 같은 modal-overlay 패턴, 내부는 inset-grouped list. */
+.option-sheet { gap: 14px; padding: 18px; }
+.option-sheet-title {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--tx);
+    text-align: center;
+}
+.option-sheet-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    background: var(--bg-base);
+    border: 1px solid var(--brd);
+    border-radius: var(--list-container-radius);
+    overflow: hidden;
+}
+.option-sheet-list li + li {
+    border-top: 1px solid var(--list-divider);
+}
+.option-sheet-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    min-height: 44px;
+    padding: 8px 14px;
+    gap: 10px;
+    background: transparent;
+    border: none;
+    color: var(--tx);
+    font-size: 14px;
+    font-weight: 500;
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+.option-sheet-item:hover { background: var(--press-fill); }
+.option-sheet-item:active { background: var(--press-fill-active); }
+.option-sheet-item.is-selected { color: var(--ac); }
+.option-sheet-item-check {
+    display: inline-block;
+    width: 16px;
+    flex-shrink: 0;
+    text-align: right;
+}
+.option-sheet-item.is-selected .option-sheet-item-check::before {
+    content: '\2713'; /* ✓ */
+    color: var(--ac);
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1;
 }
 
 /* Toast — 앱 컨테이너 하단(bottom-nav 위)에서 자라나는 단일 알림 띠. */
@@ -3295,7 +3368,8 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
 #analysisView.view-review #boardContainer,
 #analysisView.view-review .unified-controls,
 #analysisView.view-review .panel-content,
-#analysisView.view-review .status-bar {
+#analysisView.view-review .status-bar,
+#analysisView.view-review .players-bar {
     display: none;
 }
 
@@ -3458,49 +3532,7 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     padding: 16px 18px;
     box-sizing: border-box;
 }
-.review-card-title {
-    font-size: 11px;
-    font-weight: 700;
-    color: var(--tx3);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    margin-bottom: 10px;
-}
-
-/* 1. 헤더 카드 */
-.review-header-card {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    padding: 14px 18px;
-}
-.review-header-opening {
-    font-size: 13px;
-    color: var(--tx2);
-    font-weight: 500;
-}
-.review-header-eco {
-    color: var(--tx3);
-    font-family: 'IBM Plex Mono', 'SF Mono', monospace;
-    font-size: 12px;
-}
-.review-header-title {
-    font-size: 18px;
-    font-weight: 600;
-    color: var(--tx);
-    line-height: 1.3;
-    word-break: break-word;
-}
-.review-header-meta {
-    font-size: 12px;
-    color: var(--tx3);
-    margin-top: 2px;
-}
-.review-header-meta.is-win  { color: var(--win); }
-.review-header-meta.is-loss { color: var(--loss); }
-.review-header-meta.is-draw { color: var(--tx2); }
-
-/* 2. 차트 카드 */
+/* 1. 차트 카드 */
 .review-chart-card {
     padding: 14px 14px 10px;
 }
@@ -3530,7 +3562,7 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     font-size: 12px;
 }
 
-/* 4. 통계 카드 — review-card 공통 스타일을 그대로 사용. 표만 자체 스타일. */
+/* 2. 통계 카드 — review-card 공통 스타일을 그대로 사용. 표만 자체 스타일. */
 .review-stats-table {
     width: 100%;
     border-collapse: collapse;
@@ -3538,8 +3570,8 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
 }
 .review-stats-table th,
 .review-stats-table td {
-    padding: 8px;
-    font-size: 13px;
+    padding: 12px 8px;
+    font-size: 14px;
     color: var(--tx);
     vertical-align: middle;
 }
@@ -3582,14 +3614,14 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
 
 /* 정확도 행: 위아래 패딩 + 숫자 강조. */
 .review-stats-accuracy td {
-    padding-top: 11px;
-    padding-bottom: 11px;
+    padding-top: 14px;
+    padding-bottom: 14px;
     font-weight: 700;
 }
-.review-stats-num-strong {
+.review-stats-table td.review-stats-num-strong {
     font-family: 'IBM Plex Mono', 'SF Mono', monospace;
-    font-size: 16px;
-    font-weight: 700;
+    font-size: 17px;
+    font-weight: 800;
     color: var(--tx);
     text-align: center;
 }
@@ -3597,32 +3629,55 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
 /* 정확도 ↔ 수 분류 사이 1px 구분선. */
 .review-stats-class-first td {
     border-top: 1px solid var(--brd);
-    padding-top: 11px;
+    padding-top: 14px;
 }
 
 .review-stats-label {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
     min-width: 0;
     white-space: nowrap;
 }
-.review-stats-dot {
-    width: 11px;
-    height: 11px;
-    border-radius: 50%;
-    display: inline-block;
-    flex-shrink: 0;
-}
-.review-stats-num {
-    font-family: 'IBM Plex Mono', 'SF Mono', monospace;
-    font-size: 13px;
+.review-stats-label-text {
+    font-size: 14px;
     font-weight: 500;
     color: var(--tx);
+}
+/* 분류 칩 — 보드 .piece-badge와 같은 시각언어, 표 inline용 압축 버전.
+   Good은 BADGE_MAP에 entry 없어 .review-stats-badge--good fallback로 작은 disc 표시. */
+.review-stats-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    line-height: 1;
+    flex-shrink: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', sans-serif;
+    letter-spacing: -0.02em;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 0 0 0.5px rgba(0,0,0,0.06);
+}
+.review-stats-badge--good {
+    background: var(--tx);
+    width: 11px;
+    height: 11px;
+    margin: 0 5.5px;
+    box-shadow: none;
+}
+.review-stats-table td.review-stats-num {
+    font-family: 'IBM Plex Mono', 'SF Mono', monospace;
+    font-size: 15px;
+    font-weight: 600;
     text-align: center;
 }
+.review-stats-table td.review-stats-num.is-zero {
+    color: var(--tx3) !important;
+    opacity: 0.5;
+}
 
-/* 4. CTA — 풀너비 앰버 버튼. 4단계 카드 마지막 자리. */
+/* 3. CTA — 풀너비 앰버 버튼. 카드 묶음 마지막 자리. */
 .review-cta-btn {
     width: 100%;
     height: 48px;
