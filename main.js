@@ -22,7 +22,7 @@ import {
     setSimulationQueue, pushSimulationQueueItem, setSimulationIndex, setSimExtendState,
 } from './modes.js';
 import { parseEvalData, getDests, convertPvToSan, parseAndLoadPgn, isValidFen, escapeHtml, parseOpeningFromPgn, getTier, TIERS, classifyMove, formatClock, injectNags } from './utils.js';
-import { renderMovesTable, updateUIWithEval, highlightActiveMove, renderEngineLines, updateTopEvalDisplay, renderReviewReport, buildPreviewCardHtml, placePieceBadge, updatePlayersBar, setPlayersBarHidden } from './ui.js';
+import { renderMovesTable, updateUIWithEval, highlightActiveMove, renderEngineLines, updateTopEvalDisplay, renderReviewReport, buildPreviewCardHtml, placePieceBadge, updateClocks } from './ui.js';
 import { EVAL_MODE_KEY, computePgnHash, upsertAnalyzedGame, loadAnalysisCache, saveAnalysisCache, isCacheCompatible, ANALYSIS_CACHE_VERSION, getIsCoordsEnabled, lsGet, lsSet } from './storage.js';
 import { collectAutoBlunders } from './autoBlunders.js';
 import { initVault, isVaultDetailActive, isVaultPuzzleActive, getVaultDetailIndex, setVaultDetailIndex, flipVaultBoard, setVaultCoords, redrawVaultBoard, loadVaultData, loadBlunderListData, redrawVaultPuzzleBoard } from './vault.js';
@@ -69,10 +69,10 @@ const copyPgnBtn = document.getElementById('copyPgnBtn');
 // View Navigation Elements
 const homeView = document.getElementById('homeView');
 const analysisView = document.getElementById('analysisView');
-const backBtn = document.getElementById('backBtn');
 
 // Live Input Action Bar + Paste Modal
 const liveActionBar = document.getElementById('liveActionBar');
+const analysisBottomBar = document.getElementById('analysisBottomBar');
 const liveUndoBtn = document.getElementById('liveUndoBtn');
 const liveResetBtn = document.getElementById('liveResetBtn');
 const livePastePgnBtn = document.getElementById('livePastePgnBtn');
@@ -579,12 +579,12 @@ function liveInputReset() {
 }
 
 openBoardInputBtn.addEventListener('click', openLiveInput);
-backBtn.addEventListener('click', () => { history.back(); });
 
-// 분석 화면 UI를 그대로 유지 — Save/AI 토글/분류 라벨/구분선 모두 노출.
 // 라이브 전용 액션바(Undo/Reset/Paste)는 LIVE_INPUT일 때만 노출.
+// Phase 58 — 같은 자리(하단)에 살던 .analysis-bottom-bar는 LIVE_INPUT 동안 가림(prev/next/save/AI는 라이브에서 의미 약함).
 function setLiveInputControls(active) {
     liveActionBar?.classList.toggle('hidden', !active);
+    analysisBottomBar?.classList.toggle('hidden', !!active);
 }
 
 function openLivePasteModal() {
@@ -738,6 +738,7 @@ document.addEventListener('keydown', (e) => {
         } else if (cg) {
             const currentOrientation = cg.state.orientation;
             cg.set({ orientation: currentOrientation === 'white' ? 'black' : 'white' });
+            refreshClocks();
         }
     }
 });
@@ -1248,8 +1249,8 @@ function startNewAnalysis(newQueue, targetIndex = null, previewOnly = false) {
         updateTopEvalDisplay('-', '', isUserWhite);
     }
 
-    // 분석 진입 시점 초기 players-bar 갱신 — 미리보기/분석 모드 공통.
-    refreshPlayersBar();
+    // 분석 진입 시점 초기 시계 갱신 — 미리보기/분석 모드 공통.
+    refreshClocks();
 
     if (previewOnly) {
         setIsPreviewMode(true);
@@ -1310,8 +1311,6 @@ function applyPreviewControls() {
     tabToggleBtn.classList.add('hidden');
     previewStartBtn.classList.remove('hidden');
     previewStartBtn.textContent = t('analysis_start_btn');
-    // 미리보기 카드에 닉네임 중복.
-    setPlayersBarHidden(true);
 }
 
 function removePreviewControls() {
@@ -1321,7 +1320,7 @@ function removePreviewControls() {
     if (ctrlCenter) ctrlCenter.classList.remove('hidden');
     tabToggleBtn.classList.remove('hidden');
     previewStartBtn.classList.add('hidden');
-    refreshPlayersBar();
+    refreshClocks();
 }
 
 // 분석 로딩 상태: 보드 자리에 명언 카드 + 진행 바, 패널/네비/상태바 숨김.
@@ -1574,12 +1573,13 @@ function applyReviewView() {
     }
 }
 
-// 보드 위 players-bar 갱신 — 분석 모드(MAIN) + 큐 보유 + 단일 FEN 분석 아님일 때만 표시.
-// 양 측 잔여 시계는 currentlyViewedIndex 이하의 가장 최근 본인 색 ply의 clock을 사용.
-function refreshPlayersBar() {
+// Phase 58 — 3-bar 시계 갱신. 보드 orientation 기준 위쪽(상대) / 아래쪽(나) 진영 시계 라우팅.
+// MAIN 모드 + 큐 보유 + FEN-only 아님일 때만 시계 표시. 그 외엔 빈 문자열.
+function refreshClocks() {
     const queue = analysisQueue;
+    const orientation = cg?.state?.orientation || 'white';
     if (appMode !== APP_MODES.MAIN || queue.length === 0 || queue[0]?.isFenOnly) {
-        setPlayersBarHidden(true);
+        updateClocks({ whiteClock: '', blackClock: '', orientation });
         return;
     }
     let whiteClock = '', blackClock = '';
@@ -1589,20 +1589,11 @@ function refreshPlayersBar() {
         if (q.isWhite) whiteClock = q.clock;
         else blackClock = q.clock;
     }
-    const headers = chess.header();
-    const whiteName = headers.White || '';
-    const blackName = headers.Black || '';
-    if (!whiteName && !blackName && !whiteClock && !blackClock) {
-        setPlayersBarHidden(true);
-        return;
-    }
-    updatePlayersBar({
-        whiteName,
-        blackName,
+    updateClocks({
         whiteClock: formatClock(whiteClock),
         blackClock: formatClock(blackClock),
+        orientation,
     });
-    setPlayersBarHidden(false);
 }
 
 function updateBoardPosition(index, fen) {
@@ -1633,7 +1624,7 @@ function updateBoardPosition(index, fen) {
     // 보드 위치를 옮길 때마다 리뷰 모드는 자동 해제 (사용자가 명시적으로 ☰→리뷰 보기로 다시 켤 수 있음).
     if (isReviewMode) setIsReviewMode(false);
     setCurrentlyViewedIndex(index);
-    refreshPlayersBar();
+    refreshClocks();
     applyReviewView();
     highlightActiveMove(index);
 

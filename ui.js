@@ -298,17 +298,6 @@ function formatScoreMode(scoreStr) {
     return '0.0';
 }
 
-const CLASS_COLOR = {
-    'Brilliant':  'var(--brilliant)',
-    'Great':      'var(--great)',
-    'Best':       'var(--best)',
-    'Excellent':  'var(--excellent)',
-    'Good':       'var(--tx2)',
-    'Inaccuracy': 'var(--inaccuracy)',
-    'Mistake':    'var(--mistake)',
-    'Blunder':    'var(--blunder)',
-    'Forced':     'var(--tx2)',
-};
 
 /**
  * Lichess Accuracy per move: 103.1668 * exp(-0.04354 * winPctLoss) - 3.1669
@@ -595,14 +584,15 @@ export function updateTopEvalDisplay(scoreStr, classification = '', isUserWhite 
     }
     el.style.color = color;
 
-    // Classification label
+    // Classification label — Phase 59 컬러 칩(CSS [data-cls] 셀렉터가 색/배경 결정).
     if (labelEl) {
         const META = ['Exploring', 'Simulating'];
         if (classification && !META.includes(classification)) {
             labelEl.textContent = classification.toUpperCase();
-            labelEl.style.color = CLASS_COLOR[classification] || 'var(--tx2)';
+            labelEl.dataset.cls = classification;
         } else {
             labelEl.textContent = '';
+            delete labelEl.dataset.cls;
         }
     }
 }
@@ -658,21 +648,16 @@ export function placePieceBadge(boardEl, square, orientation, classification) {
     boardEl.appendChild(wrap);
 }
 
-// 보드 위 players-bar — 백/흑 닉네임과 잔여 시계 표시.
+// Phase 58 — 3-bar 레이아웃의 시계 라우팅. 보드 orientation 기준으로 위쪽/아래쪽 진영 시계 결정.
+// orientation === 'white': 보드 상단 = 흑, 하단 = 백 → top=흑시계, bottom=백시계
+// orientation === 'black': 보드 상단 = 백, 하단 = 흑 → top=백시계, bottom=흑시계
 // 인자 clock은 이미 utils.formatClock 통과한 표시용 문자열.
-export function updatePlayersBar({ whiteName, blackName, whiteClock, blackClock }) {
-    const wn = document.getElementById('whitePlayerName');
-    const bn = document.getElementById('blackPlayerName');
-    const wc = document.getElementById('whitePlayerClock');
-    const bc = document.getElementById('blackPlayerClock');
-    if (wn) wn.textContent = whiteName || '—';
-    if (bn) bn.textContent = blackName || '—';
-    if (wc) wc.textContent = whiteClock || '';
-    if (bc) bc.textContent = blackClock || '';
-}
-
-export function setPlayersBarHidden(hidden) {
-    const bar = document.getElementById('playersBar');
-    if (bar) bar.classList.toggle('hidden', !!hidden);
+export function updateClocks({ whiteClock, blackClock, orientation }) {
+    const top = document.getElementById('topPlayerClock');
+    const bottom = document.getElementById('bottomPlayerClock');
+    if (!top || !bottom) return;
+    const flipped = orientation === 'black';
+    top.textContent    = (flipped ? whiteClock : blackClock) || '';
+    bottom.textContent = (flipped ? blackClock : whiteClock) || '';
 }
 

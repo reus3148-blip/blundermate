@@ -58,6 +58,10 @@
   --fw-title:  600;
   --fw-body:   400;
 
+  /* 숫자 디스플레이 (시계/eval/엔진 라인) — Phase 59 mono 통일 + tabular-nums.
+     IBM Plex Mono는 Phase 49에서 이미 로드됨(브랜드 텍스트와 공유). */
+  --num-font: 'IBM Plex Mono', ui-monospace, 'SF Mono', 'Roboto Mono', monospace;
+
   /* Press affordance (Notion gray-fill 패턴 — transform: scale 사용 안 함) */
   --press-fill:        rgba(28, 29, 31, 0.05);
   --press-fill-active: rgba(28, 29, 31, 0.08);
