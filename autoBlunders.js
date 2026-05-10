@@ -55,7 +55,7 @@ function buildSequenceFromPv(prevFen, pvSan, { maxPlies, stopOnMate, firstSide =
 // 각 ply: { san, uci, fen(post-move), side: 'user'|'opponent', classification }
 // 반환 { plies, blunderIndex (배열 내 i 위치) }. 게임 시작/끝 부근이면 윈도우는 자동으로 잘림.
 // export — 수동 저장(main.js)에서도 동일 로직 재사용.
-export function buildGameContext(queue, i, isUserWhite, halfWindow = 3) {
+function buildGameContext(queue, i, isUserWhite, halfWindow = 3) {
     const startIdx = Math.max(0, i - halfWindow);
     const endIdx = Math.min(queue.length - 1, i + halfWindow);
     const plies = [];
@@ -96,7 +96,7 @@ function trimTrailingForced(prevFen, moves) {
 // 상위 라인들 중 베스트 대비 user winChance 갭 ≤ ACCEPT_GAP인 것만 정답 후보로.
 // 메이트 퍼즐인 경우(`requireMate=true`) mate를 주는 라인만 인정.
 // export — 수동 저장(main.js)에서도 동일 로직 재사용.
-export function buildAcceptableLines(prevFen, prevEngineLines, isUserWhite, { maxPlies, stopOnMate, requireMate }) {
+function buildAcceptableLines(prevFen, prevEngineLines, isUserWhite, { maxPlies, stopOnMate, requireMate }) {
     if (!Array.isArray(prevEngineLines) || prevEngineLines.length === 0) return [];
     const evals = prevEngineLines.map(l => lineToEval(l));
     const wcs = evals.map(e => winChance(e, isUserWhite));
@@ -128,7 +128,7 @@ export function buildAcceptableLines(prevFen, prevEngineLines, isUserWhite, { ma
 }
 
 // queue → { worstTwo, missedMates } — 각 후보에 solution(시퀀스+정답 라인들) 포함.
-export function extractAutoCandidates(queue, isUserWhite) {
+function extractAutoCandidates(queue, isUserWhite) {
     if (!Array.isArray(queue) || queue.length === 0) return { worstTwo: [], missedMates: [] };
 
     const userMoveIndices = [];

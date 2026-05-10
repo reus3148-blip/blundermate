@@ -9,13 +9,13 @@ export const THEMES = Object.freeze({
     SYSTEM: 'system',
 });
 
-export function effectiveTheme() {
+function effectiveTheme() {
     const t = getTheme();
     if (t === THEMES.LIGHT || t === THEMES.DARK) return t;
     return window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? THEMES.DARK : THEMES.LIGHT;
 }
 
-export function applyTheme() {
+function applyTheme() {
     document.documentElement.setAttribute('data-theme', effectiveTheme());
 }
 

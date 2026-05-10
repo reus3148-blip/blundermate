@@ -8,6 +8,39 @@
 
 ---
 
+## Phase 55 — 데드 코드 sweep (Phase 48 후속) (2026-05-10)
+
+자동 grep (`export X` vs cross-file 사용) 으로 27 .js 전수 — 9 파일 정리. 신규 기능 0.
+
+- **Truly dead 함수 3건 삭제** ([utils.js](utils.js)) — `winChanceDelta` / `formatTimeControl` / `countMovesFromPgn` 정의만 있고 호출자 0
+- **Cascade dead** (Phase 49 dead-on-arrival): vault.js 가 `classificationChipHtml` import 만 하고 호출 0 → 함수 삭제 + `CLS_CHIP_MAP` 상수 + `.cls-chip*` CSS 6 rules + `cls_chip_*` i18n 5×2 keys 모두 cascade 제거
+- **Runtime 버그 fix (인접)** ([vault.js:412](vault.js#L412)) — `categoryVisual()` 정의 안된 함수 호출 → `categoryLabel` + `categoryColor` 인라인. vault detail 진입 시 throw 이슈 해소
+- **Unused export 키워드 18 정리** (내부 호출은 유지, 외부 import 0): home `setHomeTcFilter`; theme `effectiveTheme/applyTheme`; storage `VAULT_KEY/SAVED_GAMES_KEY/ANALYZED_GAMES_KEY/COORDS_KEY/THEME_KEY`; ui `buildSummaryGraphSvgHtml/renderSummaryGraph/renderStatsCardHtml/BADGE_MAP`; utils `pieceValues/getAttackers/getDefenders/isPieceHanging/nagForClassification/extractClocks/parseInitialTime/parseIncrement`; autoBlunders `buildGameContext/buildAcceptableLines/extractAutoCandidates`
+- **검증**: 4 탭 navigate + 설정 진입 + 3 테마 버튼 — captured warn/error 0. 재 grep 시 unused export 0
+- **의도 keep**: storage.js platform 'chesscom' fallback, vault.js legacy `manual` source row, freechess 포팅 알고리즘 본체 (CLAUDE.md 명시)
+
+## Phase 54 — 테마 설정 3-way (자동/라이트/다크) (2026-05-10)
+
+기존 단일 checkbox(OFF=시스템/ON=다크)는 라이트 강제 옵션이 없어 시스템 다크 사용자에겐 OFF=ON 동일 → 의미 0. theme.js 는 이미 `LIGHT/DARK/SYSTEM` 풀 지원이라 UI 만 확장.
+
+- [index.html](index.html) — 다크 row 마크업 변경: switch checkbox → 3 segmented button (`#themeSystemBtn/#themeLightBtn/#themeDarkBtn`, `role="radiogroup"`). "언어 KO/EN" 패턴 그대로 (`.lang-toggle`/`.lang-btn` 재사용). hint 라인 제거 — 옵션이 self-explanatory
+- 라벨 "다크 모드" → "테마" — 3-way 일반화
+- [strings.js](strings.js) ko/en — `settings_dark_mode/_hint` 제거, `settings_theme` + `theme_system/light/dark` ('자동/라이트/다크' / 'Auto/Light/Dark') 추가
+- [settings.js](settings.js) — `darkModeToggle` 핸들러 → `THEME_BTNS` 테이블 + `syncThemeButtons()` 헬퍼. `onSettingsViewEnter`도 sync 호출로 단순화
+- 검증: light/system/dark 각 클릭 → storage + `data-theme` attr + active class 전부 정합. system 시 prefers-color-scheme 따라감 확인. console error 0
+
+## Phase 53 — parseAndLoadPgn 콘솔 노이즈 제거 (2026-05-10)
+
+`utils.js` `parseAndLoadPgn` 의 `console.warn('PGN parse error', e)` 제거 → silent fail. 호출자 3개(main.js:1160 / vault.js:380 / vault.js:677) 모두 `result.success` 기반 user-facing 처리(showAlert) 또는 자동 정리(removeItemEverywhere + loadNextPuzzle) 완비. home.js `parsePgnSummary` / utils `countMovesFromPgn` 등 다른 PGN 사이트들도 try/catch silent — 일관성 정렬. CLAUDE.md "utils.js 사이드이펙트 없음" 원칙 일치. prod 콘솔 게이트로 사용자엔 무영향, dev 노이즈만 사라짐.
+
+## Phase 52 — 한글 폰트 Pretendard fallback (2026-05-10)
+
+라틴은 Inter 유지, 한글만 Pretendard Variable 로. 기존엔 Inter → 시스템 한글(Apple SD Gothic Neo / Noto Sans KR / 맑은 고딕)로 떨어져 OS별 렌더링 편차. 이제 한글도 OS 무관 일관 + Inter 메트릭 호환(Pretendard 가 Inter 참고 설계라 한 줄 혼합 어색함 없음).
+
+- [index.html](index.html) — Pretendard `dynamic-subset` CSS 추가 (`unicode-range` 분할로 한글 페이지면 한글 글리프만 다운로드)
+- [styles/tokens.css](styles/tokens.css) `--font-sans` — `'Inter'` 다음 슬롯에 `'Pretendard Variable'` 삽입. Inter 한글 글리프 부재 → 자동 fallback
+- 검증: `document.fonts.check('… Pretendard Variable', '한글')` true, 한글 샘플 5개 computed font-family 새 stack 일치
+
 ## Phase 51 — NAG export (2026-05-10)
 
 분류 결과를 PGN 표준 NAG(`$N` 글리프)로 export. chess.com / lichess analysis import 시 `??`/`?`/`!!` 자동 표시 → 외부 도구 round-trip 호환.

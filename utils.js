@@ -72,14 +72,6 @@ export function winChance(score, isWhiteMover = true) {
     return null;
 }
 
-/** 두 score(둘 다 white-relative) 간 mover 관점 승률 차이. a - b 부호 그대로. */
-export function winChanceDelta(scoreA, scoreB, isWhiteMover = true) {
-    const a = winChance(scoreA, isWhiteMover);
-    const b = winChance(scoreB, isWhiteMover);
-    if (a == null || b == null) return null;
-    return a - b;
-}
-
 /**
  * 체스판 위에서 합법적으로 움직일 수 있는 칸(Dests)을 계산합니다.
  */
@@ -139,7 +131,7 @@ export function convertPvToSan(pv, fen) {
  * 기물 가치 — 폰 1, 마이너 3, 룩 5, 퀸 9, 킹 Infinity (절대 잡히지 않음).
  * 'm' = "missing"(빈칸 placeholder, 0).
  */
-export const pieceValues = {
+const pieceValues = {
     p: 1, n: 3, b: 3, r: 5, q: 9, k: Infinity, m: 0,
 };
 
@@ -172,7 +164,7 @@ function coordsToSquare(c) {
  * `square`를 공격하는 상대 기물들을 enumerate. 인접한 적 킹도 (legal capture or 다른 공격자 존재 시) 포함.
  * 동작: FEN의 STM 필드를 적 색으로 뒤집어 chess.js로 합법수 enumerate, to===square인 캡처들을 모은다.
  */
-export function getAttackers(fen, square) {
+function getAttackers(fen, square) {
     const attackers = [];
     if (!safeLoad(_atkChess, fen)) return attackers;
     const piece = _atkChess.get(square);
@@ -218,7 +210,7 @@ export function getAttackers(fen, square) {
  * 트릭: 한 명의 attacker가 캡처했다고 가정한 상태에서, 그 자리의 attacker를 다시 잡을 수 있는 우리 기물을 찾음.
  * attacker가 없으면 placeholder로 적 퀸을 그 칸에 두고 attacker 검색.
  */
-export function getDefenders(fen, square) {
+function getDefenders(fen, square) {
     if (!safeLoad(_defChess, fen)) return [];
     const piece = _defChess.get(square);
     if (!piece) return [];
@@ -247,7 +239,7 @@ export function getDefenders(fen, square) {
  * `square` 위 기물이 행잉인지 판정. freechess의 핵심 검사.
  * 등가 트레이드, 룩-마이너 유리 트레이드, 폰 디펜더 케이스를 모두 처리.
  */
-export function isPieceHanging(lastFen, fen, square) {
+function isPieceHanging(lastFen, fen, square) {
     if (!safeLoad(_hangA, lastFen) || !safeLoad(_hangB, fen)) return false;
 
     const lastPiece = _hangA.get(square);
@@ -667,9 +659,7 @@ export function parseAndLoadPgn(chessInstance, pgnText) {
     try {
         chessInstance.loadPgn(pgnText);
         return { success: true, pgn: chessInstance.pgn() };
-    } catch (e) {
-        // prod 콘솔 게이트가 warn은 noop — 사용자 입력 실패는 dev에서만 진단성 유지.
-        console.warn('PGN parse error:', e);
+    } catch {
         return { success: false };
     }
 }
@@ -693,7 +683,7 @@ const NAG_BY_CLASS = Object.freeze({
     missed_mate: 4,  // ??
 });
 
-export function nagForClassification(cls) {
+function nagForClassification(cls) {
     return NAG_BY_CLASS[(cls || '').toLowerCase()] ?? null;
 }
 
@@ -734,7 +724,7 @@ export function formatClock(clkStr) {
 }
 
 // PGN 본문에서 모든 클럭을 ply 순서대로 초 단위 배열로 반환.
-export function extractClocks(pgn) {
+function extractClocks(pgn) {
     if (!pgn) return [];
     const clocks = [];
     const regex = /\{\[%clk\s+(\d+):(\d+):(\d+(?:\.\d+)?)\]\}/g;
@@ -747,7 +737,7 @@ export function extractClocks(pgn) {
 
 // "600+5" / "300" / "1/259200" (correspondence) 등에서 base 초 추출.
 // correspondence(1/...)나 0이면 null — 통계 의미 없음.
-export function parseInitialTime(tc) {
+function parseInitialTime(tc) {
     if (!tc) return null;
     const str = String(tc);
     if (str.includes('/')) return null; // daily/correspondence
@@ -756,7 +746,7 @@ export function parseInitialTime(tc) {
 }
 
 // "600+5" → 5, "300" → 0
-export function parseIncrement(tc) {
+function parseIncrement(tc) {
     if (!tc) return 0;
     const m = String(tc).match(/\+(\d+(?:\.\d+)?)/);
     return m ? Number(m[1]) || 0 : 0;
@@ -786,21 +776,6 @@ export function extractMoveTimesForUser(pgn, isUserWhite) {
         });
     }
     return out;
-}
-
-export function formatTimeControl(tc) {
-    const str = String(tc);
-    if (str.includes('+')) {
-        const [base, inc] = str.split('+');
-        const mins = Number(base) / 60;
-        return `${Number.isInteger(mins) ? mins : mins.toFixed(1)}+${inc}`;
-    }
-    const seconds = Number(str);
-    if (!isFinite(seconds) || seconds <= 0) return str;
-    const mins = seconds / 60;
-    if (Number.isInteger(mins)) return t('time_min').replace('{n}', mins);
-    if (seconds < 60) return t('time_sec').replace('{n}', seconds);
-    return t('time_min').replace('{n}', mins.toFixed(1));
 }
 
 export function formatRelativeDate(dateStr, strings) {
@@ -867,18 +842,3 @@ export function classifyGameResult(game, userLower) {
     return 'draw';
 }
 
-// PGN의 full move number(백+흑 한 쌍을 1수)를 chess.js로 정확히 계산한다.
-// 정규식 방식은 PGN 헤더의 날짜 점([Date "2024.10.07"] 등)이나 흑 수 표기(1... e5)에
-// 잘못 매치돼 카운트가 부풀려지는 문제가 있어, chess.js 파싱으로 통일했다.
-// 잘못된 PGN이면 0을 반환한다.
-export function countMovesFromPgn(pgn) {
-    if (!pgn) return 0;
-    try {
-        const c = new Chess();
-        c.loadPgn(pgn);
-        const ply = c.history().length;
-        return Math.ceil(ply / 2);
-    } catch {
-        return 0;
-    }
-}

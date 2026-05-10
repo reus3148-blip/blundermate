@@ -7,10 +7,23 @@
 import { getDepth, setDepth } from './analysis.js';
 import { getIsGeminiEnabled, setIsGeminiEnabled } from './gemini.js';
 import { setDefaultTcFilter } from './home.js';
-import { DEFAULT_TC_KEY, clearIdentity, lsGet, getIsCoordsEnabled, setIsCoordsEnabled } from './storage.js';
+import { DEFAULT_TC_KEY, clearIdentity, lsGet, getIsCoordsEnabled, setIsCoordsEnabled, getTheme } from './storage.js';
 import { setLocale, getLocale, t } from './strings.js';
 import { showConfirm, showToast } from './dialogs.js';
 import { THEMES, setAndApplyTheme } from './theme.js';
+
+const THEME_BTNS = [
+    ['themeSystemBtn', THEMES.SYSTEM],
+    ['themeLightBtn',  THEMES.LIGHT],
+    ['themeDarkBtn',   THEMES.DARK],
+];
+
+function syncThemeButtons() {
+    const cur = getTheme();
+    for (const [id, t] of THEME_BTNS) {
+        document.getElementById(id)?.classList.toggle('active', t === cur);
+    }
+}
 
 let _navigateTo = null;
 let _SCREENS = null;
@@ -30,8 +43,7 @@ export function onSettingsViewEnter() {
     if (gemini) gemini.checked = getIsGeminiEnabled();
     const coords = document.getElementById('coordsToggle');
     if (coords) coords.checked = getIsCoordsEnabled();
-    const dark = document.getElementById('darkModeToggle');
-    if (dark) dark.checked = document.documentElement.getAttribute('data-theme') === 'dark';
+    syncThemeButtons();
     const locale = getLocale();
     document.getElementById('langKoBtn')?.classList.toggle('active', locale === 'ko');
     document.getElementById('langEnBtn')?.classList.toggle('active', locale === 'en');
@@ -100,9 +112,12 @@ function wireSettingsPage() {
         _applyCoords?.(enabled);
     });
 
-    document.getElementById('darkModeToggle')?.addEventListener('change', (e) => {
-        setAndApplyTheme(e.target.checked ? THEMES.DARK : THEMES.LIGHT);
-    });
+    for (const [id, theme] of THEME_BTNS) {
+        document.getElementById(id)?.addEventListener('click', () => {
+            setAndApplyTheme(theme);
+            syncThemeButtons();
+        });
+    }
 
     document.getElementById('settingsFeedbackBtn')?.addEventListener('click', () => {
         _navigateTo(_SCREENS.FEEDBACK);

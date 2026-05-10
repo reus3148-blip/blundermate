@@ -34,31 +34,6 @@ export function renderEmptyState(container, { icon = 'inbox', title, desc, ctaLa
     }
 }
 
-// ==========================================
-// Move classification chip — chess.com / lichess 도메인 표준 글리프(?? / ? / ?! / ! / !! / ✓).
-// 색은 tokens.css의 분류 토큰 그대로 — 12% alpha 배경 + 풀 채도 텍스트.
-// ==========================================
-const CLS_CHIP_MAP = {
-    blunder:     { glyph: '??', label: 'cls_chip_blunder',     varClass: 'cls-chip--blunder' },
-    mistake:     { glyph: '?',  label: 'cls_chip_mistake',     varClass: 'cls-chip--mistake' },
-    inaccuracy:  { glyph: '?!', label: 'cls_chip_inaccuracy',  varClass: 'cls-chip--inaccuracy' },
-    missed_mate: { glyph: 'M',  label: 'cls_chip_missed_mate', varClass: 'cls-chip--blunder' },
-    best:        { glyph: '✓',  label: 'cls_chip_best',        varClass: 'cls-chip--best' },
-};
-
-// rawCategory: vault item의 category 문자열 그대로. mateIn이 있으면 'M3' 식으로 숫자 부착.
-// 반환: 안전한 HTML 문자열 (escapeHtml 통과 — 호출자가 innerHTML로 직접 삽입 가능).
-export function classificationChipHtml(rawCategory, { mateIn } = {}) {
-    const c = (rawCategory || '').toLowerCase();
-    const meta = CLS_CHIP_MAP[c];
-    if (!meta) return '';
-    let glyph = meta.glyph;
-    if (c === 'missed_mate' && typeof mateIn === 'number' && mateIn > 0) {
-        glyph = `M${mateIn}`;
-    }
-    return `<span class="cls-chip ${meta.varClass}" title="${escapeHtml(t(meta.label))}">${escapeHtml(glyph)}</span>`;
-}
-
 // Screen-loading 오버레이 show/hide 래퍼. 캐시 hit으로 fetch가 매우 빠를 때 깜빡임 방지를 위해
 // 노출 시점부터 minDuration ms 지나기 전엔 숨기지 않음. 에러 발생해도 finally로 반드시 숨김.
 export async function withScreenLoading(overlayEl, asyncFn, { minDuration = 200 } = {}) {
@@ -388,7 +363,7 @@ const MARKER_COLOR = {
  * 외부 차트 라이브러리를 쓰지 않고 viewBox 기반으로 순수 구현.
  * 분석 데이터가 부족해 그릴 수 없으면 null 반환.
  */
-export function buildSummaryGraphSvgHtml(analysisQueue, isUserWhite) {
+function buildSummaryGraphSvgHtml(analysisQueue, isUserWhite) {
     const total = analysisQueue.length;
     if (total === 0) return null;
 
@@ -455,7 +430,7 @@ export function buildSummaryGraphSvgHtml(analysisQueue, isUserWhite) {
 /**
  * 승률 그래프를 컨테이너에 직접 렌더 (구버전 유지 — 다른 곳에서 호출 가능).
  */
-export function renderSummaryGraph(container, analysisQueue, isUserWhite) {
+function renderSummaryGraph(container, analysisQueue, isUserWhite) {
     if (!container) return;
     const svg = buildSummaryGraphSvgHtml(analysisQueue, isUserWhite);
     if (!svg) {
@@ -523,7 +498,7 @@ export function buildPreviewCardHtml({ title, metaLine, openingName, eco }) {
  * 리포트 화면이 보드 자리(summaryGraph 안)에 그래프와 함께 stat 카드를 넣을 때 사용.
  * isUserWhite: 본인 진영 컬럼을 앰버로 강조하고 헤더에 "(나)" 배지를 표시한다.
  */
-export function renderStatsCardHtml(analysisQueue, isUserWhite = true) {
+function renderStatsCardHtml(analysisQueue, isUserWhite = true) {
     const counts = { white: {}, black: {} };
     for (const c of CLASS_ORDER) { counts.white[c] = 0; counts.black[c] = 0; }
 
@@ -669,7 +644,7 @@ export function updateTopEvalDisplay(scoreStr, classification = '', isUserWhite 
 
 // 보드 위 분류 배지 — 분석 화면(showPieceBadge)과 vault 카드(renderBlunderVisualization) 공유.
 // CSS는 styles.css의 .piece-badge-square / .piece-badge.
-export const BADGE_MAP = {
+const BADGE_MAP = {
     'Brilliant':  { symbol: '!!', fontSize: '9px',  fontWeight: '900', color: '#fff',    bg: '#3A8560' },
     'Great':      { symbol: '!',  fontSize: '13px', fontWeight: '900', color: '#fff',    bg: '#2D6E55' },
     'Best':       { symbol: '✦', fontSize: '10px', fontWeight: '700', color: '#1C1D1F', bg: '#FFFFFF' },

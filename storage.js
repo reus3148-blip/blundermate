@@ -1,11 +1,11 @@
-export const VAULT_KEY = 'blundermate_vault';
-export const SAVED_GAMES_KEY = 'blundermate_saved_games';
-export const ANALYZED_GAMES_KEY = 'blundermate_analyzed_games';
+const VAULT_KEY = 'blundermate_vault';
+const SAVED_GAMES_KEY = 'blundermate_saved_games';
+const ANALYZED_GAMES_KEY = 'blundermate_analyzed_games';
 const USER_ID_KEY = 'blundermate_user_id';
 const PLATFORM_KEY = 'blundermate_platform';
 export const ONBOARDING_KEY = 'blundermate_onboarding_done';
-export const COORDS_KEY = 'coordsEnabled';
-export const THEME_KEY = 'theme';
+const COORDS_KEY = 'coordsEnabled';
+const THEME_KEY = 'theme';
 export const GEMINI_KEY = 'geminiEnabled';
 export const EVAL_MODE_KEY = 'evalDisplayMode';
 export const DEFAULT_TC_KEY = 'defaultTcFilter';

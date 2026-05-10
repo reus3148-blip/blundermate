@@ -423,7 +423,7 @@ function syncTcFilterUI() {
 
 // 홈 드롭다운에서 호출 — 세션 한정 변경. localStorage 영속화 안 함 (앱 재시작 시 default로 복귀).
 // 설정에서 default를 바꾸려면 setDefaultTcFilter 사용.
-export function setHomeTcFilter(tc) {
+function setHomeTcFilter(tc) {
     if (!VALID_TC.includes(tc)) return;
     if (tc === homeTimeClassFilter) return;
     homeTimeClassFilter = tc;

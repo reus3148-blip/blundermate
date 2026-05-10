@@ -1,7 +1,7 @@
 import { Chessground } from 'https://cdnjs.cloudflare.com/ajax/libs/chessground/9.0.0/chessground.min.js';
 import { Chess } from 'https://cdn.jsdelivr.net/npm/chess.js@1.4.0/+esm';
 import { parseAndLoadPgn, escapeHtml, getDests, formatRelativeDate, getDateStrings } from './utils.js';
-import { renderEngineLines, placePieceBadge, withScreenLoading, renderEmptyState, classificationChipHtml } from './ui.js';
+import { renderEngineLines, placePieceBadge, withScreenLoading, renderEmptyState } from './ui.js';
 import { getVaultItems, removeVaultItem, getAnalyzedGameById, getIsCoordsEnabled, getMyUserId } from './storage.js';
 import { renderMovesTable } from './ui.js';
 import { t } from './strings.js';
@@ -409,9 +409,8 @@ async function openVaultItem(item) {
     }
 
     vaultDetailTitle.textContent = item.gameTitle || t('vault_title');
-    const { label: catLabel, color: catColor } = categoryVisual(item.category);
-    vaultInfoCategory.textContent = catLabel;
-    vaultInfoCategory.style.color = catColor;
+    vaultInfoCategory.textContent = categoryLabel(item.category);
+    vaultInfoCategory.style.color = categoryColor(item.category);
     vaultInfoPlayed.textContent = (item.moveNumber ? `${item.moveNumber}${item.isWhite ? '. ' : '... '}` : '') + (item.san || '');
     // bestMove 없으면 빈 string으로 — CSS가 row 통째로 숨김 (.vault-info-row:has(:empty))
     vaultInfoBest.textContent = item.bestMove || '';

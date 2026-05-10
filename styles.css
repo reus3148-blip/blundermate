@@ -3175,8 +3175,6 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
     overflow: hidden;
     text-overflow: ellipsis;
 }
-/* header inline 위치 — vault-puzzle-header 안의 cls-chip에만 right margin. */
-.vault-puzzle-header .cls-chip { margin-right: 8px; vertical-align: 2px; }
 .vault-puzzle-subhead {
     height: 16px;
     line-height: 16px;
@@ -4306,30 +4304,6 @@ main {
     border-radius: 50%;
     background: var(--list-row-accent, var(--tx3));
 }
-
-/* ---- Move classification chip (chess.com / lichess 표준 글리프) -----
-   ?? / ? / ?! / ! / !! / ✓ / M3 — 도메인 표준. tokens.css 분류 색 그대로. */
-.cls-chip {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    height: 18px;
-    min-width: 22px;
-    padding: 0 6px;
-    border-radius: 4px;
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.02em;
-    line-height: 1;
-    background: var(--cls-chip-bg, var(--bg-elevated));
-    color: var(--cls-chip-fg, var(--tx2));
-    flex-shrink: 0;
-    font-family: 'IBM Plex Mono', ui-monospace, monospace;
-}
-.cls-chip--blunder    { --cls-chip-bg: rgba(208, 56, 50, 0.12);  --cls-chip-fg: var(--blunder); }
-.cls-chip--mistake    { --cls-chip-bg: rgba(217, 119, 6, 0.12);  --cls-chip-fg: var(--mistake); }
-.cls-chip--inaccuracy { --cls-chip-bg: rgba(201, 155, 45, 0.14); --cls-chip-fg: var(--inaccuracy); }
-.cls-chip--best       { --cls-chip-bg: rgba(90, 122, 58, 0.14);  --cls-chip-fg: var(--best); }
 
 /* ---- Empty state v2 (Apple HIG: icon + 헤드라인 + body + 선택적 CTA) -- */
 .empty-state-v2 {

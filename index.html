@@ -35,6 +35,7 @@
     <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
 
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js" defer></script>
     <link rel="stylesheet" href="https://unpkg.com/chessground@9.0.0/assets/chessground.base.css">
     <link rel="stylesheet" href="https://unpkg.com/chessground@9.0.0/assets/chessground.brown.css">
@@ -571,13 +572,13 @@
                     <h3 class="settings-section-label" data-i18n="settings_section_appearance">외형</h3>
                     <div class="form-group settings-row">
                         <div class="settings-row-inner">
-                            <span class="settings-label" id="darkModeLabel" data-i18n="settings_dark_mode">다크 모드</span>
-                            <label class="switch">
-                                <input type="checkbox" id="darkModeToggle" aria-labelledby="darkModeLabel">
-                                <span class="slider round"></span>
-                            </label>
+                            <span class="settings-label" id="themeLabel" data-i18n="settings_theme">테마</span>
+                            <div class="lang-toggle" role="radiogroup" aria-labelledby="themeLabel">
+                                <button id="themeSystemBtn" class="lang-btn" data-i18n="theme_system">자동</button>
+                                <button id="themeLightBtn" class="lang-btn" data-i18n="theme_light">라이트</button>
+                                <button id="themeDarkBtn" class="lang-btn" data-i18n="theme_dark">다크</button>
+                            </div>
                         </div>
-                        <span class="settings-hint" data-i18n="settings_dark_mode_hint">끄면 시스템 설정을 따릅니다. 켜면 다크 강제.</span>
                     </div>
                 </section>
 
