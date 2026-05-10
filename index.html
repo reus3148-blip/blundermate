@@ -8,6 +8,17 @@
     <link rel="canonical" href="https://blundermate.app/">
     <link rel="manifest" href="/manifest.webmanifest">
     <meta name="theme-color" content="#F7F7F8">
+    <!-- FOUC-prevention — DOM 그려지기 전 data-theme 적용. 'system'(기본)은 prefers-color-scheme 따름. -->
+    <script>
+    (function() {
+        try {
+            var v = localStorage.getItem('theme');
+            var theme = (v === 'light' || v === 'dark') ? v
+                : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            document.documentElement.setAttribute('data-theme', theme);
+        } catch (e) {}
+    })();
+    </script>
     <meta name="msapplication-TileColor" content="#1C1D1F">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -552,6 +563,21 @@
                             </label>
                         </div>
                         <span class="settings-hint" data-i18n="geminiCoachHint">Toggle real AI analysis (ON) or dummy test data (OFF).</span>
+                    </div>
+                </section>
+
+                <!-- Appearance -->
+                <section class="settings-section">
+                    <h3 class="settings-section-label" data-i18n="settings_section_appearance">외형</h3>
+                    <div class="form-group settings-row">
+                        <div class="settings-row-inner">
+                            <span class="settings-label" id="darkModeLabel" data-i18n="settings_dark_mode">다크 모드</span>
+                            <label class="switch">
+                                <input type="checkbox" id="darkModeToggle" aria-labelledby="darkModeLabel">
+                                <span class="slider round"></span>
+                            </label>
+                        </div>
+                        <span class="settings-hint" data-i18n="settings_dark_mode_hint">끄면 시스템 설정을 따릅니다. 켜면 다크 강제.</span>
                     </div>
                 </section>
 

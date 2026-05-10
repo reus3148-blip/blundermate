@@ -5,6 +5,7 @@ const USER_ID_KEY = 'blundermate_user_id';
 const PLATFORM_KEY = 'blundermate_platform';
 export const ONBOARDING_KEY = 'blundermate_onboarding_done';
 export const COORDS_KEY = 'coordsEnabled';
+export const THEME_KEY = 'theme';
 export const GEMINI_KEY = 'geminiEnabled';
 export const EVAL_MODE_KEY = 'evalDisplayMode';
 export const DEFAULT_TC_KEY = 'defaultTcFilter';
@@ -53,6 +54,16 @@ export function getIsCoordsEnabled() {
 }
 export function setIsCoordsEnabled(on) {
     lsSet(COORDS_KEY, on ? 'true' : 'false');
+}
+
+// theme: 'light' | 'dark' | 'system' — system은 prefers-color-scheme 따름.
+// invalid 값이나 미설정은 'system' fallback.
+export function getTheme() {
+    const v = lsGet(THEME_KEY);
+    return v === 'light' || v === 'dark' ? v : 'system';
+}
+export function setTheme(theme) {
+    lsSet(THEME_KEY, theme);
 }
 
 // 로그아웃: 계정 식별자 + 온보딩 플래그만 초기화. VAULT/SAVED는 유지 — 같은 ID로 재로그인 시 복구.

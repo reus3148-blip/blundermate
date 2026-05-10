@@ -72,6 +72,55 @@
   --list-row-min-h-compact:   44px;  /* 필터 탭 — HIG 최소 */
 }
 
+/* Dark theme — `<html data-theme="dark">` 시 활성. premium calm 톤 유지:
+   배경은 #0F1115 ~ #22252D 범위(차가운 그래파이트), 텍스트는 페이퍼 화이트.
+   액센트는 다크에서 더 잘 보이게 약간 밝힘. 분류색은 채도 살짝 올림. */
+:root[data-theme="dark"] {
+  --bg-base:     #0F1115;
+  --bg-surface:  #181A20;
+  --bg-elevated: #22252D;
+
+  --tx:   #F2F3F5;
+  --tx2:  #9CA0A8;
+  --tx3:  #5F636C;
+
+  --ac:    #4A7CFF;
+  --ac-lo: rgba(74, 124, 255, 0.15);
+  --ac-br: rgba(74, 124, 255, 0.35);
+
+  --brd:  rgba(255, 255, 255, 0.10);
+  --brd2: rgba(255, 255, 255, 0.18);
+
+  --blunder:    #FF5C56;
+  --mistake:    #FF9531;
+  --inaccuracy: #E4B53C;
+  --excellent:  #8FB35E;
+  --best:       #7DA152;
+  --great:      #4FA078;
+  --brilliant:  #5DAF82;
+
+  --win:  #36B068;
+  --loss: #D8615E;
+
+  --board-light: #C4B898;
+  --board-dark:  #6E5232;
+
+  --list-divider:      rgba(255, 255, 255, 0.06);
+  --press-fill:        rgba(255, 255, 255, 0.05);
+  --press-fill-active: rgba(255, 255, 255, 0.08);
+}
+
+/* body 배경 + 그라데이션은 :root 변수가 아니라 직접 컬러라 별도 override */
+:root[data-theme="dark"] body {
+  background-color: #06070A;
+  background-image: radial-gradient(circle at 15% 50%, rgba(74, 124, 255, 0.05), transparent 25%),
+                    radial-gradient(circle at 85% 30%, rgba(74, 124, 255, 0.04), transparent 25%);
+}
+
+:root[data-theme="dark"] .app-container {
+  box-shadow: 0 0 40px rgba(0, 0, 0, 0.5);
+}
+
 html {
     /* 브라우저 레벨의 바운스 효과 및 전체 페이지 스크롤 원천 차단 */
     overflow: hidden;
