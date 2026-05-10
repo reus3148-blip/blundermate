@@ -1023,6 +1023,7 @@ th {
 
 .eval-badge.positive { color: var(--tx); background: rgba(90, 122, 58, 0.18); }
 .eval-badge.negative { color: var(--tx); background: rgba(154, 58, 42, 0.18); }
+.eval-badge:empty { display: none; }
 
 .empty-state {
     text-align: center;
