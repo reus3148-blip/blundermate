@@ -12,7 +12,7 @@
 - 프론트엔드 npm 의존성 0 — package.json 없음
 - Gemini API 키 클라이언트 노출 0 — 모든 호출은 [api/analyze.js](api/analyze.js) Edge proxy 경유. 키는 `process.env.GOOGLE_API_KEY`로 서버에만
 - 사용자 입력 + 외부 API 닉네임 / PGN 헤더는 `escapeHtml()` ([utils.js](utils.js)) 통과 후 innerHTML. `textContent`로 충분하면 그것이 우선
-- localStorage 접근은 모두 [storage.js](storage.js)의 `lsGet/lsSet` 또는 그 위에 빌드된 accessor (`getIsCoordsEnabled`, `getMyUserId`, `getMyPlatform`, `setLocale` 등) 경유 — 직접 `localStorage.getItem/setItem` 호출 금지 (Safari private mode throw 흡수)
+- localStorage 접근은 모두 [storage.js](storage.js)의 `lsGet/lsSet` 또는 그 위에 빌드된 accessor (`getIsCoordsEnabled`, `getMyUserId`, `getMyPlatform`, `setLocale` 등) 경유 — 직접 `localStorage.getItem/setItem` 호출 금지 (Safari private mode throw 흡수). 단 [index.html](index.html)의 FOUC 방지 inline script는 ES module 로드 전 동기 실행이 필수라 예외 — try/catch로 보호
 - `(user_id, platform)` 페어로 모든 영속 데이터 격리 — 'chesscom' / 'lichess'. 로컬 캐시 lookup도 platform 필터 필수. callDB가 platform 자동 주입 + insert 시 row에도 박아 서버측 spoofing 검증
 - user_id는 lowercase 정규화 — 클라이언트 (`setMyUserId`) + 서버 (`api/db.js`) 양 진입 시점
 - OS `alert/confirm/prompt` 금지 — [dialogs.js](dialogs.js)의 `showToast/showAlert/showConfirm` 사용 (모바일 톤 일관)
