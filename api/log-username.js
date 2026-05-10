@@ -5,6 +5,7 @@ import { jsonResponse, methodGuard, supabaseHeaders } from './_http.js';
 
 export const config = {
     runtime: 'edge',
+    regions: ['icn1'],
 };
 
 const ALLOWED_SOURCES = new Set(['onboarding', 'search', 'cached']);

@@ -1,9 +1,6 @@
 {
   "cleanUrls": true,
   "trailingSlash": false,
-  "functions": {
-    "api/*.js": { "regions": ["icn1"] }
-  },
   "headers": [
     {
       "source": "/manifest.webmanifest",

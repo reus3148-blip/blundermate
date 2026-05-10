@@ -3,6 +3,7 @@ import { jsonResponse, methodGuard, supabaseHeaders } from './_http.js';
 
 export const config = {
     runtime: 'edge',
+    regions: ['icn1'],
 };
 
 export default async function handler(req) {
