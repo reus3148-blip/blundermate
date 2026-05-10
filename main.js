@@ -840,8 +840,7 @@ initSavedGames({
     onEmptyCta: () => navigateTo('home'),
 });
 
-// queue의 메모를 chess.js v1 setComment로 PGN에 영속한다.
-// v1 setComment는 현재 위치 한정이라 별도 인스턴스에서 매수 replay하며 호출.
+// setComment가 현재 위치 한정이라 별도 인스턴스에서 매수 replay하며 메모를 박는다.
 function buildPgnWithNotes() {
     if (!chess || !analysisQueue || analysisQueue.length === 0) {
         return chess ? chess.pgn() : '';

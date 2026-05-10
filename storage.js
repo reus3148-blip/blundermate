@@ -56,8 +56,7 @@ export function setIsCoordsEnabled(on) {
     lsSet(COORDS_KEY, on ? 'true' : 'false');
 }
 
-// theme: 'light' | 'dark' | 'system' — system은 prefers-color-scheme 따름.
-// invalid 값이나 미설정은 'system' fallback.
+// 'light' | 'dark' | 'system' — system은 prefers-color-scheme 따름.
 export function getTheme() {
     const v = lsGet(THEME_KEY);
     return v === 'light' || v === 'dark' ? v : 'system';

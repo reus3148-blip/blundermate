@@ -7,9 +7,10 @@
 import { getDepth, setDepth } from './analysis.js';
 import { getIsGeminiEnabled, setIsGeminiEnabled } from './gemini.js';
 import { setDefaultTcFilter } from './home.js';
-import { DEFAULT_TC_KEY, clearIdentity, lsGet, getIsCoordsEnabled, setIsCoordsEnabled, getTheme, setTheme } from './storage.js';
+import { DEFAULT_TC_KEY, clearIdentity, lsGet, getIsCoordsEnabled, setIsCoordsEnabled } from './storage.js';
 import { setLocale, getLocale, t } from './strings.js';
 import { showConfirm, showToast } from './dialogs.js';
+import { THEMES, setAndApplyTheme } from './theme.js';
 
 let _navigateTo = null;
 let _SCREENS = null;
@@ -69,25 +70,6 @@ function wireBackBtn(id) {
     document.getElementById(id)?.addEventListener('click', () => history.back());
 }
 
-// theme === 'system'이면 OS 설정 따름. 아니면 stored 값 그대로.
-export function effectiveTheme() {
-    const t = getTheme();
-    if (t === 'light' || t === 'dark') return t;
-    return window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-}
-
-// document.documentElement에 data-theme 적용. tokens.css의 :root[data-theme="dark"] 활성화.
-export function applyTheme() {
-    document.documentElement.setAttribute('data-theme', effectiveTheme());
-}
-
-// system 변경 시 stored가 'system'일 때만 자동 갱신. 모듈 로드 시 한 번 등록.
-if (typeof window !== 'undefined' && window.matchMedia) {
-    matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', () => {
-        if (getTheme() === 'system') applyTheme();
-    });
-}
-
 function applyLocaleChange(locale) {
     setLocale(locale);
     _applyLocale?.();
@@ -119,8 +101,7 @@ function wireSettingsPage() {
     });
 
     document.getElementById('darkModeToggle')?.addEventListener('change', (e) => {
-        setTheme(e.target.checked ? 'dark' : 'light');
-        applyTheme();
+        setAndApplyTheme(e.target.checked ? THEMES.DARK : THEMES.LIGHT);
     });
 
     document.getElementById('settingsFeedbackBtn')?.addEventListener('click', () => {

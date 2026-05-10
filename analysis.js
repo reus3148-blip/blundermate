@@ -138,9 +138,7 @@ export function stopAndClear() {
 // PGN이 이미 로드된 chess.js 인스턴스로부터 분석 큐를 만든다.
 // 각 엔트리는 그 수가 둔 직후의 FEN과 메타데이터 (san, from, to, turn, moveNumber, isWhite)를 가진다.
 // startFen 헤더가 있으면 그 위치부터 출발 (Chess960이나 중간 위치에서 시작한 게임).
-// 코멘트는 chess.js v1의 getComments() — fen → comment 맵으로 queue.note 채움.
-// chess.com `[%clk]` / lichess `[%emt]/[%eval]/[%cal]/[%csl]` 같은 PGN 표준 메타
-// 어노테이션은 사용자 메모가 아니라 도구 부산물이라 strip. 사용자 자유 텍스트만 보존.
+// `[%clk]` 등 PGN 표준 메타 어노테이션은 사용자 메모가 아니라 도구 부산물이라 strip — 자유 텍스트만 note로.
 export function buildQueueFromPgn(chessInstance) {
     const queue = [];
     const tempChess = new Chess();

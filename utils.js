@@ -92,8 +92,7 @@ export function getDests(tempChess) {
     return dests;
 }
 
-// chess.js v1은 잘못된 fen에 throw — 0.10의 boolean 반환을 흉내내는 안전 래퍼.
-// 다중 사이트(getAttackers/getDefenders/isPieceHanging/classifyMove/convertPvToSan 등)에서 사용.
+// chess.js v1 load는 invalid fen에 throw — boolean 안전 래퍼.
 function safeLoad(c, fen) {
     try { c.load(fen); return true; } catch { return false; }
 }
@@ -669,7 +668,8 @@ export function parseAndLoadPgn(chessInstance, pgnText) {
         chessInstance.loadPgn(pgnText);
         return { success: true, pgn: chessInstance.pgn() };
     } catch (e) {
-        console.error('PGN parse error:', e);
+        // prod 콘솔 게이트가 warn은 noop — 사용자 입력 실패는 dev에서만 진단성 유지.
+        console.warn('PGN parse error:', e);
         return { success: false };
     }
 }
