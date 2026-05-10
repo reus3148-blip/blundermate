@@ -6,6 +6,51 @@
 
 ---
 
+## Phase 51 — NAG export (2026-05-10)
+
+분류 결과를 PGN 표준 NAG(`$N` 글리프)로 export. chess.com / lichess analysis에 import 시 `??`/`?`/`!!` 자동 표시 → 외부 도구와 round-trip 호환.
+
+### 매핑 (utils.js NAG_BY_CLASS)
+
+| 분류 | NAG | 글리프 |
+|------|-----|--------|
+| Brilliant | `$3` | `!!` |
+| Great | `$1` | `!` |
+| Inaccuracy | `$6` | `?!` |
+| Mistake | `$2` | `?` |
+| Blunder / missed_mate | `$4` | `??` |
+| Best / Excellent / Good / Forced | (null) | (마크 안 함) |
+
+표준 1~6만 사용 — chess.com / lichess / ChessBase 등 모든 주요 도구가 인식.
+
+### 우회 구현
+
+chess.js v1.4.0에 `setNag` API 부재 (Phase 50 단계 0 검증). `tmp.pgn()` 출력 후 SAN 토큰 walk + `$N` 직접 주입:
+
+```js
+// utils.js
+export function injectNags(pgn, queue) {
+    // SAN 직후 위치에 nagForClassification(queue[i].classification) 주입
+}
+```
+
+[main.js](main.js) `buildPgnWithNotes` 끝에서 `return injectNags(tmp.pgn(), analysisQueue)`.
+
+### 한계
+
+- chess.js v1의 `loadPgn`이 NAG silently strip — 본 프로젝트 안 round-trip 안 됨 (사용자가 우리 PGN을 다시 우리 도구에 붙여넣으면 분류 사라짐). 단 분석 캐시가 별도라 큰 문제 아님
+- chess.com / lichess는 표준 NAG 인식 → 외부 round-trip OK
+
+### 검증
+
+5수 mock queue + 코멘트 동거: PGN 출력에 `$3`/`$2`/`$4` 정확 위치 + 코멘트 보존 확인. Best/Excellent/Forced는 null 반환으로 SAN만 출력.
+
+### 향후
+
+chess.js 1.5+에서 `setNag` 도입 시 우회 제거 가능. 현재 `injectNags`는 `buildPgnWithNotes` 끝의 단일 호출이라 교체 비용 작음.
+
+---
+
 ## Phase 50 — chess.js 0.10.3 → 1.4.0 ESM 마이그레이션 (2026-05-10)
 
 8년 정체된 chess.js 0.10.3 글로벌 `<script>`를 1.4.0 ES module로 교체. 누적 ~43줄 net 감소 + PGN 코멘트 우회 / 그림자 상태 / parseAndLoadPgn 폴백 제거. user-visible 효과 0, 코드 명료성 + 향후 chess.js 활발한 유지보수 트랙 합류가 ROI.

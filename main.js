@@ -21,7 +21,7 @@ import {
     clearExploreRedoStack, pushExploreRedo, popExploreRedo,
     setSimulationQueue, pushSimulationQueueItem, setSimulationIndex, setSimExtendState,
 } from './modes.js';
-import { parseEvalData, getDests, convertPvToSan, parseAndLoadPgn, isValidFen, escapeHtml, parseOpeningFromPgn, getTier, TIERS, classifyMove, formatClock } from './utils.js';
+import { parseEvalData, getDests, convertPvToSan, parseAndLoadPgn, isValidFen, escapeHtml, parseOpeningFromPgn, getTier, TIERS, classifyMove, formatClock, injectNags } from './utils.js';
 import { renderMovesTable, updateUIWithEval, highlightActiveMove, renderEngineLines, updateTopEvalDisplay, renderReviewReport, buildPreviewCardHtml, placePieceBadge, updatePlayersBar, setPlayersBarHidden } from './ui.js';
 import { EVAL_MODE_KEY, computePgnHash, upsertAnalyzedGame, loadAnalysisCache, saveAnalysisCache, isCacheCompatible, ANALYSIS_CACHE_VERSION, getIsCoordsEnabled, lsGet, lsSet } from './storage.js';
 import { collectAutoBlunders } from './autoBlunders.js';
@@ -861,7 +861,7 @@ function buildPgnWithNotes() {
         const note = (q.note || '').trim();
         if (note) tmp.setComment(note.replace(/[{}]/g, ''));
     });
-    return tmp.pgn();
+    return injectNags(tmp.pgn(), analysisQueue);
 }
 
 // renderEngineLines에 넘길 note 옵션. queue[idx]에 기록된 note를 보여주고, 입력 시 제자리 갱신.

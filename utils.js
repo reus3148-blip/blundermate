@@ -682,6 +682,44 @@ export function parseAndLoadPgn(chessInstance, pgnText) {
 // 첫 수의 prev는 TimeControl 헤더의 base time.
 // 클럭 주석 자체가 없는 게임(daily/correspondence 등)은 null 반환 — 통계에서 스킵.
 
+// 분류 → 표준 NAG 매핑 (PGN spec). chess.com / lichess가 import 시 ??/?/!! 자동 표시.
+// chess.js v1.4.0에 setNag API 없어 PGN 문자열 후처리(injectNags)로 주입.
+const NAG_BY_CLASS = Object.freeze({
+    brilliant:   3,  // !!
+    great:       1,  // !
+    inaccuracy:  6,  // ?!
+    mistake:     2,  // ?
+    blunder:     4,  // ??
+    missed_mate: 4,  // ??
+});
+
+export function nagForClassification(cls) {
+    return NAG_BY_CLASS[(cls || '').toLowerCase()] ?? null;
+}
+
+// SAN 정규식 — piece + file/rank disambig + capture + promotion + check/mate + 캐슬링.
+const SAN_RE = /^(?:[KQRBN]?[a-h]?[1-8]?x?[a-h][1-8](?:=[QRBN])?[+#]?|O-O(?:-O)?[+#]?)$/;
+
+// SAN 직후 위치에 NAG($N) 주입한 PGN 반환. 코멘트는 그 다음에 옴 (PGN 표준 순서).
+export function injectNags(pgn, queue) {
+    if (!pgn || !queue || queue.length === 0) return pgn;
+    const splitIdx = pgn.indexOf('\n\n');
+    if (splitIdx < 0) return pgn;
+    const head = pgn.slice(0, splitIdx + 2);
+    const tokens = pgn.slice(splitIdx + 2).split(/\s+/).filter(Boolean);
+    const out = [];
+    let moveIdx = 0;
+    for (const tok of tokens) {
+        out.push(tok);
+        if (SAN_RE.test(tok)) {
+            const nag = nagForClassification(queue[moveIdx]?.classification);
+            if (nag != null) out.push(`$${nag}`);
+            moveIdx++;
+        }
+    }
+    return head + out.join(' ');
+}
+
 // "0:02:59.9" → "2:59" (시 0이면 생략, 1분 미만은 소수 1자리)
 export function formatClock(clkStr) {
     if (!clkStr) return '';
