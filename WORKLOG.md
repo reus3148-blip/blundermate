@@ -8,6 +8,17 @@
 
 ---
 
+## Phase 56 — chess.js v1 hot path 가속 — getAttackers 재작성 (2026-05-10)
+
+Phase 50 (chess.js 0.10.3 → 1.4.0) 후 분석 체감 둔화 root-cause 추적. 마이크로벤치로 v1의 `moves({verbose:true})` 가 v0 대비 3.9x 느림 확인 (v1: 2887μs / v0: 746μs / call). classifyMove의 Brilliant 검사가 한 수당 50~150회 호출 → 60수 게임 누적 9~27초 v1 vs 2~7초 v0 (post-engine classification 시간만).
+
+- [utils.js](utils.js) `getAttackers` 재작성: `_atkChess.moves({verbose}).filter(to===sq)` 전수 순회 → v1 native `attackers(sq, color)` 후보 즉시 + flip-STM 보드에서 capture move 시도로 핀 검증
+- `getDefenders` 는 내부에서 `getAttackers` 호출이라 자동 가속
+- 인접 적 킹 special-case 제거: v1 `attackers()` 가 인접 킹도 자연 포함 + capture 시도가 self-check 자동 걸러냄 → 50줄 → 19줄 net
+- Cascade dead: `getBoardCoords` / `coordsToSquare` 헬퍼 (인접 킹 로직 전용) 제거
+- **벤치 (12000 호출, 6 fen × 10 target):** v1 orig 978μs/call → v1 new **87μs/call (11.2x)**. v0 orig 383μs/call → 4.4x 빠름. Sanity: 60 페어 attacker set v1_orig / v1_new / v0_orig 전부 일치
+- 보류 (별 phase): `getDests` (UI 인지 X), Brilliant 검사 board() 8x8 전수 순회 (freechess 알고리즘 본체 변경 회피)
+
 ## Phase 55 — 데드 코드 sweep (Phase 48 후속) (2026-05-10)
 
 자동 grep (`export X` vs cross-file 사용) 으로 27 .js 전수 — 9 파일 정리. 신규 기능 0.

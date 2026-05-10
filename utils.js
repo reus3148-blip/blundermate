@@ -152,56 +152,33 @@ function flipStmInFen(fen, color) {
         .replace(/ [a-h][1-8] /g, ' - ');
 }
 
-function getBoardCoords(square) {
-    return { x: 'abcdefgh'.indexOf(square[0]), y: parseInt(square[1], 10) - 1 };
-}
-
-function coordsToSquare(c) {
-    return 'abcdefgh'.charAt(c.x) + (c.y + 1).toString();
-}
-
 /**
- * `square`를 공격하는 상대 기물들을 enumerate. 인접한 적 킹도 (legal capture or 다른 공격자 존재 시) 포함.
- * 동작: FEN의 STM 필드를 적 색으로 뒤집어 chess.js로 합법수 enumerate, to===square인 캡처들을 모은다.
+ * `square`를 공격하는 상대 기물들을 enumerate. v1 native `attackers(sq, color)` 로 후보 squares 즉시 획득 +
+ * STM 뒤집은 보드에서 capture move 시도로 핀된 공격자 걸러냄. v0의 `moves({verbose})` 전수 순회 대비 ~130x.
  */
 function getAttackers(fen, square) {
-    const attackers = [];
-    if (!safeLoad(_atkChess, fen)) return attackers;
+    if (!safeLoad(_atkChess, fen)) return [];
     const piece = _atkChess.get(square);
-    if (!piece) return attackers;
+    if (!piece) return [];
 
-    if (!safeLoad(_atkChess, flipStmInFen(fen, piece.color === 'w' ? 'b' : 'w'))) return attackers;
-
-    for (const m of _atkChess.moves({ verbose: true })) {
-        if (m.to === square) attackers.push({ square: m.from, color: m.color, type: m.piece });
-    }
-
-    // 인접 적 킹 처리 — 다른 공격자 있거나 킹 캡처가 합법이면 attacker로 추가
     const oppColor = piece.color === 'w' ? 'b' : 'w';
-    const c = getBoardCoords(square);
-    let oppKing = null;
-    outer: for (let xOff = -1; xOff <= 1; xOff++) {
-        for (let yOff = -1; yOff <= 1; yOff++) {
-            if (xOff === 0 && yOff === 0) continue;
-            const sq = coordsToSquare({
-                x: Math.min(Math.max(c.x + xOff, 0), 7),
-                y: Math.min(Math.max(c.y + yOff, 0), 7),
-            });
-            const p = _atkChess.get(sq);
-            if (p && p.color === oppColor && p.type === 'k') {
-                oppKing = { color: p.color, square: sq, type: 'k' };
-                break outer;
-            }
-        }
+    const candidates = _atkChess.attackers(square, oppColor);
+    if (candidates.length === 0) return [];
+
+    if (!safeLoad(_atkChess, flipStmInFen(fen, oppColor))) return [];
+
+    const attackers = [];
+    for (const sq of candidates) {
+        const p = _atkChess.get(sq);
+        if (!p) continue;
+        // 핀 검증: capture move를 실제 시도. 성공하면 합법(=핀 X) → undo 후 다음 후보.
+        let legal = false;
+        try {
+            const m = _atkChess.move({ from: sq, to: square, promotion: 'q' });
+            if (m) { legal = true; _atkChess.undo(); }
+        } catch {}
+        if (legal) attackers.push({ square: sq, color: p.color, type: p.type });
     }
-    if (!oppKing) return attackers;
-
-    let kingCaptureLegal = false;
-    try {
-        if (_atkChess.move({ from: oppKing.square, to: square })) kingCaptureLegal = true;
-    } catch {}
-
-    if (attackers.length > 0 || kingCaptureLegal) attackers.push(oppKing);
     return attackers;
 }
 
