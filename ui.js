@@ -339,23 +339,18 @@ function computePlayerAccuracy(analysisQueue, forWhitePlayer) {
 }
 
 /**
- * 승률 그래프를 SVG 문자열로만 빌드한다 (DOM 삽입은 호출자 책임).
- * 외부 차트 라이브러리를 쓰지 않고 viewBox 기반으로 순수 구현.
- * 분석 데이터가 부족해 그릴 수 없으면 null 반환.
+ * 승률 그래프 SVG 문자열. midline(50%) 기준 위=백 우세 / 아래=흑 우세 두 색으로 분리.
+ * 본인 진영 무관 절대 평가 — chess.com 그래프 톤. 분석 데이터 부족 시 null.
+ *
+ * clipPath ID는 review 화면이 단일 인스턴스라 fixed 사용 (다른 SVG와 충돌 위험 없음).
  */
-function buildSummaryGraphSvgHtml(analysisQueue, isUserWhite) {
+function buildSummaryGraphSvgHtml(analysisQueue) {
     const total = analysisQueue.length;
     if (total === 0) return null;
 
-    // 체스닷컴 모바일 리뷰 그래프처럼 납작. viewBox는 16:4 비율.
-    const W = 320;
-    const H = 80;
-    const padL = 8;
-    const padR = 8;
-    const padT = 6;
-    const padB = 16;
-    const plotW = W - padL - padR;
-    const plotH = H - padT - padB;
+    const W = 340, H = 108, pad = 4;
+    const plotW = W - pad * 2;
+    const plotH = H - pad * 2;
 
     const points = [];
     for (let i = 0; i < total; i++) {
@@ -363,52 +358,48 @@ function buildSummaryGraphSvgHtml(analysisQueue, isUserWhite) {
         if (!move.engineLines || !move.engineLines[0]) continue;
         const whitePct = getWhiteWinPct(move.engineLines[0]);
         if (whitePct === null) continue;
-        const pct = isUserWhite ? whitePct : 100 - whitePct;
-        points.push({ moveNum: i + 1, pct });
+        points.push({ moveNum: i + 1, pct: whitePct });
     }
 
     if (points.length === 0) return null;
 
-    const xFor = (n) => padL + ((n - 1) / Math.max(1, total - 1)) * plotW;
-    const yFor = (pct) => padT + (1 - pct / 100) * plotH;
+    const xFor = (n) => pad + ((n - 1) / Math.max(1, total - 1)) * plotW;
+    const yFor = (pct) => pad + (1 - pct / 100) * plotH;
     const midY = yFor(50);
-    const baseY = padT + plotH;
+    const baseY = pad + plotH;
+    const topY = pad;
 
-    const linePts = points.map(p => `${xFor(p.moveNum).toFixed(1)},${yFor(p.pct).toFixed(1)}`).join(' ');
-    const areaD = `M ${xFor(points[0].moveNum).toFixed(1)} ${baseY.toFixed(1)} `
-        + points.map(p => `L ${xFor(p.moveNum).toFixed(1)} ${yFor(p.pct).toFixed(1)}`).join(' ')
-        + ` L ${xFor(points[points.length - 1].moveNum).toFixed(1)} ${baseY.toFixed(1)} Z`;
+    const lineD = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${xFor(p.moveNum).toFixed(1)},${yFor(p.pct).toFixed(1)}`).join(' ');
+    // 면적은 anchor만 다른 동일 경로 — 각각 클립으로 미드라인 한쪽만 노출.
+    const buildArea = (anchorY) =>
+        `M${xFor(points[0].moveNum).toFixed(1)},${anchorY.toFixed(1)} `
+        + points.map(p => `L${xFor(p.moveNum).toFixed(1)},${yFor(p.pct).toFixed(1)}`).join(' ')
+        + ` L${xFor(points[points.length - 1].moveNum).toFixed(1)},${anchorY.toFixed(1)} Z`;
 
     const ticks = [];
     for (let k = 10; k < total; k += 10) ticks.push(k);
-    const tickLabels = ticks.map(k => {
-        const x = xFor(k).toFixed(1);
-        return `<text x="${x}" y="${(H - 4).toFixed(1)}" class="summary-graph-tick" text-anchor="middle">${k}</text>`;
-    }).join('');
+    const axisLabels = ticks.length
+        ? ticks.map(k => `<span>${k}</span>`).join('')
+        : '';
 
     return `
         <svg viewBox="0 0 ${W} ${H}" class="summary-graph-svg" role="img" aria-label="${escapeHtml(t('report_win_chance'))}" preserveAspectRatio="none">
-            <line x1="${padL}" y1="${midY.toFixed(1)}" x2="${W - padR}" y2="${midY.toFixed(1)}"
-                  stroke="var(--tx3)" stroke-width="0.8" stroke-dasharray="3 3" opacity="0.6"/>
-            <path d="${areaD}" fill="var(--ac-lo)"/>
-            <polyline points="${linePts}" fill="none" stroke="var(--ac)" stroke-width="2"
-                      stroke-linecap="round" stroke-linejoin="round"/>
-            ${tickLabels}
+            <defs>
+                <clipPath id="review-cw"><rect x="0" y="0" width="${W}" height="${midY.toFixed(2)}"/></clipPath>
+                <clipPath id="review-cb"><rect x="0" y="${midY.toFixed(2)}" width="${W}" height="${(H - midY).toFixed(2)}"/></clipPath>
+            </defs>
+            <rect x="0" y="0" width="${W}" height="${H}" fill="var(--review-graph-bg)"/>
+            <path d="${buildArea(baseY)}" fill="var(--review-white-area)" clip-path="url(#review-cw)"/>
+            <path d="${buildArea(topY)}" fill="var(--review-black-area)" clip-path="url(#review-cb)"/>
+            <line x1="${pad}" y1="${midY.toFixed(1)}" x2="${W - pad}" y2="${midY.toFixed(1)}"
+                  stroke="var(--review-mid-line)" stroke-width="1" stroke-dasharray="3 3"/>
+            <path d="${lineD}" fill="none" stroke="var(--review-white-line)" stroke-width="1.6"
+                  stroke-linecap="round" stroke-linejoin="round" clip-path="url(#review-cw)"/>
+            <path d="${lineD}" fill="none" stroke="var(--review-black-line)" stroke-width="1.6"
+                  stroke-linecap="round" stroke-linejoin="round" clip-path="url(#review-cb)"/>
         </svg>
+        ${axisLabels ? `<div class="summary-graph-axis" aria-hidden="true">${axisLabels}</div>` : ''}
     `;
-}
-
-/**
- * 승률 그래프를 컨테이너에 직접 렌더 (구버전 유지 — 다른 곳에서 호출 가능).
- */
-function renderSummaryGraph(container, analysisQueue, isUserWhite) {
-    if (!container) return;
-    const svg = buildSummaryGraphSvgHtml(analysisQueue, isUserWhite);
-    if (!svg) {
-        container.innerHTML = `<div class="summary-empty">${escapeHtml(t('report_empty'))}</div>`;
-        return;
-    }
-    container.innerHTML = svg;
 }
 
 const CLASS_ORDER = ['Brilliant', 'Great', 'Best', 'Excellent', 'Good', 'Inaccuracy', 'Mistake', 'Blunder'];
@@ -465,9 +456,8 @@ export function buildPreviewCardHtml({ title, metaLine, openingName, eco }) {
 }
 
 /**
- * 통계 카드 HTML만 반환 (정확도 + 수 분류 통합 표). 버튼/카드 컨테이너 없음.
- * 리포트 화면이 보드 자리(summaryGraph 안)에 그래프와 함께 stat 카드를 넣을 때 사용.
- * isUserWhite: 본인 진영 컬럼을 앰버로 강조하고 헤더에 "(나)" 배지를 표시한다.
+ * 정확도 + 수 분류 통합 표 HTML. grid 1fr 60px 60px (라벨 / 백 / 흑).
+ * 본인 진영 헤더에 "·나" inline. 클래스 칩은 BADGE_MAP, 숫자 색은 CLASS_DOT_COLOR.
  */
 function renderStatsCardHtml(analysisQueue, isUserWhite = true) {
     const counts = { white: {}, black: {} };
@@ -481,80 +471,123 @@ function renderStatsCardHtml(analysisQueue, isUserWhite = true) {
 
     const accW = computePlayerAccuracy(analysisQueue, true);
     const accB = computePlayerAccuracy(analysisQueue, false);
-    const fmtAcc = (a) => a === null ? '—' : a.toFixed(1) + '%';
+    const fmtAcc = (a) => a === null ? '—' : `${a.toFixed(1)}<i>%</i>`;
 
-    const youBadge = `<span class="review-stats-you">${escapeHtml(t('report_you'))}</span>`;
-    const wColCls = isUserWhite ? ' is-you' : '';
-    const bColCls = isUserWhite ? '' : ' is-you';
+    const youLabel = escapeHtml(t('report_you'));
+    const whiteLabel = isUserWhite
+        ? `${escapeHtml(t('report_white'))}·${youLabel}`
+        : escapeHtml(t('report_white'));
+    const blackLabel = isUserWhite
+        ? escapeHtml(t('report_black'))
+        : `${escapeHtml(t('report_black'))}·${youLabel}`;
 
     const buildBadge = (c) => {
         const b = BADGE_MAP[c];
         if (!b) return `<span class="review-stats-badge review-stats-badge--good"></span>`;
         return `<span class="review-stats-badge" style="background:${b.bg};color:${b.color};font-size:${b.fontSize};font-weight:${b.fontWeight};">${escapeHtml(b.symbol)}</span>`;
     };
-    const numClass = (n) => n === 0 ? ' is-zero' : '';
-    const classRows = CLASS_ORDER.map((c, idx) => `
-        <tr${idx === 0 ? ' class="review-stats-class-first"' : ''}>
-            <td class="review-stats-label">
-                ${buildBadge(c)}
-                <span class="review-stats-label-text">${escapeHtml(t(CLASS_I18N[c]))}</span>
-            </td>
-            <td class="review-stats-num${wColCls}${numClass(counts.white[c])}" style="color:${CLASS_DOT_COLOR[c]};">${counts.white[c]}</td>
-            <td class="review-stats-num${bColCls}${numClass(counts.black[c])}" style="color:${CLASS_DOT_COLOR[c]};">${counts.black[c]}</td>
-        </tr>
+    const numCell = (n, color) => n === 0
+        ? `<div class="tRow__num is-zero">0</div>`
+        : `<div class="tRow__num" style="color:${color};">${n}</div>`;
+    const classRows = CLASS_ORDER.map(c => `
+        <div class="tRow">
+            <div class="tRow__label">${buildBadge(c)}<span>${escapeHtml(t(CLASS_I18N[c]))}</span></div>
+            ${numCell(counts.white[c], CLASS_DOT_COLOR[c])}
+            ${numCell(counts.black[c], CLASS_DOT_COLOR[c])}
+        </div>
     `).join('');
 
     return `
         <div class="review-card review-stats-card">
-            <table class="review-stats-table">
-                <thead>
-                    <tr>
-                        <th></th>
-                        <th class="review-stats-side${wColCls}">
-                            <span class="review-stats-side-name">${escapeHtml(t('report_white'))}</span>
-                            ${isUserWhite ? youBadge : ''}
-                        </th>
-                        <th class="review-stats-side${bColCls}">
-                            <span class="review-stats-side-name">${escapeHtml(t('report_black'))}</span>
-                            ${!isUserWhite ? youBadge : ''}
-                        </th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr class="review-stats-accuracy">
-                        <td class="review-stats-label">${escapeHtml(t('report_accuracy'))}</td>
-                        <td class="review-stats-num-strong${wColCls}">${fmtAcc(accW)}</td>
-                        <td class="review-stats-num-strong${bColCls}">${fmtAcc(accB)}</td>
-                    </tr>
-                    ${classRows}
-                </tbody>
-            </table>
+            <div class="tRow tRow--head">
+                <div class="tRow__label"></div>
+                <div class="tRow__num"><span class="tag-side white"><span class="dot"></span>${whiteLabel}</span></div>
+                <div class="tRow__num"><span class="tag-side black"><span class="dot"></span>${blackLabel}</span></div>
+            </div>
+            <div class="tRow tRow--accuracy">
+                <div class="tRow__label">${escapeHtml(t('report_accuracy'))}</div>
+                <div class="tRow__num tRow__acc tRow__acc--white">${fmtAcc(accW)}</div>
+                <div class="tRow__num tRow__acc tRow__acc--black">${fmtAcc(accB)}</div>
+            </div>
+            ${classRows}
+        </div>
+    `;
+}
+
+// resultMeta.result × isUserWhite → dot 색 (이긴 진영 색을 dot으로). draw는 중성.
+const RESULT_DOT_SIDE = {
+    win:  { true: 'white', false: 'black' },
+    loss: { true: 'black', false: 'white' },
+    draw: { true: 'draw',  false: 'draw'  },
+};
+const RESULT_LABEL_KEY = {
+    win:  'report_result_win',
+    loss: 'report_result_loss',
+    draw: 'report_result_draw',
+};
+const CTA_ARROW_SVG = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>`;
+
+/**
+ * 결과 스트랩 HTML — 승/패 + 사유 + 메타 + 점수.
+ * meta = { result, reason, opponent, tcLabel, dateLabel, score, isUserWhite } — 모두 display-ready.
+ */
+function renderResultStrapHtml(meta) {
+    if (!meta) return '';
+    const resultText = meta.result ? escapeHtml(t(RESULT_LABEL_KEY[meta.result])) : '';
+    const dotSide = meta.result ? RESULT_DOT_SIDE[meta.result][String(meta.isUserWhite)] : 'draw';
+
+    const subHtml = meta.reason
+        ? `<span class="resultStrap__sub">${escapeHtml(meta.reason)}</span>`
+        : '';
+
+    const metaParts = [];
+    if (meta.opponent) metaParts.push(`${escapeHtml(t('report_vs_prefix'))} ${escapeHtml(meta.opponent)}`);
+    if (meta.tcLabel) metaParts.push(escapeHtml(meta.tcLabel));
+    if (meta.dateLabel) metaParts.push(escapeHtml(meta.dateLabel));
+    const metaLine = metaParts.join(' · ');
+
+    const scoreHtml = meta.score
+        ? `<div class="resultStrap__score">${escapeHtml(meta.score)}</div>`
+        : '';
+
+    return `
+        <div class="resultStrap">
+            <div class="resultStrap__left">
+                <div class="resultStrap__title">
+                    <span class="resultStrap__dot resultStrap__dot--${dotSide}"></span>
+                    <span>${resultText}</span>
+                    ${subHtml}
+                </div>
+                ${metaLine ? `<div class="resultStrap__meta">${metaLine}</div>` : ''}
+            </div>
+            ${scoreHtml}
         </div>
     `;
 }
 
 /**
- * 리포트 화면(분석 완료 후 리뷰)의 카드 HTML을 한 번에 빌드한다.
- * 게임 식별 정보(닉/오프닝/메타)는 players-bar + 홈 카드 진입 컨텍스트로 이미 노출되어 헤더 카드는 두지 않음.
- *
- * 구조 (위→아래):
- *   1. 차트 카드 (평가 그래프)
- *   2. 통계 표 카드 (정확도 + 수 분류 — renderStatsCardHtml 활용)
- *   3. CTA 버튼 (#reviewStartBtn — 핸들러는 호출자가 와이어링)
+ * 리포트 화면(분석 완료 후 리뷰) 카드 HTML 빌드.
+ * 구조: resultStrap → 그래프 카드 → 통계 표 카드 → CTA 버튼.
+ * resultMeta는 호출자(main.js)가 PGN 헤더 + analysisQueue에서 미리 빌드해 넘긴다.
  */
-export function renderReviewReport({ analysisQueue, isUserWhite }) {
-    const graphSvg = buildSummaryGraphSvgHtml(analysisQueue, isUserWhite)
+export function renderReviewReport({ analysisQueue, isUserWhite, resultMeta }) {
+    const graphSvg = buildSummaryGraphSvgHtml(analysisQueue)
         || `<div class="summary-empty">${escapeHtml(t('report_empty'))}</div>`;
 
     return `
         <div class="review-report">
+            ${renderResultStrapHtml(resultMeta)}
+
             <div class="review-card review-chart-card">
                 <div class="review-chart-svg-wrap">${graphSvg}</div>
             </div>
 
             ${renderStatsCardHtml(analysisQueue, isUserWhite)}
 
-            <button id="reviewStartBtn" class="review-cta-btn">${escapeHtml(t('start_review_from_first'))}</button>
+            <button id="reviewStartBtn" class="review-cta-btn">
+                <span>${escapeHtml(t('start_review_from_first'))}</span>
+                ${CTA_ARROW_SVG}
+            </button>
         </div>
     `;
 }

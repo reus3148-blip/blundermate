@@ -729,6 +729,17 @@ function parseIncrement(tc) {
     return m ? Number(m[1]) || 0 : 0;
 }
 
+// "600+5" → "10+5", "180" → "3+0", "30" → "30+0", correspondence/null → null.
+// 분 표기는 60초 기준, 60 미만이면 초 그대로 유지(블리츠 30초 등).
+export function formatTimeControlLabel(tc) {
+    if (!tc || String(tc).includes('/')) return null;
+    const base = parseInitialTime(tc);
+    if (base == null) return null;
+    const inc = parseIncrement(tc);
+    const baseMain = base >= 60 ? Math.round(base / 60) : base;
+    return `${baseMain}+${inc}`;
+}
+
 // 사용자 색의 모든 수에 대해 { userMoveNumber, clockBefore, clockAfter, timeSpent } 반환.
 // 클럭 주석/타임컨트롤 없으면 null. timeSpent는 음수면 0으로 클램프(프리무브 등).
 export function extractMoveTimesForUser(pgn, isUserWhite) {

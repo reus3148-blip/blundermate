@@ -3549,10 +3549,10 @@ button.settings-row--destructive:hover {
 }
 
 /* ==========================================
-   Analysis Review View: Layout & Cards
-   - .summary-graph = 4단계 카드 컨테이너 (보드 자리 점령)
-   - .review-report = 카드 스택 (gap 12px)
-   - .review-card = 4개 카드 공통 (--bg-surface + --brd + radius 10)
+   Analysis Review View
+   - .summary-graph = 컨테이너 (보드 자리 점령)
+   - .review-report = 스택 (resultStrap → 그래프 카드 → 표 카드 → CTA)
+   - .review-card = 공통 카드 (--bg-surface + radius 16 + soft shadow)
    ========================================== */
 .summary-graph {
     width: 100%;
@@ -3564,38 +3564,98 @@ button.settings-row--destructive:hover {
 .review-report {
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    padding: 12px 12px 24px;
+    gap: 10px;
+    padding: 4px 10px 16px;
     box-sizing: border-box;
 }
 
-/* 카드 공통 — Notion/Vercel 톤의 절제된 카드. 4개 카드 모두 통일. */
 .review-card {
     background: var(--bg-surface);
-    border: 1px solid var(--brd);
-    border-radius: 10px;
-    padding: 16px 18px;
+    border-radius: 16px;
+    box-shadow: 0 1px 0 rgba(16, 20, 28, 0.04), 0 6px 16px -8px rgba(16, 20, 28, 0.10);
     box-sizing: border-box;
 }
-/* 1. 차트 카드 */
+
+/* ── Result strap — 최상단 (승/패 + reason + 메타 + 점수). 카드 X, flush row. */
+.resultStrap {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 6px 8px;
+    gap: 12px;
+}
+.resultStrap__left { min-width: 0; flex: 1; }
+.resultStrap__title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 700;
+    font-size: 17px;
+    letter-spacing: -0.01em;
+    color: var(--tx);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.resultStrap__dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+.resultStrap__dot--white {
+    background: var(--review-white-line);
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+.resultStrap__dot--black { background: var(--review-black-line); }
+.resultStrap__dot--draw  { background: var(--tx3); }
+.resultStrap__sub {
+    color: var(--tx2);
+    font-weight: 500;
+}
+.resultStrap__sub::before { content: "· "; }
+.resultStrap__meta {
+    font-size: 12px;
+    color: var(--tx3);
+    margin-top: 2px;
+    padding-left: 18px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.resultStrap__score {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--tx);
+    letter-spacing: -0.02em;
+    flex-shrink: 0;
+    font-family: var(--num-font);
+    font-variant-numeric: tabular-nums;
+}
+
+/* ── 그래프 카드 */
 .review-chart-card {
-    padding: 14px 14px 10px;
+    padding: 8px 8px 4px;
 }
 .review-chart-svg-wrap {
     width: 100%;
+    border-radius: 10px;
+    overflow: hidden;
+    background: var(--review-graph-bg);
 }
-
-/* 그래프 SVG (기존 클래스 — 카드 안에서 사용). 카드 안이라 background 제거. */
 .summary-graph-svg {
     width: 100%;
-    aspect-ratio: 16 / 4;
+    aspect-ratio: 340 / 108;
     display: block;
-    flex-shrink: 0;
 }
-.summary-graph-tick {
-    font-family: 'IBM Plex Mono', 'SF Mono', monospace;
-    font-size: 8px;
-    fill: var(--tx3);
+.summary-graph-axis {
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 6px 2px;
+    font-size: 10px;
+    color: var(--tx3);
+    font-family: var(--num-font);
+    font-variant-numeric: tabular-nums;
 }
 .summary-empty {
     display: flex;
@@ -3607,90 +3667,101 @@ button.settings-row--destructive:hover {
     font-size: 12px;
 }
 
-/* 2. 통계 카드 — review-card 공통 스타일을 그대로 사용. 표만 자체 스타일. */
-.review-stats-table {
-    width: 100%;
-    border-collapse: collapse;
-    table-layout: fixed;
+/* ── 통계 표 카드 — grid 1fr 60px 60px (좌측 라벨 자유, 백/흑 60px) */
+.review-stats-card {
+    padding: 0 16px;
 }
-.review-stats-table th,
-.review-stats-table td {
-    padding: 12px 8px;
-    font-size: 14px;
-    color: var(--tx);
-    vertical-align: middle;
+.review-stats-card .tRow {
+    display: grid;
+    grid-template-columns: 1fr 60px 60px;
+    column-gap: 14px;
+    align-items: center;
+    padding: 5px 0;
+    border-bottom: 1px solid var(--list-divider);
 }
-.review-stats-table th:first-child,
-.review-stats-table td:first-child {
-    padding-left: 0;
+.review-stats-card .tRow:last-child { border-bottom: 0; }
+.review-stats-card .tRow--head {
+    padding: 8px 0 6px;
 }
-.review-stats-table thead th {
-    font-weight: 700;
-    font-size: 10px;
-    color: var(--tx3);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    text-align: center;
-    padding-bottom: 8px;
+.review-stats-card .tRow--head .tRow__num {
+    display: flex;
+    justify-content: flex-end;
+}
+.review-stats-card .tRow--accuracy {
+    padding: 6px 0 8px;
     border-bottom: 1px solid var(--brd);
 }
-.review-stats-table thead th:first-child { text-align: left; }
-
-/* 백/흑 헤더 + (나) 배지. 본인 진영은 헤더 텍스트 색만 앰버로 강조 (셀 배경은 비움). */
-.review-stats-side { display: table-cell; }
-.review-stats-side-name {
-    display: inline-block;
-    vertical-align: middle;
+.review-stats-card .tRow--accuracy .tRow__label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--tx2);
 }
-.review-stats-you {
-    display: inline-block;
-    margin-left: 5px;
-    padding: 1px 5px;
-    background: var(--ac-lo);
-    color: var(--ac);
-    border-radius: 3px;
-    font-size: 9px;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    vertical-align: middle;
-    line-height: 1.4;
-}
-.review-stats-table th.is-you .review-stats-side-name { color: var(--ac); }
-
-/* 정확도 행: 위아래 패딩 + 숫자 강조. */
-.review-stats-accuracy td {
-    padding-top: 14px;
-    padding-bottom: 14px;
-    font-weight: 700;
-}
-.review-stats-table td.review-stats-num-strong {
-    font-family: 'IBM Plex Mono', 'SF Mono', monospace;
-    font-size: 17px;
-    font-weight: 800;
-    color: var(--tx);
-    text-align: center;
-}
-
-/* 정확도 ↔ 수 분류 사이 1px 구분선. */
-.review-stats-class-first td {
-    border-top: 1px solid var(--brd);
-    padding-top: 14px;
-}
-
-.review-stats-label {
+.review-stats-card .tRow__label {
     display: flex;
     align-items: center;
-    gap: 10px;
-    min-width: 0;
-    white-space: nowrap;
-}
-.review-stats-label-text {
-    font-size: 14px;
+    gap: 11px;
+    font-size: 13.5px;
     font-weight: 500;
     color: var(--tx);
+    min-width: 0;
 }
+.review-stats-card .tRow__label > span:not(.review-stats-badge) {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.review-stats-card .tRow__num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    font-size: 13.5px;
+    font-weight: 700;
+    color: var(--tx);
+    font-family: var(--num-font);
+}
+.review-stats-card .tRow__num.is-zero {
+    color: var(--tx3);
+    opacity: 0.55;
+    font-weight: 500;
+}
+.review-stats-card .tRow__acc {
+    font-size: 14px;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    color: var(--tx);
+}
+.review-stats-card .tRow__acc i {
+    font-style: normal;
+    font-size: 10px;
+    opacity: 0.5;
+    margin-left: 1px;
+    font-weight: 700;
+}
+.review-stats-card .tRow__acc--black { color: var(--review-black-line); }
+
+/* tag-side (백/흑 헤더) — dot + label inline */
+.review-stats-card .tag-side {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--tx2);
+}
+.review-stats-card .tag-side .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+.review-stats-card .tag-side.white .dot {
+    background: var(--review-white-line);
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+.review-stats-card .tag-side.black .dot { background: var(--review-black-line); }
+
 /* 분류 칩 — 보드 .piece-badge와 같은 시각언어, 표 inline용 압축 버전.
-   Good은 BADGE_MAP에 entry 없어 .review-stats-badge--good fallback로 작은 disc 표시. */
+   Good은 BADGE_MAP entry 없어 .review-stats-badge--good fallback. */
 .review-stats-badge {
     display: inline-flex;
     align-items: center;
@@ -3702,7 +3773,7 @@ button.settings-row--destructive:hover {
     flex-shrink: 0;
     font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', sans-serif;
     letter-spacing: -0.02em;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 0 0 0.5px rgba(0,0,0,0.06);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 0 0 0.5px rgba(0, 0, 0, 0.06);
 }
 .review-stats-badge--good {
     background: var(--tx);
@@ -3711,34 +3782,30 @@ button.settings-row--destructive:hover {
     margin: 0 5.5px;
     box-shadow: none;
 }
-.review-stats-table td.review-stats-num {
-    font-family: 'IBM Plex Mono', 'SF Mono', monospace;
-    font-size: 15px;
-    font-weight: 600;
-    text-align: center;
-}
-.review-stats-table td.review-stats-num.is-zero {
-    color: var(--tx3) !important;
-    opacity: 0.5;
-}
 
-/* 3. CTA — 풀너비 앰버 버튼. 카드 묶음 마지막 자리. */
+/* ── CTA — 56px 풀너비 primary + arrow icon */
 .review-cta-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
     width: 100%;
-    height: 48px;
+    height: 56px;
     border: none;
-    border-radius: 10px;
-    background: var(--ac);
+    border-radius: 14px;
+    background: var(--review-cta-bg);
     color: #fff;
-    font-size: 14px;
-    font-weight: 600;
+    font-size: 16px;
+    font-weight: 700;
     font-family: inherit;
+    letter-spacing: -0.01em;
     cursor: pointer;
-    margin-top: 4px;
+    margin-top: 6px;
     transition: opacity 0.15s ease;
+    white-space: nowrap;
 }
-.review-cta-btn:active { opacity: 0.85; }
-.review-cta-btn:hover { opacity: 0.92; }
+.review-cta-btn:active { opacity: 0.88; }
+.review-cta-btn:hover  { opacity: 0.94; }
 
 /* ── Insights (통계) — 홈 디자인 언어와 통일 ───────────────────── */
 /* subtitle(좌) + dropdown 필터(우) 한 줄. 좁아지면 wrap. */

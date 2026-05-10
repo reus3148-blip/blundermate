@@ -21,7 +21,7 @@ import {
     clearExploreRedoStack, pushExploreRedo, popExploreRedo,
     setSimulationQueue, pushSimulationQueueItem, setSimulationIndex, setSimExtendState,
 } from './modes.js';
-import { parseEvalData, getDests, convertPvToSan, parseAndLoadPgn, isValidFen, escapeHtml, parseOpeningFromPgn, getTier, TIERS, classifyMove, formatClock, injectNags } from './utils.js';
+import { parseEvalData, getDests, convertPvToSan, parseAndLoadPgn, isValidFen, escapeHtml, parseOpeningFromPgn, getTier, TIERS, classifyMove, formatClock, injectNags, formatTimeControlLabel, formatRelativeDate, getDateStrings } from './utils.js';
 import { renderMovesTable, updateUIWithEval, highlightActiveMove, renderEngineLines, updateTopEvalDisplay, renderReviewReport, buildPreviewCardHtml, placePieceBadge, updateClocks } from './ui.js';
 import { EVAL_MODE_KEY, computePgnHash, upsertAnalyzedGame, loadAnalysisCache, saveAnalysisCache, isCacheCompatible, ANALYSIS_CACHE_VERSION, getIsCoordsEnabled, lsGet, lsSet } from './storage.js';
 import { collectAutoBlunders } from './autoBlunders.js';
@@ -1551,15 +1551,47 @@ function canShowReview() {
     return appMode === APP_MODES.MAIN && analysisQueue.length > 0 && !isFenOnly;
 }
 
+// PGN headers + analysisQueue → 리포트 상단 strap에 쓰일 결과 메타.
+// reason은 마지막 SAN '#' 검사로 mate만 식별 — chess.com [Termination]은 자연어라 신뢰 낮음.
+// score는 PGN [Result] 그대로지만 표시용 글리프(en-dash, ½)로 정규화.
+function buildReviewResultMeta() {
+    const h = chess.header() || {};
+    const r = h.Result;
+    let result = null;
+    if (r === '1-0') result = isUserWhite ? 'win' : 'loss';
+    else if (r === '0-1') result = isUserWhite ? 'loss' : 'win';
+    else if (r === '1/2-1/2') result = 'draw';
+
+    const lastMove = analysisQueue.length ? analysisQueue[analysisQueue.length - 1] : null;
+    const reason = lastMove && String(lastMove.san || '').includes('#')
+        ? t('report_result_mate')
+        : null;
+
+    const opponent = isUserWhite ? h.Black : h.White;
+    const dateRaw = h.UTCDate || h.Date;
+    const dateLabel = (dateRaw && dateRaw !== '????.??.??')
+        ? formatRelativeDate(dateRaw.replace(/\./g, '-'), getDateStrings())
+        : '';
+
+    return {
+        result,
+        reason,
+        opponent: opponent && opponent !== '?' ? opponent : '',
+        tcLabel: formatTimeControlLabel(h.TimeControl),
+        dateLabel,
+        score: r && r !== '*' ? r.replace(/-/g, '–').replace('1/2', '½') : '',
+        isUserWhite,
+    };
+}
+
 function applyReviewView() {
     const on = isReviewMode && canShowReview();
     analysisView.classList.toggle('view-review', on);
     if (on) {
-        // 보드 자리(summaryGraph) = 카드 묶음(차트/통계/CTA). 게임 식별은 players-bar로 충분.
-        // 중간바와 패널은 CSS에서 숨김 처리하므로 여기서 별도로 건드리지 않는다.
         summaryGraphEl.innerHTML = renderReviewReport({
             analysisQueue,
             isUserWhite,
+            resultMeta: buildReviewResultMeta(),
         });
 
         // CTA 핸들러 와이어링: "분석 시작" → 0수(시작 포지션) 이동.

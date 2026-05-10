@@ -38,6 +38,16 @@
   --board-light: #E8DCBF;
   --board-dark:  #8C6840;
 
+  /* Review report — 평가 그래프 백/흑 진영 색 (디자인 절대 평가 표시).
+     보라(black-side)는 chess.com과 차별 + 본인 진영 강조용. */
+  --review-graph-bg:   #F6F7FA;
+  --review-mid-line:   #CDD1D9;
+  --review-white-line: #1F2937;
+  --review-white-area: rgba(17, 22, 28, 0.10);
+  --review-black-line: #6B46D6;
+  --review-black-area: rgba(107, 70, 214, 0.18);
+  --review-cta-bg:     #2A52D6;
+
   /* 레이아웃 z-index (색상 아님 — 유지) */
   --z-board-coords: 2;
   --z-badge:        10;
@@ -108,6 +118,14 @@
 
   --board-light: #C4B898;
   --board-dark:  #6E5232;
+
+  --review-graph-bg:   #1A1D24;
+  --review-mid-line:   rgba(255, 255, 255, 0.18);
+  --review-white-line: #E5E7EB;
+  --review-white-area: rgba(229, 231, 235, 0.10);
+  --review-black-line: #A78BFA;
+  --review-black-area: rgba(167, 139, 250, 0.20);
+  --review-cta-bg:     #4A7CFF;
 
   --list-divider:      rgba(255, 255, 255, 0.06);
   --press-fill:        rgba(255, 255, 255, 0.05);
