@@ -21,8 +21,8 @@ import {
     clearExploreRedoStack, pushExploreRedo, popExploreRedo,
     setSimulationQueue, pushSimulationQueueItem, setSimulationIndex, setSimExtendState,
 } from './modes.js';
-import { parseEvalData, getDests, convertPvToSan, parseAndLoadPgn, isValidFen, escapeHtml, parseOpeningFromPgn, getTier, TIERS, classifyMove } from './utils.js';
-import { renderMovesTable, updateUIWithEval, highlightActiveMove, renderEngineLines, updateTopEvalDisplay, renderReviewReport, buildPreviewCardHtml, placePieceBadge } from './ui.js';
+import { parseEvalData, getDests, convertPvToSan, parseAndLoadPgn, isValidFen, escapeHtml, parseOpeningFromPgn, getTier, TIERS, classifyMove, formatClock } from './utils.js';
+import { renderMovesTable, updateUIWithEval, highlightActiveMove, renderEngineLines, updateTopEvalDisplay, renderReviewReport, buildPreviewCardHtml, placePieceBadge, updatePlayersBar, setPlayersBarHidden } from './ui.js';
 import { EVAL_MODE_KEY, computePgnHash, upsertAnalyzedGame, loadAnalysisCache, saveAnalysisCache, isCacheCompatible, ANALYSIS_CACHE_VERSION, getIsCoordsEnabled, lsGet, lsSet } from './storage.js';
 import { collectAutoBlunders } from './autoBlunders.js';
 import { initVault, isVaultDetailActive, isVaultPuzzleActive, getVaultDetailIndex, setVaultDetailIndex, flipVaultBoard, setVaultCoords, redrawVaultBoard, loadVaultData, loadBlunderListData, redrawVaultPuzzleBoard } from './vault.js';
@@ -1253,6 +1253,9 @@ function startNewAnalysis(newQueue, targetIndex = null, previewOnly = false) {
         updateTopEvalDisplay('-', '', isUserWhite);
     }
 
+    // 분석 진입 시점 초기 players-bar 갱신 — 미리보기/분석 모드 공통.
+    refreshPlayersBar();
+
     if (previewOnly) {
         setIsPreviewMode(true);
         renderPreviewCard();
@@ -1574,6 +1577,37 @@ function applyReviewView() {
     }
 }
 
+// 보드 위 players-bar 갱신 — 분석 모드(MAIN) + 큐 보유 + 단일 FEN 분석 아님일 때만 표시.
+// 양 측 잔여 시계는 currentlyViewedIndex 이하의 가장 최근 본인 색 ply의 clock을 사용.
+function refreshPlayersBar() {
+    const queue = analysisQueue;
+    if (appMode !== APP_MODES.MAIN || queue.length === 0 || queue[0]?.isFenOnly) {
+        setPlayersBarHidden(true);
+        return;
+    }
+    let whiteClock = '', blackClock = '';
+    for (let i = 0; i <= currentlyViewedIndex && i < queue.length; i++) {
+        const q = queue[i];
+        if (!q.clock) continue;
+        if (q.isWhite) whiteClock = q.clock;
+        else blackClock = q.clock;
+    }
+    const headers = chess.header();
+    const whiteName = headers.White || '';
+    const blackName = headers.Black || '';
+    if (!whiteName && !blackName && !whiteClock && !blackClock) {
+        setPlayersBarHidden(true);
+        return;
+    }
+    updatePlayersBar({
+        whiteName,
+        blackName,
+        whiteClock: formatClock(whiteClock),
+        blackClock: formatClock(blackClock),
+    });
+    setPlayersBarHidden(false);
+}
+
 function updateBoardPosition(index, fen) {
     if (appMode === APP_MODES.EXPLORE) {
         exitExplorationMode();
@@ -1602,6 +1636,7 @@ function updateBoardPosition(index, fen) {
     // 보드 위치를 옮길 때마다 리뷰 모드는 자동 해제 (사용자가 명시적으로 ☰→리뷰 보기로 다시 켤 수 있음).
     if (isReviewMode) setIsReviewMode(false);
     setCurrentlyViewedIndex(index);
+    refreshPlayersBar();
     applyReviewView();
     highlightActiveMove(index);
 

@@ -148,7 +148,11 @@ export function buildQueueFromPgn(chessInstance) {
     if (startFen) tempChess.load(startFen);
 
     const commentByFen = new Map();
+    const clockByFen = new Map();
     for (const { fen, comment } of chessInstance.getComments()) {
+        // [%clk H:MM:SS.s] — 그 수를 둔 측의 잔여 시간 (chess.com / lichess 표준)
+        const clkMatch = comment.match(/\[%clk\s+([\d:.]+)\]/);
+        if (clkMatch) clockByFen.set(fen, clkMatch[1]);
         const cleaned = comment.replace(/\[%\w+\s+[^\]]*\]/g, '').trim();
         if (cleaned) commentByFen.set(fen, cleaned);
     }
@@ -167,6 +171,7 @@ export function buildQueueFromPgn(chessInstance) {
             isWhite: index % 2 === 0,
             engineLines: [],
             note: commentByFen.get(fen) || '',
+            clock: clockByFen.get(fen) || '', // 둔 측의 잔여 (양 측 동시 lookup은 main.js에서)
         });
     });
     return queue;

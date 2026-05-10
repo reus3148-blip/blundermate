@@ -718,3 +718,21 @@ export function placePieceBadge(boardEl, square, orientation, classification) {
     boardEl.appendChild(wrap);
 }
 
+// 보드 위 players-bar — 백/흑 닉네임과 잔여 시계 표시.
+// 인자 clock은 이미 utils.formatClock 통과한 표시용 문자열.
+export function updatePlayersBar({ whiteName, blackName, whiteClock, blackClock }) {
+    const wn = document.getElementById('whitePlayerName');
+    const bn = document.getElementById('blackPlayerName');
+    const wc = document.getElementById('whitePlayerClock');
+    const bc = document.getElementById('blackPlayerClock');
+    if (wn) wn.textContent = whiteName || '—';
+    if (bn) bn.textContent = blackName || '—';
+    if (wc) wc.textContent = whiteClock || '';
+    if (bc) bc.textContent = blackClock || '';
+}
+
+export function setPlayersBarHidden(hidden) {
+    const bar = document.getElementById('playersBar');
+    if (bar) bar.classList.toggle('hidden', !!hidden);
+}
+

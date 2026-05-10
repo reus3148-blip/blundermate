@@ -682,6 +682,19 @@ export function parseAndLoadPgn(chessInstance, pgnText) {
 // 첫 수의 prev는 TimeControl 헤더의 base time.
 // 클럭 주석 자체가 없는 게임(daily/correspondence 등)은 null 반환 — 통계에서 스킵.
 
+// "0:02:59.9" → "2:59" (시 0이면 생략, 1분 미만은 소수 1자리)
+export function formatClock(clkStr) {
+    if (!clkStr) return '';
+    const parts = String(clkStr).split(':');
+    if (parts.length !== 3) return clkStr;
+    const h = parseInt(parts[0], 10) || 0;
+    const m = parseInt(parts[1], 10) || 0;
+    const s = parseFloat(parts[2]) || 0;
+    if (h > 0) return `${h}:${String(m).padStart(2,'0')}:${String(Math.floor(s)).padStart(2,'0')}`;
+    if (m > 0) return `${m}:${String(Math.floor(s)).padStart(2,'0')}`;
+    return s < 10 ? s.toFixed(1) : `0:${String(Math.floor(s)).padStart(2,'0')}`;
+}
+
 // PGN 본문에서 모든 클럭을 ply 순서대로 초 단위 배열로 반환.
 export function extractClocks(pgn) {
     if (!pgn) return [];

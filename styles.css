@@ -605,6 +605,52 @@ textarea:focus {
 /* ==========================================
    Analysis View: Board Area
    ========================================== */
+.players-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 52px;
+    padding: 0 12px;
+    background: var(--bg-surface);
+    border-bottom: 1px solid var(--brd);
+    flex-shrink: 0;
+    font-size: var(--fs-meta);
+}
+
+.players-bar-side {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.players-bar-glyph {
+    font-size: 18px;
+    line-height: 1;
+    color: var(--tx);
+}
+
+.players-bar-name {
+    font-weight: var(--fw-title);
+    color: var(--tx);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 110px;
+}
+
+.players-bar-clock {
+    font-variant-numeric: tabular-nums;
+    color: var(--tx2);
+    font-weight: 500;
+    min-width: 40px;
+}
+
+.players-bar-side.white-side .players-bar-clock { text-align: right; }
+.players-bar-side.black-side .players-bar-clock { text-align: left; }
+
+.players-bar.hidden { display: none; }
+
 .board-wrapper {
     display: flex;
     justify-content: center;
@@ -639,7 +685,7 @@ textarea:focus {
 
 .board-container {
     width: 100%;
-    max-width: calc(100dvh - 267px);
+    max-width: calc(100dvh - 319px);
     aspect-ratio: 1 / 1;
     flex-shrink: 0;
 }
