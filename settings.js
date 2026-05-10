@@ -20,8 +20,8 @@ const THEME_BTNS = [
 
 function syncThemeButtons() {
     const cur = getTheme();
-    for (const [id, t] of THEME_BTNS) {
-        document.getElementById(id)?.classList.toggle('active', t === cur);
+    for (const [id, theme] of THEME_BTNS) {
+        document.getElementById(id)?.classList.toggle('active', theme === cur);
     }
 }
 
