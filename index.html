@@ -201,13 +201,13 @@
             <!-- Panel Content -->
             <div class="panel-content">
 
-                <!-- Engine Tab -->
-                <div class="tab-panel active">
+                <!-- Engine Tab — id는 main.js switchTab의 `tab-${name}` 동적 매칭용. 제거 금지. -->
+                <div class="tab-panel active" id="tab-engine">
                     <div id="engineLines" class="engine-lines-container"></div>
                 </div>
 
                 <!-- AI Coach Tab -->
-                <div class="tab-panel">
+                <div class="tab-panel" id="tab-ai">
                     <div id="geminiExplanation" class="ai-panel-content">
                         <button id="aiAnalyzeBtn" class="ai-analyze-btn" data-i18n="analyzePosition">✦ 이 포지션 분석하기</button>
                     </div>
