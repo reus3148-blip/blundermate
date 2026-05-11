@@ -612,50 +612,6 @@ textarea:focus {
 /* ==========================================
    Analysis View: Board Area
    ========================================== */
-/* Phase 58 — 3-bar 레이아웃: top(상대 시계+☰) / middle(분류/win% + 내 시계) / bottom(AI/저장/<>).
-   Phase 59 — 시계 pill + 분류 칩 + eval 강조 + ☰ 진짜 버튼화 (chess.com/Robinhood 톤). */
-
-/* Top clock bar — 위쪽 진영(상대) 시계 + ☰ 기보. */
-.analysis-top-clock {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    height: 52px;
-    padding: 0 12px;
-    background: var(--bg-surface);
-    border-bottom: 1px solid var(--brd);
-    flex-shrink: 0;
-}
-
-/* 시계 pill — chess.com 패턴: mono + tabular-nums + elevated bg 캡슐. 빈 값 땐 캡슐 자체 숨김. */
-.player-clock {
-    font-family: var(--num-font);
-    font-variant-numeric: tabular-nums;
-    font-feature-settings: "tnum" 1, "zero" 1;
-    font-size: 16px;
-    font-weight: 600;
-    color: var(--tx);
-    line-height: 1;
-    padding: 6px 10px;
-    border-radius: 8px;
-    background: var(--bg-elevated);
-}
-
-.player-clock:empty {
-    background: transparent;
-    padding: 0;
-}
-
-.player-clock--bottom { margin-left: auto; }
-
-/* Phase 59 — 분석 화면 ☰ 만 살짝 더 큰 터치 타겟 + tx 컬러 (chess.com top bar 강조 톤). */
-.analysis-top-clock .topbar-icon-btn {
-    width: 36px;
-    height: 36px;
-    border-radius: 8px;
-    color: var(--tx);
-    font-size: 18px;
-}
 
 .board-wrapper {
     display: flex;
@@ -720,7 +676,7 @@ textarea:focus {
     gap: 0;
 }
 
-/* Phase 59 — separator를 바 정중앙에 핀(absolute), 분류 칩은 좌측(right edge fixed),
+/* separator를 바 정중앙에 핀(absolute), 분류 칩은 좌측(right edge fixed),
    eval은 우측(left edge fixed). 글자 길이가 변해도 separator·chip·eval 위치 모두 고정. */
 .ctrl-center {
     position: absolute;
@@ -770,7 +726,7 @@ textarea:focus {
 .preview-start-btn:hover { background: var(--ac-br); }
 .preview-start-btn:active { background: var(--ac-br); transform: translateX(-50%) scale(0.97); }
 
-/* Phase 58 — 분석 화면 하단 액션바: [AI 저장 메인복귀] ─── [이전 다음]. */
+/* 분석 화면 하단 액션바: 좌측 [AI · 저장 · 메인복귀 · 기보] ─── 우측 [이전 · 다음]. */
 .analysis-bottom-bar {
     display: flex;
     align-items: center;
@@ -854,17 +810,12 @@ textarea:focus {
     cursor: not-allowed;
 }
 
-.ctrl-nav {
+.ctrl-nav,
+.ctrl-save,
+.ctrl-moves {
     width: 44px;
     flex-shrink: 0;
     padding: 0;
-}
-
-.ctrl-save {
-    width: 44px;
-    flex-shrink: 0;
-    padding: 0;
-    color: var(--tx2);
 }
 
 
@@ -941,35 +892,6 @@ textarea:focus {
     flex: 1;
     letter-spacing: 0.01em;
 }
-
-/* 엔진 라인 아래 메모 입력 — 현재 수에 대한 사용자 코멘트.
-   PGN의 `{...}` 코멘트로 영속됨 (게임 저장 시 buildPgnWithNotes가 주입). */
-.engine-note {
-    padding: 8px 12px 4px;
-}
-.engine-note-input {
-    width: 100%;
-    min-height: 44px;
-    padding: 8px 10px;
-    background: var(--bg-elevated);
-    border: 1px solid var(--brd);
-    border-radius: 8px;
-    font-family: inherit;
-    font-size: var(--fs-meta);
-    line-height: 1.45;
-    color: var(--tx);
-    resize: none;
-    outline: none;
-    transition: border-color 0.12s ease, background 0.12s ease;
-    -webkit-tap-highlight-color: transparent;
-}
-.engine-note-input::placeholder { color: var(--tx3); }
-.engine-note-input:hover { background: var(--bg-surface); }
-.engine-note-input:focus {
-    background: var(--bg-surface);
-    border-color: var(--ac-br);
-}
-
 
 .engine-lines-container {
     padding: 0.25rem 0 0;
@@ -1100,7 +1022,7 @@ th {
 .tab-toggle-btn:hover { opacity: 0.75; }
 .tab-toggle-btn:active { transform: scale(0.95); }
 
-/* Phase 59 — eval은 mono + 굵게 + 가독성 색(JS가 색 주입). 폭은 내용 기반(symbol M3/+9.99 등 변동) + 좌측 라벨과 일관 정렬. */
+/* eval은 mono + 굵게 + 가독성 색(JS가 색 주입). 폭은 내용 기반(symbol M3/+9.99 등 변동) + 좌측 라벨과 일관 정렬. */
 .win-chance-display {
     flex-shrink: 0;
     font-family: var(--num-font);
@@ -1116,7 +1038,7 @@ th {
     padding: 0 4px;
 }
 
-/* Phase 59 — 분류 라벨을 chess.com/lichess 패턴의 컬러 칩(tint pill)으로.
+/* 분류 라벨을 chess.com/lichess 패턴의 컬러 칩(tint pill)으로.
    color-mix는 Chrome 111+/Safari 16.2+/Firefox 113+ 모두 OK(타겟 모바일 충족). */
 .move-class-label {
     display: inline-flex;

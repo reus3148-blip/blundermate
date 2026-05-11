@@ -138,28 +138,16 @@ export function stopAndClear() {
 // PGN이 이미 로드된 chess.js 인스턴스로부터 분석 큐를 만든다.
 // 각 엔트리는 그 수가 둔 직후의 FEN과 메타데이터 (san, from, to, turn, moveNumber, isWhite)를 가진다.
 // startFen 헤더가 있으면 그 위치부터 출발 (Chess960이나 중간 위치에서 시작한 게임).
-// `[%clk]` 등 PGN 표준 메타 어노테이션은 사용자 메모가 아니라 도구 부산물이라 strip — 자유 텍스트만 note로.
 export function buildQueueFromPgn(chessInstance) {
     const queue = [];
     const tempChess = new Chess();
     const startFen = chessInstance.header().FEN;
     if (startFen) tempChess.load(startFen);
 
-    const commentByFen = new Map();
-    const clockByFen = new Map();
-    for (const { fen, comment } of chessInstance.getComments()) {
-        // [%clk H:MM:SS.s] — 그 수를 둔 측의 잔여 시간 (chess.com / lichess 표준)
-        const clkMatch = comment.match(/\[%clk\s+([\d:.]+)\]/);
-        if (clkMatch) clockByFen.set(fen, clkMatch[1]);
-        const cleaned = comment.replace(/\[%\w+\s+[^\]]*\]/g, '').trim();
-        if (cleaned) commentByFen.set(fen, cleaned);
-    }
-
     chessInstance.history({ verbose: true }).forEach((move, index) => {
         tempChess.move(move);
-        const fen = tempChess.fen();
         queue.push({
-            fen,
+            fen: tempChess.fen(),
             san: move.san,
             from: move.from,
             to: move.to,
@@ -168,8 +156,6 @@ export function buildQueueFromPgn(chessInstance) {
             moveNumber: Math.floor(index / 2) + 1,
             isWhite: index % 2 === 0,
             engineLines: [],
-            note: commentByFen.get(fen) || '',
-            clock: clockByFen.get(fen) || '', // 둔 측의 잔여 (양 측 동시 lookup은 main.js에서)
         });
     });
     return queue;

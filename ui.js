@@ -167,7 +167,7 @@ export function highlightActiveMove(index) {
 /**
  * Renders the top engine recommended lines (MultiPV).
  */
-export function renderEngineLines(container, lines, onHover, onLeave, onClick, opts = {}) {
+export function renderEngineLines(container, lines, onHover, onLeave, onClick) {
     // 항상 최신 콜백 함수를 참조하도록 컨테이너의 속성으로 저장합니다 (클로저 버그 해결)
     container._onHover = onHover;
     container._onLeave = onLeave;
@@ -209,23 +209,7 @@ export function renderEngineLines(container, lines, onHover, onLeave, onClick, o
         `;
     }
 
-    // 메모 입력 영역 (선택적). opts.note: 현 위치 메모 / opts.onNoteChange: input 콜백.
-    // PGN comment(`{note}`)에 동기화 — 외부에서 chess.set_comment / pgn 재생성 담당.
-    const noteHtml = opts.notes !== false
-        ? `<div class="engine-note">
-               <textarea class="engine-note-input" rows="2" maxlength="500" placeholder="${escapeHtml(t('engine_note_placeholder'))}">${escapeHtml(opts.note || '')}</textarea>
-           </div>`
-        : '';
-
-    container.innerHTML = linesHtml + placeholderHtml + noteHtml;
-
-    if (opts.notes !== false && typeof opts.onNoteChange === 'function') {
-        const ta = container.querySelector('.engine-note-input');
-        if (ta) {
-            ta.addEventListener('input', () => opts.onNoteChange(ta.value));
-            ta.addEventListener('blur', () => opts.onNoteChange(ta.value, { commit: true }));
-        }
-    }
+    container.innerHTML = linesHtml + placeholderHtml;
 }
 
 function setupEngineLinesDelegation(container) {
@@ -617,7 +601,7 @@ export function updateTopEvalDisplay(scoreStr, classification = '', isUserWhite 
     }
     el.style.color = color;
 
-    // Classification label — Phase 59 컬러 칩(CSS [data-cls] 셀렉터가 색/배경 결정).
+    // Classification label은 CSS [data-cls] 셀렉터가 색/배경 결정.
     if (labelEl) {
         const META = ['Exploring', 'Simulating'];
         if (classification && !META.includes(classification)) {
@@ -679,18 +663,5 @@ export function placePieceBadge(boardEl, square, orientation, classification) {
 
     wrap.appendChild(badge);
     boardEl.appendChild(wrap);
-}
-
-// Phase 58 — 3-bar 레이아웃의 시계 라우팅. 보드 orientation 기준으로 위쪽/아래쪽 진영 시계 결정.
-// orientation === 'white': 보드 상단 = 흑, 하단 = 백 → top=흑시계, bottom=백시계
-// orientation === 'black': 보드 상단 = 백, 하단 = 흑 → top=백시계, bottom=흑시계
-// 인자 clock은 이미 utils.formatClock 통과한 표시용 문자열.
-export function updateClocks({ whiteClock, blackClock, orientation }) {
-    const top = document.getElementById('topPlayerClock');
-    const bottom = document.getElementById('bottomPlayerClock');
-    if (!top || !bottom) return;
-    const flipped = orientation === 'black';
-    top.textContent    = (flipped ? whiteClock : blackClock) || '';
-    bottom.textContent = (flipped ? blackClock : whiteClock) || '';
 }
 

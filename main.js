@@ -21,8 +21,8 @@ import {
     clearExploreRedoStack, pushExploreRedo, popExploreRedo,
     setSimulationQueue, pushSimulationQueueItem, setSimulationIndex, setSimExtendState,
 } from './modes.js';
-import { parseEvalData, getDests, convertPvToSan, parseAndLoadPgn, isValidFen, escapeHtml, parseOpeningFromPgn, getTier, TIERS, classifyMove, formatClock, injectNags, formatTimeControlLabel, formatRelativeDate, getDateStrings } from './utils.js';
-import { renderMovesTable, updateUIWithEval, highlightActiveMove, renderEngineLines, updateTopEvalDisplay, renderReviewReport, buildPreviewCardHtml, placePieceBadge, updateClocks } from './ui.js';
+import { parseEvalData, getDests, convertPvToSan, parseAndLoadPgn, isValidFen, escapeHtml, parseOpeningFromPgn, getTier, TIERS, classifyMove, injectNags, formatTimeControlLabel, formatRelativeDate, getDateStrings } from './utils.js';
+import { renderMovesTable, updateUIWithEval, highlightActiveMove, renderEngineLines, updateTopEvalDisplay, renderReviewReport, buildPreviewCardHtml, placePieceBadge } from './ui.js';
 import { EVAL_MODE_KEY, computePgnHash, upsertAnalyzedGame, loadAnalysisCache, saveAnalysisCache, isCacheCompatible, ANALYSIS_CACHE_VERSION, getIsCoordsEnabled, lsGet, lsSet } from './storage.js';
 import { collectAutoBlunders } from './autoBlunders.js';
 import { initVault, isVaultDetailActive, isVaultPuzzleActive, getVaultDetailIndex, setVaultDetailIndex, flipVaultBoard, setVaultCoords, redrawVaultBoard, loadVaultData, loadBlunderListData, redrawVaultPuzzleBoard } from './vault.js';
@@ -547,7 +547,7 @@ function syncLiveStateToIndex(idx) {
         getEngine().stop();
         clearExplorationEngineLines();
         for (let i = 0; i < cached.length; i++) setExplorationLineAt(i, cached[i]);
-        renderEngineLines(engineLinesContainer, cached.filter(Boolean), drawEngineArrow, clearEngineArrow, handleEngineLineClick, noteOptsFor(idx));
+        renderEngineLines(engineLinesContainer, cached.filter(Boolean), drawEngineArrow, clearEngineArrow, handleEngineLineClick);
         const cls = analysisQueue[idx].classification || 'Exploring';
         updateTopEvalDisplay(cached[0].scoreStr, cls, isUserWhite);
         hideEngineStatus();
@@ -581,7 +581,7 @@ function liveInputReset() {
 openBoardInputBtn.addEventListener('click', openLiveInput);
 
 // 라이브 전용 액션바(Undo/Reset/Paste)는 LIVE_INPUT일 때만 노출.
-// Phase 58 — 같은 자리(하단)에 살던 .analysis-bottom-bar는 LIVE_INPUT 동안 가림(prev/next/save/AI는 라이브에서 의미 약함).
+// .analysis-bottom-bar는 LIVE_INPUT 동안 가림 — prev/next/save/AI는 라이브에서 의미 약함.
 function setLiveInputControls(active) {
     liveActionBar?.classList.toggle('hidden', !active);
     analysisBottomBar?.classList.toggle('hidden', !!active);
@@ -738,7 +738,6 @@ document.addEventListener('keydown', (e) => {
         } else if (cg) {
             const currentOrientation = cg.state.orientation;
             cg.set({ orientation: currentOrientation === 'white' ? 'black' : 'white' });
-            refreshClocks();
         }
     }
 });
@@ -827,49 +826,14 @@ initSavedGames({
     },
     // 라이브 입력 모드는 메인 chess가 비어 있고 explorationChess만 의미 있음.
     getChess: () => appMode === APP_MODES.LIVE_INPUT ? explorationChess : chess,
-    // PGN 추출 시 analysisQueue의 per-move note를 `{...}` comment로 주입. 라이브 입력 모드는
-    // analysisQueue가 비어있는 경우가 잦아 plain PGN으로 fallback.
     getPgn: () => {
-        if (appMode === APP_MODES.LIVE_INPUT) return explorationChess.pgn();
-        return buildPgnWithNotes();
+        const src = appMode === APP_MODES.LIVE_INPUT ? explorationChess : chess;
+        return injectNags(src.pgn(), analysisQueue);
     },
     // Empty state CTA → 홈 화면으로 이동 (사용자가 게임 카드를 골라 분석 시작 가능).
     onEmptyCta: () => navigateTo('home'),
 });
 
-// setComment가 현재 위치 한정이라 별도 인스턴스에서 매수 replay하며 메모를 박는다.
-function buildPgnWithNotes() {
-    if (!chess || !analysisQueue || analysisQueue.length === 0) {
-        return chess ? chess.pgn() : '';
-    }
-    // FEN-only 큐(분석 1포지션)는 코멘트 영속 대상 아님
-    if (analysisQueue.length === 1 && analysisQueue[0]?.isFenOnly) {
-        return chess.pgn();
-    }
-    const tmp = new Chess();
-    const startFen = chess.header().FEN;
-    if (startFen) tmp.load(startFen);
-    // 헤더 복사 (FEN 포함)
-    const headers = chess.header();
-    Object.entries(headers).forEach(([k, v]) => tmp.header(k, v));
-
-    analysisQueue.forEach((q) => {
-        tmp.move({ from: q.from, to: q.to, promotion: q.promotion });
-        const note = (q.note || '').trim();
-        if (note) tmp.setComment(note.replace(/[{}]/g, ''));
-    });
-    return injectNags(tmp.pgn(), analysisQueue);
-}
-
-// renderEngineLines에 넘길 note 옵션. queue[idx]에 기록된 note를 보여주고, 입력 시 제자리 갱신.
-function noteOptsFor(idx) {
-    const item = analysisQueue[idx];
-    if (!item) return { notes: false };
-    return {
-        note: item.note || '',
-        onNoteChange: (val) => { item.note = val; },
-    };
-}
 initInsights();
 
 function buildExplorationMovesQueue() {
@@ -894,8 +858,7 @@ movesOverlayBtn.addEventListener('click', () => {
     const isFenOnly = analysisQueue.length === 1 && analysisQueue[0]?.isFenOnly;
     const canReview = !isPreviewMode && !isAnalysisLoading && analysisQueue.length > 0 && !isFenOnly;
     showMovesOverlay({
-        // 메모(`{...}` 코멘트) 포함 PGN — 단순 chess.pgn()은 chess.js 0.10이 코멘트를 strip함.
-        getPgn: () => buildPgnWithNotes(),
+        getPgn: () => injectNags(chess.pgn(), analysisQueue),
         reviewable: canReview,
         renderBody: () => {
             renderMovesTable(movesBody, analysisQueue, (index) => {
@@ -1112,7 +1075,7 @@ const engineCallbacks = {
         if (explorationEngineLines[0] && now - lastEvalRenderTime > EVAL_RENDER_THROTTLE) {
             lastEvalRenderTime = now;
             requestAnimationFrame(() => {
-                renderEngineLines(engineLinesContainer, explorationEngineLines.filter(Boolean), drawEngineArrow, clearEngineArrow, handleEngineLineClick, { notes: false });
+                renderEngineLines(engineLinesContainer, explorationEngineLines.filter(Boolean), drawEngineArrow, clearEngineArrow, handleEngineLineClick);
                 // 라이브 모드에서 분류 산출 전엔 Exploring 메타 라벨로 라벨 영역 비움.
                 // 분류는 onBestMove에서 fix됨.
                 const cls = (appMode === APP_MODES.LIVE_INPUT && analysisQueue.length > 0)
@@ -1249,9 +1212,6 @@ function startNewAnalysis(newQueue, targetIndex = null, previewOnly = false) {
         updateTopEvalDisplay('-', '', isUserWhite);
     }
 
-    // 분석 진입 시점 초기 시계 갱신 — 미리보기/분석 모드 공통.
-    refreshClocks();
-
     if (previewOnly) {
         setIsPreviewMode(true);
         renderPreviewCard();
@@ -1320,7 +1280,6 @@ function removePreviewControls() {
     if (ctrlCenter) ctrlCenter.classList.remove('hidden');
     tabToggleBtn.classList.remove('hidden');
     previewStartBtn.classList.add('hidden');
-    refreshClocks();
 }
 
 // 분석 로딩 상태: 보드 자리에 명언 카드 + 진행 바, 패널/네비/상태바 숨김.
@@ -1497,7 +1456,7 @@ function _finalizeAnalysisRun({ fromCache }) {
         const topLine = move.engineLines && move.engineLines[0] ? move.engineLines[0] : null;
         updateTopEvalDisplay(topLine?.scoreStr || '', move.classification, isUserWhite);
         if (move.engineLines && move.engineLines.length > 0) {
-            renderEngineLines(engineLinesContainer, move.engineLines.filter(Boolean), drawEngineArrow, clearEngineArrow, handleEngineLineClick, noteOptsFor(0));
+            renderEngineLines(engineLinesContainer, move.engineLines.filter(Boolean), drawEngineArrow, clearEngineArrow, handleEngineLineClick);
         }
     }
 }
@@ -1605,29 +1564,6 @@ function applyReviewView() {
     }
 }
 
-// Phase 58 — 3-bar 시계 갱신. 보드 orientation 기준 위쪽(상대) / 아래쪽(나) 진영 시계 라우팅.
-// MAIN 모드 + 큐 보유 + FEN-only 아님일 때만 시계 표시. 그 외엔 빈 문자열.
-function refreshClocks() {
-    const queue = analysisQueue;
-    const orientation = cg?.state?.orientation || 'white';
-    if (appMode !== APP_MODES.MAIN || queue.length === 0 || queue[0]?.isFenOnly) {
-        updateClocks({ whiteClock: '', blackClock: '', orientation });
-        return;
-    }
-    let whiteClock = '', blackClock = '';
-    for (let i = 0; i <= currentlyViewedIndex && i < queue.length; i++) {
-        const q = queue[i];
-        if (!q.clock) continue;
-        if (q.isWhite) whiteClock = q.clock;
-        else blackClock = q.clock;
-    }
-    updateClocks({
-        whiteClock: formatClock(whiteClock),
-        blackClock: formatClock(blackClock),
-        orientation,
-    });
-}
-
 function updateBoardPosition(index, fen) {
     if (appMode === APP_MODES.EXPLORE) {
         exitExplorationMode();
@@ -1656,7 +1592,6 @@ function updateBoardPosition(index, fen) {
     // 보드 위치를 옮길 때마다 리뷰 모드는 자동 해제 (사용자가 명시적으로 ☰→리뷰 보기로 다시 켤 수 있음).
     if (isReviewMode) setIsReviewMode(false);
     setCurrentlyViewedIndex(index);
-    refreshClocks();
     applyReviewView();
     highlightActiveMove(index);
 
@@ -1700,7 +1635,7 @@ function updateBoardPosition(index, fen) {
     // 화면이 바뀔 때, 해당 수에 저장된 엔진 추천 라인이 있다면 화면에 다시 렌더링
     if (analysisQueue[index] && analysisQueue[index].engineLines && analysisQueue[index].engineLines.length > 0) {
         const topLine = analysisQueue[index].engineLines[0];
-        renderEngineLines(engineLinesContainer, analysisQueue[index].engineLines.filter(Boolean), drawEngineArrow, clearEngineArrow, handleEngineLineClick, noteOptsFor(index));
+        renderEngineLines(engineLinesContainer, analysisQueue[index].engineLines.filter(Boolean), drawEngineArrow, clearEngineArrow, handleEngineLineClick);
         updateTopEvalDisplay(topLine.scoreStr, analysisQueue[index].classification, isUserWhite);
     } else if (index === -1 && analysisQueue.length > 0) {
         // 분석 후 0수(시작 포지션) — 게임 목록에서 누른 직후 모습과 동일하게 미리보기 카드 표시
