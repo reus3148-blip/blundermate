@@ -24,7 +24,7 @@ import {
     classifyGameResult, isWhitePlayer, cpToWhiteWinPct,
 } from './utils.js';
 import { t, getLocale } from './strings.js';
-import { CBURNETT_PIECE_URL } from './pieces-cburnett.js';
+import { CBURNETT_PIECE_SVG } from './pieces-cburnett.js';
 
 // ==========================================
 // State
@@ -142,8 +142,21 @@ function updateProfileCardRecord(games, displayUser) {
 // ==========================================
 // Mini board SVG (84px)
 // ==========================================
+// piece는 document 1회 sprite(<symbol id="cb-wK">…)로 정의 + 카드마다 <use href>로 참조.
+// 카드별 base64 인라인 반복(카드당 ~25KB × N 누적)을 sprite 1회(~7KB) + use(~50B)로 90% 절감.
+let _cburnettSpriteInjected = false;
+function ensureCburnettSprite() {
+    if (_cburnettSpriteInjected) return;
+    const symbols = Object.entries(CBURNETT_PIECE_SVG)
+        .map(([k, content]) => `<symbol id="cb-${k}" viewBox="0 0 45 45">${content}</symbol>`)
+        .join('');
+    document.body.insertAdjacentHTML('beforeend',
+        `<svg xmlns="http://www.w3.org/2000/svg" style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true">${symbols}</svg>`);
+    _cburnettSpriteInjected = true;
+}
+
 // chess.js board() 출력(8×8 {type, color, square} 배열)을 64-요소 cells로 정규화.
-// "wK" / "bP" / null 형식 — _MINIBOARD_PIECE_PATHS 키와 piece-w/b 클래스 매핑에 직접 사용.
+// "wK" / "bP" / null 형식 — CBURNETT_PIECE_SVG 키와 직접 매핑.
 function _cellsFromBoard(board) {
     const out = [];
     for (const row of board) {
@@ -163,6 +176,7 @@ function _squareToIdx(sq) {
     return r * 8 + f;
 }
 function renderMiniBoardSvgHtml(cells, size, lastMove, flipped) {
+    ensureCburnettSprite();
     const cellSize = size / 8;
     const lm = lastMove ? new Set(lastMove.map(_squareToIdx)) : new Set();
     let body = '';
@@ -177,9 +191,8 @@ function renderMiniBoardSvgHtml(cells, size, lastMove, flipped) {
         const isLm = lm.has(realIdx);
         body += `<rect x="${x}" y="${y}" width="${cellSize}" height="${cellSize}" fill="${isLight ? 'var(--board-light)' : 'var(--board-dark)'}"/>`;
         if (isLm) body += `<rect class="last-move" x="${x}" y="${y}" width="${cellSize}" height="${cellSize}"/>`;
-        if (piece) {
-            const url = CBURNETT_PIECE_URL[piece];
-            if (url) body += `<image href="${url}" x="${x}" y="${y}" width="${cellSize}" height="${cellSize}"/>`;
+        if (piece && CBURNETT_PIECE_SVG[piece]) {
+            body += `<use href="#cb-${piece}" x="${x}" y="${y}" width="${cellSize}" height="${cellSize}"/>`;
         }
     }
     return `<svg class="home-mini-board-svg home-game-board" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" aria-hidden="true">${body}</svg>`;

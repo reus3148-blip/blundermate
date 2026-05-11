@@ -18,7 +18,7 @@
     color: var(--tx);
 }
 
-.home-brand-text {
+.brand-text {
     text-align: center;
     font-family: 'IBM Plex Mono', ui-monospace, monospace;
     font-size: 15px;
@@ -41,8 +41,8 @@
 
 /* home/analysis top-bar 워드마크 — screen-loading transition과 톤 통일.
    blunder=tx / mate=accent, weight 700, IBM Plex Mono. opacity는 빼서 활성 텍스트로. */
-.home-brand-text .brand-blunder { color: var(--tx); font-weight: 700; }
-.home-brand-text .brand-mate    { color: var(--ac); font-weight: 700; }
+.brand-text .brand-blunder { color: var(--tx); font-weight: 700; }
+.brand-text .brand-mate    { color: var(--ac); font-weight: 700; }
 
 /* ==========================================
    Home View: States
@@ -226,7 +226,10 @@
     display: none;
 }
 
-.bottom-nav-tab {
+/* bottom-nav-tab(홈 4탭) + live-action-tab(분석 LIVE_INPUT 액션바) — 동일 기하·타이포.
+   :active/:disabled state는 의미적으로 다르므로 별 룰 유지. */
+.bottom-nav-tab,
+.live-action-tab {
     flex: 1;
     display: flex;
     flex-direction: column;
@@ -285,25 +288,6 @@
 
 .live-action-bar.hidden {
     display: none;
-}
-
-.live-action-tab {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 3px;
-    height: 56px;
-    background: none;
-    border: none;
-    color: var(--tx3);
-    font-family: 'Inter', sans-serif;
-    font-size: 11px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: color 0.15s;
-    -webkit-tap-highlight-color: transparent;
 }
 
 .live-action-tab:active {
@@ -389,42 +373,6 @@
     -webkit-overflow-scrolling: touch;
     overscroll-behavior-y: contain;
 }
-
-.card-save-btn {
-    width: 32px;
-    height: 32px;
-    background: transparent;
-    border: none;
-    color: var(--tx2);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    padding: 0;
-    transition: color 0.15s ease;
-}
-.card-save-btn:hover {
-    color: var(--ac);
-}
-.card-save-btn:active {
-    opacity: 0.7;
-}
-
-.delete-btn {
-    flex-shrink: 0;
-    margin-left: 10px;
-    padding: 0.4rem;
-    background: none;
-    border: none;
-    color: var(--tx2);
-    cursor: pointer;
-    border-radius: 4px;
-    display: flex;
-    align-items: center;
-    transition: color 0.15s ease, background 0.15s ease;
-}
-.delete-btn:hover { color: var(--blunder); background: rgba(154, 58, 42, 0.08); }
 
 .text-btn {
     background: none;
@@ -635,7 +583,7 @@ textarea:focus {
 }
 
 .tag.engine-ready { background: rgba(90, 122, 58, 0.10); border-color: rgba(90, 122, 58, 0.30); color: var(--best); }
-.tag.engine-loading { background: rgba(43, 91, 215, 0.10); border-color: rgba(43, 91, 215, 0.30); color: var(--inaccuracy); }
+.tag.engine-loading { background: var(--ac-lo); border-color: rgba(43, 91, 215, 0.30); color: var(--inaccuracy); }
 .tag.hidden { display: none; }
 
 .board-container {
@@ -755,16 +703,6 @@ textarea:focus {
     display: flex;
     justify-content: center;
     align-items: center;
-}
-
-.control-btn.icon-btn {
-    gap: 0.75rem;
-}
-
-.control-btn.icon-btn svg {
-    width: 18px;
-    height: 18px;
-    flex-shrink: 0;
 }
 
 .control-btn:hover {
@@ -980,15 +918,6 @@ th {
     font-style: italic;
 }
 
-/* ── AI Coach Panel (Gemini 해설) ──────────────────────────── */
-#geminiExplanation {
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    min-height: 0;
-    overflow: hidden;
-}
-
 .bar-separator {
     width: 1px;
     height: 16px;
@@ -1061,7 +990,10 @@ th {
 .move-class-label[data-cls="Mistake"]    { color: var(--mistake);    background: color-mix(in srgb, var(--mistake)    14%, transparent); }
 .move-class-label[data-cls="Blunder"]    { color: var(--blunder);    background: color-mix(in srgb, var(--blunder)    14%, transparent); }
 
-.panel-content {
+/* AI Coach 패널(#geminiExplanation)도 동일 기하 — 부모 .panel-content 안의 자식이지만
+   자체 flex column으로 내부 콘텐츠(generate 버튼/응답)가 같은 layout 받음. */
+.panel-content,
+#geminiExplanation {
     display: flex;
     flex-direction: column;
     flex: 1;
@@ -1108,8 +1040,8 @@ th {
     width: calc(100% - 1.5rem);
     height: 44px;
     margin: 0.75rem;
-    background: rgba(43, 91, 215, 0.10);
-    border: 1px solid rgba(43, 91, 215, 0.25);
+    background: var(--ac-lo);
+    border: 1px solid var(--ac-br);
     border-radius: 8px;
     color: var(--ac);
     font-size: 0.875rem;
@@ -1339,66 +1271,6 @@ th {
     flex-shrink: 0;
 }
 
-/* 홈 시간대 필터 — 현재 홈에서는 사용 안 함 (라이브러리 PR에서 재도입 검토). 기존 컨슈머 보호용 정의만 유지. */
-.pill-filter-bar--home {
-    padding: 0;
-    gap: 16px;
-    margin-left: auto;
-}
-
-.pill-filter-bar--home .pill-btn {
-    height: auto;
-    padding: 4px 0 6px;
-    border: none;
-    border-radius: 0;
-    background: transparent;
-    color: var(--tx3);
-    font-weight: 500;
-    font-size: 13px;
-    letter-spacing: -0.01em;
-    position: relative;
-}
-
-.pill-filter-bar--home .pill-btn:hover {
-    color: var(--tx2);
-    border-color: transparent;
-}
-
-.pill-filter-bar--home .pill-btn.selected {
-    background: transparent;
-    border-color: transparent;
-    color: var(--tx);
-    font-weight: 600;
-}
-
-.pill-filter-bar--home .pill-btn.selected::after {
-    content: '';
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    height: 2px;
-    background: var(--tx);
-    border-radius: 1px;
-}
-
-.pill-filter-bar--home .pill-btn.selected:hover {
-    color: var(--tx);
-    border-color: transparent;
-}
-
-/* 세로 구분선: 탭들이 한 컨트롤 단위라는 시그널 (어포던스 보강) */
-.pill-filter-bar--home .pill-btn:not(:first-child)::before {
-    content: '';
-    position: absolute;
-    left: -8px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 1px;
-    height: 12px;
-    background: var(--brd2);
-}
-
 /* Scope 필터바 (Saved Games 등): 전폭 text-tab 패턴 — vault-filter-tabs와 결 동일.
    5탭이 mobile 375px 폭을 넘어서므로 가로 스크롤 허용 (chess.com / lichess 멀티탭 패턴).
    우측 fade gradient로 "더 있다" 시각 cue 제공. */
@@ -1458,41 +1330,6 @@ th {
 }
 .pill-filter-bar--scope .pill-btn.selected:hover {
     color: var(--tx);
-}
-
-/* 통계 화면 필터: iOS 세그먼트 컨트롤 스타일 (Apple Health 패턴).
-   다축 선택 UI에서 scope 필터는 secondary로 압축 — 카테고리 탭이 primary navigation.
-   둥근 컨테이너 안에 셀이 연결되어 "단일 결정" 느낌. 다른 화면(홈/저장)의 pill 스타일과 분리. */
-.pill-filter-bar--insights {
-    padding: 2px;
-    gap: 0;
-    background: var(--bg-elevated);
-    border-radius: 8px;
-    box-shadow: inset 0 0 0 0.5px rgba(28, 29, 31, 0.04);
-}
-.pill-filter-bar--insights .pill-btn {
-    height: 26px;
-    padding: 0 10px;
-    border-radius: 6px;
-    border: none;
-    background: transparent;
-    color: var(--tx2);
-    font-size: 12px;
-    font-weight: 500;
-    transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
-}
-.pill-filter-bar--insights .pill-btn:hover {
-    color: var(--tx);
-    border: none;
-}
-.pill-filter-bar--insights .pill-btn.selected {
-    background: var(--bg-surface);
-    color: var(--tx);
-    font-weight: 600;
-    border: none;
-    box-shadow:
-        0 1px 2px rgba(28, 29, 31, 0.08),
-        0 0 0 0.5px rgba(28, 29, 31, 0.04);
 }
 
 .pill-btn {
@@ -1576,6 +1413,7 @@ th {
     gap: 0.75rem;
 }
 
+.modal-header,
 .sim-header {
     display: flex;
     justify-content: space-between;
@@ -1642,7 +1480,7 @@ th {
 
 /* Row highlighting for active move */
 .active-move {
-    background: rgba(43, 91, 215, 0.10);
+    background: var(--ac-lo);
     border-left: 3px solid var(--ac);
 }
 .active-move .move-cell {
@@ -1792,12 +1630,6 @@ input:checked + .slider:before { transform: translateX(20px); background: var(--
 /* ==========================================
    Settings Modal Styles
    ========================================== */
-.modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
 .modal-close-btn {
     background: none;
     border: none;
@@ -2111,26 +1943,11 @@ button.settings-row--destructive:hover {
 /* Short textarea (80px) */
 .textarea-short { height: 80px; }
 
-/* Best move hint in Save modal */
-.save-best-move-text {
-    text-align: center;
-    color: var(--best);
-    font-size: 0.95rem;
-    font-weight: 600;
-    margin-top: -0.5rem;
-    margin-bottom: 0.5rem;
-    min-height: 1.2em;
-}
-
 /* Inline status/loading messages inside containers */
 .container-message {
     text-align: center;
     padding: 1rem;
     color: var(--tx2);
-}
-
-.container-message--error {
-    color: var(--blunder);
 }
 
 .modal-actions--spread {
@@ -2217,16 +2034,6 @@ button.settings-row--destructive:hover {
 .tier-row--emperor .tier-row-glyph { color: var(--ac); }
 .tier-row--emperor.is-current .tier-row-glyph { color: var(--ac); }
 
-.save-move-text {
-    font-family: monospace;
-    font-size: 1.2rem;
-    color: var(--ac);
-    font-weight: bold;
-    text-align: center;
-    background: var(--ac-lo);
-    padding: 0.8rem;
-    border-radius: 8px;
-}
 .modal-actions { display: flex; justify-content: flex-end; gap: 1rem; margin-top: 0.5rem; }
 
 /* Confirm 모달 — 기존 .modal-content--narrow를 재사용. message는 가운데 정렬, action row는 spread. */
@@ -2439,10 +2246,12 @@ button.settings-row--destructive:hover {
    Board Surface — Lichess maple 텍스처 (블론드 우드, Apple 가구/마감 느낌).
    체커 패턴이 이미지에 포함되어 있어 별도 conic-gradient 불필요.
    ========================================== */
+/* chessground.brown.css의 `cg-board { background-image: ... }`(specificity 0,0,1)를
+   `.board-container cg-board`(0,1,1)로 자연 override — !important 불필요. */
 .board-container cg-board {
-    background-image: url('https://cdn.jsdelivr.net/gh/lichess-org/lila@master/public/images/board/maple.jpg') !important;
-    background-size: 100% 100% !important;
-    background-position: 0 0 !important;
+    background-image: url('https://cdn.jsdelivr.net/gh/lichess-org/lila@master/public/images/board/maple.jpg');
+    background-size: 100% 100%;
+    background-position: 0 0;
 }
 
 /* 보드 외곽: 살짝 둥근 모서리 + 은은한 그림자로 깊이감 부여 */
@@ -2565,7 +2374,7 @@ button.settings-row--destructive:hover {
 }
 
 .moves-overlay .active-move-row td {
-    background: rgba(43, 91, 215, 0.10);
+    background: var(--ac-lo);
     color: var(--ac);
 }
 
@@ -3029,16 +2838,6 @@ button.settings-row--destructive:hover {
    카테고리 전환·풀 사이즈 변동·폰트 weight 변동에 모두 무관.
    원칙: min-height 사용 금지(자식이 더 크면 늘어남), height + box-sizing border-box로 못 박음. */
 
-/* Vault 필터 행 — 좌: 카테고리 sub-filter (--inline 변형), 우: 목록(보조 리스트) 진입 버튼. */
-.vault-filter-row {
-    display: flex;
-    align-items: center;
-    padding: 8px 16px 4px;
-    height: 38px;
-    box-sizing: border-box;
-    flex-shrink: 0;
-}
-
 /* 카테고리 sub-filter — 블런더 / 메이트.
    list 뷰(#vaultBlunderListView)는 폭 전체 underline-tab 스타일 (그대로 두고 보조 리스트 결 유지),
    stories top-bar(--inline 모디파이어)는 iOS segmented pill로 — 필터임을 시각적으로 강조 */
@@ -3100,8 +2899,9 @@ button.settings-row--destructive:hover {
     justify-self: end;
 }
 
-/* Pane / Stage 컨테이너 */
-#vaultPuzzlePane {
+/* Pane / Stage 컨테이너 — empty state도 같은 column flex로 (empty 마크업이 v2 카드라 fill 필요). */
+#vaultPuzzlePane,
+.vault-puzzle-empty {
     display: flex;
     flex-direction: column;
     flex: 1;
@@ -3133,13 +2933,7 @@ button.settings-row--destructive:hover {
     max-width: calc(100dvh - 360px);
 }
 
-/* Empty state 컨테이너 — 내용은 ui.js renderEmptyState가 .empty-state-v2 마크업으로 채움. */
-.vault-puzzle-empty {
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    min-height: 0;
-}
+/* Empty state — 베이스 룰 위(.vault-puzzle-empty와 묶음) + hidden 토글. */
 .vault-puzzle-empty.hidden { display: none; }
 
 /* Stories indicator — Duolingo 결의 단일 fill bar + "현재/총" 카운터.
@@ -3206,31 +3000,13 @@ button.settings-row--destructive:hover {
     text-overflow: ellipsis;
 }
 
-/* Board wrapper + 좌/우 tap zones (terminal/other 상태에서만 활성) */
-.vault-puzzle-board-wrap {
-    position: relative; /* tap zones absolute 기준 */
-    flex-shrink: 0;
-}
-.puzzle-tap-zones {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    pointer-events: none;
-    z-index: 5;
-}
-.puzzle-tap-zones.active { pointer-events: auto; }
-.puzzle-tap-zone {
-    flex: 1;
-    cursor: pointer;
-}
-
 /* vault eval — 분석 화면의 .win-chance-display 그대로 재사용 + 블런더 후 위치(scrub forward)에선 색만 빨강 */
 #vaultPlyIndicator { width: auto; min-width: 44px; padding: 0 4px; }
 #vaultPlyIndicator.vault-eval-dropped { color: var(--blunder); }
 
-/* Board flash — 정답/오답 시 vault-puzzle-board-wrap에 클래스 추가, 부드러운 ring. */
-.vault-puzzle-board-wrap.vault-flash-correct { animation: vaultFlashCorrect 0.55s ease-out; }
-.vault-puzzle-board-wrap.vault-flash-wrong   { animation: vaultFlashWrong   0.55s ease-out; }
+/* Board flash — 정답/오답 시 .board-wrapper에 클래스 추가(vault.js flashBoard), 부드러운 ring. */
+.vault-flash-correct { animation: vaultFlashCorrect 0.55s ease-out; }
+.vault-flash-wrong   { animation: vaultFlashWrong   0.55s ease-out; }
 @keyframes vaultFlashCorrect {
     0%   { box-shadow: 0 0 0 0   rgba(45, 110, 85, 0.55); }
     100% { box-shadow: 0 0 0 14px rgba(45, 110, 85, 0); }
@@ -3271,37 +3047,6 @@ button.settings-row--destructive:hover {
     text-transform: uppercase;
     color: var(--tx3);
 }
-.puzzle-fb-meta {
-    margin-top: 2px;
-    font-size: 12px;
-    color: var(--tx2);
-}
-/* 응수(opponent) 수는 사용자 수와 시각 구분 — 톤 다운된 회색 */
-.puzzle-fb-opp { color: var(--tx3); font-weight: 500; }
-.puzzle-fb-opp strong { font-weight: 500; }
-
-/* Actions — 다음/다시 풀기/처음부터 버튼 */
-.vault-puzzle-actions {
-    display: flex;
-    justify-content: center;
-    padding: 8px 16px 16px;
-}
-.vault-puzzle-next {
-    border: none;
-    border-radius: 8px;
-    padding: 10px 28px;
-    background: var(--tx);
-    color: var(--bg-surface);
-    font-family: inherit;
-    font-size: 13px;
-    font-weight: 600;
-    letter-spacing: -0.005em;
-    cursor: pointer;
-    transition: opacity 0.15s ease;
-}
-.vault-puzzle-next:hover { opacity: 0.85; }
-.vault-puzzle-next:active { opacity: 0.7; }
-
 /* ==========================================
    Analysis Review View — 분석 완료 후 리포트 화면
    - 4단계 카드 (헤더 / 차트 / 통계 / CTA) 자연 흐름
@@ -4367,17 +4112,6 @@ main {
     margin-left: -4px;
 }
 
-/* 카드 시각 액센트 (블런더 등) — accent strip 대신 우측 small color dot.
-   화면 좌측 패딩을 깔끔하게 유지하면서 분류 시각 구분 보존.
-   .list-row가 좌측 padding부터 텍스트로 바로 시작 — Apple/Notion 결. */
-.list-row-accent-dot {
-    flex-shrink: 0;
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--list-row-accent, var(--tx3));
-}
-
 /* ---- Empty state v2 (Apple HIG: icon + 헤드라인 + body + 선택적 CTA) -- */
 .empty-state-v2 {
     flex: 1;
@@ -4428,48 +4162,4 @@ main {
 }
 .empty-state-cta:hover { opacity: 0.92; }
 .empty-state-cta:active { opacity: 0.85; }
-
-/* ---- Text tab (44px 보장된 single-axis 필터) -----------------------
-   pill-filter-bar / vault-filter-tabs 의 후속 컴포넌트.
-   text + bottom underline, 44px min-height — Apple HIG 터치 타겟 만족. */
-.text-tab-row {
-    display: flex;
-    align-items: stretch;
-    gap: 4px;
-    border-bottom: 1px solid var(--brd);
-    padding: 0 8px;
-    flex-shrink: 0;
-}
-.text-tab {
-    background: none;
-    border: 0;
-    padding: 11px 12px;
-    min-height: var(--list-row-min-h-compact);
-    font-family: inherit;
-    font-size: var(--fs-body);
-    font-weight: 500;
-    line-height: 22px;
-    color: var(--tx3);
-    cursor: pointer;
-    position: relative;
-    -webkit-tap-highlight-color: transparent;
-    transition: color 0.12s ease;
-}
-.text-tab:hover { color: var(--tx2); }
-.text-tab.is-selected,
-.text-tab[aria-selected="true"] {
-    color: var(--tx);
-    font-weight: 600;
-}
-.text-tab.is-selected::after,
-.text-tab[aria-selected="true"]::after {
-    content: '';
-    position: absolute;
-    left: 12px;
-    right: 12px;
-    bottom: -1px;
-    height: 2px;
-    background: var(--tx);
-    border-radius: 1px;
-}
 
