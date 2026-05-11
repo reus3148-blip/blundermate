@@ -22,13 +22,11 @@ export function initBoard(container, options) {
     return cg;
 }
 
-export function setMainGame(c) { chess = c; }
 export function resetMainGame() { chess = new Chess(); return chess; }
 
 export function setCurrentlyViewedIndex(i) { currentlyViewedIndex = i; }
 
 export function setIsUserWhite(b) { isUserWhite = b; }
 
-export function setPersistentShapes(arr) { persistentShapes = arr; }
 export function pushPersistentShape(shape) { persistentShapes.push(shape); }
 export function clearPersistentShapes() { persistentShapes = []; }

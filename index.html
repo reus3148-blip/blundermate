@@ -92,7 +92,7 @@
                 </div>
                 <div class="username-input-wrap">
                     <input type="text" id="onboardingUsernameInput" class="home-text-input" data-i18n-placeholder="usernamePlaceholder" placeholder="Chess.com 유저네임" />
-                    <button id="onboardingSubmitBtn" class="home-submit-btn" title="시작하기">→</button>
+                    <button id="onboardingSubmitBtn" class="home-submit-btn" title="시작하기" data-i18n-title="onboarding_submit">→</button>
                 </div>
                 <div id="onboardingError" class="onboarding-error hidden" role="alert"></div>
             </div>
@@ -114,7 +114,7 @@
 
             <!-- Home Content -->
             <div class="home-state home-scroll">
-                <section id="homeProfileCard" class="home-profile-card hidden" aria-label="프로필">
+                <section id="homeProfileCard" class="home-profile-card hidden" aria-label="프로필" data-i18n-aria="aria_profile">
                     <div class="home-profile-row1">
                         <div class="home-profile-left">
                             <div id="homeProfileAvatar" class="home-profile-avatar" aria-hidden="true">♜</div>
@@ -202,12 +202,12 @@
             <div class="panel-content">
 
                 <!-- Engine Tab -->
-                <div class="tab-panel active" id="tab-engine">
+                <div class="tab-panel active">
                     <div id="engineLines" class="engine-lines-container"></div>
                 </div>
 
                 <!-- AI Coach Tab -->
-                <div class="tab-panel" id="tab-ai">
+                <div class="tab-panel">
                     <div id="geminiExplanation" class="ai-panel-content">
                         <button id="aiAnalyzeBtn" class="ai-analyze-btn" data-i18n="analyzePosition">✦ 이 포지션 분석하기</button>
                     </div>
@@ -242,7 +242,7 @@
             </div>
 
             <!-- Live input action bar — Undo / Reset / Paste. Hidden by default, shown only in LIVE_INPUT mode. -->
-            <nav id="liveActionBar" class="live-action-bar hidden" aria-label="라이브 입력 액션">
+            <nav id="liveActionBar" class="live-action-bar hidden" aria-label="라이브 입력 액션" data-i18n-aria="aria_live_action_bar">
                 <button id="liveUndoBtn" class="live-action-tab" type="button" data-i18n-aria="live_input_undo">
                     <svg class="live-action-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-15-6.7L3 13"/></svg>
                     <span class="live-action-label" data-i18n="live_input_undo">실행취소</span>
@@ -344,10 +344,10 @@
                             <span id="vaultPlyIndicator" class="win-chance-display">—</span>
                         </div>
                         <div class="ctrl-group-right">
-                            <button id="vaultPrevPlyBtn" class="ctrl-btn ctrl-nav" type="button" title="이전 수">
+                            <button id="vaultPrevPlyBtn" class="ctrl-btn ctrl-nav" type="button" title="이전 수" data-i18n-title="prev_move">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
                             </button>
-                            <button id="vaultNextPlyBtn" class="ctrl-btn ctrl-nav" type="button" title="다음 수">
+                            <button id="vaultNextPlyBtn" class="ctrl-btn ctrl-nav" type="button" title="다음 수" data-i18n-title="next_move">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
                             </button>
                         </div>
@@ -363,7 +363,7 @@
             </div>
 
             <!-- Bottom Action Bar — vault-pane 마지막 형제로 항상 하단 고정. live-action-bar 스타일. -->
-            <nav class="live-action-bar vault-action-bar" aria-label="퍼즐 액션">
+            <nav class="live-action-bar vault-action-bar" aria-label="퍼즐 액션" data-i18n-aria="aria_puzzle_action">
                 <button id="vaultPrevPuzzleBtn" class="live-action-tab" type="button">
                     <svg class="live-action-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
                     <span class="live-action-label" data-i18n="vault_puzzle_prev_short">이전</span>
@@ -525,7 +525,7 @@
                     <div class="settings-group">
                         <div class="settings-row">
                             <span class="settings-row-label" data-i18n="settings_depth">엔진 분석 깊이</span>
-                            <div class="stepper" id="depthStepper" role="group" aria-label="Engine depth">
+                            <div class="stepper" role="group" aria-label="Engine depth">
                                 <button type="button" class="stepper-btn" data-action="dec" id="depthDecBtn" aria-label="−">−</button>
                                 <span class="stepper-val" id="depthVal">14</span>
                                 <button type="button" class="stepper-btn" data-action="inc" id="depthIncBtn" aria-label="+">+</button>
@@ -682,7 +682,7 @@
                     <button id="movesOverlayCloseBtn" class="moves-overlay-close">✕</button>
                 </div>
                 <div class="moves-container">
-                    <table id="movesTable">
+                    <table>
                         <thead>
                             <tr><th data-i18n="moveNumHeader">#</th><th data-i18n="whiteHeader">White</th><th data-i18n="blackHeader">Black</th></tr>
                         </thead>

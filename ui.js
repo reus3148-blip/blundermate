@@ -605,14 +605,17 @@ export function updateTopEvalDisplay(scoreStr, classification = '', isUserWhite 
 
 // 보드 위 분류 배지 — 분석 화면(showPieceBadge)과 vault 카드(renderBlunderVisualization) 공유.
 // CSS는 styles.css의 .piece-badge-square / .piece-badge.
+// bg는 var(--{class}) 토큰으로 다크 모드 자동 정합. Best/Forced는 의도된 raw 유지
+// (Best: 다이아 칩이라 흰 배경 고정 / Forced: 차분한 회색 — 토큰 매핑 시 다크 contrast 약함).
+// color(전경 텍스트)는 컬러 bg 위 대비 보존을 위해 raw 고정.
 const BADGE_MAP = {
-    'Brilliant':  { symbol: '!!', fontSize: '9px',  fontWeight: '900', color: '#fff',    bg: '#3A8560' },
-    'Great':      { symbol: '!',  fontSize: '13px', fontWeight: '900', color: '#fff',    bg: '#2D6E55' },
+    'Brilliant':  { symbol: '!!', fontSize: '9px',  fontWeight: '900', color: '#fff',    bg: 'var(--brilliant)' },
+    'Great':      { symbol: '!',  fontSize: '13px', fontWeight: '900', color: '#fff',    bg: 'var(--great)' },
     'Best':       { symbol: '✦', fontSize: '10px', fontWeight: '700', color: '#1C1D1F', bg: '#FFFFFF' },
-    'Excellent':  { symbol: '✓', fontSize: '11px', fontWeight: '900', color: '#fff',    bg: '#6B8C3A' },
-    'Inaccuracy': { symbol: '?!', fontSize: '8px',  fontWeight: '700', color: '#fff',    bg: '#C99B2D' },
-    'Mistake':    { symbol: '?',  fontSize: '13px', fontWeight: '900', color: '#fff',    bg: '#D97706' },
-    'Blunder':    { symbol: '??', fontSize: '9px',  fontWeight: '700', color: '#fff',    bg: '#D03832' },
+    'Excellent':  { symbol: '✓', fontSize: '11px', fontWeight: '900', color: '#fff',    bg: 'var(--excellent)' },
+    'Inaccuracy': { symbol: '?!', fontSize: '8px',  fontWeight: '700', color: '#fff',    bg: 'var(--inaccuracy)' },
+    'Mistake':    { symbol: '?',  fontSize: '13px', fontWeight: '900', color: '#fff',    bg: 'var(--mistake)' },
+    'Blunder':    { symbol: '??', fontSize: '9px',  fontWeight: '700', color: '#fff',    bg: 'var(--blunder)' },
     'Forced':     { symbol: '□',  fontSize: '11px', fontWeight: '700', color: '#fff',    bg: '#62646A' },
 };
 

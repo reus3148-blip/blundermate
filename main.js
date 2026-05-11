@@ -11,8 +11,8 @@ import {
 } from './analysis.js';
 import {
     initBoard, chess, cg, currentlyViewedIndex, isUserWhite, persistentShapes,
-    setMainGame, resetMainGame, setCurrentlyViewedIndex, setIsUserWhite,
-    setPersistentShapes, pushPersistentShape, clearPersistentShapes,
+    resetMainGame, setCurrentlyViewedIndex, setIsUserWhite,
+    pushPersistentShape, clearPersistentShapes,
 } from './board.js';
 import {
     APP_MODES,
