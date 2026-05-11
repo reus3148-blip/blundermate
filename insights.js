@@ -674,7 +674,7 @@ function renderOpeningsCard(topOpenings, recent, prior) {
             </div>`;
     }
     const body = topOpenings.map(op => {
-        const label = op.eco ? `${op.key} · ${op.eco}` : op.key;
+        const label = op.key;
         const pct = winPct(op);
         const delta = deltaSpan(recent?.openings?.get(op.key), prior?.openings?.get(op.key));
         // 변종 행 — base는 마지막에, 나머지는 게임 수 내림차순. 1개뿐이면 펼쳐도 의미 없으므로 토글 숨김.

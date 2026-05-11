@@ -1252,7 +1252,7 @@ function buildGameHeaderInfo() {
     metaParts.push(t('preview_moves').replace('{n}', fullMoves));
     const metaLine = metaParts.join(' \u00b7 ');
 
-    const { name: openingName, eco } = parseOpeningFromPgn(chess.pgn());
+    const { name: openingName } = parseOpeningFromPgn(chess.pgn());
 
     // PGN [Result] + \ubcf8\uc778 \uc9c4\uc601\uc73c\ub85c win/loss/draw \ud310\uc815 (\ub9ac\ubdf0 \uce74\ub4dc\uc6a9)
     const r = h.Result;
@@ -1261,7 +1261,7 @@ function buildGameHeaderInfo() {
     else if (r === '0-1') result = isUserWhite ? 'loss' : 'win';
     else if (r === '1/2-1/2') result = 'draw';
 
-    return { title, metaLine, openingName, eco, result };
+    return { title, metaLine, openingName, result };
 }
 
 function renderPreviewCard() {

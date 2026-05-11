@@ -412,24 +412,12 @@ const CLASS_DOT_COLOR = {
 
 /**
  * 미리보기 카드 HTML (제목 / 날짜·수 / 오프닝). 분석 시작 화면과 분석 후 리포트 화면이 공유한다.
- * @param {object} info - { title, metaLine, openingName, eco }
+ * @param {object} info - { title, metaLine, openingName }
  */
-export function buildPreviewCardHtml({ title, metaLine, openingName, eco }) {
-    let openingBlock = '';
-    if (openingName) {
-        openingBlock = `
-            <div class="preview-card-opening">
-                <div class="preview-card-opening-name">${escapeHtml(openingName)}</div>
-                ${eco ? `<div class="preview-card-eco">ECO ${escapeHtml(eco)}</div>` : ''}
-            </div>
-        `;
-    } else if (eco) {
-        openingBlock = `
-            <div class="preview-card-opening">
-                <div class="preview-card-eco">ECO ${escapeHtml(eco)}</div>
-            </div>
-        `;
-    }
+export function buildPreviewCardHtml({ title, metaLine, openingName }) {
+    const openingBlock = openingName
+        ? `<div class="preview-card-opening"><div class="preview-card-opening-name">${escapeHtml(openingName)}</div></div>`
+        : '';
     return `
         <div class="preview-card">
             ${title ? `<div class="preview-card-title">${escapeHtml(title)}</div>` : ''}
@@ -534,12 +522,13 @@ function renderResultStrapHtml(meta) {
         ? `<div class="resultStrap__score">${escapeHtml(meta.score)}</div>`
         : '';
 
+    const labelMod = meta.result ? ` resultStrap__label--${meta.result}` : '';
     return `
         <div class="resultStrap">
             <div class="resultStrap__left">
                 <div class="resultStrap__title">
                     <span class="resultStrap__dot resultStrap__dot--${dotSide}"></span>
-                    <span>${resultText}</span>
+                    <span class="resultStrap__label${labelMod}">${resultText}</span>
                     ${subHtml}
                 </div>
                 ${metaLine ? `<div class="resultStrap__meta">${metaLine}</div>` : ''}

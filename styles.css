@@ -916,12 +916,6 @@ textarea:focus {
     overflow-wrap: break-word;
     word-break: break-word;
 }
-.preview-card-eco {
-    font-size: 11px;
-    color: var(--tx3);
-    margin-top: 2px;
-}
-
 .moves-container {
     display: block;
     flex: 1;
@@ -954,6 +948,15 @@ th {
     display: flex;
     align-items: center;
     gap: 0.5rem;
+}
+
+/* SAN 폭 가변(e4 2자 ~ Bxf3 4자)에 의한 eval pill x 어긋남 방지.
+   mono + min-width로 4자까지 fit, 짧은 SAN은 좌측 정렬 + 우측 여백 균일. */
+.move-cell .san {
+    display: inline-block;
+    min-width: 2.6em;
+    font-family: var(--num-font);
+    font-variant-numeric: tabular-nums;
 }
 
 .eval-badge {
@@ -2893,10 +2896,6 @@ button.settings-row--destructive:hover {
     flex-wrap: wrap;
 }
 
-.home-game-meta-sep {
-    color: var(--rule, #C7C9CE);
-}
-
 .home-game-class-row {
     margin-top: 8px;
     display: inline-flex;
@@ -2963,23 +2962,9 @@ button.settings-row--destructive:hover {
 .home-analyze-btn:hover { background: #ECE5D6; }
 .home-analyze-btn:disabled { opacity: 0.6; cursor: progress; }
 
-/* 미니보드 SVG: 인라인 path 기물(viewBox 45 기준 실루엣). OS 폰트 의존 없음 */
+/* 미니보드 SVG: 보드는 토큰 색 rect, 기물은 cburnett SVG <image> 임베드 — 분석 화면 보드와 동일. */
 .home-mini-board-svg {
     display: block;
-}
-.home-mini-board-svg .piece-w {
-    fill: #fafafa;
-    stroke: #1c1d1f;
-    stroke-width: 1.5;
-    stroke-linejoin: round;
-    stroke-linecap: round;
-}
-.home-mini-board-svg .piece-b {
-    fill: #1c1d1f;
-    stroke: #1c1d1f;
-    stroke-width: 1.5;
-    stroke-linejoin: round;
-    stroke-linecap: round;
 }
 .home-mini-board-svg .last-move {
     fill: rgba(43, 91, 215, 0.28);
@@ -3327,6 +3312,7 @@ button.settings-row--destructive:hover {
     display: none;
 }
 
+#analysisView.view-review .analysis-top-bar,
 #analysisView.view-review #boardContainer,
 #analysisView.view-review .unified-controls,
 #analysisView.view-review .panel-content,
@@ -3498,7 +3484,7 @@ button.settings-row--destructive:hover {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 4px 6px 8px;
+    padding: 8px 6px 12px;
     gap: 12px;
 }
 .resultStrap__left { min-width: 0; flex: 1; }
@@ -3507,13 +3493,15 @@ button.settings-row--destructive:hover {
     align-items: center;
     gap: 8px;
     font-weight: 700;
-    font-size: 17px;
+    font-size: 18px;
     letter-spacing: -0.01em;
     color: var(--tx);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
+.resultStrap__label--win  { color: var(--win); }
+.resultStrap__label--loss { color: var(--loss); }
 .resultStrap__dot {
     width: 10px;
     height: 10px;
@@ -3609,7 +3597,7 @@ button.settings-row--destructive:hover {
     border-bottom: 1px solid var(--brd);
 }
 .review-stats-card .tRow--accuracy .tRow__label {
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 600;
     color: var(--tx2);
 }
@@ -3617,7 +3605,7 @@ button.settings-row--destructive:hover {
     display: flex;
     align-items: center;
     gap: 11px;
-    font-size: 13.5px;
+    font-size: 12.5px;
     font-weight: 500;
     color: var(--tx);
     min-width: 0;
@@ -3630,7 +3618,7 @@ button.settings-row--destructive:hover {
 .review-stats-card .tRow__num {
     text-align: right;
     font-variant-numeric: tabular-nums;
-    font-size: 13.5px;
+    font-size: 12.5px;
     font-weight: 700;
     color: var(--tx);
     font-family: var(--num-font);
@@ -3641,14 +3629,14 @@ button.settings-row--destructive:hover {
     font-weight: 500;
 }
 .review-stats-card .tRow__acc {
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 800;
     letter-spacing: -0.01em;
     color: var(--tx);
 }
 .review-stats-card .tRow__acc i {
     font-style: normal;
-    font-size: 10px;
+    font-size: 9px;
     opacity: 0.5;
     margin-left: 1px;
     font-weight: 700;
@@ -3660,7 +3648,7 @@ button.settings-row--destructive:hover {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 700;
     letter-spacing: 0.04em;
     text-transform: uppercase;
@@ -3700,29 +3688,30 @@ button.settings-row--destructive:hover {
     box-shadow: none;
 }
 
-/* ── CTA — 56px 풀너비 primary + arrow icon */
+/* ── CTA — 옅은 tint(ac-lo) + ac 텍스트로 secondary 톤. 첫 수부터 복기는 primary action이지만
+   리뷰 화면 자체가 정보 우선이라 풀필 파랑은 무겁다. tint pill로 절제. */
 .review-cta-btn {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
+    gap: 6px;
     width: 100%;
-    height: 56px;
+    height: 48px;
     border: none;
-    border-radius: 14px;
-    background: var(--review-cta-bg);
-    color: #fff;
-    font-size: 16px;
-    font-weight: 700;
+    border-radius: 12px;
+    background: var(--ac-lo);
+    color: var(--ac);
+    font-size: 14.5px;
+    font-weight: 600;
     font-family: inherit;
     letter-spacing: -0.01em;
     cursor: pointer;
     margin-top: 6px;
-    transition: opacity 0.15s ease;
+    transition: background 0.15s ease;
     white-space: nowrap;
 }
-.review-cta-btn:active { opacity: 0.88; }
-.review-cta-btn:hover  { opacity: 0.94; }
+.review-cta-btn:hover  { background: var(--ac-br); }
+.review-cta-btn:active { background: var(--ac-br); opacity: 0.9; }
 
 /* ── Insights (통계) — 홈 디자인 언어와 통일 ───────────────────── */
 /* subtitle(좌) + dropdown 필터(우) 한 줄. 좁아지면 wrap. */

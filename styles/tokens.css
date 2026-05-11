@@ -34,9 +34,9 @@
   --win:  #1F7A4D;  /* 딥 에메랄드 */
   --loss: #B23A3A;  /* 가넷 (와인톤 레드) */
 
-  /* 체스 보드 — 따뜻한 톤 유지 (체스다움 보존) */
-  --board-light: #E8DCBF;
-  --board-dark:  #8C6840;
+  /* 체스 보드 — chessground brown.css와 동일 톤(분석 화면 실제 보드와 일치). */
+  --board-light: #F0D9B5;
+  --board-dark:  #B58863;
 
   /* Review report — 평가 그래프 백/흑 진영 색 (디자인 절대 평가 표시).
      보라(black-side)는 chess.com과 차별 + 본인 진영 강조용. */
@@ -116,8 +116,10 @@
   --win:  #36B068;
   --loss: #D8615E;
 
-  --board-light: #C4B898;
-  --board-dark:  #6E5232;
+  /* 보드 톤은 라이트/다크 무관 동일(chessground brown 그대로). 다크 카드 안에서도
+     실제 분석 화면과 같은 따뜻한 wood 톤 유지 — 모드 간 보드만 다른 인지 부조화 제거. */
+  --board-light: #F0D9B5;
+  --board-dark:  #B58863;
 
   --review-graph-bg:   #1A1D24;
   --review-mid-line:   rgba(255, 255, 255, 0.18);

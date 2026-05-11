@@ -24,6 +24,7 @@ import {
     classifyGameResult, isWhitePlayer, cpToWhiteWinPct,
 } from './utils.js';
 import { t, getLocale } from './strings.js';
+import { CBURNETT_PIECE_URL } from './pieces-cburnett.js';
 
 // ==========================================
 // State
@@ -141,16 +142,6 @@ function updateProfileCardRecord(games, displayUser) {
 // ==========================================
 // Mini board SVG (84px)
 // ==========================================
-// path는 viewBox 0 0 45 45 기준 단일-경로 실루엣. 유니코드 글리프(OS 폰트 의존, 비례 들쭉날쭉) 대체.
-const _MINIBOARD_PIECE_PATHS = {
-    P: 'M22.5 9a4.5 4.5 0 0 0-3.18 7.68A8.5 8.5 0 0 0 14 24.5c0 2.5 1.1 4.7 2.83 6.2L13 32v3h19v-3l-3.83-1.3A8.5 8.5 0 0 0 31 24.5a8.5 8.5 0 0 0-5.32-7.82A4.5 4.5 0 0 0 22.5 9z',
-    N: 'M22 10c10.5 1 16.5 8 16 29H15c0-9 10-6.5 8-21l-4 4-2-1-3 5-3-2-3 1.5L9 22l3-3 4-4 4-4 2-1z',
-    B: 'M22.5 7l-2 4c-3 1-6 4-6 9 0 3.5 1 6 2.5 7l-3 1c-2 0-3 1-3 2v1h22v-1c0-1-1-2-3-2l-3-1c1.5-1 2.5-3.5 2.5-7 0-5-3-8-6-9l-2-4z',
-    R: 'M9 11h27v6h-3v3h3v15H9V20h3v-3H9v-6zm3 3v3h3v-3h-3zm6 0v3h3v-3h-3zm6 0v3h3v-3h-3zm-13 6h17v15H11V20zm-2 17h27v3H9v-3z',
-    Q: 'M9 14l4 11h19l4-11-5 7V11l-4 12-4-15-4 15-4-12v10l-5-7zm3 12c-1 1-1 2 0 3h21c1-1 1-2 0-3H12zm-1 4l4 8h17l4-8H11z',
-    K: 'M22.5 5v3h-3v3h3v4l-2 1c-2 1-3 4-3 6 0 4 3 6 5 6s5-2 5-6c0-2-1-5-3-6l-2-1v-4h3V8h-3V5h-2zM11 28c-1 2-1 4 0 6h23c1-2 1-4 0-6H11zm0 8v3h23v-3H11z',
-};
-
 // chess.js board() 출력(8×8 {type, color, square} 배열)을 64-요소 cells로 정규화.
 // "wK" / "bP" / null 형식 — _MINIBOARD_PIECE_PATHS 키와 piece-w/b 클래스 매핑에 직접 사용.
 function _cellsFromBoard(board) {
@@ -174,9 +165,6 @@ function _squareToIdx(sq) {
 function renderMiniBoardSvgHtml(cells, size, lastMove, flipped) {
     const cellSize = size / 8;
     const lm = lastMove ? new Set(lastMove.map(_squareToIdx)) : new Set();
-    const lightColor = '#E8DCBF';
-    const darkColor = '#8C6840';
-    const pieceScale = cellSize / 45;
     let body = '';
     for (let i = 0; i < 64; i++) {
         const rIdx = flipped ? 7 - Math.floor(i / 8) : Math.floor(i / 8);
@@ -187,12 +175,11 @@ function renderMiniBoardSvgHtml(cells, size, lastMove, flipped) {
         const realIdx = rIdx * 8 + fIdx;
         const piece = cells[realIdx];
         const isLm = lm.has(realIdx);
-        body += `<rect x="${x}" y="${y}" width="${cellSize}" height="${cellSize}" fill="${isLight ? lightColor : darkColor}"/>`;
+        body += `<rect x="${x}" y="${y}" width="${cellSize}" height="${cellSize}" fill="${isLight ? 'var(--board-light)' : 'var(--board-dark)'}"/>`;
         if (isLm) body += `<rect class="last-move" x="${x}" y="${y}" width="${cellSize}" height="${cellSize}"/>`;
         if (piece) {
-            const cls = piece[0] === 'w' ? 'piece-w' : 'piece-b';
-            const d = _MINIBOARD_PIECE_PATHS[piece[1]];
-            if (d) body += `<path class="${cls}" transform="translate(${x} ${y}) scale(${pieceScale})" d="${d}"/>`;
+            const url = CBURNETT_PIECE_URL[piece];
+            if (url) body += `<image href="${url}" x="${x}" y="${y}" width="${cellSize}" height="${cellSize}"/>`;
         }
     }
     return `<svg class="home-mini-board-svg home-game-board" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" aria-hidden="true">${body}</svg>`;
@@ -353,10 +340,7 @@ function appendHomeRecentBatch(from, to) {
 
         const movesLabel = summary.moves ? `${summary.moves}${t('moves_suffix')}` : '';
         const metaParts = [opening, movesLabel].filter(Boolean);
-        const metaInner = metaParts.map((p, i) => {
-            const sep = i === 0 ? '' : '<span class="home-game-meta-sep" aria-hidden="true">·</span>';
-            return `${sep}<span>${escapeHtml(p)}</span>`;
-        }).join('');
+        const metaInner = metaParts.map(p => `<span>${escapeHtml(p)}</span>`).join('');
 
         const card = document.createElement('button');
         card.type = 'button';
