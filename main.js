@@ -58,6 +58,7 @@ const prevMoveBtn = document.getElementById('prevMoveBtn');
 const saveMoveBtn = document.getElementById('saveMoveBtn');
 const nextMoveBtn = document.getElementById('nextMoveBtn');
 const returnMainLineBtn = document.getElementById('returnMainLineBtn');
+const analysisBackBtn = document.getElementById('analysisBackBtn');
 const tabToggleBtn = document.getElementById('tabToggleBtn');
 const geminiExplanation = document.getElementById('geminiExplanation');
 const panelTabs = document.getElementById('panelTabs');
@@ -844,6 +845,10 @@ function buildExplorationMovesQueue() {
         isWhite: i % 2 === 0,
     }));
 }
+
+analysisBackBtn.addEventListener('click', () => {
+    history.back();
+});
 
 movesOverlayBtn.addEventListener('click', () => {
     // 라이브 입력 모드: 사용자가 둔 수만 explorationChess에서 추출 (분석 큐 없음).

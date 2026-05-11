@@ -1,17 +1,8 @@
 
 /* ==========================================
-   Home View: Header — 52px grid, 좌:설정 / 중앙:워드마크 / 우:+
-   .analysis-top-bar.home-top-bar 합성 셀렉터로 specificity 끌어올려 .analysis-top-bar 기본값 덮음.
+   Home View: Header — 베이스 .analysis-top-bar(52px, 44px 1fr 44px) 그대로.
+   home 전용 override는 아이콘 색/정렬과 워드마크 톤만.
    ========================================== */
-.analysis-top-bar.home-top-bar {
-    display: grid;
-    grid-template-columns: 44px 1fr 44px;
-    align-items: center;
-    height: 52px;
-    padding: 0 12px;
-    flex-shrink: 0;
-}
-
 .home-top-bar .topbar-icon-btn {
     width: 44px;
     height: 44px;
@@ -481,9 +472,9 @@
    ========================================== */
 .analysis-top-bar {
     display: grid;
-    grid-template-columns: 1fr auto 1fr;
+    grid-template-columns: 44px 1fr 44px;
     align-items: center;
-    padding: 0 16px;
+    padding: 0 12px;
     height: var(--topbar-height);
     background: var(--bg-surface);
     border-bottom: 1px solid var(--brd);
@@ -530,9 +521,11 @@
     font-size: 0.95rem;
     font-weight: 600;
     color: var(--tx);
+    justify-self: center;
 }
 
 .app-title {
+    justify-self: center;
     font-size: 15px;
     font-weight: 700;
     color: var(--tx);
@@ -731,8 +724,8 @@ textarea:focus {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    height: 52px;
-    padding: 0 12px;
+    height: 64px;
+    padding: 0 8px;
     background: var(--bg-surface);
     border-top: 1px solid var(--brd);
     padding-bottom: env(safe-area-inset-bottom);
@@ -798,7 +791,7 @@ textarea:focus {
     font-weight: 600;
     cursor: pointer;
     transition: color 0.15s ease;
-    min-height: 44px;
+    min-height: 48px;
     padding: 0;
     white-space: nowrap;
 }
@@ -811,9 +804,8 @@ textarea:focus {
 }
 
 .ctrl-nav,
-.ctrl-save,
-.ctrl-moves {
-    width: 44px;
+.ctrl-save {
+    width: 48px;
     flex-shrink: 0;
     padding: 0;
 }
@@ -1002,8 +994,8 @@ th {
 }
 
 .tab-toggle-btn {
-    width: 44px;
-    min-height: 44px;
+    width: 48px;
+    min-height: 48px;
     flex-shrink: 0;
     display: flex;
     align-items: center;
@@ -3103,7 +3095,10 @@ button.settings-row--destructive:hover {
     background: var(--tx);
 }
 
-/* vault main / list 양쪽 1차 필터를 동일한 text-tab underline으로 통일. */
+/* vault main / list — 필터 탭이 1열을 가변으로 점유해야 해서 베이스 grid(44px 1fr 44px)를 가변으로 환원. */
+.analysis-top-bar.vault-top-bar {
+    grid-template-columns: 1fr auto 1fr;
+}
 .analysis-top-bar.vault-top-bar > #vaultPuzzleFilterTabs {
     grid-column: 1;
     justify-self: start;

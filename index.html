@@ -158,6 +158,17 @@
         <!-- Analysis View (Hidden by default) -->
         <div id="analysisView" class="view-container hidden">
 
+            <div class="analysis-top-bar">
+                <button id="analysisBackBtn" class="back-btn">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                    <span data-i18n="back">Back</span>
+                </button>
+                <span class="home-brand-text"><span class="brand-blunder">blunder</span><span class="brand-mate">mate</span></span>
+                <button id="movesOverlayBtn" class="topbar-icon-btn" title="기보" data-i18n-title="moves">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+                </button>
+            </div>
+
             <!-- Board (또는 0수 상태의 승률 그래프) -->
             <div class="board-wrapper">
                 <div id="boardContainer" class="board-container"></div>
@@ -204,18 +215,15 @@
 
             </div><!-- /.panel-content -->
 
-            <!-- Bottom action bar — 좌측 [AI 저장 메인복귀 기보] │ 우측 [이전 다음]. -->
+            <!-- Bottom action bar — 좌측 [AI 저장 메인복귀] │ 우측 [이전 다음]. -->
             <div class="analysis-bottom-bar" id="analysisBottomBar">
                 <div class="abb-group abb-left">
-                    <button id="tabToggleBtn" class="tab-toggle-btn">AI</button>
                     <button id="saveMoveBtn" class="ctrl-btn ctrl-save" title="Save position">
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
                     </button>
+                    <button id="tabToggleBtn" class="tab-toggle-btn">AI</button>
                     <button id="returnMainLineBtn" class="return-main-btn ctrl-btn hidden" data-i18n-title="returnMainLine" title="메인 라인으로 돌아가기">
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
-                    </button>
-                    <button id="movesOverlayBtn" class="ctrl-btn ctrl-moves" title="기보" data-i18n-title="moves">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
                     </button>
                 </div>
                 <div class="abb-group abb-right">
