@@ -3237,20 +3237,22 @@ button.settings-row--destructive:hover {
 }
 
 /* ── Result strap — 최상단 (승/패 + reason + 메타 + 점수). 카드 X, flush row. */
+/* chess.com/lichess Game Review hero 패턴 — 위/아래 호흡 충분(20+22px) + title 살짝 크고
+   meta line-height 보장. 빽빽한 통계 표 위에 명확한 시각적 분리. */
 .resultStrap {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 8px 6px 12px;
-    gap: 12px;
+    padding: 20px 10px 22px;
+    gap: 14px;
 }
 .resultStrap__left { min-width: 0; flex: 1; }
 .resultStrap__title {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
     font-weight: 700;
-    font-size: 18px;
+    font-size: 19px;
     letter-spacing: -0.01em;
     color: var(--tx);
     white-space: nowrap;
@@ -3260,8 +3262,8 @@ button.settings-row--destructive:hover {
 .resultStrap__label--win  { color: var(--win); }
 .resultStrap__label--loss { color: var(--loss); }
 .resultStrap__dot {
-    width: 10px;
-    height: 10px;
+    width: 11px;
+    height: 11px;
     border-radius: 50%;
     flex-shrink: 0;
 }
@@ -3277,24 +3279,15 @@ button.settings-row--destructive:hover {
 }
 .resultStrap__sub::before { content: "· "; }
 .resultStrap__meta {
-    font-size: 12px;
+    font-size: 12.5px;
+    line-height: 1.45;
     color: var(--tx3);
-    margin-top: 2px;
-    padding-left: 18px;
+    margin-top: 6px;
+    padding-left: 21px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
-.resultStrap__score {
-    font-size: 22px;
-    font-weight: 700;
-    color: var(--tx);
-    letter-spacing: -0.02em;
-    flex-shrink: 0;
-    font-family: var(--num-font);
-    font-variant-numeric: tabular-nums;
-}
-
 /* ── 그래프 카드 */
 .review-chart-card {
     padding: 8px 8px 4px;
@@ -3347,7 +3340,7 @@ button.settings-row--destructive:hover {
 }
 .review-stats-card .tRow--head .tRow__num {
     display: flex;
-    justify-content: flex-end;
+    justify-content: center;
 }
 .review-stats-card .tRow--accuracy {
     padding: 6px 0 8px;
@@ -3373,7 +3366,7 @@ button.settings-row--destructive:hover {
     white-space: nowrap;
 }
 .review-stats-card .tRow__num {
-    text-align: right;
+    text-align: center;
     font-variant-numeric: tabular-nums;
     font-size: 12.5px;
     font-weight: 700;
@@ -3428,8 +3421,8 @@ button.settings-row--destructive:hover {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 22px;
-    height: 22px;
+    width: 20px;
+    height: 20px;
     border-radius: 50%;
     line-height: 1;
     flex-shrink: 0;
@@ -3439,9 +3432,9 @@ button.settings-row--destructive:hover {
 }
 .review-stats-badge--good {
     background: var(--tx);
-    width: 11px;
-    height: 11px;
-    margin: 0 5.5px;
+    width: 10px;
+    height: 10px;
+    margin: 0 5px;
     box-shadow: none;
 }
 

@@ -518,11 +518,8 @@ function renderResultStrapHtml(meta) {
     if (meta.dateLabel) metaParts.push(escapeHtml(meta.dateLabel));
     const metaLine = metaParts.join(' · ');
 
-    const scoreHtml = meta.score
-        ? `<div class="resultStrap__score">${escapeHtml(meta.score)}</div>`
-        : '';
-
     const labelMod = meta.result ? ` resultStrap__label--${meta.result}` : '';
+    // 점수(1-0/0-1/½-½)는 Win/Loss 라벨과 중복 정보라 표시 안 함 — meta.score는 무시.
     return `
         <div class="resultStrap">
             <div class="resultStrap__left">
@@ -533,7 +530,6 @@ function renderResultStrapHtml(meta) {
                 </div>
                 ${metaLine ? `<div class="resultStrap__meta">${metaLine}</div>` : ''}
             </div>
-            ${scoreHtml}
         </div>
     `;
 }
