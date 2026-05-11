@@ -617,6 +617,18 @@ textarea:focus {
     gap: 0;
 }
 
+/* unified-controls 안 좌/우 그룹 — vault detail의 `< 12% >` 가로 배치. 분석 화면은 ctrl-center만 써서
+   이 그룹을 안 쓰지만, vault detail 마크업이 ctrl-group-right로 prev/next를 감싸므로 가로 flex 필수.
+   (Phase 58 3-bar 재편 시 분석 화면에서만 제거됐던 룰을 vault용으로 복원 — 4b의 48px 통일로 가시화된 회귀) */
+.ctrl-group-left,
+.ctrl-group-right {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+.ctrl-group-left  { justify-content: flex-start; }
+.ctrl-group-right { justify-content: flex-end; }
+
 /* separator를 바 정중앙에 핀(absolute), 분류 칩은 좌측(right edge fixed),
    eval은 우측(left edge fixed). 글자 길이가 변해도 separator·chip·eval 위치 모두 고정. */
 .ctrl-center {
