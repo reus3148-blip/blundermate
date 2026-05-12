@@ -360,12 +360,6 @@ function buildSummaryGraphSvgHtml(analysisQueue) {
         + points.map(p => `L${xFor(p.moveNum).toFixed(1)},${yFor(p.pct).toFixed(1)}`).join(' ')
         + ` L${xFor(points[points.length - 1].moveNum).toFixed(1)},${anchorY.toFixed(1)} Z`;
 
-    const ticks = [];
-    for (let k = 10; k < total; k += 10) ticks.push(k);
-    const axisLabels = ticks.length
-        ? ticks.map(k => `<span>${k}</span>`).join('')
-        : '';
-
     return `
         <svg viewBox="0 0 ${W} ${H}" class="summary-graph-svg" role="img" aria-label="${escapeHtml(t('report_win_chance'))}" preserveAspectRatio="none">
             <defs>
@@ -382,7 +376,6 @@ function buildSummaryGraphSvgHtml(analysisQueue) {
             <path d="${lineD}" fill="none" stroke="var(--review-black-line)" stroke-width="1.6"
                   stroke-linecap="round" stroke-linejoin="round" clip-path="url(#review-cb)"/>
         </svg>
-        ${axisLabels ? `<div class="summary-graph-axis" aria-hidden="true">${axisLabels}</div>` : ''}
     `;
 }
 

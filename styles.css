@@ -2502,7 +2502,7 @@ button.settings-row--destructive:hover {
     font-weight: 600;
     letter-spacing: -0.01em;
     color: var(--tx);
-    margin: 0 0 0 8px;
+    margin: 3px 0 0 12px;
     padding: 4px 0;
     line-height: 1.4;
 }
@@ -3302,15 +3302,6 @@ button.settings-row--destructive:hover {
     width: 100%;
     aspect-ratio: 340 / 108;
     display: block;
-}
-.summary-graph-axis {
-    display: flex;
-    justify-content: space-between;
-    padding: 4px 6px 2px;
-    font-size: 10px;
-    color: var(--tx3);
-    font-family: var(--num-font);
-    font-variant-numeric: tabular-nums;
 }
 .summary-empty {
     display: flex;
