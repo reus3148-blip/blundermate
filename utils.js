@@ -817,3 +817,11 @@ export function classifyGameResult(game, userLower) {
     return 'draw';
 }
 
+// 'win'|'loss'|'draw' → 한글자 라벨 (한국어: 승/패/무, 그 외: W/L/D).
+export function resultLetter(resultClass) {
+    const isKo = getLocale() === 'ko';
+    if (resultClass === 'win') return isKo ? '승' : 'W';
+    if (resultClass === 'loss') return isKo ? '패' : 'L';
+    return isKo ? '무' : 'D';
+}
+

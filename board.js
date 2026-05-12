@@ -24,6 +24,12 @@ export function initBoard(container, options) {
 
 export function resetMainGame() { chess = new Chess(); return chess; }
 
+export function flipOrientation(cgInstance) {
+    if (!cgInstance) return;
+    const o = cgInstance.state.orientation;
+    cgInstance.set({ orientation: o === 'white' ? 'black' : 'white' });
+}
+
 export function setCurrentlyViewedIndex(i) { currentlyViewedIndex = i; }
 
 export function setIsUserWhite(b) { isUserWhite = b; }

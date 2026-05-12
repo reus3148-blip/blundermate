@@ -309,33 +309,6 @@
 }
 
 /* ==========================================
-   Live Paste Modal — PGN/FEN 붙여넣기
-   ========================================== */
-.live-paste-textarea {
-    width: 100%;
-    min-height: 120px;
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 13px;
-    line-height: 1.4;
-    resize: vertical;
-    padding: 10px 12px;
-    box-sizing: border-box;
-}
-
-/* 모바일 .primary-btn { width: 100% } 글로벌 룰을 모달 안에서 다시 컨텐츠 폭으로 되돌림.
-   #saveGameModal과 동일 패턴 — Cancel/Submit 버튼이 가로로 나란히 보이게. */
-#livePasteModal .modal-actions {
-    flex-direction: row;
-    justify-content: flex-end;
-    gap: 8px;
-}
-#livePasteModal .primary-btn {
-    align-self: auto;
-    width: auto;
-}
-
-
-/* ==========================================
    Home View: Games list (shared)
    ========================================== */
 
@@ -4158,4 +4131,210 @@ main {
 }
 .empty-state-cta:hover { opacity: 0.92; }
 .empty-state-cta:active { opacity: 0.85; }
+
+/* ==========================================
+   Import Games (다른 사용자 게임 검색) — 우상단 + → 액션시트 → 진입.
+   ========================================== */
+.import-games-body {
+    gap: 14px;
+}
+.import-games-form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.import-games-platform-toggle {
+    display: flex;
+    gap: 6px;
+    background: var(--bg-muted, #f1f1ee);
+    border-radius: 10px;
+    padding: 4px;
+}
+.platform-toggle-btn {
+    flex: 1;
+    padding: 8px 0;
+    border: none;
+    background: transparent;
+    color: var(--tx2);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    border-radius: 8px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: background 0.12s ease, color 0.12s ease;
+}
+.platform-toggle-btn.is-active {
+    background: var(--bg-surface);
+    color: var(--tx);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+.import-games-search-row {
+    display: flex;
+    gap: 8px;
+}
+.import-games-search-row .text-input {
+    flex: 1;
+    min-width: 0;
+}
+.import-games-search-row .primary-btn {
+    width: auto;
+    flex-shrink: 0;
+    padding-left: 18px;
+    padding-right: 18px;
+}
+.import-games-status:empty {
+    display: none;
+}
+.import-games-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.import-game-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 12px 14px;
+    background: var(--bg-surface);
+    border: 1px solid var(--brd);
+    border-radius: 12px;
+    text-align: left;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: background 0.12s ease;
+}
+.import-game-row:hover { background: var(--bg-muted, #f7f7f4); }
+.import-game-row:active { background: var(--bg-muted, #ececea); }
+.import-game-result {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #fff;
+    background: var(--tx3);
+}
+.import-game-result--win { background: #5b9b3b; }
+.import-game-result--loss { background: #c44545; }
+.import-game-result--draw { background: #999; }
+.import-game-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+.import-game-opp-row {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    min-width: 0;
+}
+.import-game-opp {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--tx);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.import-game-opp-rating {
+    font-size: 12px;
+    color: var(--tx3);
+    flex-shrink: 0;
+}
+.import-game-meta {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    font-size: 12px;
+    color: var(--tx3);
+}
+
+/* ==========================================
+   Input View — 우상단 + → "PGN/FEN" 액션시트 → 진입.
+   보드 + PGN textarea 양방향 동기 + 분석시작.
+   ========================================== */
+.input-pgn-area {
+    background: var(--bg-surface);
+    border-top: 1px solid var(--brd);
+    padding: 12px 14px;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+/* 기보 오버레이가 열리면 PGN textarea 숨김 — 시트에 가려져도 포커스/키보드/탭 순회가
+   남아있을 수 있어 명시적으로 제거. visibility를 쓰는 이유: 레이아웃 시프트 방지 */
+body.moves-overlay-open .input-pgn-area {
+    visibility: hidden;
+}
+
+.input-pgn-textarea {
+    width: 100%;
+    flex: 1;
+    min-height: 60px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--brd2);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--tx);
+    resize: none;
+    box-sizing: border-box;
+    outline: none;
+}
+
+.input-pgn-textarea::placeholder {
+    color: var(--tx2);
+    opacity: 0.6;
+}
+
+.input-secondary-btn {
+    height: 32px;
+    padding: 0 12px;
+    border-radius: 6px;
+    background: none;
+    color: var(--tx2);
+    font-size: 12px;
+    font-weight: 600;
+    border: 1px solid var(--brd);
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.15s, color 0.15s;
+}
+.input-secondary-btn:hover {
+    background: var(--bg-elevated);
+    color: var(--tx);
+}
+.input-secondary-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+.input-analyze-btn {
+    flex: 1;
+    height: 32px;
+    margin: 0 8px;
+    padding: 0 16px;
+    border-radius: 6px;
+    background: var(--ac);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    transition: opacity 0.15s ease;
+}
+
+.input-analyze-btn:hover { opacity: 0.85; }
 

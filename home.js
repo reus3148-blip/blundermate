@@ -21,9 +21,9 @@ import {
 } from './storage.js';
 import {
     escapeHtml, parseOpeningFromPgn, rootOpeningName, formatRelativeDate, getDateStrings,
-    classifyGameResult, isWhitePlayer, cpToWhiteWinPct,
+    classifyGameResult, isWhitePlayer, cpToWhiteWinPct, resultLetter,
 } from './utils.js';
-import { t, getLocale } from './strings.js';
+import { t } from './strings.js';
 import { CBURNETT_PIECE_SVG } from './pieces-cburnett.js';
 
 // ==========================================
@@ -346,11 +346,6 @@ function appendHomeRecentBatch(from, to) {
         const date = game.end_time ? formatRelativeDate(game.end_time, dateStrings) : '';
         const oppRating = oppSide.rating ? String(oppSide.rating) : '';
 
-        const isKo = getLocale() === 'ko';
-        const resultLetter = resultClass === 'win' ? (isKo ? '승' : 'W')
-                          : resultClass === 'loss' ? (isKo ? '패' : 'L')
-                          : (isKo ? '무' : 'D');
-
         const movesLabel = summary.moves ? `${summary.moves}${t('moves_suffix')}` : '';
         const metaParts = [opening, movesLabel].filter(Boolean);
         const metaInner = metaParts.map(p => `<span>${escapeHtml(p)}</span>`).join('');
@@ -363,7 +358,7 @@ function appendHomeRecentBatch(from, to) {
             <div class="home-game-body">
                 <div>
                     <div class="home-game-header">
-                        <span class="home-result-chip home-result-chip--${resultClass}">${resultLetter}</span>
+                        <span class="home-result-chip home-result-chip--${resultClass}">${resultLetter(resultClass)}</span>
                         <span class="home-game-opp">${escapeHtml(oppSide.username || '')}</span>
                         ${oppRating ? `<span class="home-game-opp-rating">${escapeHtml(oppRating)}</span>` : ''}
                     </div>

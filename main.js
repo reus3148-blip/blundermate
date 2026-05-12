@@ -1,7 +1,7 @@
 import { Chessground } from 'https://cdnjs.cloudflare.com/ajax/libs/chessground/9.0.0/chessground.min.js';
 import { Chess } from 'https://cdn.jsdelivr.net/npm/chess.js@1.4.0/+esm';
 import { initHome, refreshHomeCounts, showOnboarding, homeProfileRatings } from './home.js';
-import { initDialogs, showAlert, showConfirm, showToast } from './dialogs.js';
+import { initDialogs, showAlert, showConfirm, showToast, showOptionSheet } from './dialogs.js';
 import {
     initAnalysis, getEngine, getDepth,
     analysisQueue, setQueue,
@@ -12,7 +12,7 @@ import {
 import {
     initBoard, chess, cg, currentlyViewedIndex, isUserWhite, persistentShapes,
     resetMainGame, setCurrentlyViewedIndex, setIsUserWhite,
-    pushPersistentShape, clearPersistentShapes,
+    pushPersistentShape, clearPersistentShapes, flipOrientation,
 } from './board.js';
 import {
     APP_MODES,
@@ -29,6 +29,7 @@ import { initVault, isVaultDetailActive, isVaultPuzzleActive, getVaultDetailInde
 import { initSavedGames, loadSavedGamesData, openSaveGameModal } from './savedGames.js';
 import { initInsights, loadInsightsData } from './insights.js';
 import { initSettings, onSettingsViewEnter, onFeedbackViewEnter } from './settings.js';
+import { initImportGames, onImportGamesViewEnter } from './importGames.js';
 import {
     initGemini, handleGeminiExplanation, renderAiTabContent,
     abortPendingGemini,
@@ -47,6 +48,22 @@ const pgnInput = document.getElementById('pgnInput');
 const analyzeBtn = document.getElementById('analyzeBtn');
 const openBoardInputBtn = document.getElementById('homeBoardInputBtn');
 const manualInputWrapper = document.getElementById('manualInputWrapper');
+
+// Input View — PGN/FEN 진입 화면 (보드 ↔ textarea 양방향 동기)
+const inputView = document.getElementById('inputView');
+const inputViewBackBtn = document.getElementById('inputViewBackBtn');
+const inputViewMovesBtn = document.getElementById('inputViewMovesBtn');
+const inputBoardContainer = document.getElementById('inputBoardContainer');
+const inputBoardPgn = document.getElementById('inputBoardPgn');
+const inputViewUndoBtnBottom = document.getElementById('inputViewUndoBtnBottom');
+const inputViewResetBtn = document.getElementById('inputViewResetBtn');
+const inputViewAnalyzeBtn = document.getElementById('inputViewAnalyzeBtn');
+const inputPrevMoveBtn = document.getElementById('inputPrevMoveBtn');
+const inputNextMoveBtn = document.getElementById('inputNextMoveBtn');
+let inputChess = new Chess();
+let inputStartFen = null;
+let inputViewIndex = 0;
+let inputCg = null;
 // USERNAME_LOG_DEDUP_KEY / logUsernameToServer / homeRecentLabel은 home.js로 이전.
 
 // Analysis Board UI
@@ -76,11 +93,7 @@ const liveActionBar = document.getElementById('liveActionBar');
 const analysisBottomBar = document.getElementById('analysisBottomBar');
 const liveUndoBtn = document.getElementById('liveUndoBtn');
 const liveResetBtn = document.getElementById('liveResetBtn');
-const livePastePgnBtn = document.getElementById('livePastePgnBtn');
-const livePasteModal = document.getElementById('livePasteModal');
-const livePasteTextarea = document.getElementById('livePasteTextarea');
-const cancelLivePasteBtn = document.getElementById('cancelLivePasteBtn');
-const confirmLivePasteBtn = document.getElementById('confirmLivePasteBtn');
+const liveFlipBoardBtn = document.getElementById('liveFlipBoardBtn');
 
 const previewStartBtn = document.getElementById('previewStartBtn');
 const ctrlCenter = document.querySelector('.ctrl-center');
@@ -131,6 +144,8 @@ const SCREENS = {
     SETTINGS: 'settings',
     ABOUT: 'about',
     FEEDBACK: 'feedback',
+    IMPORT_GAMES: 'import_games',
+    INPUT: 'input',
 };
 
 let _currentScreen = SCREENS.HOME;
@@ -178,6 +193,8 @@ function hideAllViews() {
     document.getElementById('settingsView')?.classList.add('hidden');
     document.getElementById('aboutView')?.classList.add('hidden');
     document.getElementById('feedbackView')?.classList.add('hidden');
+    document.getElementById('importGamesView')?.classList.add('hidden');
+    inputView?.classList.add('hidden');
 }
 
 // 단일 엔진(stockfish)을 쓰는 모드들 — 분석 화면이 보드 자유 입력으로 동작.
@@ -249,6 +266,14 @@ function renderScreen(screen) {
             document.getElementById('feedbackView')?.classList.remove('hidden');
             onFeedbackViewEnter();
             break;
+        case SCREENS.IMPORT_GAMES:
+            document.getElementById('importGamesView')?.classList.remove('hidden');
+            onImportGamesViewEnter();
+            break;
+        case SCREENS.INPUT:
+            inputView?.classList.remove('hidden');
+            onInputViewEnter();
+            break;
         default:
             homeView.classList.remove('hidden');
             break;
@@ -261,6 +286,7 @@ const navHomeBtn = document.getElementById('navHomeBtn');
 const navVaultBtn = document.getElementById('navVaultBtn');
 const navSavedBtn = document.getElementById('navSavedBtn');
 const navInsightsBtn = document.getElementById('navInsightsBtn');
+const navAnalysisBtn = document.getElementById('navAnalysisBtn');
 // VAULT_BLUNDER_LIST는 vault drill-in이지만 bottom-nav는 그대로 노출 — 탭 컨텍스트 유지용.
 const NAV_VISIBLE_SCREENS = new Set([...ROOT_TABS, SCREENS.VAULT_BLUNDER_LIST]);
 const appContainer = document.querySelector('.app-container');
@@ -291,6 +317,12 @@ if (navInsightsBtn) {
     navInsightsBtn.addEventListener('click', () => {
         if (_currentScreen === SCREENS.INSIGHTS) return;
         navigateTo(SCREENS.INSIGHTS);
+    });
+}
+if (navAnalysisBtn) {
+    navAnalysisBtn.addEventListener('click', () => {
+        if (_currentScreen === SCREENS.ANALYSIS && appMode === APP_MODES.LIVE_INPUT) return;
+        openLiveInput();
     });
 }
 
@@ -422,7 +454,6 @@ if (profileTierBtn && tierModal) {
 
 const modalConfigs = [
     { modal: tierModal, closeBtn: closeTierModalBtn },
-    { modal: livePasteModal, closeBtn: cancelLivePasteBtn },
 ];
 
 modalConfigs.forEach(({ modal, closeBtn, noBg }) => {
@@ -579,41 +610,220 @@ function liveInputReset() {
     syncLiveStateToIndex(-1);
 }
 
-openBoardInputBtn.addEventListener('click', openLiveInput);
+openBoardInputBtn.addEventListener('click', async () => {
+    const choice = await showOptionSheet({
+        title: t('load_game_title'),
+        options: [
+            { value: 'paste', label: t('load_game_paste') },
+            { value: 'search', label: t('load_game_search') },
+        ],
+    });
+    if (choice === 'paste') {
+        navigateTo(SCREENS.INPUT);
+    } else if (choice === 'search') {
+        navigateTo(SCREENS.IMPORT_GAMES);
+    }
+});
 
-// 라이브 전용 액션바(Undo/Reset/Paste)는 LIVE_INPUT일 때만 노출.
+// 라이브 전용 액션바(Undo/Reset/Flip)는 LIVE_INPUT일 때만 노출.
 // .analysis-bottom-bar는 LIVE_INPUT 동안 가림 — prev/next/save/AI는 라이브에서 의미 약함.
 function setLiveInputControls(active) {
     liveActionBar?.classList.toggle('hidden', !active);
     analysisBottomBar?.classList.toggle('hidden', !!active);
 }
 
-function openLivePasteModal() {
-    if (!livePasteModal) return;
-    livePasteTextarea.value = '';
-    livePasteModal.classList.remove('hidden');
-    setTimeout(() => livePasteTextarea.focus(), 50);
+liveFlipBoardBtn?.addEventListener('click', () => flipOrientation(cg));
+
+// =====================================================
+// Input View — PGN/FEN 진입 화면.
+// 보드 ↔ textarea 양방향 동기, 분석 시작은 풀 리뷰 분석으로 진입.
+// =====================================================
+
+// 현재 inputViewIndex까지 replay한 체스 인스턴스 — 보드/dests 산출용.
+function getInputViewChess() {
+    const c = new Chess();
+    if (inputStartFen) c.load(inputStartFen);
+    const hist = inputChess.history({ verbose: true });
+    const limit = Math.min(inputViewIndex, hist.length);
+    for (let i = 0; i < limit; i++) {
+        c.move({ from: hist[i].from, to: hist[i].to, promotion: hist[i].promotion });
+    }
+    return c;
 }
 
-if (livePastePgnBtn) livePastePgnBtn.addEventListener('click', openLivePasteModal);
-if (liveUndoBtn) liveUndoBtn.addEventListener('click', liveInputUndo);
-if (liveResetBtn) liveResetBtn.addEventListener('click', liveInputReset);
+// 보드에서 사용자가 수를 두면 호출. 끝이 아닌 중간에서 두면 그 지점까지 truncate + fork.
+function handleInputBoardMove(orig, dest) {
+    const hist = inputChess.history({ verbose: true });
+    if (inputViewIndex < hist.length) {
+        const newChess = new Chess();
+        if (inputStartFen) newChess.load(inputStartFen);
+        for (let i = 0; i < inputViewIndex; i++) {
+            newChess.move({ from: hist[i].from, to: hist[i].to, promotion: hist[i].promotion });
+        }
+        const result = newChess.move({ from: orig, to: dest, promotion: 'q' });
+        if (!result) return;
+        inputChess = newChess;
+    } else {
+        const result = inputChess.move({ from: orig, to: dest, promotion: 'q' });
+        if (!result) return;
+    }
+    inputViewIndex++;
+    updateInputBoard();
+}
 
-if (confirmLivePasteBtn) confirmLivePasteBtn.addEventListener('click', () => {
-    const text = (livePasteTextarea.value || '').trim();
-    if (!text) return;
+function handleInputPrev() {
+    if (inputViewIndex <= 0) return;
+    inputViewIndex--;
+    updateInputBoard();
+}
 
-    closeModal(livePasteModal);
+function handleInputNext() {
+    if (inputViewIndex >= inputChess.history().length) return;
+    inputViewIndex++;
+    updateInputBoard();
+}
 
+function updateInputNavButtons() {
+    const historyLen = inputChess.history().length;
+    inputPrevMoveBtn.disabled = inputViewIndex === 0;
+    inputNextMoveBtn.disabled = inputViewIndex >= historyLen;
+    inputViewUndoBtnBottom.disabled = inputViewIndex === 0;
+}
+
+// 보드는 inputViewIndex까지만 replay한 상태로, dests도 그 포지션 기준.
+// textarea는 항상 inputChess 전체 PGN.
+function updateInputBoard() {
+    if (!inputCg) return;
+    const viewChess = getInputViewChess();
+    const turnColor = viewChess.turn() === 'w' ? 'white' : 'black';
+
+    let lastMove = [];
+    if (inputViewIndex > 0) {
+        const hist = inputChess.history({ verbose: true });
+        const m = hist[inputViewIndex - 1];
+        if (m) lastMove = [m.from, m.to];
+    }
+
+    inputCg.set({
+        fen: viewChess.fen(),
+        turnColor,
+        lastMove,
+        movable: { color: turnColor, free: false, dests: getDests(viewChess) },
+        drawable: { autoShapes: [] }
+    });
+    inputBoardPgn.value = inputChess.pgn();
+    inputBoardPgn.scrollTop = inputBoardPgn.scrollHeight;
+    updateInputNavButtons();
+}
+
+// Undo: 현재 보고 있는 수 + 이후 전부 truncate.
+function doUndoInput() {
+    if (inputViewIndex === 0) return;
+    const hist = inputChess.history({ verbose: true });
+    const newChess = new Chess();
+    if (inputStartFen) newChess.load(inputStartFen);
+    for (let i = 0; i < inputViewIndex - 1; i++) {
+        newChess.move({ from: hist[i].from, to: hist[i].to, promotion: hist[i].promotion });
+    }
+    inputChess = newChess;
+    inputViewIndex--;
+    updateInputBoard();
+}
+
+function buildInputMovesQueue() {
+    const history = inputChess.history({ verbose: true });
+    return history.map((m, i) => ({
+        san: m.san,
+        moveNumber: Math.floor(i / 2) + 1,
+        isWhite: i % 2 === 0,
+    }));
+}
+
+// 진입 시 매번 — 상태 reset + Chessground lazy-init. 화면 노출은 renderScreen이 담당.
+function onInputViewEnter() {
+    inputChess = new Chess();
+    inputStartFen = null;
+    inputViewIndex = 0;
+    inputBoardPgn.value = '';
+
+    if (!inputCg) {
+        inputCg = Chessground(inputBoardContainer, {
+            animation: { enabled: true, duration: 250 },
+            movable: { free: false },
+            coordinates: getIsCoordsEnabled(),
+            events: { move: handleInputBoardMove },
+        });
+    }
+    updateInputBoard();
+    forceRedraw(inputCg);
+}
+
+inputViewBackBtn?.addEventListener('click', () => history.back());
+inputViewUndoBtnBottom?.addEventListener('click', doUndoInput);
+inputViewResetBtn?.addEventListener('click', () => {
+    inputChess = new Chess();
+    inputStartFen = null;
+    inputViewIndex = 0;
+    inputBoardPgn.value = '';
+    updateInputBoard();
+});
+inputPrevMoveBtn?.addEventListener('click', handleInputPrev);
+inputNextMoveBtn?.addEventListener('click', handleInputNext);
+
+inputBoardPgn?.addEventListener('input', () => {
+    const text = inputBoardPgn.value.trim();
+    if (!text) {
+        inputChess = new Chess();
+        inputStartFen = null;
+        inputViewIndex = 0;
+        if (inputCg) updateInputBoard();
+        return;
+    }
+    const tempChess = new Chess();
+    const result = parseAndLoadPgn(tempChess, text);
+    if (result.success) {
+        inputChess = tempChess;
+        inputStartFen = null;
+        inputViewIndex = inputChess.history().length;
+        if (inputCg) updateInputBoard();
+        return;
+    }
+    // PGN 파싱 실패 → FEN 시도. 보드만 갱신, 수 0.
     if (isValidFen(text)) {
+        const fenChess = new Chess();
+        fenChess.load(text);
+        inputChess = fenChess;
+        inputStartFen = text;
+        inputViewIndex = 0;
+        if (inputCg) updateInputBoard();
+    }
+});
+
+inputViewAnalyzeBtn?.addEventListener('click', () => {
+    const text = inputBoardPgn.value.trim();
+    // FEN 단독이면 단일 포지션 분석 분기.
+    if (text && isValidFen(text)) {
         pendingAnalysisCallback = (isWhite) => handleFenReviewStart(text, isWhite);
         colorChoiceModal.classList.remove('hidden');
         return;
     }
-    pgnInput.value = text;
+    const pgn = text || inputChess.pgn();
+    if (!pgn) {
+        showAlert(t('analysis_no_moves'));
+        return;
+    }
+    pgnInput.value = pgn;
     pendingAnalysisCallback = (isWhite) => handlePgnReviewStart(null, isWhite);
     colorChoiceModal.classList.remove('hidden');
 });
+
+inputViewMovesBtn?.addEventListener('click', () => showMovesOverlay({
+    getPgn: () => inputBoardPgn.value.trim() || inputChess.pgn(),
+    renderBody: () => renderMovesTable(movesBody, buildInputMovesQueue(), () => closeMovesOverlay()),
+}));
+
+if (liveUndoBtn) liveUndoBtn.addEventListener('click', liveInputUndo);
+if (liveResetBtn) liveResetBtn.addEventListener('click', liveInputReset);
 
 analyzeBtn.addEventListener('click', () => {
     if (!pgnInput.value.trim()) return;
@@ -732,14 +942,9 @@ document.addEventListener('keydown', (e) => {
         if (inVaultDetail) setVaultDetailIndex(getVaultDetailIndex() + 1);
         else handleNextMove();
     } else if (e.key.toLowerCase() === 'f') {
-        // 'F' 키를 누르면 보드 시점(White/Black)을 수동으로 뒤집습니다.
         e.preventDefault();
-        if (inVaultDetail) {
-            flipVaultBoard();
-        } else if (cg) {
-            const currentOrientation = cg.state.orientation;
-            cg.set({ orientation: currentOrientation === 'white' ? 'black' : 'white' });
-        }
+        if (inVaultDetail) flipVaultBoard();
+        else flipOrientation(cg);
     }
 });
 
@@ -836,6 +1041,7 @@ initSavedGames({
 });
 
 initInsights();
+initImportGames({ pgnInput, handlePgnReviewStart });
 
 function buildExplorationMovesQueue() {
     const history = explorationChess.history({ verbose: true });
