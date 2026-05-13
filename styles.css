@@ -558,24 +558,22 @@ textarea:focus {
 
 .unified-controls-inner {
     position: relative;
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
+    display: flex;
     align-items: center;
+    justify-content: space-between;
     width: 100%;
     max-width: 480px;
     gap: 0;
 }
 
-/* 3-등분 그리드의 각 칸 — center 정렬. 분석 화면 분석 화면 [수 평가 | 평가치 | < >]. */
-.ctrl-col {
-    display: flex;
-    align-items: center;
+/* 분석 화면 정보 전용 슬림 바 — height 축소(36px), 콘텐츠 가운데 정렬, 호흡 gap 10px. */
+.unified-controls--slim { height: 36px; }
+.unified-controls--slim .unified-controls-inner {
     justify-content: center;
-    gap: 4px;
-    min-width: 0;
+    gap: 10px;
 }
 
-/* unified-controls 안 좌/우 그룹 — vault detail의 `< 12% >` 가로 배치 전용 (벨트 컨테이너 폭 작음). */
+/* unified-controls 안 좌/우 그룹 — vault detail의 `< 12% >` 가로 배치 전용. */
 .ctrl-group-left,
 .ctrl-group-right {
     display: flex;
@@ -604,11 +602,11 @@ textarea:focus {
 .preview-start-btn:hover { background: var(--ac-br); }
 .preview-start-btn:active { background: var(--ac-br); transform: translateX(-50%) scale(0.97); }
 
-/* 분석 화면 하단 액션바: [저장 · AI · 메인복귀 · 실행취소 · 회전 · 처음부터]. 이전/다음은 중간 바로 이동. */
+/* 분석 화면 하단 액션바: 좌측 [저장 · AI · 메인복귀 · 실행취소 · 회전 · 처음부터] ─── 우측 [이전 · 다음]. */
 .analysis-bottom-bar {
     display: flex;
     align-items: center;
-    justify-content: center;
+    justify-content: space-between;
     height: 64px;
     padding: 0 8px;
     background: var(--bg-surface);
