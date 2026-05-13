@@ -1,5 +1,4 @@
 import { escapeHtml, getWhiteWinPct, cpToWhiteWinPct } from './utils.js';
-import { EVAL_MODE_KEY, lsGet } from './storage.js';
 import { t } from './strings.js';
 
 // ==========================================
@@ -555,40 +554,29 @@ export function renderReviewReport({ analysisQueue, isUserWhite, resultMeta }) {
 }
 
 /**
- * 분석 화면 하단 바의 win%/score + 분류 라벨 갱신.
- * scoreStr → win% (cpToWhiteWinPct) — 표시 cp ↔ 표시 win% 같은 함수에서 파생.
+ * 분석 화면 상단 eval-bar 갱신 (chess.com 모바일 패턴).
+ * scoreStr → 흰색 fill 비율 + cp/mate 숫자 overlay. 분류(classification)는 보드 piece-badge가 담당.
+ * isUserWhite 인자는 backward-compat용 — eval-bar는 항상 흰색 기준으로 표시(왼쪽=흰).
  */
 export function updateTopEvalDisplay(scoreStr, classification = '', isUserWhite = true) {
-    const el = document.getElementById('winChanceDisplay');
-    const labelEl = document.getElementById('moveClassLabel');
-    if (!el) return;
+    const bar = document.getElementById('evalBar');
+    const fill = document.getElementById('evalBarFill');
+    const text = document.getElementById('evalBarText');
+    if (!bar || !fill || !text) return;
 
-    el.dataset.scoreStr = scoreStr || '';
-    el.dataset.classification = classification || '';
-
-    const mode = lsGet(EVAL_MODE_KEY, 'percent');
     const whitePct = evalToWinChance(scoreStr);
-    const rawPct = whitePct === null ? null : isUserWhite ? whitePct : 100 - whitePct;
-    const pct = rawPct === null ? null : Math.round(rawPct);
-    const color = pct === null ? 'var(--tx2)' : pct >= 50 ? 'var(--win)' : pct < 40 ? 'var(--loss)' : 'var(--tx2)';
-
-    if (mode === 'score') {
-        el.textContent = formatScoreMode(scoreStr);
-    } else {
-        el.textContent = pct === null ? '—' : pct + '%';
+    if (whitePct === null) {
+        fill.style.width = '50%';
+        text.textContent = '';
+        text.classList.remove('eval-bar-text--white', 'eval-bar-text--black');
+        return;
     }
-    el.style.color = color;
 
-    // Classification label은 CSS [data-cls] 셀렉터가 색/배경 결정. 'Simulating'은 메타 라벨 — 표시 안 함.
-    if (labelEl) {
-        if (classification && classification !== 'Simulating') {
-            labelEl.textContent = classification.toUpperCase();
-            labelEl.dataset.cls = classification;
-        } else {
-            labelEl.textContent = '';
-            delete labelEl.dataset.cls;
-        }
-    }
+    fill.style.width = whitePct + '%';
+    text.textContent = formatScoreMode(scoreStr);
+    // 우세한 쪽에 텍스트 — 흰 영역 ≥ 50%면 좌측 흰 fill 위, 그 외 우측 검은 영역 위.
+    text.classList.toggle('eval-bar-text--white', whitePct >= 50);
+    text.classList.toggle('eval-bar-text--black', whitePct < 50);
 }
 
 // 보드 위 분류 배지 — 분석 화면(showPieceBadge)과 vault 카드(renderBlunderVisualization) 공유.

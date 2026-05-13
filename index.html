@@ -170,6 +170,12 @@
                 </button>
             </div>
 
+            <!-- Eval bar — analysis-top-bar 바로 아래 horizontal 평가 그래프. fill 비율 + cp/mate 숫자 overlay. -->
+            <div id="evalBar" class="eval-bar">
+                <div id="evalBarFill" class="eval-bar-fill"></div>
+                <span id="evalBarText" class="eval-bar-text"></span>
+            </div>
+
             <!-- Board (또는 0수 상태의 승률 그래프) -->
             <div class="board-wrapper">
                 <div id="boardContainer" class="board-container"></div>
@@ -183,16 +189,6 @@
                         <div class="loading-progress-bar"><div id="loadingProgressFill" class="loading-progress-fill"></div></div>
                         <span id="loadingProgressText" class="loading-progress-text">0%</span>
                     </div>
-                </div>
-            </div>
-
-            <!-- Middle bar — 정보 전용 슬림 바 [수 평가 · 평가치] 가운데 정렬. nav는 하단 우측. -->
-            <div class="unified-controls unified-controls--slim" id="panelTabs">
-                <div class="unified-controls-inner">
-                    <span id="moveClassLabel" class="move-class-label"></span>
-                    <span id="winChanceDisplay" class="win-chance-display">—</span>
-                    <span id="analysisLoadingText" class="analysis-loading-text hidden" data-i18n="analysis_loading">로딩중입니다...</span>
-                    <button id="previewStartBtn" class="preview-start-btn hidden" data-i18n="analysis_start_btn">분석 시작</button>
                 </div>
             </div>
 
@@ -241,6 +237,8 @@
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
                     </button>
                 </div>
+                <!-- Preview 모드 전용 — 분석 시작 버튼. 다른 모드에선 hidden, abb-group들이 hidden 됨. -->
+                <button id="previewStartBtn" class="preview-start-btn hidden" data-i18n="analysis_start_btn">분석 시작</button>
             </div>
         </div>
 

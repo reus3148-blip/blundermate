@@ -23,7 +23,7 @@ import {
 } from './modes.js';
 import { parseEvalData, getDests, convertPvToSan, parseAndLoadPgn, isValidFen, escapeHtml, parseOpeningFromPgn, getTier, TIERS, classifyMove, injectNags, formatTimeControlLabel, formatRelativeDate, getDateStrings } from './utils.js';
 import { renderMovesTable, updateUIWithEval, highlightActiveMove, renderEngineLines, updateTopEvalDisplay, renderReviewReport, buildPreviewCardHtml, placePieceBadge } from './ui.js';
-import { EVAL_MODE_KEY, computePgnHash, upsertAnalyzedGame, loadAnalysisCache, saveAnalysisCache, isCacheCompatible, ANALYSIS_CACHE_VERSION, getIsCoordsEnabled, lsGet, lsSet } from './storage.js';
+import { computePgnHash, upsertAnalyzedGame, loadAnalysisCache, saveAnalysisCache, isCacheCompatible, ANALYSIS_CACHE_VERSION, getIsCoordsEnabled, lsGet, lsSet } from './storage.js';
 import { collectAutoBlunders } from './autoBlunders.js';
 import { initVault, isVaultDetailActive, isVaultPuzzleActive, getVaultDetailIndex, setVaultDetailIndex, flipVaultBoard, setVaultCoords, redrawVaultBoard, loadVaultData, loadBlunderListData, redrawVaultPuzzleBoard } from './vault.js';
 import { initSavedGames, loadSavedGamesData, openSaveGameModal } from './savedGames.js';
@@ -987,18 +987,6 @@ previewStartBtn.addEventListener('click', () => {
     }
 });
 
-// Win% / eval score toggle
-document.getElementById('winChanceDisplay').addEventListener('click', () => {
-    const el = document.getElementById('winChanceDisplay');
-    const current = lsGet(EVAL_MODE_KEY, 'percent');
-    const next = current === 'percent' ? 'score' : 'percent';
-    lsSet(EVAL_MODE_KEY, next);
-    el.style.opacity = '0';
-    setTimeout(() => {
-        updateTopEvalDisplay(el.dataset.scoreStr || '', el.dataset.classification || '', isUserWhite);
-        el.style.opacity = '1';
-    }, 150);
-});
 
 let _overlayGetPgn = null;
 
@@ -1123,8 +1111,7 @@ geminiExplanation.addEventListener('click', (e) => {
 
 
 // --- UI Helpers ---
-const moveClassLabel = document.getElementById('moveClassLabel');
-const winChanceDisplay = document.getElementById('winChanceDisplay');
+const evalBar = document.getElementById('evalBar');
 
 // EXPLORE / SIMULATE 모드 정리 — 변형/시뮬 상태 해제 + 단일 엔진 idle. 하단 바는 syncBottomBar로 동기.
 function exitBranchMode() {
@@ -1462,18 +1449,17 @@ function renderPreviewCard() {
     engineLinesContainer.innerHTML = buildPreviewCardHtml(buildGameHeaderInfo());
 }
 
+// preview 모드: eval-bar + 하단 abb-group 둘 다 hide + previewStartBtn(가운데 floating)만 show.
 function applyPreviewControls() {
-    winChanceDisplay.classList.add('hidden');
-    moveClassLabel.classList.add('hidden');
-    tabToggleBtn.classList.add('hidden');
+    evalBar?.classList.add('hidden');
+    analysisBottomBar?.querySelectorAll('.abb-group').forEach(g => g.classList.add('hidden'));
     previewStartBtn.classList.remove('hidden');
     previewStartBtn.textContent = t('analysis_start_btn');
 }
 
 function removePreviewControls() {
-    winChanceDisplay.classList.remove('hidden');
-    moveClassLabel.classList.remove('hidden');
-    tabToggleBtn.classList.remove('hidden');
+    evalBar?.classList.remove('hidden');
+    analysisBottomBar?.querySelectorAll('.abb-group').forEach(g => g.classList.remove('hidden'));
     previewStartBtn.classList.add('hidden');
 }
 
@@ -1512,10 +1498,9 @@ function enterAnalysisLoading() {
     analysisView.classList.remove('view-review');
     analysisView.classList.add('analyzing-loading');
 
-    // preview와 동일한 컨트롤 상태 — 중앙 분류/평가치는 숨기고 패널은 게임 헤더 카드로 채움.
-    moveClassLabel.classList.add('hidden');
-    winChanceDisplay.classList.add('hidden');
-    tabToggleBtn.classList.add('hidden');
+    // preview와 동일한 컨트롤 상태 — eval-bar + 하단 액션 그룹 숨김. 패널은 게임 헤더 카드로 채움.
+    evalBar?.classList.add('hidden');
+    analysisBottomBar?.querySelectorAll('.abb-group').forEach(g => g.classList.add('hidden'));
 
     // 패널 영역에 게임 헤더(오프닝/이름/날짜) 카드 — preview와 동일한 정보 카드.
     renderPreviewCard();
@@ -1540,9 +1525,8 @@ function exitAnalysisLoading() {
     if (!isAnalysisLoading) return;
     isAnalysisLoading = false;
     analysisView.classList.remove('analyzing-loading');
-    moveClassLabel.classList.remove('hidden');
-    winChanceDisplay.classList.remove('hidden');
-    tabToggleBtn.classList.remove('hidden');
+    evalBar?.classList.remove('hidden');
+    analysisBottomBar?.querySelectorAll('.abb-group').forEach(g => g.classList.remove('hidden'));
 
     if (_quoteRotationTimer) {
         clearInterval(_quoteRotationTimer);

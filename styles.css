@@ -566,12 +566,42 @@ textarea:focus {
     gap: 0;
 }
 
-/* 분석 화면 정보 전용 슬림 바 — height 축소(36px), 콘텐츠 가운데 정렬, 호흡 gap 10px. */
-.unified-controls--slim { height: 36px; }
-.unified-controls--slim .unified-controls-inner {
-    justify-content: center;
-    gap: 10px;
+/* Eval bar — analysis-top-bar 바로 아래 horizontal 평가 그래프 (chess.com 모바일 분석 탭 패턴).
+   왼쪽 = 흰색 fill (whitePct%), 오른쪽 = 흑색 fill. 한쪽 끝에 cp/mate 숫자 overlay. */
+.eval-bar {
+    position: relative;
+    height: 24px;
+    background: #1a1a1a;
+    overflow: hidden;
+    flex-shrink: 0;
+    border-bottom: 1px solid var(--brd);
 }
+.eval-bar.hidden { display: none; }
+
+.eval-bar-fill {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 50%;
+    background: #f5f5f5;
+    transition: width 0.25s ease;
+}
+
+.eval-bar-text {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    font-family: var(--num-font);
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1, "zero" 1;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
+    z-index: 1;
+}
+.eval-bar-text--white { left: 6px; color: #1a1a1a; }
+.eval-bar-text--black { right: 6px; color: #f5f5f5; }
 
 /* unified-controls 안 좌/우 그룹 — vault detail의 `< 12% >` 가로 배치 전용. */
 .ctrl-group-left,
@@ -583,10 +613,12 @@ textarea:focus {
 .ctrl-group-left  { justify-content: flex-start; }
 .ctrl-group-right { justify-content: flex-end; }
 
+/* preview 모드 전용 분석 시작 버튼 — 하단 바 내부 정중앙 floating. 다른 abb-group들은 hidden. */
 .preview-start-btn {
     position: absolute;
     left: 50%;
-    transform: translateX(-50%);
+    top: 50%;
+    transform: translate(-50%, -50%);
     height: 36px;
     padding: 0 16px;
     border: none;
@@ -600,10 +632,11 @@ textarea:focus {
     transition: background 120ms ease;
 }
 .preview-start-btn:hover { background: var(--ac-br); }
-.preview-start-btn:active { background: var(--ac-br); transform: translateX(-50%) scale(0.97); }
+.preview-start-btn:active { background: var(--ac-br); transform: translate(-50%, -50%) scale(0.97); }
 
 /* 분석 화면 하단 액션바: 좌측 [저장 · AI · 메인복귀 · 실행취소 · 회전 · 처음부터] ─── 우측 [이전 · 다음]. */
 .analysis-bottom-bar {
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -2994,6 +3027,7 @@ button.settings-row--destructive:hover {
 }
 
 #analysisView.view-review .analysis-top-bar,
+#analysisView.view-review .eval-bar,
 #analysisView.view-review #boardContainer,
 #analysisView.view-review .unified-controls,
 #analysisView.view-review .panel-content,
