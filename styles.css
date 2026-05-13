@@ -535,30 +535,6 @@ textarea:focus {
     flex-shrink: 0;
 }
 
-.status-bar {
-    display: flex;
-    gap: 1rem;
-    align-items: center;
-    flex-shrink: 0;
-    padding: 0 0.75rem;
-    min-height: 0;
-}
-
-.tag {
-    padding: 0.3rem 0.6rem;
-    border-radius: 20px;
-    font-size: 0.75rem;
-    font-weight: 500;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    border: 1px solid var(--brd);
-}
-
-.tag.engine-ready { background: rgba(90, 122, 58, 0.10); border-color: rgba(90, 122, 58, 0.30); color: var(--best); }
-.tag.engine-loading { background: var(--ac-lo); border-color: rgba(43, 91, 215, 0.30); color: var(--inaccuracy); }
-.tag.hidden { display: none; }
-
 .board-container {
     width: 100%;
     max-width: calc(100dvh - 319px);
@@ -727,7 +703,8 @@ textarea:focus {
 }
 
 .ctrl-nav,
-.ctrl-save {
+.ctrl-save,
+.ctrl-more {
     width: 48px;
     flex-shrink: 0;
     padding: 0;
@@ -3046,8 +3023,7 @@ button.settings-row--destructive:hover {
 #analysisView.view-review #boardContainer,
 #analysisView.view-review .unified-controls,
 #analysisView.view-review .panel-content,
-#analysisView.view-review .analysis-bottom-bar,
-#analysisView.view-review .status-bar {
+#analysisView.view-review .analysis-bottom-bar {
     display: none;
 }
 
@@ -3080,8 +3056,7 @@ button.settings-row--destructive:hover {
     font-weight: 500;
 }
 
-/* 보드와 status-bar만 숨김. 패널/중앙바는 preview 화면과 동일한 골격을 유지. */
-#analysisView.analyzing-loading .status-bar,
+/* 보드만 숨김. 패널/중앙바는 preview 화면과 동일한 골격을 유지. */
 #analysisView.analyzing-loading #boardContainer,
 #analysisView.analyzing-loading #analysisLoadingText {
     display: none !important;

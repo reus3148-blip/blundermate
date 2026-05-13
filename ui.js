@@ -579,10 +579,9 @@ export function updateTopEvalDisplay(scoreStr, classification = '', isUserWhite 
     }
     el.style.color = color;
 
-    // Classification label은 CSS [data-cls] 셀렉터가 색/배경 결정.
+    // Classification label은 CSS [data-cls] 셀렉터가 색/배경 결정. 'Simulating'은 메타 라벨 — 표시 안 함.
     if (labelEl) {
-        const META = ['Exploring', 'Simulating'];
-        if (classification && !META.includes(classification)) {
+        if (classification && classification !== 'Simulating') {
             labelEl.textContent = classification.toUpperCase();
             labelEl.dataset.cls = classification;
         } else {

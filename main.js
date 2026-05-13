@@ -68,14 +68,13 @@ let inputCg = null;
 // USERNAME_LOG_DEDUP_KEY / logUsernameToServer / homeRecentLabel은 home.js로 이전.
 
 // Analysis Board UI
-const analysisStatus = document.getElementById('analysisStatus');
 const movesBody = document.getElementById('movesBody');
 const boardContainer = document.getElementById('boardContainer');
 const engineLinesContainer = document.getElementById('engineLines');
 const prevMoveBtn = document.getElementById('prevMoveBtn');
+const returnMainLineBtn = document.getElementById('returnMainLineBtn');
 const saveMoveBtn = document.getElementById('saveMoveBtn');
 const nextMoveBtn = document.getElementById('nextMoveBtn');
-const returnMainLineBtn = document.getElementById('returnMainLineBtn');
 const analysisBackBtn = document.getElementById('analysisBackBtn');
 const tabToggleBtn = document.getElementById('tabToggleBtn');
 const geminiExplanation = document.getElementById('geminiExplanation');
@@ -89,12 +88,9 @@ const copyPgnBtn = document.getElementById('copyPgnBtn');
 const homeView = document.getElementById('homeView');
 const analysisView = document.getElementById('analysisView');
 
-// Live Input Action Bar + Paste Modal
-const liveActionBar = document.getElementById('liveActionBar');
+// Live Input — analysisBottomBar 안에 ⋯ 더보기 버튼만 추가, 나머지(저장/AI/이전/다음)는 리뷰 화면과 공유.
 const analysisBottomBar = document.getElementById('analysisBottomBar');
-const liveUndoBtn = document.getElementById('liveUndoBtn');
-const liveResetBtn = document.getElementById('liveResetBtn');
-const liveFlipBoardBtn = document.getElementById('liveFlipBoardBtn');
+const liveMoreBtn = document.getElementById('liveMoreBtn');
 
 const previewStartBtn = document.getElementById('previewStartBtn');
 const ctrlCenter = document.querySelector('.ctrl-center');
@@ -478,25 +474,14 @@ modalConfigs.forEach(({ modal, closeBtn, noBg }) => {
 // ==========================================
 // 4. Event Listeners
 // ==========================================
-// 단일 엔진을 새 fen 위에서 재시작 + UI 표지를 'Exploring' 상태로 초기화.
+// 단일 엔진을 새 fen 위에서 재시작 + UI 표지 초기화. LIVE_INPUT hot path.
 // stop() 먼저 — 직전 검색이 진행 중이라도 새 검색이 깔끔히 시작되게.
-// depth는 라이브 입력 모드면 12 고정(렉 방지), 그 외 explore는 사용자 설정 depth.
-function showEngineLoading(textKey) {
-    analysisStatus.className = 'tag engine-loading';
-    analysisStatus.textContent = t(textKey);
-}
-
-function hideEngineStatus() {
-    analysisStatus.className = 'tag engine-ready hidden';
-    analysisStatus.textContent = '';
-}
-
+// depth는 LIVE_INPUT에서 12로 락(렉 방지), 그 외 호출자(simulate extend 등)는 사용자 설정 depth.
 function kickExploreEngine(fen) {
     getEngine().stop();
     clearExplorationEngineLines();
-    updateTopEvalDisplay('...', 'Exploring', isUserWhite);
-    engineLinesContainer.innerHTML = `<div class="container-message">${t('analysis_variation')}</div>`;
-    showEngineLoading('analysis_exploring');
+    updateTopEvalDisplay('...', '', isUserWhite);
+    engineLinesContainer.innerHTML = `<div class="container-message">${t('analysis_thinking')}</div>`;
     const depth = appMode === APP_MODES.LIVE_INPUT ? LIVE_INPUT_DEPTH : getDepth();
     getEngine().analyzeFen(fen, depth);
 }
@@ -506,7 +491,6 @@ function clearSimExtend() {
     setSimExtendState(null);
     getEngine().stop();
     getEngine().setMultiPV(ENGINE_DEFAULT_MULTIPV);
-    hideEngineStatus();
 }
 
 function finalizeSimExtend() {
@@ -593,9 +577,8 @@ function syncLiveStateToIndex(idx) {
         clearExplorationEngineLines();
         for (let i = 0; i < cached.length; i++) setExplorationLineAt(i, cached[i]);
         renderEngineLines(engineLinesContainer, cached.filter(Boolean), drawEngineArrow, clearEngineArrow, handleEngineLineClick);
-        const cls = analysisQueue[idx].classification || 'Exploring';
+        const cls = analysisQueue[idx].classification || '';
         updateTopEvalDisplay(cached[0].scoreStr, cls, isUserWhite);
-        hideEngineStatus();
     } else {
         // 캐시 없음 (시작 포지션 또는 분석 미완료) → 엔진 재시작.
         kickExploreEngine(explorationChess.fen());
@@ -638,14 +621,25 @@ openBoardInputBtn.addEventListener('click', async () => {
     }
 });
 
-// 라이브 전용 액션바(Undo/Reset/Flip)는 LIVE_INPUT일 때만 노출.
-// .analysis-bottom-bar는 LIVE_INPUT 동안 가림 — prev/next/save/AI는 라이브에서 의미 약함.
+// 하단 바는 리뷰/라이브 모드 통일 — 좌측 [저장 · AI · 메인복귀 · 더보기] / 우측 [이전 · 다음].
+// 더보기(⋯)는 LIVE_INPUT 전용: 실행취소·회전·처음부터를 세로 시트에 묶음. analysisBottomBar 자체는 항상 노출.
 function setLiveInputControls(active) {
-    liveActionBar?.classList.toggle('hidden', !active);
-    analysisBottomBar?.classList.toggle('hidden', !!active);
+    liveMoreBtn?.classList.toggle('hidden', !active);
 }
 
-liveFlipBoardBtn?.addEventListener('click', () => flipOrientation(cg));
+liveMoreBtn?.addEventListener('click', async () => {
+    const choice = await showOptionSheet({
+        title: t('live_input_more_sheet_title'),
+        options: [
+            { value: 'undo', label: t('live_input_undo') },
+            { value: 'flip', label: t('live_input_flip') },
+            { value: 'reset', label: t('live_input_reset') },
+        ],
+    });
+    if (choice === 'undo') liveInputUndo();
+    else if (choice === 'flip') flipOrientation(cg);
+    else if (choice === 'reset') liveInputReset();
+});
 
 // =====================================================
 // Input View — PGN/FEN 진입 화면.
@@ -835,8 +829,6 @@ inputViewMovesBtn?.addEventListener('click', () => showMovesOverlay({
     renderBody: () => renderMovesTable(movesBody, buildInputMovesQueue(), () => closeMovesOverlay()),
 }));
 
-if (liveUndoBtn) liveUndoBtn.addEventListener('click', liveInputUndo);
-if (liveResetBtn) liveResetBtn.addEventListener('click', liveInputReset);
 
 analyzeBtn.addEventListener('click', () => {
     if (!pgnInput.value.trim()) return;
@@ -900,7 +892,6 @@ function handleNextMove() {
             const tmp = new Chess(lastFen);
             if (tmp.isGameOver()) return; // 메이트/스테일메이트 → 더 진행 불가.
             setSimExtendState({ fen: lastFen, latestEval: null });
-            showEngineLoading('analysis_exploring');
             getEngine().stop();
             getEngine().setMultiPV(1);
             getEngine().analyzeFen(lastFen, SIM_EXTEND_DEPTH);
@@ -963,16 +954,6 @@ document.addEventListener('keydown', (e) => {
 
 prevMoveBtn.addEventListener('click', handlePrevMove);
 nextMoveBtn.addEventListener('click', handleNextMove);
-
-returnMainLineBtn.addEventListener('click', () => {
-    exitExplorationMode();
-    if (currentlyViewedIndex >= 0 && analysisQueue[currentlyViewedIndex]) {
-        updateBoardPosition(currentlyViewedIndex, analysisQueue[currentlyViewedIndex].fen);
-    } else {
-        const startFen = chess.header().FEN || START_FEN;
-        updateBoardPosition(-1, startFen);
-    }
-});
 
 // ==========================================
 // 3-3. Panel Tab Navigation
@@ -1144,8 +1125,7 @@ const moveClassLabel = document.getElementById('moveClassLabel');
 const winChanceDisplay = document.getElementById('winChanceDisplay');
 const ctrlCenterSeparator = document.querySelector('.ctrl-center .bar-separator');
 
-// 탐색/시뮬레이션 모드에서는 AI 분석을 못 돌리므로 AI 토글 버튼을 숨기고
-// 같은 슬롯에 메인 라인 복귀 버튼을 노출한다. 둘은 항상 배타적.
+// SIMULATE 모드 종료 시 사용 — AI 토글 슬롯에 메인 라인 복귀 버튼을 노출/숨김. 둘은 배타적.
 function showReturnBtn() {
     tabToggleBtn.classList.add('hidden');
     returnMainLineBtn.classList.remove('hidden');
@@ -1156,6 +1136,25 @@ function hideReturnBtn() {
     tabToggleBtn.classList.remove('hidden');
 }
 
+// EXPLORE / SIMULATE 모드 정리 — 변형/시뮬 상태 해제 + 단일 엔진 idle + return 버튼 hide.
+function exitExplorationMode() {
+    clearSimExtend();
+    setAppMode(APP_MODES.MAIN);
+    hideReturnBtn();
+    clearExplorationEngineLines();
+    setSimulationQueue([]);
+    clearExploreRedoStack();
+}
+
+returnMainLineBtn.addEventListener('click', () => {
+    exitExplorationMode();
+    if (currentlyViewedIndex >= 0 && analysisQueue[currentlyViewedIndex]) {
+        updateBoardPosition(currentlyViewedIndex, analysisQueue[currentlyViewedIndex].fen);
+    } else {
+        const startFen = chess.header().FEN || START_FEN;
+        updateBoardPosition(-1, startFen);
+    }
+});
 
 // 분석/라이브 화면 저장 버튼 → saved_games로 직접. vault 수동 저장은 폐지(자동 수집만).
 saveMoveBtn.addEventListener('click', () => {
@@ -1251,18 +1250,6 @@ function handleExplorationMove(orig, dest) {
     kickExploreEngine(explorationChess.fen());
 }
 
-function exitExplorationMode() {
-    clearSimExtend();
-    setAppMode(APP_MODES.MAIN);
-    hideReturnBtn();
-    clearExplorationEngineLines();
-    setSimulationQueue([]);
-    clearExploreRedoStack();
-
-    // 풀 기반 배치는 단일 엔진과 독립적으로 진행되므로 별도 재개 불필요.
-    hideEngineStatus();
-}
-
 // ==========================================
 // 5. Engine Initialization
 // ==========================================
@@ -1301,11 +1288,11 @@ const engineCallbacks = {
             lastEvalRenderTime = now;
             requestAnimationFrame(() => {
                 renderEngineLines(engineLinesContainer, explorationEngineLines.filter(Boolean), drawEngineArrow, clearEngineArrow, handleEngineLineClick);
-                // 라이브 모드에서 분류 산출 전엔 Exploring 메타 라벨로 라벨 영역 비움.
-                // 분류는 onBestMove에서 fix됨.
+                // 라이브 모드: 마지막 큐 항목 분류(onBestMove가 set)를 우선, 미산출이면 빈 라벨.
+                // EXPLORE 모드: 변형 중이라 메인라인 분류와 무관 → 항상 빈 라벨.
                 const cls = (appMode === APP_MODES.LIVE_INPUT && analysisQueue.length > 0)
-                    ? (analysisQueue[analysisQueue.length - 1].classification || 'Exploring')
-                    : 'Exploring';
+                    ? (analysisQueue[analysisQueue.length - 1].classification || '')
+                    : '';
                 updateTopEvalDisplay(explorationEngineLines[0].scoreStr, cls, isUserWhite);
             });
         }
@@ -1316,7 +1303,6 @@ const engineCallbacks = {
             return;
         }
         if (!isExploreLikeMode()) return;
-        hideEngineStatus();
 
         // 라이브 모드: 새 분석 완료 → 마지막 수 분류. 단, lines가 stale 필터 통과해 채워졌을 때만.
         if (appMode === APP_MODES.LIVE_INPUT && analysisQueue.length > 0 && explorationEngineLines[0]) {
@@ -1408,8 +1394,8 @@ function startNewAnalysis(newQueue, targetIndex = null, previewOnly = false) {
     // startNewAnalysis는 ANALYSIS 화면 안에서 호출되어 cleanupAnalysis(renderScreen 분기)를 통과 안 함 →
     // 라이브 입력 모드의 UI 토글은 여기서 직접 해제 (paste→PGN 분석 경로의 핵심 cleanup 지점).
     if (appMode === APP_MODES.LIVE_INPUT) setLiveInputControls(false);
-    setAppMode(APP_MODES.MAIN);
-    hideReturnBtn();
+    // EXPLORE/SIMULATE 상태에서 paste→PGN 분석 진입 시 returnMainLineBtn 잔류 방지.
+    exitExplorationMode();
     analysisView.classList.remove('view-review');
     setIsReviewMode(false);
     exitAnalysisLoading();
@@ -1548,7 +1534,6 @@ function enterAnalysisLoading() {
     if (ctrlCenterSeparator) ctrlCenterSeparator.classList.add('hidden');
     if (ctrlCenter) ctrlCenter.classList.add('hidden');
     tabToggleBtn.classList.add('hidden');
-    analysisStatus.classList.add('hidden');
 
     // 패널 영역에 게임 헤더(오프닝/이름/날짜) 카드 — preview와 동일한 정보 카드.
     renderPreviewCard();
