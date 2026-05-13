@@ -57,8 +57,9 @@
     <meta name="twitter:description" content="Chess.com과 Lichess 게임을 Stockfish 엔진으로 분석하고 블런더를 자동 수집. Gemini AI 한국어 해설로 모바일에서 게임을 복기하세요." />
     <meta name="twitter:image" content="https://blundermate.app/og-image.png" />
 
-    <link rel="stylesheet" href="styles/tokens.css">
-    <link rel="stylesheet" href="styles.css">
+    <!-- /forum/<slug> 같은 deep path 진입에서도 동작하도록 absolute. relative면 마지막 segment 디렉토리 기준으로 resolve돼 404. -->
+    <link rel="stylesheet" href="/styles/tokens.css">
+    <link rel="stylesheet" href="/styles.css">
 
     <script type="application/ld+json">
     {
@@ -447,6 +448,28 @@
         </div>
         <div id="savedGamesList" class="games-list view-list"></div>
     </div>
+
+    <!-- Forum View — 오프닝별 한국어 커뮤니티 (Phase 57). 진입은 /forum deep-link로만 (앱 내 진입점은 추후 phase). -->
+    <div id="forumView" class="view-container hidden">
+        <div class="forum-head">
+            <button id="forumBackBtn" class="forum-back-btn" type="button" aria-label="Back">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+            <!-- title은 openForumView가 슬러그 매핑(시실리안 디펜스 등)으로 set. data-i18n 안 박음 — i18n walker가 매핑 라벨을 reset하는 race 회피. -->
+            <h2 id="forumTitle" class="forum-title">오프닝 커뮤니티</h2>
+        </div>
+        <!-- 카테고리 list — top/root level에서 다음 단계로 push. leaf에선 hidden. forum.js가 동적 inject. -->
+        <div id="forumCategoryList" class="forum-category-list hidden"></div>
+        <div id="forumList" class="forum-list" role="feed" aria-live="polite"></div>
+        <!-- 작성 input은 top level(전체)에선 hidden — 어디 저장할지 모호하므로 read-only. root/leaf에서만 노출. -->
+        <div id="forumInputBar" class="forum-input-bar">
+            <textarea id="forumCommentInput" class="forum-input" rows="2" maxlength="500" placeholder="의견·팁·질문을 남겨보세요"></textarea>
+            <div class="forum-input-meta">
+                <span id="forumCharCount" class="forum-char-count">0/500</span>
+                <button id="forumSubmitBtn" class="forum-submit-btn primary-btn" type="button" data-i18n="forum_submit">등록</button>
+            </div>
+        </div>
+    </div>
         </main>
 
         <!-- Player Color Choice Modal -->
@@ -819,7 +842,7 @@
         }
     })();
     </script>
-    <script type="module" src="main.js"></script>
+    <script type="module" src="/main.js"></script>
 
     <!-- Vercel Web Analytics -->
     <script defer src="/_vercel/insights/script.js"></script>

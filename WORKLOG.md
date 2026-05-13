@@ -8,6 +8,57 @@
 
 ---
 
+## Phase 57 — 오프닝 포럼 골격 (/forum deep-link, 시실리안 1개) (2026-05-13)
+
+op.gg 챔피언 커뮤니티 류의 오프닝별 한국어 댓글 풀. 사용자 비전(chess.com/lichess 한국어 갭) 정확히 정조준. 다만 콜드 스타트가 결정적 약점 — "30~50개 빈 페이지" 한 번에 노출하면 첫 인상 "여기 죽었네"로 회복 불가. 시실리안 1개로 좁혀 시드 깐 뒤 모이는지 보고 확장 결정.
+
+이번 phase는 **/forum deep-link 진입 골격까지** — forum view + 댓글 CRUD + URL 라우팅 완비. 앱 내 진입점(통계 화면 chip 등)은 사용자 명시 "일단 나중에 고민"으로 제거. URL 공유로만 접근 = 시드 단계에 적합 (관심 있는 사람만 옴, 일반 사용자는 노출 0).
+
+- **데이터** ([opening_comments](supabase-schema.md#5-opening_comments--오프닝별-커뮤니티-댓글-phase-57)): flat 댓글 테이블. `(opening_key, user_id, platform, body text(500), created_at)` + opening_key/created_at desc 인덱스. vault/saved와 달리 **read 공개** — user_id 격리 안 함. RLS 미사용, Edge Function이 모든 가드
+- **endpoint** ([api/forum.js](api/forum.js)): list/post/delete 3 action. list는 opening_key 필터만, post/delete는 user_id 매치 강제(UUID만 알아도 타 유저 행 삭제 불가). 본문 500자 + opening_key 64자 길이 가드
+- **클라이언트 모듈** ([forum.js](forum.js)): 슬러그 → 한국어 라벨 매핑 `OPENING_FORUM_LABELS` + `openForumView({openingKey})` + flat 댓글 렌더링. title은 항상 슬러그 매핑 라벨로 표시(CLAUDE.md "한국어 하드코드 금지(t 경유)" 원칙)
+- **view 라우팅**: SCREENS.FORUM 추가 + history.replaceState `{ screen: 'forum', openingKey }`. sub-route(INPUT 패턴) — bottom-nav에 들어가지 않음
+- **silent fail**: list/post/delete 실패 시 console.error 0 (호출자 UI에 forum_load_error / showAlert 처리 있음 — 메모리 "콘솔 청결" 원칙). dev 진단은 network tab으로
+- **사칭 정책**: 사용자 명시 "글이라도 모으는 게 우선" → user_id 검증 0, rate limit 0. 닉네임 옆 자동 레이팅/국기로 사칭 비용 부과는 다음 phase
+- **deep-link 라우팅**: [vercel.json](vercel.json) rewrites `{ source: '/forum', destination: '/index.html' }` + [main.js](main.js) init 초기 분기 `if (location.pathname === '/forum') renderScreen(SCREENS.FORUM)`. 시실리안 1개 고정 — 추후 phase에서 `/forum/<slug>` 패스 확장
+
+세 가지 미스 잡고 정착:
+- **lazy initForum guard** ([forum.js](forum.js)): main.js의 path 분기(line 354)가 `initForum()`(line 1043)보다 먼저 실행 → 모듈 변수 미잡힘. `openForumView` 진입 시 `_initDone` 가드와 함께 lazy init 호출
+- **`data-i18n` race** ([index.html](index.html)): h2#forumTitle에 `data-i18n="forum_title_default"`가 있어 i18n walker가 `openForumView`의 슬러그 라벨 set을 한국어 default로 reset. attribute 제거 + 사유 주석
+- **onboardingView 중첩** ([main.js](main.js)): `hideAllViews`가 onboardingView를 가리지 않아 첫 진입자가 `/forum` deep-link 시 onboarding + forum 둘 다 visible. `hideAllViews` 끝에 onboarding hide 한 줄 — `initHome`이 onboarding 노출하는 home 분기는 `renderScreen` 안 거치고 `syncBottomNav`만 호출하므로 영향 없음
+
+**제거된 인터림**: 초기 phase 작업 중 통계 화면 오프닝 행 옆 💬 chip 진입점 + `FORUM_ENABLED` flag + `forum-open` CustomEvent listener까지 한 번 깔았으나, 사용자 결정으로 일괄 제거. 시드 단계에 일반 사용자 노출 0이 의도라 깔끔. 추후 phase에서 다시 도입하려면 git log 또는 [forum.js](forum.js) 매핑 자료 재활용.
+
+검증: `/forum` 접속 → pathname 유지 + forumView only + title "시실리안 디펜스" + bottomNav hidden + onboarding hidden + api 404 graceful UI. `/` 접속 → 기존 home/통계 흐름 회귀 0. 통계 오프닝 탭에 mock 시실리안 행 inject해도 chip 0개 + `decorateOpeningRowsForForum`/`FORUM_ENABLED` export 사라짐.
+
+**보강 — sub-variants (시실리안 1 root + 3 변종)**: 사용자 명시 "로솔리모/칸/나이도프 3개. 시실리안 누르면 3개 다 보이고 소분류는 그것만". 단일 페이지 → root + variants 그룹 구조로 일반화.
+
+- `OPENING_GROUPS = { sicilian: ['sicilian-rossolimo','sicilian-kan','sicilian-najdorf'] }` ([forum.js](forum.js)). 새 root 추가 시 `OPENING_FORUM_LABELS` + `OPENING_GROUPS` 두 곳만 갱신
+- **state 분리**: `rootOpeningKey`(진입 root, 탭 segment 결정용) + `activeViewKey`(현재 탭, list/post/title 기준). root key 자체도 탭 선택지 — "전체"가 root에 저장돼 "변종 무관" 의견 풀로 작동
+- **api/forum.js** — `list` action에 `opening_keys: string[]` 배열 추가. PostgREST `opening_key=in.(a,b,c)`로 합집합. 단일 `opening_key`도 backward compat. 슬러그는 ASCII alnum-dash + `MAX_KEY_LEN=64`로 한정해 `in.(...)` 구분자 깨질 위험 차단
+- **탭 UI**: forum-head 아래 `#forumTabs` 동적 inject. Phase 49 "필터 = text+underline 단일 패턴"(Notion/Lichess) 정렬 — segmented pill 거부. 매핑 없는 단일 오프닝이면 hidden
+- **변종 chip**: 전체(root) 탭에서만 코멘트 row에 `.forum-variant-chip`(예: "로솔리모") 표시. 변종 단독 탭에선 동어반복이라 생략
+
+검증: `/forum` → 4탭 `['전체','로솔리모','칸','나이도프']` + active='전체' + title='시실리안 디펜스'. 로솔리모 탭 click → active 토글 + title='로솔리모' + refreshComments 재호출. 사용자 본인 환경(`localhost:3000/forum`)에서 직접 visual 확인 필요 — preview 도구 screenshot이 timeout (도구 한계).
+
+**보강 — 3-level drilldown 재구성**: 사용자 명시 "전체 → 시실리안 → 소분류 선택할 수 있게". 4탭 segment → drilldown hierarchy로 일반화. 레퍼런스 합성: Baymard 모바일 UX(깊이 3-tap 이하 + 위치 표시), Reddit multireddit/custom feed(합집합 stream), 디시인사이드 갤러리(메이저→마이너 3-tier), chess.com forum(카테고리→topic 진입, 단 뒤로가기 깨짐 갭은 history.back로 회피).
+
+| Level | URL | UI |
+|---|---|---|
+| Top | `/forum` | 모든 댓글 합집합 stream + root list (시실리안 row + "변종 N개") + 입력 hidden(어디 저장 모호) |
+| Root | `/forum/<root>` | root + 변종 합집합 stream + 변종 list + 입력 active |
+| Leaf | `/forum/<leaf>` | 단일 stream + 카테고리 list hidden + 입력 active |
+
+- [forum.js](forum.js) 재작성 — 4탭 → `OPENING_GROUPS`/`ALL_KEYS` 도출 + state(`currentLevel`/`currentKey`) + `handleCategoryClick`에서 `history.pushState(/forum/<key>)` + browser/forum back은 `history.back()`으로 main.js popstate 거쳐 자연 복귀
+- [api/forum.js](api/forum.js) 변경 0 — top level 합집합은 클라이언트가 `ALL_KEYS` 4개 박아 `opening_keys=in.(...)`. 추후 root 수십 개 되면 server-side 'list-all' action으로 옮길 것
+- [vercel.json](vercel.json) `/forum/:slug+` rewrite 추가 — deep path도 index.html로
+- [index.html](index.html) `#forumTabs` → `#forumCategoryList`, `#forumInputBar` id 추가 (toggle 대상)
+- [styles.css](styles.css) `.forum-tabs/.forum-tab` 제거, `.forum-category-row` (iOS inset grouped + chevron) 추가
+
+**핵심 fix (deep path resource 404)**: `/forum/<slug>` 같은 깊은 path 직진입 시 `<script src="main.js">` 등 **relative 경로**가 마지막 segment를 디렉토리로 보고 `/forum/main.js`로 resolve → 404. main.js 로드 자체 실패 → home으로 fallback. [index.html](index.html) `styles/tokens.css`/`styles.css`/`main.js` 3건 모두 `/` 접두로 절대화. `<base href="/">` 대안은 페이지 내 hash anchor(`<a href="#tab-engine">`) 영향 가능성 있어 회피.
+
+검증: `/forum` → top, 시실리안 click → `/forum/sicilian` root, 로솔리모 click → `/forum/sicilian-rossolimo` leaf. `/forum/sicilian-kan` 직진입 → title="칸" + history.state `{screen:'forum', openingKey:'sicilian-kan'}` + inputBar visible. history.back 단계별 복귀 정상.
+
 ## Phase 56 — chess.js v1 hot path 가속 — getAttackers 재작성 (2026-05-10)
 
 Phase 50 (chess.js 0.10.3 → 1.4.0) 후 분석 체감 둔화 root-cause 추적. 마이크로벤치로 v1의 `moves({verbose:true})` 가 v0 대비 3.9x 느림 확인 (v1: 2887μs / v0: 746μs / call). classifyMove의 Brilliant 검사가 한 수당 50~150회 호출 → 60수 게임 누적 9~27초 v1 vs 2~7초 v0 (post-engine classification 시간만).

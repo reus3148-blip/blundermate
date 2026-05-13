@@ -124,7 +124,31 @@ create policy "anon can insert"
 
 ---
 
-## 5. `feedbacks` — 사용자 피드백
+## 5. `opening_comments` — 오프닝별 커뮤니티 댓글 (Phase 57)
+
+오프닝 root name 슬러그(`'sicilian'` 등) 기준 flat 댓글. vault/saved와 달리 read 공개 — user_id 격리 안 함. insert/delete는 [`api/forum.js`](api/forum.js)에서 user_id 매치 가드.
+
+```sql
+create table public.opening_comments (
+  id uuid primary key default gen_random_uuid(),
+  opening_key text not null,
+  user_id text not null,
+  platform text not null default 'chesscom',
+  body text not null check (char_length(body) between 1 and 500),
+  created_at timestamptz not null default now()
+);
+
+create index opening_comments_key_idx on public.opening_comments (opening_key, created_at desc);
+create index opening_comments_user_idx on public.opening_comments (user_id, platform);
+```
+
+RLS 미사용 — vault/saved와 동일 패턴 (Edge Function이 모든 가드).
+
+슬러그 매핑 ([`forum.js`](forum.js) `OPENING_FORUM_KEYS`): insights.js의 `rootOpeningName` 결과를 키로 사용. 이번 phase는 `'Sicilian Defense' → 'sicilian'` 1건. 대분류 확장 시 매핑만 추가하면 자동 활성화.
+
+---
+
+## 6. `feedbacks` — 사용자 피드백
 
 `api/feedback.js`가 anon 키로 INSERT. 컬럼은 `content` 하나만 사용.
 
@@ -150,7 +174,7 @@ create policy "anon can insert feedback"
 
 | 테이블 | RLS | 정책 |
 |---|---|---|
-| `vault_items` / `saved_games` / `analyzed_games` | RLS 미사용 (Edge Function이 service_role 키로 접근, `user_id` 검증은 [`api/db.js`](api/db.js)에서 수동) |
+| `vault_items` / `saved_games` / `analyzed_games` / `opening_comments` | RLS 미사용 (Edge Function이 service_role/anon 키로 접근, 가드는 [`api/db.js`](api/db.js) / [`api/forum.js`](api/forum.js)에서 수동) |
 | `username_logs` | enabled | anon INSERT only |
 | `feedbacks` | enabled | anon INSERT only |
 

@@ -4338,3 +4338,212 @@ body.moves-overlay-open .input-pgn-area {
 
 .input-analyze-btn:hover { opacity: 0.85; }
 
+/* ── Forum (Phase 57) ─────────────────────────────────────────────
+   오프닝별 한국어 커뮤니티. 진입은 /forum deep-link로만 (앱 내 진입점은 추후 phase). */
+
+/* forum view layout — full-screen column. analysis와 동일 패턴(100dvh 컨테이너 안 column flex) */
+#forumView {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+    background: var(--bg-surface);
+}
+#forumView.hidden { display: none; }
+
+.forum-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--brd);
+    min-height: var(--topbar-height);
+    background: var(--bg-surface);
+}
+.forum-back-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border: none;
+    background: transparent;
+    color: var(--tx);
+    cursor: pointer;
+    border-radius: 8px;
+    flex-shrink: 0;
+}
+.forum-back-btn:active { background: var(--press-fill); }
+.forum-title {
+    margin: 0;
+    font-size: var(--fs-title);
+    font-weight: var(--fw-title);
+    color: var(--tx);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* 카테고리 list (Phase 57 drilldown) — top/root level에서 다음 단계로 push. iOS inset grouped list 패턴(Phase 49 정렬) */
+.forum-category-list {
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-surface);
+    border-bottom: 1px solid var(--brd);
+}
+.forum-category-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 13px 16px;
+    min-height: var(--list-row-min-h-compact);
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-family: inherit;
+    text-align: left;
+    color: var(--tx);
+    border-bottom: 1px solid var(--brd);
+    transition: background 0.12s ease;
+}
+.forum-category-row:last-child { border-bottom: none; }
+.forum-category-row:active { background: var(--press-fill); }
+.forum-category-label {
+    flex: 1;
+    font-size: var(--fs-body);
+    font-weight: var(--fw-title);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.forum-category-meta {
+    color: var(--tx2);
+    font-size: var(--fs-meta);
+    flex-shrink: 0;
+}
+.forum-category-chevron {
+    color: var(--tx3);
+    flex-shrink: 0;
+}
+
+/* top/root level에서 어느 변종 의견인지 가리키는 작은 chip — leaf에선 동어반복이라 표시 X */
+.forum-variant-chip {
+    display: inline-block;
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: var(--bg-elevated);
+    color: var(--tx2);
+    font-size: var(--fs-meta);
+    font-weight: var(--fw-title);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.forum-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.forum-status {
+    padding: 40px 12px;
+    text-align: center;
+    color: var(--tx2);
+    font-size: var(--fs-body);
+}
+.forum-status--err { color: var(--loss); }
+
+.forum-comment {
+    background: var(--bg-base);
+    border-radius: 10px;
+    padding: 10px 12px;
+    border: 1px solid var(--brd);
+}
+.forum-comment-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+.forum-comment-user {
+    font-weight: var(--fw-title);
+    color: var(--tx);
+    font-size: var(--fs-body);
+}
+.forum-comment-meta {
+    color: var(--tx2);
+    font-size: var(--fs-meta);
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.forum-comment-del {
+    border: none;
+    background: transparent;
+    color: var(--tx3);
+    font-size: 18px;
+    line-height: 1;
+    width: 24px;
+    height: 24px;
+    cursor: pointer;
+    border-radius: 6px;
+    padding: 0;
+    flex-shrink: 0;
+}
+.forum-comment-del:active { background: var(--press-fill); color: var(--loss); }
+.forum-comment-body {
+    color: var(--tx);
+    font-size: var(--fs-body);
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.forum-input-bar {
+    border-top: 1px solid var(--brd);
+    padding: 10px 12px 14px;
+    background: var(--bg-surface);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.forum-input {
+    width: 100%;
+    border: 1px solid var(--brd2);
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: var(--fs-body);
+    font-family: inherit;
+    resize: none;
+    background: var(--bg-surface);
+    color: var(--tx);
+    line-height: 1.5;
+    box-sizing: border-box;
+}
+.forum-input:focus {
+    outline: none;
+    border-color: var(--ac);
+    box-shadow: 0 0 0 3px var(--ac-lo);
+}
+.forum-input-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+}
+.forum-char-count {
+    font-size: var(--fs-meta);
+    color: var(--tx3);
+}
+.forum-char-count.is-over { color: var(--loss); }
+.forum-submit-btn {
+    min-height: 36px;
+    padding: 0 18px;
+    font-size: var(--fs-body);
+}
+

@@ -28,6 +28,7 @@ import { collectAutoBlunders } from './autoBlunders.js';
 import { initVault, isVaultDetailActive, isVaultPuzzleActive, getVaultDetailIndex, setVaultDetailIndex, flipVaultBoard, setVaultCoords, redrawVaultBoard, loadVaultData, loadBlunderListData, redrawVaultPuzzleBoard } from './vault.js';
 import { initSavedGames, loadSavedGamesData, openSaveGameModal } from './savedGames.js';
 import { initInsights, loadInsightsData } from './insights.js';
+import { initForum, openForumView, hideForumView, tryActivateFromLocation as tryActivateForum } from './forum.js';
 import { initSettings, onSettingsViewEnter, onFeedbackViewEnter } from './settings.js';
 import { initImportGames, onImportGamesViewEnter } from './importGames.js';
 import {
@@ -146,6 +147,7 @@ const SCREENS = {
     FEEDBACK: 'feedback',
     IMPORT_GAMES: 'import_games',
     INPUT: 'input',
+    FORUM: 'forum',
 };
 
 let _currentScreen = SCREENS.HOME;
@@ -195,6 +197,11 @@ function hideAllViews() {
     document.getElementById('feedbackView')?.classList.add('hidden');
     document.getElementById('importGamesView')?.classList.add('hidden');
     inputView?.classList.add('hidden');
+    hideForumView();
+    // onboardingView 가리기 — 임의 화면(특히 /forum deep-link) 진입 시 first-time 사용자의
+    // 온보딩 카드가 위에 떠있는 중첩 회피. initHome이 노출하는 home 분기는 renderScreen이
+    // 아니라 syncBottomNav만 호출하므로 영향 없음.
+    document.getElementById('onboardingView')?.classList.add('hidden');
 }
 
 // 단일 엔진(stockfish)을 쓰는 모드들 — 분석 화면이 보드 자유 입력으로 동작.
@@ -274,6 +281,9 @@ function renderScreen(screen) {
             inputView?.classList.remove('hidden');
             onInputViewEnter();
             break;
+        case SCREENS.FORUM:
+            openForumView({ openingKey: history.state?.openingKey });
+            break;
         default:
             homeView.classList.remove('hidden');
             break;
@@ -335,8 +345,11 @@ window.addEventListener('popstate', (event) => {
     }
 });
 
-history.replaceState({ screen: SCREENS.HOME }, '', '#home');
-syncBottomNav(SCREENS.HOME);
+// deep-link 라우팅 — forum.js가 path 인식 + state 박기까지 자체 처리, 매칭 안 되면 home 디폴트.
+if (!tryActivateForum(renderScreen)) {
+    history.replaceState({ screen: SCREENS.HOME }, '', '#home');
+    syncBottomNav(SCREENS.HOME);
+}
 
 // ==========================================
 // 3. Initialization
@@ -1041,6 +1054,7 @@ initSavedGames({
 });
 
 initInsights();
+initForum();
 initImportGames({ pgnInput, handlePgnReviewStart });
 
 function buildExplorationMovesQueue() {
