@@ -16,8 +16,8 @@ import {
 } from './board.js';
 import {
     APP_MODES,
-    appMode, explorationChess, explorationEngineLines, exploreRedoStack, simulationQueue, simulationIndex, simExtendState, isPreviewMode, isReviewMode,
-    setAppMode, setIsPreviewMode, setIsReviewMode, clearExplorationEngineLines, setExplorationLineAt,
+    appMode, branchChess, branchEngineLines, exploreRedoStack, simulationQueue, simulationIndex, simExtendState, isPreviewMode, isReviewMode,
+    setAppMode, setIsPreviewMode, setIsReviewMode, clearBranchEngineLines, setBranchLineAt,
     clearExploreRedoStack, pushExploreRedo, popExploreRedo,
     setSimulationQueue, pushSimulationQueueItem, setSimulationIndex, setSimExtendState,
 } from './modes.js';
@@ -202,7 +202,7 @@ function hideAllViews() {
 
 // 단일 엔진(stockfish)을 쓰는 모드들 — 분석 화면이 보드 자유 입력으로 동작.
 // SIMULATE는 엔진 PV를 따라가는 별개 모드라 제외.
-function isExploreLikeMode() {
+function isBranchMode() {
     return appMode === APP_MODES.EXPLORE || appMode === APP_MODES.LIVE_INPUT;
 }
 
@@ -216,7 +216,7 @@ function cleanupAnalysis() {
         applyReviewView();
     }
     if (appMode === APP_MODES.LIVE_INPUT) {
-        setLiveInputControls(false);
+        liveMoreBtn?.classList.add('hidden');
         getEngine().stop();
     }
     if (isAnalysisLoading) exitAnalysisLoading();
@@ -360,7 +360,7 @@ initBoard(boardContainer, {
         eraseOnClick: true
     },
     events: {
-        move: (orig, dest) => handleExplorationMove(orig, dest)
+        move: (orig, dest) => handleBranchMove(orig, dest)
     }
 });
 
@@ -477,9 +477,9 @@ modalConfigs.forEach(({ modal, closeBtn, noBg }) => {
 // 단일 엔진을 새 fen 위에서 재시작 + UI 표지 초기화. LIVE_INPUT hot path.
 // stop() 먼저 — 직전 검색이 진행 중이라도 새 검색이 깔끔히 시작되게.
 // depth는 LIVE_INPUT에서 12로 락(렉 방지), 그 외 호출자(simulate extend 등)는 사용자 설정 depth.
-function kickExploreEngine(fen) {
+function kickBranchEngine(fen) {
     getEngine().stop();
-    clearExplorationEngineLines();
+    clearBranchEngineLines();
     updateTopEvalDisplay('...', '', isUserWhite);
     engineLinesContainer.innerHTML = `<div class="container-message">${t('analysis_thinking')}</div>`;
     const depth = appMode === APP_MODES.LIVE_INPUT ? LIVE_INPUT_DEPTH : getDepth();
@@ -528,60 +528,60 @@ function openLiveInput() {
     clearPersistentShapes();
 
     setAppMode(APP_MODES.LIVE_INPUT);
-    explorationChess.load(START_FEN);
+    branchChess.load(START_FEN);
 
     cg.set({
         fen: START_FEN,
         orientation: 'white',
         turnColor: 'white',
         lastMove: [],
-        movable: { color: 'white', free: false, dests: getDests(explorationChess) },
+        movable: { color: 'white', free: false, dests: getDests(branchChess) },
         drawable: { autoShapes: [] }
     });
     forceRedraw(cg);
 
-    setLiveInputControls(true);
-    kickExploreEngine(START_FEN);
+    syncBottomBar();
+    kickBranchEngine(START_FEN);
 }
 
-// EXPLORE / LIVE_INPUT 보드를 explorationChess의 현 상태로 동기.
-function syncExploreBoard() {
-    const turnColor = explorationChess.turn() === 'w' ? 'white' : 'black';
-    const hist = explorationChess.history({ verbose: true });
+// EXPLORE / LIVE_INPUT 보드를 branchChess의 현 상태로 동기.
+function syncBranchBoard() {
+    const turnColor = branchChess.turn() === 'w' ? 'white' : 'black';
+    const hist = branchChess.history({ verbose: true });
     const lastMove = hist.length > 0 ? [hist[hist.length - 1].from, hist[hist.length - 1].to] : [];
     cg.set({
-        fen: explorationChess.fen(),
+        fen: branchChess.fen(),
         turnColor,
         lastMove,
-        movable: { color: turnColor, free: false, dests: getDests(explorationChess) },
+        movable: { color: turnColor, free: false, dests: getDests(branchChess) },
         drawable: { autoShapes: [] }
     });
 }
 
-// 라이브 상태를 idx 위치로 통일 (explorationChess replay + 보드 갱신 + 엔진 라인 캐시 또는 재시작).
+// 라이브 상태를 idx 위치로 통일 (branchChess replay + 보드 갱신 + 엔진 라인 캐시 또는 재시작).
 // idx=-1=시작, 0..N-1=각 수 직후. navigate/undo/reset 공통 로직.
 function syncLiveStateToIndex(idx) {
     setCurrentlyViewedIndex(idx);
-    explorationChess.reset();
+    branchChess.reset();
     for (let i = 0; i <= idx; i++) {
         const m = analysisQueue[i];
-        explorationChess.move({ from: m.from, to: m.to, promotion: m.promotion });
+        branchChess.move({ from: m.from, to: m.to, promotion: m.promotion });
     }
-    syncExploreBoard();
+    syncBranchBoard();
     showPieceBadge(idx);
 
     const cached = idx >= 0 ? analysisQueue[idx]?.engineLines : null;
     if (cached && cached[0]) {
         // 캐시된 라인 재사용 — 엔진 재시작 없이 즉시 표시.
         getEngine().stop();
-        clearExplorationEngineLines();
-        for (let i = 0; i < cached.length; i++) setExplorationLineAt(i, cached[i]);
+        clearBranchEngineLines();
+        for (let i = 0; i < cached.length; i++) setBranchLineAt(i, cached[i]);
         renderEngineLines(engineLinesContainer, cached.filter(Boolean), drawEngineArrow, clearEngineArrow, handleEngineLineClick);
         const cls = analysisQueue[idx].classification || '';
         updateTopEvalDisplay(cached[0].scoreStr, cls, isUserWhite);
     } else {
         // 캐시 없음 (시작 포지션 또는 분석 미완료) → 엔진 재시작.
-        kickExploreEngine(explorationChess.fen());
+        kickBranchEngine(branchChess.fen());
     }
 }
 
@@ -621,24 +621,33 @@ openBoardInputBtn.addEventListener('click', async () => {
     }
 });
 
-// 하단 바는 리뷰/라이브 모드 통일 — 좌측 [저장 · AI · 메인복귀 · 더보기] / 우측 [이전 · 다음].
-// 더보기(⋯)는 LIVE_INPUT 전용: 실행취소·회전·처음부터를 세로 시트에 묶음. analysisBottomBar 자체는 항상 노출.
-function setLiveInputControls(active) {
-    liveMoreBtn?.classList.toggle('hidden', !active);
+// 하단 바 가시성은 appMode에서 단일 도출 — setAppMode 직후 syncBottomBar() 호출이 invariant.
+//   LIVE_INPUT       → 더보기 노출 / AI 노출 / 메인복귀 숨김
+//   EXPLORE/SIMULATE → 메인복귀 노출 / AI 숨김 / 더보기 숨김
+//   MAIN(review)     → AI 노출 / 더보기·메인복귀 숨김
+// 좌측 그룹은 [저장·AI·메인복귀·더보기], 우측은 [이전·다음]. 우측은 모드 무관 항상 노출.
+function syncBottomBar() {
+    const isLive = appMode === APP_MODES.LIVE_INPUT;
+    const isBranch = appMode === APP_MODES.EXPLORE || appMode === APP_MODES.SIMULATE;
+    liveMoreBtn?.classList.toggle('hidden', !isLive);
+    returnMainLineBtn.classList.toggle('hidden', !isBranch);
+    tabToggleBtn.classList.toggle('hidden', isBranch);
 }
+
+// 라이브 분석 더보기 시트 — key/label/action 3-tuple 단일 정의로 invariant 유지.
+// 새 액션 추가 시 여기 한 항목만 추가하면 시트 옵션 + dispatch 둘 다 한 번에 갱신.
+const LIVE_MORE_ACTIONS = [
+    { key: 'undo',  label: 'live_input_undo',  run: () => liveInputUndo() },
+    { key: 'flip',  label: 'live_input_flip',  run: () => flipOrientation(cg) },
+    { key: 'reset', label: 'live_input_reset', run: () => liveInputReset() },
+];
 
 liveMoreBtn?.addEventListener('click', async () => {
     const choice = await showOptionSheet({
         title: t('live_input_more_sheet_title'),
-        options: [
-            { value: 'undo', label: t('live_input_undo') },
-            { value: 'flip', label: t('live_input_flip') },
-            { value: 'reset', label: t('live_input_reset') },
-        ],
+        options: LIVE_MORE_ACTIONS.map(a => ({ value: a.key, label: t(a.label) })),
     });
-    if (choice === 'undo') liveInputUndo();
-    else if (choice === 'flip') flipOrientation(cg);
-    else if (choice === 'reset') liveInputReset();
+    LIVE_MORE_ACTIONS.find(a => a.key === choice)?.run();
 });
 
 // =====================================================
@@ -845,21 +854,21 @@ function handlePrevMove() {
         return;
     }
     // 라이브 입력 모드: prev = 직전 수 위치로 navigate (history 보존).
-    // 중간에서 다른 수를 두면 그 시점에서 fork(handleExplorationMove의 truncate 분기).
+    // 중간에서 다른 수를 두면 그 시점에서 fork(handleBranchMove의 truncate 분기).
     if (appMode === APP_MODES.LIVE_INPUT) {
         liveInputNavigate(-1);
         return;
     }
     if (appMode === APP_MODES.EXPLORE) {
         // < = 변형 한 수 undo (redo 스택에 보관). 메인라인 복귀는 returnMainLineBtn 전담.
-        if (explorationChess.history().length > 0) {
-            pushExploreRedo(explorationChess.undo());
-            syncExploreBoard();
-            kickExploreEngine(explorationChess.fen());
+        if (branchChess.history().length > 0) {
+            pushExploreRedo(branchChess.undo());
+            syncBranchBoard();
+            kickBranchEngine(branchChess.fen());
             return;
         }
         // 변형 소진(=deviation 지점) → 메인라인으로 빠지면서 한 칸 더 뒤로.
-        exitExplorationMode();
+        exitBranchMode();
         const newIndex = Math.max(-1, currentlyViewedIndex - 1);
         const fen = newIndex === -1 ? (chess.header().FEN || START_FEN) : analysisQueue[newIndex].fen;
         updateBoardPosition(newIndex, fen);
@@ -910,10 +919,10 @@ function handleNextMove() {
         // > = 따라가본 변형 수 redo. 끝나면 no-op — 메인라인 진행은 returnMainLineBtn 이후 처리.
         if (exploreRedoStack.length > 0) {
             const m = popExploreRedo();
-            const res = explorationChess.move({ from: m.from, to: m.to, promotion: m.promotion });
+            const res = branchChess.move({ from: m.from, to: m.to, promotion: m.promotion });
             if (res) {
-                syncExploreBoard();
-                kickExploreEngine(explorationChess.fen());
+                syncBranchBoard();
+                kickBranchEngine(branchChess.fen());
             }
         }
         return;
@@ -1024,10 +1033,10 @@ initSavedGames({
         pgnInput.value = pgn;
         handlePgnReviewStart(null, null, null, true);
     },
-    // 라이브 입력 모드는 메인 chess가 비어 있고 explorationChess만 의미 있음.
-    getChess: () => appMode === APP_MODES.LIVE_INPUT ? explorationChess : chess,
+    // 라이브 입력 모드는 메인 chess가 비어 있고 branchChess만 의미 있음.
+    getChess: () => appMode === APP_MODES.LIVE_INPUT ? branchChess : chess,
     getPgn: () => {
-        const src = appMode === APP_MODES.LIVE_INPUT ? explorationChess : chess;
+        const src = appMode === APP_MODES.LIVE_INPUT ? branchChess : chess;
         return injectNags(src.pgn(), analysisQueue);
     },
     // Empty state CTA → 홈 화면으로 이동 (사용자가 게임 카드를 골라 분석 시작 가능).
@@ -1039,7 +1048,7 @@ initForum();
 initImportGames({ pgnInput, handlePgnReviewStart });
 
 function buildExplorationMovesQueue() {
-    const history = explorationChess.history({ verbose: true });
+    const history = branchChess.history({ verbose: true });
     return history.map((m, i) => ({
         san: m.san,
         moveNumber: Math.floor(i / 2) + 1,
@@ -1052,10 +1061,10 @@ analysisBackBtn.addEventListener('click', () => {
 });
 
 movesOverlayBtn.addEventListener('click', () => {
-    // 라이브 입력 모드: 사용자가 둔 수만 explorationChess에서 추출 (분석 큐 없음).
+    // 라이브 입력 모드: 사용자가 둔 수만 branchChess에서 추출 (분석 큐 없음).
     if (appMode === APP_MODES.LIVE_INPUT) {
         showMovesOverlay({
-            getPgn: () => explorationChess.pgn(),
+            getPgn: () => branchChess.pgn(),
             renderBody: () => renderMovesTable(movesBody, buildExplorationMovesQueue(), () => closeMovesOverlay()),
         });
         return;
@@ -1125,29 +1134,18 @@ const moveClassLabel = document.getElementById('moveClassLabel');
 const winChanceDisplay = document.getElementById('winChanceDisplay');
 const ctrlCenterSeparator = document.querySelector('.ctrl-center .bar-separator');
 
-// SIMULATE 모드 종료 시 사용 — AI 토글 슬롯에 메인 라인 복귀 버튼을 노출/숨김. 둘은 배타적.
-function showReturnBtn() {
-    tabToggleBtn.classList.add('hidden');
-    returnMainLineBtn.classList.remove('hidden');
-}
-
-function hideReturnBtn() {
-    returnMainLineBtn.classList.add('hidden');
-    tabToggleBtn.classList.remove('hidden');
-}
-
-// EXPLORE / SIMULATE 모드 정리 — 변형/시뮬 상태 해제 + 단일 엔진 idle + return 버튼 hide.
-function exitExplorationMode() {
+// EXPLORE / SIMULATE 모드 정리 — 변형/시뮬 상태 해제 + 단일 엔진 idle. 하단 바는 syncBottomBar로 동기.
+function exitBranchMode() {
     clearSimExtend();
     setAppMode(APP_MODES.MAIN);
-    hideReturnBtn();
-    clearExplorationEngineLines();
+    clearBranchEngineLines();
     setSimulationQueue([]);
     clearExploreRedoStack();
+    syncBottomBar();
 }
 
 returnMainLineBtn.addEventListener('click', () => {
-    exitExplorationMode();
+    exitBranchMode();
     if (currentlyViewedIndex >= 0 && analysisQueue[currentlyViewedIndex]) {
         updateBoardPosition(currentlyViewedIndex, analysisQueue[currentlyViewedIndex].fen);
     } else {
@@ -1159,7 +1157,7 @@ returnMainLineBtn.addEventListener('click', () => {
 // 분석/라이브 화면 저장 버튼 → saved_games로 직접. vault 수동 저장은 폐지(자동 수집만).
 saveMoveBtn.addEventListener('click', () => {
     if (appMode === APP_MODES.LIVE_INPUT) {
-        if (explorationChess.history().length === 0) {
+        if (branchChess.history().length === 0) {
             showAlert(t('analysis_no_save_start'));
             return;
         }
@@ -1183,42 +1181,43 @@ window.addEventListener('resize', () => {
     }, 100); // 100ms 디바운스 적용
 });
 
-function handleExplorationMove(orig, dest) {
+function handleBranchMove(orig, dest) {
     if (isPreviewMode) return;
     // 새 변형 수를 두면 fork — redo 스택 무효화. (프로그램적 redo는 이 경로를 안 탄다.)
     clearExploreRedoStack();
     clearSimExtend();
     if (appMode === APP_MODES.SIMULATE) {
         setAppMode(APP_MODES.EXPLORE);
-        // sim 베이스부터 현재 simulationIndex까지의 PV 수를 explorationChess history에 replay.
+        // sim 베이스부터 현재 simulationIndex까지의 PV 수를 branchChess history에 replay.
         // 안 하면 사용자가 둔 1수만 undo 가능하고 그 직후 history 소진 분기로 메인라인까지 튐.
-        explorationChess.load(simulationQueue[0].fen);
+        branchChess.load(simulationQueue[0].fen);
         for (let i = 1; i <= simulationIndex; i++) {
-            explorationChess.move(simulationQueue[i].san);
+            branchChess.move(simulationQueue[i].san);
         }
-    } else if (!isExploreLikeMode()) {
+        syncBottomBar();
+    } else if (!isBranchMode()) {
         // MAIN → EXPLORE 첫 진입: 메인 라인의 현재 위치를 base로 잡고 returnMainLine 버튼 표시.
-        // LIVE_INPUT은 진입 시 이미 explorationChess에 START_FEN이 로드돼 있으므로 이 블록 건너뜀.
+        // LIVE_INPUT은 진입 시 이미 branchChess에 START_FEN이 로드돼 있으므로 이 블록 건너뜀.
         setAppMode(APP_MODES.EXPLORE);
-        showReturnBtn();
+        syncBottomBar();
 
         let baseFen = START_FEN;
         if (currentlyViewedIndex >= 0 && analysisQueue[currentlyViewedIndex]) baseFen = analysisQueue[currentlyViewedIndex].fen;
         else if (chess.header().FEN) baseFen = chess.header().FEN;
 
-        explorationChess.load(baseFen);
+        branchChess.load(baseFen);
     }
-    // 엔진 정지 + 라인 클리어는 kickExploreEngine이 처리.
+    // 엔진 정지 + 라인 클리어는 kickBranchEngine이 처리.
 
     // 라이브 모드 fork 처리: 사용자가 중간 위치를 보다가 새 수를 두면 그 시점에서 history 분기.
-    // currentlyViewedIndex 이후의 큐 항목 모두 버리고 explorationChess는 이미 navigate 시 그 위치로 replay 되어 있음.
+    // currentlyViewedIndex 이후의 큐 항목 모두 버리고 branchChess는 이미 navigate 시 그 위치로 replay 되어 있음.
     if (appMode === APP_MODES.LIVE_INPUT && currentlyViewedIndex < analysisQueue.length - 1) {
         analysisQueue.length = currentlyViewedIndex + 1;
     }
 
-    const moveRes = explorationChess.move({ from: orig, to: dest, promotion: 'q' });
+    const moveRes = branchChess.move({ from: orig, to: dest, promotion: 'q' });
     if (!moveRes) {
-        cg.set({ fen: explorationChess.fen() });
+        cg.set({ fen: branchChess.fen() });
         return;
     }
 
@@ -1227,12 +1226,12 @@ function handleExplorationMove(orig, dest) {
     if (appMode === APP_MODES.LIVE_INPUT) {
         const moveIdx = analysisQueue.length;
         analysisQueue.push({
-            fen: explorationChess.fen(),
+            fen: branchChess.fen(),
             san: moveRes.san,
             from: moveRes.from,
             to: moveRes.to,
             promotion: moveRes.promotion,
-            turn: explorationChess.turn() === 'w' ? 'b' : 'w',
+            turn: branchChess.turn() === 'w' ? 'b' : 'w',
             moveNumber: Math.floor(moveIdx / 2) + 1,
             isWhite: moveIdx % 2 === 0,
             engineLines: [],
@@ -1240,14 +1239,14 @@ function handleExplorationMove(orig, dest) {
         setCurrentlyViewedIndex(moveIdx);
     }
 
-    const turnColor = explorationChess.turn() === 'w' ? 'white' : 'black';
+    const turnColor = branchChess.turn() === 'w' ? 'white' : 'black';
     cg.set({
-        fen: explorationChess.fen(),
+        fen: branchChess.fen(),
         turnColor,
-        movable: { color: turnColor, free: false, dests: getDests(explorationChess) }
+        movable: { color: turnColor, free: false, dests: getDests(branchChess) }
     });
 
-    kickExploreEngine(explorationChess.fen());
+    kickBranchEngine(branchChess.fen());
 }
 
 // ==========================================
@@ -1264,36 +1263,36 @@ const engineCallbacks = {
             simExtendState.latestEval = evalData;
             return;
         }
-        if (!isExploreLikeMode()) return;
+        if (!isBranchMode()) return;
 
         // Stale-info 필터: stop() 직후 워커가 OLD 포지션의 잔여 info를 emit하는 경우가 있음.
-        // PV 첫 수가 현재 explorationChess에서 합법이 아니면(놓인 칸에 자기 차례 기물 없음) 버린다.
+        // PV 첫 수가 현재 branchChess에서 합법이 아니면(놓인 칸에 자기 차례 기물 없음) 버린다.
         const firstUci = evalData.pv ? evalData.pv.split(' ')[0] : '';
         if (firstUci && firstUci.length >= 4) {
             const fromSq = firstUci.slice(0, 2);
-            const piece = explorationChess.get(fromSq);
-            const turn = explorationChess.turn();
+            const piece = branchChess.get(fromSq);
+            const turn = branchChess.turn();
             if (!piece || piece.color !== turn) return;
         }
 
-        const isBlackToMove = explorationChess.turn() === 'b';
+        const isBlackToMove = branchChess.turn() === 'b';
         const { scoreStr, scoreNum } = parseEvalData(evalData, isBlackToMove);
 
         const lineIndex = evalData.multipv - 1;
-        const sanPv = convertPvToSan(evalData.pv, explorationChess.fen());
-        setExplorationLineAt(lineIndex, { scoreStr, scoreNum, pv: sanPv, uci: firstUci });
+        const sanPv = convertPvToSan(evalData.pv, branchChess.fen());
+        setBranchLineAt(lineIndex, { scoreStr, scoreNum, pv: sanPv, uci: firstUci });
 
         const now = Date.now();
-        if (explorationEngineLines[0] && now - lastEvalRenderTime > EVAL_RENDER_THROTTLE) {
+        if (branchEngineLines[0] && now - lastEvalRenderTime > EVAL_RENDER_THROTTLE) {
             lastEvalRenderTime = now;
             requestAnimationFrame(() => {
-                renderEngineLines(engineLinesContainer, explorationEngineLines.filter(Boolean), drawEngineArrow, clearEngineArrow, handleEngineLineClick);
+                renderEngineLines(engineLinesContainer, branchEngineLines.filter(Boolean), drawEngineArrow, clearEngineArrow, handleEngineLineClick);
                 // 라이브 모드: 마지막 큐 항목 분류(onBestMove가 set)를 우선, 미산출이면 빈 라벨.
                 // EXPLORE 모드: 변형 중이라 메인라인 분류와 무관 → 항상 빈 라벨.
                 const cls = (appMode === APP_MODES.LIVE_INPUT && analysisQueue.length > 0)
                     ? (analysisQueue[analysisQueue.length - 1].classification || '')
                     : '';
-                updateTopEvalDisplay(explorationEngineLines[0].scoreStr, cls, isUserWhite);
+                updateTopEvalDisplay(branchEngineLines[0].scoreStr, cls, isUserWhite);
             });
         }
     },
@@ -1302,15 +1301,15 @@ const engineCallbacks = {
             finalizeSimExtend();
             return;
         }
-        if (!isExploreLikeMode()) return;
+        if (!isBranchMode()) return;
 
         // 라이브 모드: 새 분석 완료 → 마지막 수 분류. 단, lines가 stale 필터 통과해 채워졌을 때만.
-        if (appMode === APP_MODES.LIVE_INPUT && analysisQueue.length > 0 && explorationEngineLines[0]) {
+        if (appMode === APP_MODES.LIVE_INPUT && analysisQueue.length > 0 && branchEngineLines[0]) {
             const idx = analysisQueue.length - 1;
-            analysisQueue[idx].engineLines = explorationEngineLines.slice();
+            analysisQueue[idx].engineLines = branchEngineLines.slice();
             const cls = classifyMove(idx, analysisQueue);
             analysisQueue[idx].classification = cls;
-            updateTopEvalDisplay(explorationEngineLines[0].scoreStr, cls, isUserWhite);
+            updateTopEvalDisplay(branchEngineLines[0].scoreStr, cls, isUserWhite);
             showPieceBadge(idx);
         }
     }
@@ -1390,12 +1389,9 @@ function startNewAnalysis(newQueue, targetIndex = null, previewOnly = false) {
     savedGamesViewNav.classList.add('hidden');
     analysisView.classList.remove('hidden');
 
-    // 이전 탐색(Exploration) / 라이브 입력 / 시뮬레이션 모드 상태 완전 초기화.
-    // startNewAnalysis는 ANALYSIS 화면 안에서 호출되어 cleanupAnalysis(renderScreen 분기)를 통과 안 함 →
-    // 라이브 입력 모드의 UI 토글은 여기서 직접 해제 (paste→PGN 분석 경로의 핵심 cleanup 지점).
-    if (appMode === APP_MODES.LIVE_INPUT) setLiveInputControls(false);
-    // EXPLORE/SIMULATE 상태에서 paste→PGN 분석 진입 시 returnMainLineBtn 잔류 방지.
-    exitExplorationMode();
+    // EXPLORE/SIMULATE/LIVE_INPUT 상태에서 paste→PGN 분석 진입 시 잔류 UI 차단.
+    // exitBranchMode가 setAppMode(MAIN) + syncBottomBar() 까지 처리하므로 분기별 핸들링 불필요.
+    exitBranchMode();
     analysisView.classList.remove('view-review');
     setIsReviewMode(false);
     exitAnalysisLoading();
@@ -1776,7 +1772,7 @@ function applyReviewView() {
 
 function updateBoardPosition(index, fen) {
     if (appMode === APP_MODES.EXPLORE) {
-        exitExplorationMode();
+        exitBranchMode();
     }
 
     // 다른 수로 이동 시 기존에 진행 중이던 AI 해설이 있다면 즉시 취소하여 리소스 및 서버 연결 확보
@@ -1897,9 +1893,9 @@ function clearEngineArrow() {
 
 function handleEngineLineClick(lineIndex) {
     let baseFen, lines;
-    if (isExploreLikeMode()) {
-        baseFen = explorationChess.fen();
-        lines = explorationEngineLines;
+    if (isBranchMode()) {
+        baseFen = branchChess.fen();
+        lines = branchEngineLines;
     } else {
         if (currentlyViewedIndex < 0) return;
         baseFen = analysisQueue[currentlyViewedIndex].fen;
@@ -1929,7 +1925,7 @@ function handleEngineLineClick(lineIndex) {
     setSimulationIndex(1);
 
     getEngine().stop();
-    showReturnBtn();
+    syncBottomBar();
     updateBoardForSimulation(simulationIndex);
 }
 

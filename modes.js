@@ -11,8 +11,9 @@ import { Chess } from 'https://cdn.jsdelivr.net/npm/chess.js@1.4.0/+esm';
 //   - 분석 직후 자동 ON, 보드 위치를 옮기면(updateBoardPosition) 자동 OFF.
 //   - ☰ 오버레이의 "리뷰 보기" 버튼으로 다시 ON 가능.
 //
-// explorationChess: 'explore'/'live_input' 모드에서 사용자가 두는 변형 라인을 추적하는 별도 Chess 인스턴스
-// explorationEngineLines: 위 두 모드에서 엔진이 변형 위치에 대해 분석한 multi-PV 결과
+// branchChess: 'explore'/'live_input' 모드에서 사용자가 두는 변형/입력 라인을 추적하는 별도 Chess 인스턴스
+//              (EXPLORE = 메인라인에서 분기, LIVE_INPUT = 빈 시작에서 분기 — 둘 다 branch 개념)
+// branchEngineLines: 위 두 모드에서 엔진이 branch 위치에 대해 분석한 multi-PV 결과
 // simulationQueue: 'simulate' 모드에서 엔진 추천 PV를 한 수씩 따라갈 수 있게 만든 FEN 리스트
 // simulationIndex: simulationQueue에서 지금 보고 있는 인덱스
 //
@@ -26,8 +27,8 @@ export const APP_MODES = Object.freeze({
 });
 
 export let appMode = APP_MODES.MAIN;
-export const explorationChess = new Chess();
-export let explorationEngineLines = [];
+export const branchChess = new Chess();
+export let branchEngineLines = [];
 // EXPLORE: < 로 undo한 변형 수를 보관 → > 로 재생. 새 변형 수를 두면 fork 발생 → 무효화.
 export let exploreRedoStack = [];
 export let simulationQueue = [];
@@ -41,8 +42,8 @@ export function setAppMode(m) { appMode = m; }
 export function setIsPreviewMode(b) { isPreviewMode = b; }
 export function setIsReviewMode(b) { isReviewMode = b; }
 
-export function clearExplorationEngineLines() { explorationEngineLines = []; }
-export function setExplorationLineAt(i, line) { explorationEngineLines[i] = line; }
+export function clearBranchEngineLines() { branchEngineLines = []; }
+export function setBranchLineAt(i, line) { branchEngineLines[i] = line; }
 
 export function clearExploreRedoStack() { exploreRedoStack = []; }
 export function pushExploreRedo(m) { exploreRedoStack.push(m); }
