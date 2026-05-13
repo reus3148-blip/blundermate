@@ -186,14 +186,23 @@
                 </div>
             </div>
 
-            <!-- Middle bar — 좌측 분류/win% │ 우측 분석시작(preview). -->
+            <!-- Middle bar — 3등분 그리드 [수 평가 | 평가치 | < >]. 각 칸 center 정렬. 분석 시작(preview)은 absolute overlay. -->
             <div class="unified-controls" id="panelTabs">
                 <div class="unified-controls-inner">
-                    <div class="ctrl-center">
+                    <div class="ctrl-col">
                         <span id="moveClassLabel" class="move-class-label"></span>
-                        <div class="bar-separator"></div>
+                    </div>
+                    <div class="ctrl-col">
                         <span id="winChanceDisplay" class="win-chance-display">—</span>
                         <span id="analysisLoadingText" class="analysis-loading-text hidden" data-i18n="analysis_loading">로딩중입니다...</span>
+                    </div>
+                    <div class="ctrl-col ctrl-col-nav">
+                        <button id="prevMoveBtn" class="ctrl-btn ctrl-nav" title="Previous move">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                        </button>
+                        <button id="nextMoveBtn" class="ctrl-btn ctrl-nav" title="Next move">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                        </button>
                     </div>
                     <button id="previewStartBtn" class="preview-start-btn hidden" data-i18n="analysis_start_btn">분석 시작</button>
                 </div>
@@ -216,7 +225,7 @@
 
             </div><!-- /.panel-content -->
 
-            <!-- Bottom action bar — 좌측 [저장 AI 메인복귀 실행취소·회전·처음부터(LIVE_INPUT)] │ 우측 [이전 다음]. -->
+            <!-- Bottom action bar — [저장 AI 메인복귀 실행취소·회전·처음부터(LIVE_INPUT)]. 이전/다음은 중간 바로 이동. -->
             <div class="analysis-bottom-bar" id="analysisBottomBar">
                 <div class="abb-group abb-left">
                     <button id="saveMoveBtn" class="ctrl-btn ctrl-save" title="Save position">
@@ -234,14 +243,6 @@
                     </button>
                     <button id="liveResetBtn" class="ctrl-btn ctrl-live hidden" type="button" data-i18n-aria="live_input_reset" aria-label="처음부터">
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>
-                    </button>
-                </div>
-                <div class="abb-group abb-right">
-                    <button id="prevMoveBtn" class="ctrl-btn ctrl-nav" title="Previous move">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-                    </button>
-                    <button id="nextMoveBtn" class="ctrl-btn ctrl-nav" title="Next move">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
                     </button>
                 </div>
             </div>

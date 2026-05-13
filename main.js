@@ -95,7 +95,6 @@ const liveFlipBtn = document.getElementById('liveFlipBtn');
 const liveResetBtn = document.getElementById('liveResetBtn');
 
 const previewStartBtn = document.getElementById('previewStartBtn');
-const ctrlCenter = document.querySelector('.ctrl-center');
 const loadingQuoteText = document.getElementById('loadingQuoteText');
 const loadingQuoteAuthor = document.getElementById('loadingQuoteAuthor');
 const loadingQuoteWrap = loadingQuoteText ? loadingQuoteText.parentElement : null;
@@ -1126,7 +1125,6 @@ geminiExplanation.addEventListener('click', (e) => {
 // --- UI Helpers ---
 const moveClassLabel = document.getElementById('moveClassLabel');
 const winChanceDisplay = document.getElementById('winChanceDisplay');
-const ctrlCenterSeparator = document.querySelector('.ctrl-center .bar-separator');
 
 // EXPLORE / SIMULATE 모드 정리 — 변형/시뮬 상태 해제 + 단일 엔진 idle. 하단 바는 syncBottomBar로 동기.
 function exitBranchMode() {
@@ -1467,8 +1465,6 @@ function renderPreviewCard() {
 function applyPreviewControls() {
     winChanceDisplay.classList.add('hidden');
     moveClassLabel.classList.add('hidden');
-    if (ctrlCenterSeparator) ctrlCenterSeparator.classList.add('hidden');
-    if (ctrlCenter) ctrlCenter.classList.add('hidden');
     tabToggleBtn.classList.add('hidden');
     previewStartBtn.classList.remove('hidden');
     previewStartBtn.textContent = t('analysis_start_btn');
@@ -1477,8 +1473,6 @@ function applyPreviewControls() {
 function removePreviewControls() {
     winChanceDisplay.classList.remove('hidden');
     moveClassLabel.classList.remove('hidden');
-    if (ctrlCenterSeparator) ctrlCenterSeparator.classList.remove('hidden');
-    if (ctrlCenter) ctrlCenter.classList.remove('hidden');
     tabToggleBtn.classList.remove('hidden');
     previewStartBtn.classList.add('hidden');
 }
@@ -1518,11 +1512,9 @@ function enterAnalysisLoading() {
     analysisView.classList.remove('view-review');
     analysisView.classList.add('analyzing-loading');
 
-    // preview와 동일한 컨트롤 상태 — 중앙 그룹은 숨기되 패널은 게임 헤더 카드로 채움.
+    // preview와 동일한 컨트롤 상태 — 중앙 분류/평가치는 숨기고 패널은 게임 헤더 카드로 채움.
     moveClassLabel.classList.add('hidden');
     winChanceDisplay.classList.add('hidden');
-    if (ctrlCenterSeparator) ctrlCenterSeparator.classList.add('hidden');
-    if (ctrlCenter) ctrlCenter.classList.add('hidden');
     tabToggleBtn.classList.add('hidden');
 
     // 패널 영역에 게임 헤더(오프닝/이름/날짜) 카드 — preview와 동일한 정보 카드.
@@ -1550,8 +1542,6 @@ function exitAnalysisLoading() {
     analysisView.classList.remove('analyzing-loading');
     moveClassLabel.classList.remove('hidden');
     winChanceDisplay.classList.remove('hidden');
-    if (ctrlCenterSeparator) ctrlCenterSeparator.classList.remove('hidden');
-    if (ctrlCenter) ctrlCenter.classList.remove('hidden');
     tabToggleBtn.classList.remove('hidden');
 
     if (_quoteRotationTimer) {
