@@ -30,7 +30,7 @@ export let appMode = APP_MODES.MAIN;
 export const branchChess = new Chess();
 export let branchEngineLines = [];
 // EXPLORE: < 로 undo한 변형 수를 보관 → > 로 재생. 새 변형 수를 두면 fork 발생 → 무효화.
-export let exploreRedoStack = [];
+export let branchRedoStack = [];
 export let simulationQueue = [];
 export let simulationIndex = -1;
 // SIMULATE 큐 끝에서 > 누를 때 단일 엔진으로 라인 확장 — null이면 idle.
@@ -45,9 +45,9 @@ export function setIsReviewMode(b) { isReviewMode = b; }
 export function clearBranchEngineLines() { branchEngineLines = []; }
 export function setBranchLineAt(i, line) { branchEngineLines[i] = line; }
 
-export function clearExploreRedoStack() { exploreRedoStack = []; }
-export function pushExploreRedo(m) { exploreRedoStack.push(m); }
-export function popExploreRedo() { return exploreRedoStack.pop(); }
+export function clearBranchRedoStack() { branchRedoStack = []; }
+export function pushBranchRedo(m) { branchRedoStack.push(m); }
+export function popBranchRedo() { return branchRedoStack.pop(); }
 
 export function setSimulationQueue(arr) { simulationQueue = arr; }
 export function pushSimulationQueueItem(item) { simulationQueue.push(item); }

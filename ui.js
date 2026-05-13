@@ -557,26 +557,35 @@ export function renderReviewReport({ analysisQueue, isUserWhite, resultMeta }) {
  * 분석 화면 상단 eval-bar 갱신 (chess.com 모바일 패턴).
  * scoreStr → 흰색 fill 비율 + cp/mate 숫자 overlay. 분류(classification)는 보드 piece-badge가 담당.
  * isUserWhite 인자는 backward-compat용 — eval-bar는 항상 흰색 기준으로 표시(왼쪽=흰).
+ *
+ * Hot path (rAF throttled, 매 엔진 info마다). 호출당 비용 최소화:
+ *  - DOM refs는 module-scope lazy cache (getElementById 반복 회피)
+ *  - 같은 scoreStr 연속 호출은 early return (CSS transition restart 방지 → 부드러운 보간 유지)
  */
+let _evalBar, _evalBarFill, _evalBarText, _lastEvalScoreStr;
 export function updateTopEvalDisplay(scoreStr, classification = '', isUserWhite = true) {
-    const bar = document.getElementById('evalBar');
-    const fill = document.getElementById('evalBarFill');
-    const text = document.getElementById('evalBarText');
-    if (!bar || !fill || !text) return;
+    if (!_evalBar) {
+        _evalBar = document.getElementById('evalBar');
+        _evalBarFill = document.getElementById('evalBarFill');
+        _evalBarText = document.getElementById('evalBarText');
+    }
+    if (!_evalBar || !_evalBarFill || !_evalBarText) return;
+    if (scoreStr === _lastEvalScoreStr) return;
+    _lastEvalScoreStr = scoreStr;
 
     const whitePct = evalToWinChance(scoreStr);
     if (whitePct === null) {
-        fill.style.width = '50%';
-        text.textContent = '';
-        text.classList.remove('eval-bar-text--white', 'eval-bar-text--black');
+        _evalBarFill.style.width = '50%';
+        _evalBarText.textContent = '';
+        _evalBarText.classList.remove('eval-bar-text--white', 'eval-bar-text--black');
         return;
     }
 
-    fill.style.width = whitePct + '%';
-    text.textContent = formatScoreMode(scoreStr);
+    _evalBarFill.style.width = whitePct + '%';
+    _evalBarText.textContent = formatScoreMode(scoreStr);
     // 우세한 쪽에 텍스트 — 흰 영역 ≥ 50%면 좌측 흰 fill 위, 그 외 우측 검은 영역 위.
-    text.classList.toggle('eval-bar-text--white', whitePct >= 50);
-    text.classList.toggle('eval-bar-text--black', whitePct < 50);
+    _evalBarText.classList.toggle('eval-bar-text--white', whitePct >= 50);
+    _evalBarText.classList.toggle('eval-bar-text--black', whitePct < 50);
 }
 
 // 보드 위 분류 배지 — 분석 화면(showPieceBadge)과 vault 카드(renderBlunderVisualization) 공유.

@@ -16,9 +16,9 @@ import {
 } from './board.js';
 import {
     APP_MODES,
-    appMode, branchChess, branchEngineLines, exploreRedoStack, simulationQueue, simulationIndex, simExtendState, isPreviewMode, isReviewMode,
+    appMode, branchChess, branchEngineLines, branchRedoStack, simulationQueue, simulationIndex, simExtendState, isPreviewMode, isReviewMode,
     setAppMode, setIsPreviewMode, setIsReviewMode, clearBranchEngineLines, setBranchLineAt,
-    clearExploreRedoStack, pushExploreRedo, popExploreRedo,
+    clearBranchRedoStack, pushBranchRedo, popBranchRedo,
     setSimulationQueue, pushSimulationQueueItem, setSimulationIndex, setSimExtendState,
 } from './modes.js';
 import { parseEvalData, getDests, convertPvToSan, parseAndLoadPgn, isValidFen, escapeHtml, parseOpeningFromPgn, getTier, TIERS, classifyMove, injectNags, formatTimeControlLabel, formatRelativeDate, getDateStrings } from './utils.js';
@@ -855,7 +855,7 @@ function handlePrevMove() {
     if (appMode === APP_MODES.EXPLORE) {
         // < = 변형 한 수 undo (redo 스택에 보관). 메인라인 복귀는 returnMainLineBtn 전담.
         if (branchChess.history().length > 0) {
-            pushExploreRedo(branchChess.undo());
+            pushBranchRedo(branchChess.undo());
             syncBranchBoard();
             kickBranchEngine(branchChess.fen());
             return;
@@ -910,8 +910,8 @@ function handleNextMove() {
     }
     if (appMode === APP_MODES.EXPLORE) {
         // > = 따라가본 변형 수 redo. 끝나면 no-op — 메인라인 진행은 returnMainLineBtn 이후 처리.
-        if (exploreRedoStack.length > 0) {
-            const m = popExploreRedo();
+        if (branchRedoStack.length > 0) {
+            const m = popBranchRedo();
             const res = branchChess.move({ from: m.from, to: m.to, promotion: m.promotion });
             if (res) {
                 syncBranchBoard();
@@ -1119,7 +1119,7 @@ function exitBranchMode() {
     setAppMode(APP_MODES.MAIN);
     clearBranchEngineLines();
     setSimulationQueue([]);
-    clearExploreRedoStack();
+    clearBranchRedoStack();
     syncBottomBar();
 }
 
@@ -1163,28 +1163,29 @@ window.addEventListener('resize', () => {
 function handleBranchMove(orig, dest) {
     if (isPreviewMode) return;
     // 새 변형 수를 두면 fork — redo 스택 무효화. (프로그램적 redo는 이 경로를 안 탄다.)
-    clearExploreRedoStack();
+    clearBranchRedoStack();
     clearSimExtend();
+
+    // EXPLORE 진입 setup — SIMULATE/MAIN에서 들어올 때만 branchChess 재로드. LIVE_INPUT은 진입 시
+    // 이미 branchChess가 살아있으므로 건너뜀. 출구(setAppMode + syncBottomBar)는 분기 밖에서 단일 호출.
+    const enteringExplore = appMode === APP_MODES.SIMULATE || (!isBranchMode());
     if (appMode === APP_MODES.SIMULATE) {
-        setAppMode(APP_MODES.EXPLORE);
         // sim 베이스부터 현재 simulationIndex까지의 PV 수를 branchChess history에 replay.
         // 안 하면 사용자가 둔 1수만 undo 가능하고 그 직후 history 소진 분기로 메인라인까지 튐.
         branchChess.load(simulationQueue[0].fen);
         for (let i = 1; i <= simulationIndex; i++) {
             branchChess.move(simulationQueue[i].san);
         }
-        syncBottomBar();
     } else if (!isBranchMode()) {
-        // MAIN → EXPLORE 첫 진입: 메인 라인의 현재 위치를 base로 잡고 returnMainLine 버튼 표시.
-        // LIVE_INPUT은 진입 시 이미 branchChess에 START_FEN이 로드돼 있으므로 이 블록 건너뜀.
-        setAppMode(APP_MODES.EXPLORE);
-        syncBottomBar();
-
+        // MAIN → EXPLORE 첫 진입: 메인 라인의 현재 위치를 base로 잡음.
         let baseFen = START_FEN;
         if (currentlyViewedIndex >= 0 && analysisQueue[currentlyViewedIndex]) baseFen = analysisQueue[currentlyViewedIndex].fen;
         else if (chess.header().FEN) baseFen = chess.header().FEN;
-
         branchChess.load(baseFen);
+    }
+    if (enteringExplore) {
+        setAppMode(APP_MODES.EXPLORE);
+        syncBottomBar();
     }
     // 엔진 정지 + 라인 클리어는 kickBranchEngine이 처리.
 
@@ -1449,17 +1450,22 @@ function renderPreviewCard() {
     engineLinesContainer.innerHTML = buildPreviewCardHtml(buildGameHeaderInfo());
 }
 
-// preview 모드: eval-bar + 하단 abb-group 둘 다 hide + previewStartBtn(가운데 floating)만 show.
+// 분석 화면 chrome(eval-bar + 하단 액션 그룹) 일괄 토글 — preview/loading 진입/이탈에서 공유.
+// abb-group은 .analysis-bottom-bar.chrome-hidden CSS rule이 자식 그룹 일괄 hide.
+function setAnalysisChromeVisible(visible) {
+    evalBar?.classList.toggle('hidden', !visible);
+    analysisBottomBar?.classList.toggle('chrome-hidden', !visible);
+}
+
+// preview 모드: chrome hide + previewStartBtn(하단 바 가운데 floating)만 show.
 function applyPreviewControls() {
-    evalBar?.classList.add('hidden');
-    analysisBottomBar?.querySelectorAll('.abb-group').forEach(g => g.classList.add('hidden'));
+    setAnalysisChromeVisible(false);
     previewStartBtn.classList.remove('hidden');
     previewStartBtn.textContent = t('analysis_start_btn');
 }
 
 function removePreviewControls() {
-    evalBar?.classList.remove('hidden');
-    analysisBottomBar?.querySelectorAll('.abb-group').forEach(g => g.classList.remove('hidden'));
+    setAnalysisChromeVisible(true);
     previewStartBtn.classList.add('hidden');
 }
 
@@ -1498,9 +1504,8 @@ function enterAnalysisLoading() {
     analysisView.classList.remove('view-review');
     analysisView.classList.add('analyzing-loading');
 
-    // preview와 동일한 컨트롤 상태 — eval-bar + 하단 액션 그룹 숨김. 패널은 게임 헤더 카드로 채움.
-    evalBar?.classList.add('hidden');
-    analysisBottomBar?.querySelectorAll('.abb-group').forEach(g => g.classList.add('hidden'));
+    // preview와 동일한 컨트롤 상태 — chrome 숨김. 패널은 게임 헤더 카드로 채움.
+    setAnalysisChromeVisible(false);
 
     // 패널 영역에 게임 헤더(오프닝/이름/날짜) 카드 — preview와 동일한 정보 카드.
     renderPreviewCard();
@@ -1525,8 +1530,7 @@ function exitAnalysisLoading() {
     if (!isAnalysisLoading) return;
     isAnalysisLoading = false;
     analysisView.classList.remove('analyzing-loading');
-    evalBar?.classList.remove('hidden');
-    analysisBottomBar?.querySelectorAll('.abb-group').forEach(g => g.classList.remove('hidden'));
+    setAnalysisChromeVisible(true);
 
     if (_quoteRotationTimer) {
         clearInterval(_quoteRotationTimer);

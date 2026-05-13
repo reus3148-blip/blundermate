@@ -634,7 +634,8 @@ textarea:focus {
 .preview-start-btn:hover { background: var(--ac-br); }
 .preview-start-btn:active { background: var(--ac-br); transform: translate(-50%, -50%) scale(0.97); }
 
-/* 분석 화면 하단 액션바: 좌측 [저장 · AI · 메인복귀 · 실행취소 · 회전 · 처음부터] ─── 우측 [이전 · 다음]. */
+/* 분석 화면 하단 액션바: 좌측 [저장 · AI · 메인복귀 · 실행취소 · 회전 · 처음부터] ─── 우측 [이전 · 다음].
+   .chrome-hidden 모디파이어 = preview/loading 모드에서 abb-group 일괄 숨김 (previewStartBtn은 별도 토글). */
 .analysis-bottom-bar {
     position: relative;
     display: flex;
@@ -647,6 +648,7 @@ textarea:focus {
     padding-bottom: env(safe-area-inset-bottom);
     flex-shrink: 0;
 }
+.analysis-bottom-bar.chrome-hidden .abb-group { display: none; }
 .analysis-bottom-bar.hidden { display: none; }
 
 .abb-group {
