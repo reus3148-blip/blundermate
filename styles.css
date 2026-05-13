@@ -704,7 +704,7 @@ textarea:focus {
 
 .ctrl-nav,
 .ctrl-save,
-.ctrl-more {
+.ctrl-live {
     width: 48px;
     flex-shrink: 0;
     padding: 0;

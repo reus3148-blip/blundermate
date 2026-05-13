@@ -88,9 +88,11 @@ const copyPgnBtn = document.getElementById('copyPgnBtn');
 const homeView = document.getElementById('homeView');
 const analysisView = document.getElementById('analysisView');
 
-// Live Input — analysisBottomBar 안에 ⋯ 더보기 버튼만 추가, 나머지(저장/AI/이전/다음)는 리뷰 화면과 공유.
+// Live Input — analysisBottomBar 안에 실행취소/회전/처음부터 3 버튼 인라인 노출. 저장/AI/이전/다음은 리뷰 화면과 공유.
 const analysisBottomBar = document.getElementById('analysisBottomBar');
-const liveMoreBtn = document.getElementById('liveMoreBtn');
+const liveUndoBtn = document.getElementById('liveUndoBtn');
+const liveFlipBtn = document.getElementById('liveFlipBtn');
+const liveResetBtn = document.getElementById('liveResetBtn');
 
 const previewStartBtn = document.getElementById('previewStartBtn');
 const ctrlCenter = document.querySelector('.ctrl-center');
@@ -216,7 +218,9 @@ function cleanupAnalysis() {
         applyReviewView();
     }
     if (appMode === APP_MODES.LIVE_INPUT) {
-        liveMoreBtn?.classList.add('hidden');
+        liveUndoBtn?.classList.add('hidden');
+        liveFlipBtn?.classList.add('hidden');
+        liveResetBtn?.classList.add('hidden');
         getEngine().stop();
     }
     if (isAnalysisLoading) exitAnalysisLoading();
@@ -622,33 +626,23 @@ openBoardInputBtn.addEventListener('click', async () => {
 });
 
 // 하단 바 가시성은 appMode에서 단일 도출 — setAppMode 직후 syncBottomBar() 호출이 invariant.
-//   LIVE_INPUT       → 더보기 노출 / AI 노출 / 메인복귀 숨김
-//   EXPLORE/SIMULATE → 메인복귀 노출 / AI 숨김 / 더보기 숨김
-//   MAIN(review)     → AI 노출 / 더보기·메인복귀 숨김
-// 좌측 그룹은 [저장·AI·메인복귀·더보기], 우측은 [이전·다음]. 우측은 모드 무관 항상 노출.
+//   LIVE_INPUT       → 실행취소·회전·처음부터 노출 / AI 노출 / 메인복귀 숨김
+//   EXPLORE/SIMULATE → 메인복귀 노출 / AI 숨김 / 라이브 3-btn 숨김
+//   MAIN(review)     → AI 노출 / 라이브 3-btn·메인복귀 숨김
+// 좌측 그룹은 [저장·AI·메인복귀·실행취소·회전·처음부터], 우측은 [이전·다음]. 우측은 모드 무관 항상 노출.
 function syncBottomBar() {
     const isLive = appMode === APP_MODES.LIVE_INPUT;
     const isBranch = appMode === APP_MODES.EXPLORE || appMode === APP_MODES.SIMULATE;
-    liveMoreBtn?.classList.toggle('hidden', !isLive);
+    liveUndoBtn?.classList.toggle('hidden', !isLive);
+    liveFlipBtn?.classList.toggle('hidden', !isLive);
+    liveResetBtn?.classList.toggle('hidden', !isLive);
     returnMainLineBtn.classList.toggle('hidden', !isBranch);
     tabToggleBtn.classList.toggle('hidden', isBranch);
 }
 
-// 라이브 분석 더보기 시트 — key/label/action 3-tuple 단일 정의로 invariant 유지.
-// 새 액션 추가 시 여기 한 항목만 추가하면 시트 옵션 + dispatch 둘 다 한 번에 갱신.
-const LIVE_MORE_ACTIONS = [
-    { key: 'undo',  label: 'live_input_undo',  run: () => liveInputUndo() },
-    { key: 'flip',  label: 'live_input_flip',  run: () => flipOrientation(cg) },
-    { key: 'reset', label: 'live_input_reset', run: () => liveInputReset() },
-];
-
-liveMoreBtn?.addEventListener('click', async () => {
-    const choice = await showOptionSheet({
-        title: t('live_input_more_sheet_title'),
-        options: LIVE_MORE_ACTIONS.map(a => ({ value: a.key, label: t(a.label) })),
-    });
-    LIVE_MORE_ACTIONS.find(a => a.key === choice)?.run();
-});
+liveUndoBtn?.addEventListener('click', () => liveInputUndo());
+liveFlipBtn?.addEventListener('click', () => flipOrientation(cg));
+liveResetBtn?.addEventListener('click', () => liveInputReset());
 
 // =====================================================
 // Input View — PGN/FEN 진입 화면.
