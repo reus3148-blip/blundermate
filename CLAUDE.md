@@ -52,7 +52,7 @@
 
 인지하고 있지만 인프라/의존성/우선순위 결정으로 인해 보류. 작업 시 회피하거나 별도 phase로.
 
-- **테스트 슈트 0** — 동시성/오류 경로(callDB pilot/breaker race, vault mate replay race 등) 검증은 수동 + preview server. PR 머지 후 production 모니터링 의존
+- **테스트 슈트 0** — 동시성/오류 경로(callDB pilot/breaker race, vault mate replay race 등) 검증은 수동 + preview server. PR 머지 후 production 모니터링 의존. UI 회귀 가드는 [TESTING.md](TESTING.md) 5-step 수동 체크리스트로 대체
 - **API rate limit 0** — 4 엔드포인트(analyze/db/feedback/log-username) 모두 익명 POST + CORS `*`. Vercel KV / 외부 서비스 결정 필요
 - **Gemini 본문 sanitization 0** — `formatMarkdownToHtml`이 `marked` 직접 호출 → DOMPurify 부재. prompt injection 위험 이론적 잔존. 의존성 추가 결정 필요 ("npm 0" 제약과 충돌)
 - **다크 모드 0** — tokens.css 변수 체계는 있지만 dark palette 미결정
