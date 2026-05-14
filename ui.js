@@ -211,6 +211,35 @@ export function renderEngineLines(container, lines, onHover, onLeave, onClick) {
     container.innerHTML = linesHtml + placeholderHtml;
 }
 
+export function prependMoveChip(container, queue, index) {
+    const move = Array.isArray(queue) ? queue[index] : queue;
+    if (!container || !move || !move.san) return;
+
+    const moves = Array.isArray(queue) ? queue : [move];
+    const whiteMove = moves.find(m => m && m.moveNumber === move.moveNumber && m.isWhite);
+    const blackMove = moves.find(m => m && m.moveNumber === move.moveNumber && !m.isWhite);
+    const moveNo = `${move.moveNumber}.`;
+    const whiteSan = whiteMove?.san || '';
+    const blackSan = blackMove?.san || '...';
+    const cls = move.classification || '';
+    const clsKey = CLASS_I18N[cls];
+    const clsHtml = clsKey
+        ? `<span class="move-chip-class" data-cls="${escapeHtml(cls)}">${escapeHtml(t(clsKey))}</span>`
+        : '<span class="move-chip-class move-chip-class--empty" aria-hidden="true"></span>';
+
+    container.insertAdjacentHTML('afterbegin', `
+        <div class="move-chip-row">
+            <div class="move-chip-moves">
+                <span class="move-chip-no">${escapeHtml(moveNo)}</span>
+                <span class="move-chip-san move-chip-san--white${move.isWhite ? ' is-current' : ''}">${escapeHtml(whiteSan)}</span>
+                <span class="move-chip-san move-chip-san--black${!move.isWhite ? ' is-current' : ''}">${escapeHtml(blackSan)}</span>
+            </div>
+            ${clsHtml}
+            <span class="move-chip-engine">${escapeHtml(t('engine_stockfish_18'))}</span>
+        </div>
+    `);
+}
+
 function setupEngineLinesDelegation(container) {
     container.addEventListener('mouseover', (e) => {
         const lineEl = e.target.closest('.engine-line');

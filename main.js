@@ -22,7 +22,7 @@ import {
     setSimulationQueue, pushSimulationQueueItem, setSimulationIndex, setSimExtendState,
 } from './modes.js';
 import { parseEvalData, getDests, convertPvToSan, parseAndLoadPgn, isValidFen, escapeHtml, parseOpeningFromPgn, getTier, TIERS, classifyMove, injectNags, formatTimeControlLabel, formatRelativeDate, getDateStrings } from './utils.js';
-import { renderMovesTable, updateUIWithEval, highlightActiveMove, renderEngineLines, updateTopEvalDisplay, renderReviewReport, buildPreviewCardHtml, placePieceBadge } from './ui.js';
+import { renderMovesTable, updateUIWithEval, highlightActiveMove, renderEngineLines, prependMoveChip, updateTopEvalDisplay, renderReviewReport, buildPreviewCardHtml, placePieceBadge } from './ui.js';
 import { computePgnHash, upsertAnalyzedGame, loadAnalysisCache, saveAnalysisCache, isCacheCompatible, ANALYSIS_CACHE_VERSION, getIsCoordsEnabled, lsGet, lsSet } from './storage.js';
 import { collectAutoBlunders } from './autoBlunders.js';
 import { initVault, isVaultDetailActive, isVaultPuzzleActive, getVaultDetailIndex, setVaultDetailIndex, flipVaultBoard, setVaultCoords, redrawVaultBoard, loadVaultData, loadBlunderListData, redrawVaultPuzzleBoard } from './vault.js';
@@ -553,6 +553,13 @@ function kickBranchEngine(fen) {
     getEngine().analyzeFen(fen, depth);
 }
 
+function renderBranchEngineLinesWithContext(lines = branchEngineLines) {
+    renderEngineLines(engineLinesContainer, lines.filter(Boolean), drawEngineArrow, clearEngineArrow, handleEngineLineClick);
+    if (appMode === APP_MODES.LIVE_INPUT && currentlyViewedIndex >= 0 && analysisQueue[currentlyViewedIndex]) {
+        prependMoveChip(engineLinesContainer, analysisQueue, currentlyViewedIndex);
+    }
+}
+
 function clearSimExtend() {
     if (!simExtendState) return;
     setSimExtendState(null);
@@ -643,7 +650,7 @@ function syncLiveStateToIndex(idx) {
         getEngine().stop();
         clearBranchEngineLines();
         for (let i = 0; i < cached.length; i++) setBranchLineAt(i, cached[i]);
-        renderEngineLines(engineLinesContainer, cached.filter(Boolean), drawEngineArrow, clearEngineArrow, handleEngineLineClick);
+        renderBranchEngineLinesWithContext(cached);
         const cls = analysisQueue[idx].classification || '';
         updateTopEvalDisplay(cached[0].scoreStr, cls, isUserWhite);
     } else {
@@ -1386,7 +1393,7 @@ const engineCallbacks = {
         if (branchEngineLines[0] && now - lastEvalRenderTime > EVAL_RENDER_THROTTLE) {
             lastEvalRenderTime = now;
             requestAnimationFrame(() => {
-                renderEngineLines(engineLinesContainer, branchEngineLines.filter(Boolean), drawEngineArrow, clearEngineArrow, handleEngineLineClick);
+                renderBranchEngineLinesWithContext();
                 // 라이브 모드: 마지막 큐 항목 분류(onBestMove가 set)를 우선, 미산출이면 빈 라벨.
                 // EXPLORE 모드: 변형 중이라 메인라인 분류와 무관 → 항상 빈 라벨.
                 const cls = (appMode === APP_MODES.LIVE_INPUT && analysisQueue.length > 0)
@@ -1409,6 +1416,7 @@ const engineCallbacks = {
             analysisQueue[idx].engineLines = branchEngineLines.slice();
             const cls = classifyMove(idx, analysisQueue);
             analysisQueue[idx].classification = cls;
+            renderBranchEngineLinesWithContext();
             updateTopEvalDisplay(branchEngineLines[0].scoreStr, cls, isUserWhite);
             showPieceBadge(idx);
         }
@@ -1950,6 +1958,7 @@ function updateBoardPosition(index, fen) {
     if (analysisQueue[index] && analysisQueue[index].engineLines && analysisQueue[index].engineLines.length > 0) {
         const topLine = analysisQueue[index].engineLines[0];
         renderEngineLines(engineLinesContainer, analysisQueue[index].engineLines.filter(Boolean), drawEngineArrow, clearEngineArrow, handleEngineLineClick);
+        prependMoveChip(engineLinesContainer, analysisQueue, index);
         updateTopEvalDisplay(topLine.scoreStr, analysisQueue[index].classification, isUserWhite);
     } else if (index === -1 && analysisQueue.length > 0) {
         // 분석 후 0수(시작 포지션) — 게임 목록에서 누른 직후 모습과 동일하게 미리보기 카드 표시

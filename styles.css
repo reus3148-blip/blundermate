@@ -840,12 +840,27 @@ textarea:focus {
     transition: background 0.15s ease;
 }
 
-.engine-line:last-of-type {
-    border-bottom: none;
+.engine-line::after {
+    content: "\203A";
+    flex: 0 0 auto;
+    margin-left: auto;
+    color: var(--tx3);
+    font-size: 15px;
+    line-height: 1;
+    opacity: 0.42;
 }
 
 .engine-line:hover {
     background: var(--bg-elevated);
+}
+
+.engine-line:hover::after,
+.engine-line:active::after {
+    opacity: 0.68;
+}
+
+.engine-line:active {
+    background: color-mix(in srgb, var(--bg-elevated) 72%, var(--tx) 8%);
 }
 
 .engine-line--best {
@@ -855,6 +870,9 @@ textarea:focus {
 .engine-line--empty {
     cursor: default;
     opacity: 0.4;
+}
+.engine-line--empty::after {
+    content: "";
 }
 .engine-line--empty:hover {
     background: transparent;
@@ -897,6 +915,101 @@ textarea:focus {
 .engine-lines-container {
     padding: 0.25rem 0 0;
 }
+
+/* Current move chip: review board context without bringing back a full-width middle bar. */
+.move-chip-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(84px, 1fr);
+    align-items: center;
+    gap: 10px;
+    height: 38px;
+    padding: 0 12px;
+    border-bottom: 1px solid var(--brd);
+}
+
+.move-chip-moves {
+    display: grid;
+    grid-template-columns: 17px 42px 42px;
+    align-items: baseline;
+    column-gap: 6px;
+    justify-self: start;
+    max-width: 100%;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.move-chip-engine {
+    align-self: end;
+    justify-self: end;
+    padding-bottom: 5px;
+    flex-shrink: 0;
+    font-family: var(--num-font);
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--tx3);
+    letter-spacing: 0;
+    opacity: 0.72;
+}
+
+.move-chip-no {
+    flex: 0 0 auto;
+    font-family: var(--num-font);
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1, "zero" 1;
+    font-size: 12px;
+    font-weight: 800;
+    line-height: 1;
+    color: var(--tx2);
+    opacity: 0.9;
+}
+
+.move-chip-san {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: var(--num-font);
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1, "zero" 1;
+    font-size: 12.5px;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--tx3);
+    opacity: 0.72;
+}
+
+.move-chip-san.is-current {
+    color: var(--tx);
+    font-weight: 850;
+    opacity: 1;
+}
+
+.move-chip-san--black:not(.is-current) {
+    opacity: 0.58;
+}
+
+.move-chip-class {
+    justify-self: center;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12px;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: 0;
+    color: var(--tx2);
+}
+
+.move-chip-class[data-cls="Brilliant"]  { color: var(--brilliant); }
+.move-chip-class[data-cls="Great"]      { color: var(--great); }
+.move-chip-class[data-cls="Best"]       { color: var(--best); }
+.move-chip-class[data-cls="Excellent"]  { color: var(--excellent); }
+.move-chip-class[data-cls="Inaccuracy"] { color: var(--inaccuracy); }
+.move-chip-class[data-cls="Mistake"]    { color: var(--mistake); }
+.move-chip-class[data-cls="Blunder"]    { color: var(--blunder); }
+.move-chip-class[data-cls="Forced"]     { color: var(--tx2); }
 
 /* ── Preview Card (분석 시작 전 + 분석 후 0수 공유) ─────────── */
 .preview-card {
