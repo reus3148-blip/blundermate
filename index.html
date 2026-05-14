@@ -102,14 +102,14 @@
 
         <!-- Home View -->
         <div id="homeView" class="view-container">
-            <!-- Top Bar — 설정 / 워드마크 / + (PGN 입력). 검색/프로필 카드 없음 (라이브러리 탭에서 처리 예정) -->
+            <!-- Top Bar — + (PGN 입력) / 워드마크 / ☰ (드로어). 설정/저장/복기/커뮤니티는 드로어에 흡수. -->
             <div class="analysis-top-bar home-top-bar">
-                <button id="homeSettingsBtn" class="topbar-icon-btn" aria-label="설정" data-i18n-aria="aria_settings">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+                <button id="homeBoardInputBtn" class="topbar-icon-btn" aria-label="게임 불러오기" data-i18n-aria="aria_load_game">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                 </button>
                 <span class="brand-text"><span class="brand-blunder">blunder</span><span class="brand-mate">mate</span></span>
-                <button id="homeBoardInputBtn" class="topbar-icon-btn topbar-icon-btn--end" aria-label="게임 불러오기" data-i18n-aria="aria_load_game">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#14140F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                <button id="homeMenuBtn" class="topbar-icon-btn topbar-icon-btn--end" aria-label="메뉴" data-i18n-aria="aria_menu" aria-expanded="false" aria-controls="drawer">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
                 </button>
             </div>
 
@@ -165,9 +165,6 @@
                     <span data-i18n="back">Back</span>
                 </button>
                 <span class="brand-text"><span class="brand-blunder">blunder</span><span class="brand-mate">mate</span></span>
-                <button id="movesOverlayBtn" class="topbar-icon-btn" title="기보" data-i18n-title="moves">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
-                </button>
             </div>
 
             <!-- Eval bar — analysis-top-bar 바로 아래 horizontal 평가 그래프. fill 비율 + cp/mate 숫자 overlay. -->
@@ -209,25 +206,38 @@
 
             </div><!-- /.panel-content -->
 
-            <!-- Bottom action bar — 좌측 [저장 AI 메인복귀 실행취소·회전·처음부터(LIVE_INPUT)] │ 우측 [이전 다음]. -->
+            <!-- Bottom action bar — 좌단 [저장] · 좌중간 [AI/메인복귀] · 가운데 [기보] · 우중간 [라이브도구] · 우단 [이전 다음]. -->
             <div class="analysis-bottom-bar" id="analysisBottomBar">
+                <!-- 저장 — 좌단 고정 (next at 우단과 mirror). -->
+                <button id="saveMoveBtn" class="ctrl-btn ctrl-save abb-group abb-edge-left" title="Save position">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+                </button>
                 <div class="abb-group abb-left">
-                    <button id="saveMoveBtn" class="ctrl-btn ctrl-save" title="Save position">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
-                    </button>
                     <button id="tabToggleBtn" class="tab-toggle-btn">AI</button>
                     <button id="returnMainLineBtn" class="return-main-btn ctrl-btn hidden" data-i18n-title="returnMainLine" title="메인 라인으로 돌아가기">
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
                     </button>
-                    <button id="liveUndoBtn" class="ctrl-btn ctrl-live hidden" type="button" data-i18n-aria="live_input_undo" aria-label="실행취소">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-15-6.7L3 13"/></svg>
+                </div>
+                <!-- 기보 — 좌/우 그룹과 독립. CSS absolute로 바 정중앙 고정. chrome-hidden 시 같이 가려져야 하므로 abb-group class도 부여. -->
+                <button id="movesOverlayBtn" class="ctrl-btn abb-group abb-center" type="button" title="기보" data-i18n-title="moves" aria-label="기보">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+                </button>
+                <!-- 라이브 도구 — LIVE_INPUT 모드에서만 노출. 기보(50%)와 prev(<) 사이 정중앙에 absolute. -->
+                <div id="liveMenuWrap" class="live-menu-wrap abb-group hidden">
+                    <button id="liveMenuBtn" class="ctrl-btn" type="button" aria-label="라이브 도구" data-i18n-aria="live_input_menu" aria-haspopup="menu" aria-expanded="false" aria-controls="liveMenuPopover">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
                     </button>
-                    <button id="liveFlipBtn" class="ctrl-btn ctrl-live hidden" type="button" data-i18n-aria="live_input_flip" aria-label="회전">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m17 3-5 5-5-5h10"/><path d="m17 21-5-5-5 5h10"/></svg>
-                    </button>
-                    <button id="liveResetBtn" class="ctrl-btn ctrl-live hidden" type="button" data-i18n-aria="live_input_reset" aria-label="처음부터">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>
-                    </button>
+                    <div id="liveMenuPopover" class="live-menu-popover" role="menu" hidden>
+                        <button id="liveResetBtn" class="ctrl-btn ctrl-live" type="button" role="menuitem" data-i18n-aria="live_input_reset" aria-label="처음부터">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>
+                        </button>
+                        <button id="liveFlipBtn" class="ctrl-btn ctrl-live" type="button" role="menuitem" data-i18n-aria="live_input_flip" aria-label="회전">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m17 3-5 5-5-5h10"/><path d="m17 21-5-5-5 5h10"/></svg>
+                        </button>
+                        <button id="liveUndoBtn" class="ctrl-btn ctrl-live" type="button" role="menuitem" data-i18n-aria="live_input_undo" aria-label="실행취소">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-15-6.7L3 13"/></svg>
+                        </button>
+                    </div>
                 </div>
                 <div class="abb-group abb-right">
                     <button id="prevMoveBtn" class="ctrl-btn ctrl-nav" title="Previous move">
@@ -249,7 +259,7 @@
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
                 <span data-i18n="back">Back</span>
             </button>
-            <span id="vaultDetailTitle" class="app-title">복기</span>
+            <span id="vaultDetailTitle" class="app-title">퍼즐</span>
             <button id="vaultDetailMovesBtn" class="topbar-icon-btn" title="기보" data-i18n-title="moves">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
             </button>
@@ -292,12 +302,9 @@
             <div class="screen-loading-brand"><span class="brand-blunder">blunder</span><span class="brand-mate">mate</span></div>
         </div>
         <div id="vaultPuzzlePane" class="vault-pane">
-            <!-- Top Bar — 카테고리 필터 탭 + 목록 진입 -->
+            <!-- Top Bar — 카테고리 필터 탭. 목록 진입은 드로어("복기")로 통합. -->
             <div class="analysis-top-bar vault-top-bar">
                 <div id="vaultPuzzleFilterTabs" class="vault-filter-tabs"><!-- populated from #vaultFilterTabsTemplate by vault.js --></div>
-                <button id="vaultListLink" class="topbar-icon-btn" type="button" title="목록" data-i18n-title="vault_list_link" aria-label="목록">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-                </button>
             </div>
 
             <!-- Empty state — ui.js renderEmptyState가 동적 렌더 -->
@@ -734,13 +741,15 @@
         <!-- Moves Overlay (shared) -->
         <div id="movesOverlay" class="moves-overlay">
             <div class="moves-overlay-sheet">
-                <div class="moves-overlay-header">
-                    <span class="moves-overlay-title" data-i18n="moves">기보</span>
-                    <button id="movesOverlayReviewBtn" class="moves-overlay-action hidden"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> <span data-i18n="review_view">리뷰 보기</span></button>
-                    <button id="copyPgnBtn" class="moves-overlay-action"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> <span data-i18n="copyPgn">PGN 복사</span></button>
-                    <button id="movesOverlayCloseBtn" class="moves-overlay-close">✕</button>
-                </div>
-                <div class="moves-container">
+                <!-- 닫기 — sheet 우상단 floating. 스크롤은 내부 .moves-overlay-body가 가져 sheet에 박혀있는 ✕는 안 밀림. -->
+                <button id="movesOverlayCloseBtn" class="moves-overlay-close" aria-label="닫기" data-i18n-aria="aria_close">✕</button>
+                <div class="moves-overlay-body">
+                    <div class="moves-overlay-header">
+                        <span class="moves-overlay-title" data-i18n="moves">기보</span>
+                        <button id="movesOverlayReviewBtn" class="moves-overlay-action hidden"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> <span data-i18n="review_view">리뷰 보기</span></button>
+                        <button id="copyPgnBtn" class="moves-overlay-action"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> <span data-i18n="copyPgn">PGN 복사</span></button>
+                    </div>
+                    <div class="moves-container">
                     <table>
                         <thead>
                             <tr><th data-i18n="moveNumHeader">#</th><th data-i18n="whiteHeader">White</th><th data-i18n="blackHeader">Black</th></tr>
@@ -750,6 +759,7 @@
                         </tbody>
                     </table>
                 </div>
+                </div><!-- /.moves-overlay-body -->
             </div>
         </div>
 
@@ -781,27 +791,56 @@
         <!-- Toast — 앱 컨테이너 하단 고정. showToast()가 제어. -->
         <div id="appToast" class="app-toast hidden" role="status" aria-live="polite"></div>
 
+        <!-- Drawer (홈에서만 트리거. 우측 슬라이드인 + backdrop. backdrop 클릭 또는 Esc 닫기) -->
+        <div id="drawerOverlay" class="drawer-overlay" hidden></div>
+        <aside id="drawer" class="drawer" role="dialog" aria-modal="true" aria-labelledby="drawerTitle" aria-hidden="true" hidden>
+            <div class="drawer-header">
+                <span id="drawerTitle" class="drawer-title" data-i18n="drawer_title">메뉴</span>
+                <button id="drawerCloseBtn" class="drawer-close-btn topbar-icon-btn" type="button" aria-label="닫기" data-i18n-aria="aria_close">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+            </div>
+            <nav class="drawer-list" aria-label="드로어 메뉴">
+                <button class="drawer-item" type="button" data-drawer-target="vault_blunder_list">
+                    <svg class="drawer-item-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="m7 14 4-4 4 4 5-5"/></svg>
+                    <span class="drawer-item-label" data-i18n="drawer_vault_review">복기</span>
+                    <svg class="drawer-item-chevron" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+                </button>
+                <button class="drawer-item" type="button" data-drawer-target="saved_games">
+                    <svg class="drawer-item-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+                    <span class="drawer-item-label" data-i18n="drawer_saved_games">저장된 게임</span>
+                    <svg class="drawer-item-chevron" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+                </button>
+                <button class="drawer-item" type="button" data-drawer-target="forum">
+                    <svg class="drawer-item-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                    <span class="drawer-item-label" data-i18n="drawer_forum">커뮤니티</span>
+                    <svg class="drawer-item-chevron" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+                </button>
+                <button class="drawer-item" type="button" data-drawer-target="settings">
+                    <svg class="drawer-item-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                    <span class="drawer-item-label" data-i18n="drawer_settings">설정</span>
+                    <svg class="drawer-item-chevron" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+                </button>
+            </nav>
+        </aside>
+
         <!-- Bottom Navigation -->
         <nav id="bottomNav" class="bottom-nav" aria-label="주요 메뉴" data-i18n-aria="nav_primary">
             <button id="navHomeBtn" class="bottom-nav-tab" data-screen="home" aria-label="홈" data-i18n-aria="nav_home">
                 <svg class="bottom-nav-icon" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
                 <span class="bottom-nav-label" data-i18n="nav_home">홈</span>
             </button>
-            <button id="navVaultBtn" class="bottom-nav-tab" data-screen="vault_list" aria-label="복기" data-i18n-aria="nav_vault">
-                <svg class="bottom-nav-icon" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
-                <span class="bottom-nav-label" data-i18n="nav_vault">복기</span>
+            <button id="navAnalysisBtn" class="bottom-nav-tab" data-screen="analysis_live" aria-label="분석" data-i18n-aria="nav_analysis">
+                <svg class="bottom-nav-icon" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+                <span class="bottom-nav-label" data-i18n="nav_analysis">분석</span>
             </button>
-            <button id="navSavedBtn" class="bottom-nav-tab" data-screen="saved_games" aria-label="저장" data-i18n-aria="nav_saved">
-                <svg class="bottom-nav-icon" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
-                <span class="bottom-nav-label" data-i18n="nav_saved">저장</span>
+            <button id="navVaultBtn" class="bottom-nav-tab" data-screen="vault_list" aria-label="퍼즐" data-i18n-aria="nav_vault">
+                <svg class="bottom-nav-icon" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
+                <span class="bottom-nav-label" data-i18n="nav_vault">퍼즐</span>
             </button>
             <button id="navInsightsBtn" class="bottom-nav-tab" data-screen="insights" aria-label="통계" data-i18n-aria="nav_insights">
                 <svg class="bottom-nav-icon" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
                 <span class="bottom-nav-label" data-i18n="nav_insights">통계</span>
-            </button>
-            <button id="navAnalysisBtn" class="bottom-nav-tab" data-screen="analysis_live" aria-label="분석" data-i18n-aria="nav_analysis">
-                <svg class="bottom-nav-icon" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 3 20 12 6 21 6 3"/></svg>
-                <span class="bottom-nav-label" data-i18n="nav_analysis">분석</span>
             </button>
         </nav>
 

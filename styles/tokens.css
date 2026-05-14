@@ -54,10 +54,12 @@
   --z-overlay:      200;
   --z-sticky:       999;
   --z-sticky-top:   1000;
+  --z-drawer-backdrop: 1100;
+  --z-drawer:       1200;
   --z-modal:        9999;
 
   /* 레이아웃 치수 (색상 아님 — 유지) */
-  --topbar-height: 52px;
+  --topbar-height: 47px;
   --game-card-height: 64px;
   --game-card-gap:    6px;
 

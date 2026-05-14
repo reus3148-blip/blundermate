@@ -401,6 +401,11 @@
     border-bottom: 1px solid var(--brd);
     flex-shrink: 0;
 }
+/* eval-bar가 바로 아래 있는 분석/리뷰 화면에선 top-bar의 구분선 제거 — eval-bar 자체 검정
+   배경이 시각 경계 역할. eval-bar가 hidden(preview/loading) 상태에선 :has()로 fallback. */
+#analysisView .analysis-top-bar:has(+ .eval-bar:not(.hidden)) {
+    border-bottom: none;
+}
 
 .back-btn {
     display: flex;
@@ -570,11 +575,10 @@ textarea:focus {
    왼쪽 = 흰색 fill (whitePct%), 오른쪽 = 흑색 fill. 한쪽 끝에 cp/mate 숫자 overlay. */
 .eval-bar {
     position: relative;
-    height: 24px;
+    height: 26px;
     background: #1a1a1a;
     overflow: hidden;
     flex-shrink: 0;
-    border-bottom: 1px solid var(--brd);
 }
 .eval-bar.hidden { display: none; }
 
@@ -640,7 +644,8 @@ textarea:focus {
     position: relative;
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    /* .abb-left가 position:absolute가 되면서 in-flow는 .abb-right만 남음 — flex-end로 우측 끝 고정. */
+    justify-content: flex-end;
     height: 64px;
     padding: 0 8px;
     background: var(--bg-surface);
@@ -655,6 +660,33 @@ textarea:focus {
     display: flex;
     align-items: center;
     gap: 4px;
+}
+/* 패턴: [여백 save 여백 AI 여백 기보] — 3개 여백 동일.
+   사용가능 폭 = 기보 좌측(50% - 24px). 여백 3 + 버튼 2(48*2=96) = 50% - 24
+   → 여백 = (50% - 120px) / 3.
+   save 좌측 = 여백 = (50% - 120px) / 3.
+   AI 우측 = 2*여백 + 96 = (100% - 240px)/3 + 96 = 100%/3 + 16px → bar right 기준 right offset = 200%/3 - 16px. */
+.analysis-bottom-bar .abb-edge-left {
+    position: absolute;
+    left: calc((50% - 120px) / 3);
+    top: 50%;
+    transform: translateY(-50%);
+}
+.analysis-bottom-bar .abb-left {
+    position: absolute;
+    right: calc(200% / 3 - 16px);
+    top: 50%;
+    transform: translateY(-50%);
+}
+/* 기보 버튼만 absolute 정중앙 고정 — 좌/우 그룹 너비 변동(라이브 모드 liveMenuWrap 추가 등)에도
+   바 중앙 위치 불변. abb-group 클래스를 같이 부여해 chrome-hidden 시 한 번에 가려짐. */
+#movesOverlayBtn.abb-center {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 48px;
+    margin-bottom: env(safe-area-inset-bottom);
 }
 
 /* Base style for action buttons in library/modals (kept for other views) */
@@ -719,7 +751,66 @@ textarea:focus {
     padding: 0;
 }
 
-
+/* ── Live menu popover (ㅗ 모양) ────────────────────────────────
+   LIVE_INPUT 모드 전용. 트리거(liveMenuBtn)는 하단 액션바 안에,
+   popover(liveMenuPopover)는 그 위로 absolute 절출. 트리거 가운데 기준 정렬.
+   wrap 위치: 기보(50%) right edge(+24px)와 prev(<) left edge(100% - 108px) 사이 정중앙.
+   midpoint = (50% + 24 + 100% - 108) / 2 = 75% - 42px. */
+.live-menu-wrap {
+    position: absolute;
+    left: calc(75% - 42px);
+    top: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    align-items: center;
+}
+/* 트리거 버튼은 다른 ctrl-btn(48×48)과 동일 사이즈 — ctrl-live는 popover 내부 아이콘 전용. */
+#liveMenuBtn {
+    width: 48px;
+    flex-shrink: 0;
+}
+.live-menu-popover {
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%) scale(0.92);
+    transform-origin: bottom center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 4px;
+    background: var(--bg-surface);
+    border: 1px solid var(--brd);
+    border-radius: 10px;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+    z-index: var(--z-sticky);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.12s ease, transform 0.12s ease;
+}
+.live-menu-popover.is-open {
+    opacity: 1;
+    transform: translateX(-50%) scale(1);
+    pointer-events: auto;
+}
+/* 아래쪽 화살표 — 트리거를 가리키는 작은 삼각형. border 트릭. */
+.live-menu-popover::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+    border-top: 6px solid var(--bg-surface);
+}
+.live-menu-popover .ctrl-btn {
+    min-height: 40px;
+    width: 40px;
+}
 
 /* ==========================================
    Analysis View: Panel — Engine Lines / Preview Card / AI Coach
@@ -827,11 +918,7 @@ textarea:focus {
 }
 .moves-container {
     display: block;
-    flex: 1;
-    overflow-y: auto;
     background: var(--bg-surface);
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior-y: contain;
 }
 
 table {
@@ -2252,32 +2339,49 @@ button.settings-row--destructive:hover {
 /* ==========================================
    Moves Overlay
    ========================================== */
+/* 보드 아래끝 ~ 컨테이너 하단까지만 시트로 가림 — 보드는 그대로 보이고 인터랙션 유지.
+   wrapper는 backdrop 없이 pointer-events:none로 클릭을 보드로 통과시키고,
+   sheet 자체만 pointer-events:auto. Esc로 닫기. */
 .moves-overlay {
     position: absolute;
     inset: 0;
     z-index: var(--z-modal);
-    background: rgba(0, 0, 0, 0.5);
-    opacity: 0;
+    background: transparent;
     pointer-events: none;
+    visibility: hidden;
+    /* close 시엔 sheet slide-out 끝나고 visibility hidden 되도록 220ms 지연. open 시엔 즉시 visible. */
+    transition: visibility 0s linear 0.22s;
 }
 
 .moves-overlay.open {
-    opacity: 1;
-    pointer-events: auto;
+    visibility: visible;
+    transition: visibility 0s linear 0s;
 }
 
 .moves-overlay-sheet {
     position: absolute;
+    /* top은 JS가 보이는 view의 board-wrapper bottom으로 inline 설정 */
+    top: 50%;
     bottom: 0;
     left: 0;
     right: 0;
-    height: 80dvh;
     background: var(--bg-surface);
-    border-radius: 12px 12px 0 0;
+    border-top: 1px solid var(--brd);
     display: flex;
     flex-direction: column;
     transform: translateY(100%);
+    transition: transform 0.22s ease;
+    pointer-events: auto;
     overflow: hidden;
+}
+
+/* 내부 스크롤 영역 — 헤더(기보/리뷰보기/PGN복사) + table 함께 스크롤. floating ✕는 sheet 직속이라 안 밀림. */
+.moves-overlay-body {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
 }
 
 .moves-overlay.open .moves-overlay-sheet {
@@ -2288,10 +2392,11 @@ button.settings-row--destructive:hover {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    height: 48px;
+    gap: 8px;
+    min-height: 48px;
     padding: 0 1rem;
+    padding-right: 44px; /* floating ✕ 자리 확보 */
     border-bottom: 1px solid var(--brd);
-    flex-shrink: 0;
 }
 
 .moves-overlay-title {
@@ -2300,17 +2405,27 @@ button.settings-row--destructive:hover {
     color: var(--tx);
 }
 
+/* sheet 우상단 floating — 스크롤과 무관하게 상시 접근. sticky 대신 absolute로 헤더 영역에 고정. */
 .moves-overlay-close {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 1;
     background: none;
     border: none;
     color: var(--tx2);
     font-size: 1.1rem;
     cursor: pointer;
-    padding: 0.25rem 0.5rem;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     line-height: 1;
-    transition: color 0.15s ease;
+    border-radius: 50%;
+    transition: color 0.15s ease, background 0.15s ease;
 }
-.moves-overlay-close:hover { color: var(--tx); }
+.moves-overlay-close:hover { color: var(--tx); background: var(--ac-lo); }
 
 .moves-overlay-action {
     background: none;
@@ -2328,12 +2443,7 @@ button.settings-row--destructive:hover {
 .moves-overlay-action:first-of-type { margin-left: auto; }
 .moves-overlay-action:hover { opacity: 0.75; }
 
-.moves-overlay .moves-container {
-    overflow-y: auto;
-    flex: 1;
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior-y: contain;
-}
+/* moves-container 내부 스크롤 폐지 — 헤더+테이블이 sheet 단위로 함께 스크롤되도록. */
 
 .moves-overlay tr {
     height: 44px;
@@ -2864,10 +2974,6 @@ button.settings-row--destructive:hover {
 .analysis-top-bar.vault-top-bar > #vaultPuzzleFilterTabs .vault-filter-tab {
     padding: 11px 0;
     margin-right: 12px;
-}
-.analysis-top-bar.vault-top-bar > #vaultListLink {
-    grid-column: 3;
-    justify-self: end;
 }
 
 /* Pane / Stage 컨테이너 — empty state도 같은 column flex로 (empty 마크업이 v2 카드라 fill 필요). */
@@ -3936,6 +4042,105 @@ button.settings-row--destructive:hover {
 @keyframes insight-skeleton-pulse {
     0%, 100% { opacity: 0.5; }
     50% { opacity: 0.85; }
+}
+
+/* ==========================================
+   Drawer — 홈 우상단 ☰에서 호출. 우측 슬라이드인 + backdrop.
+   .app-container가 position:relative + overflow:clip이라 absolute로 컨테이너에 갇혀
+   PC 9:16 프레임을 벗어나지 않음. hidden 속성으로 display 제어,
+   .is-open 토글로 transform/opacity 전환.
+   ========================================== */
+.drawer-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    z-index: var(--z-drawer-backdrop);
+    opacity: 0;
+    transition: opacity 0.22s ease;
+}
+.drawer-overlay.is-open {
+    opacity: 1;
+}
+
+.drawer {
+    position: absolute;
+    top: 0;
+    right: 0;
+    height: 100%;
+    width: 84%;
+    max-width: 320px;
+    background: var(--bg-surface);
+    z-index: var(--z-drawer);
+    transform: translateX(100%);
+    transition: transform 0.24s ease;
+    display: flex;
+    flex-direction: column;
+    box-shadow: -6px 0 18px rgba(0, 0, 0, 0.18);
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+}
+.drawer.is-open {
+    transform: translateX(0);
+}
+
+.drawer-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--brd);
+    flex-shrink: 0;
+}
+.drawer-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--tx);
+    letter-spacing: -0.01em;
+}
+.drawer-close-btn {
+    color: var(--tx);
+}
+
+.drawer-list {
+    display: flex;
+    flex-direction: column;
+    padding: 8px 0;
+    overflow-y: auto;
+}
+.drawer-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+    padding: 14px 18px;
+    background: transparent;
+    border: none;
+    text-align: left;
+    cursor: pointer;
+    color: var(--tx);
+    font-size: 15px;
+    font-weight: 500;
+    transition: background 0.12s ease;
+}
+.drawer-item:hover,
+.drawer-item:focus-visible {
+    background: var(--ac-lo);
+    outline: none;
+}
+.drawer-item:active {
+    background: var(--ac-lo);
+}
+.drawer-item-icon {
+    color: var(--tx2);
+    flex-shrink: 0;
+}
+.drawer-item-label {
+    flex: 1;
+    letter-spacing: -0.01em;
+}
+.drawer-item-chevron {
+    color: var(--tx3);
+    flex-shrink: 0;
 }
 
 /* ==========================================

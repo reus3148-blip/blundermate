@@ -80,6 +80,7 @@ const tabToggleBtn = document.getElementById('tabToggleBtn');
 const geminiExplanation = document.getElementById('geminiExplanation');
 const panelTabs = document.getElementById('panelTabs');
 const movesOverlay = document.getElementById('movesOverlay');
+const movesOverlaySheet = movesOverlay.querySelector('.moves-overlay-sheet');
 const movesOverlayBtn = document.getElementById('movesOverlayBtn');
 const movesOverlayCloseBtn = document.getElementById('movesOverlayCloseBtn');
 const movesOverlayReviewBtn = document.getElementById('movesOverlayReviewBtn');
@@ -88,8 +89,12 @@ const copyPgnBtn = document.getElementById('copyPgnBtn');
 const homeView = document.getElementById('homeView');
 const analysisView = document.getElementById('analysisView');
 
-// Live Input — analysisBottomBar 안에 실행취소/회전/처음부터 3 버튼 인라인 노출. 저장/AI/이전/다음은 리뷰 화면과 공유.
+// Live Input — analysisBottomBar의 liveMenuWrap(처음부터/회전/실행취소 popover) LIVE_INPUT만 노출.
+// 저장/AI/기보/이전/다음은 리뷰 화면과 공유.
 const analysisBottomBar = document.getElementById('analysisBottomBar');
+const liveMenuWrap = document.getElementById('liveMenuWrap');
+const liveMenuBtn = document.getElementById('liveMenuBtn');
+const liveMenuPopover = document.getElementById('liveMenuPopover');
 const liveUndoBtn = document.getElementById('liveUndoBtn');
 const liveFlipBtn = document.getElementById('liveFlipBtn');
 const liveResetBtn = document.getElementById('liveResetBtn');
@@ -113,8 +118,7 @@ const tierList = document.getElementById('tierList');
 const closeTierModalBtn = document.getElementById('closeTierModalBtn');
 
 // Settings/About/Feedback are now pages — settings.js handles wiring.
-// Only the home top-bar entry point lives here.
-const settingsBtn = document.getElementById('homeSettingsBtn');
+// 홈 진입점은 드로어("설정") 항목으로 통합.
 
 // ==========================================
 // 2. Application State
@@ -157,7 +161,7 @@ const insightsViewNav = document.getElementById('insightsView');
 
 // bottom-nav 진입 가능한 루트 탭. 비-HOME 루트 탭에서는 history 스택을 [home, current] 2-deep로
 // 유지해 어느 탭에서도 뒤로가기 한 번에 home으로 복귀.
-const ROOT_TABS = new Set([SCREENS.HOME, SCREENS.VAULT_LIST, SCREENS.SAVED_GAMES, SCREENS.INSIGHTS]);
+const ROOT_TABS = new Set([SCREENS.HOME, SCREENS.VAULT_LIST, SCREENS.INSIGHTS]);
 
 // push + render 일원화. 호출자는 navigateTo만 호출하면 history와 화면 갱신이 함께 일어남 —
 // renderScreen이 hideAllViews + 해당 view 노출 + syncBottomNav를 모두 처리하므로
@@ -217,9 +221,8 @@ function cleanupAnalysis() {
         applyReviewView();
     }
     if (appMode === APP_MODES.LIVE_INPUT) {
-        liveUndoBtn?.classList.add('hidden');
-        liveFlipBtn?.classList.add('hidden');
-        liveResetBtn?.classList.add('hidden');
+        liveMenuWrap?.classList.add('hidden');
+        closeLiveMenu();
         getEngine().stop();
     }
     if (isAnalysisLoading) exitAnalysisLoading();
@@ -229,6 +232,8 @@ function cleanupAnalysis() {
 }
 
 function renderScreen(screen) {
+    // 화면 전환 시 moves overlay가 열려있으면 자동 닫기 — navigateTo / popstate 둘 다 통과 경로.
+    closeMovesOverlay();
     if (_currentScreen === SCREENS.ANALYSIS && screen !== SCREENS.ANALYSIS) {
         cleanupAnalysis();
     }
@@ -293,11 +298,15 @@ function renderScreen(screen) {
 const bottomNav = document.getElementById('bottomNav');
 const navHomeBtn = document.getElementById('navHomeBtn');
 const navVaultBtn = document.getElementById('navVaultBtn');
-const navSavedBtn = document.getElementById('navSavedBtn');
 const navInsightsBtn = document.getElementById('navInsightsBtn');
 const navAnalysisBtn = document.getElementById('navAnalysisBtn');
-// VAULT_BLUNDER_LIST는 vault drill-in이지만 bottom-nav는 그대로 노출 — 탭 컨텍스트 유지용.
-const NAV_VISIBLE_SCREENS = new Set([...ROOT_TABS, SCREENS.VAULT_BLUNDER_LIST]);
+// bottom-nav를 노출 유지할 화면들. 드로어 진입 화면(VAULT_BLUNDER_LIST/SAVED_GAMES)도 노출 —
+// 사용자가 드로어로 진입한 뒤에도 다른 탭으로 점프 가능하도록.
+const NAV_VISIBLE_SCREENS = new Set([
+    ...ROOT_TABS,
+    SCREENS.VAULT_BLUNDER_LIST,
+    SCREENS.SAVED_GAMES,
+]);
 const appContainer = document.querySelector('.app-container');
 
 function syncBottomNav(screen) {
@@ -305,8 +314,7 @@ function syncBottomNav(screen) {
     bottomNav.classList.toggle('hidden', !visible);
     appContainer.classList.toggle('bottom-nav-hidden', !visible);
     navHomeBtn.classList.toggle('active', screen === SCREENS.HOME);
-    navVaultBtn.classList.toggle('active', screen === SCREENS.VAULT_LIST || screen === SCREENS.VAULT_BLUNDER_LIST);
-    navSavedBtn.classList.toggle('active', screen === SCREENS.SAVED_GAMES);
+    navVaultBtn.classList.toggle('active', screen === SCREENS.VAULT_LIST);
     if (navInsightsBtn) navInsightsBtn.classList.toggle('active', screen === SCREENS.INSIGHTS);
 }
 
@@ -317,10 +325,6 @@ navHomeBtn.addEventListener('click', () => {
 navVaultBtn.addEventListener('click', () => {
     if (_currentScreen === SCREENS.VAULT_LIST) return;
     navigateTo(SCREENS.VAULT_LIST);
-});
-navSavedBtn.addEventListener('click', () => {
-    if (_currentScreen === SCREENS.SAVED_GAMES) return;
-    navigateTo(SCREENS.SAVED_GAMES);
 });
 if (navInsightsBtn) {
     navInsightsBtn.addEventListener('click', () => {
@@ -334,6 +338,67 @@ if (navAnalysisBtn) {
         openLiveInput();
     });
 }
+
+// Drawer — 홈 우상단 ☰. backdrop / Esc / 아이템 클릭으로 닫힘.
+// data-drawer-target 값은 SCREENS 값을 그대로 박아 stringly-typed dispatch 회피.
+const drawerEl = document.getElementById('drawer');
+const drawerOverlay = document.getElementById('drawerOverlay');
+const drawerCloseBtn = document.getElementById('drawerCloseBtn');
+const homeMenuBtn = document.getElementById('homeMenuBtn');
+const DRAWER_TARGETS = new Set([
+    SCREENS.VAULT_BLUNDER_LIST,
+    SCREENS.SAVED_GAMES,
+    SCREENS.FORUM,
+    SCREENS.SETTINGS,
+]);
+const DRAWER_TRANSITION_MS = 240; // styles.css .drawer transition 길이와 동기 — 변경 시 함께
+let _drawerHideTimer = null;
+
+function openDrawer() {
+    if (_drawerHideTimer !== null) { clearTimeout(_drawerHideTimer); _drawerHideTimer = null; }
+    drawerOverlay.hidden = false;
+    drawerEl.hidden = false;
+    // hidden 해제 직후 강제 reflow — 브라우저가 시작 상태(translateX(100%))를 기록하고
+    // .is-open 전환을 그리도록. rAF는 backgrounded tab에서 throttled 가능성 있어 reflow가 안정적.
+    void drawerEl.offsetWidth;
+    drawerOverlay.classList.add('is-open');
+    drawerEl.classList.add('is-open');
+    drawerEl.setAttribute('aria-hidden', 'false');
+    homeMenuBtn.setAttribute('aria-expanded', 'true');
+    document.addEventListener('keydown', _onDrawerKeydown);
+}
+
+function closeDrawer() {
+    drawerOverlay.classList.remove('is-open');
+    drawerEl.classList.remove('is-open');
+    drawerEl.setAttribute('aria-hidden', 'true');
+    homeMenuBtn.setAttribute('aria-expanded', 'false');
+    document.removeEventListener('keydown', _onDrawerKeydown);
+    if (_drawerHideTimer !== null) clearTimeout(_drawerHideTimer);
+    _drawerHideTimer = setTimeout(() => {
+        _drawerHideTimer = null;
+        if (!drawerEl.classList.contains('is-open')) {
+            drawerEl.hidden = true;
+            drawerOverlay.hidden = true;
+        }
+    }, DRAWER_TRANSITION_MS + 20);
+}
+
+function _onDrawerKeydown(e) {
+    if (e.key === 'Escape') closeDrawer();
+}
+
+homeMenuBtn.addEventListener('click', openDrawer);
+drawerCloseBtn.addEventListener('click', closeDrawer);
+drawerOverlay.addEventListener('click', closeDrawer);
+drawerEl.addEventListener('click', (e) => {
+    const item = e.target.closest('[data-drawer-target]');
+    if (!item) return;
+    const target = item.dataset.drawerTarget;
+    if (!DRAWER_TARGETS.has(target)) return;
+    closeDrawer();
+    navigateTo(target);
+});
 
 window.addEventListener('popstate', (event) => {
     const state = event.state;
@@ -402,8 +467,7 @@ applyLocale();
 // ==========================================
 // 3-3. Settings entry point + color choice modal
 // ==========================================
-// 설정/About/피드백은 settings.js가 페이지로 관리. 홈 ⚙ 클릭 → SETTINGS 페이지.
-settingsBtn.addEventListener('click', () => navigateTo(SCREENS.SETTINGS));
+// 설정/About/피드백은 settings.js가 페이지로 관리. 드로어("설정") 클릭 → SETTINGS 페이지.
 
 initSettings({
     navigateTo,
@@ -626,22 +690,60 @@ openBoardInputBtn.addEventListener('click', async () => {
 
 // 하단 바 가시성은 appMode에서 단일 도출 — setAppMode 직후 syncBottomBar() 호출이 invariant.
 //   LIVE_INPUT       → 실행취소·회전·처음부터 노출 / AI 노출 / 메인복귀 숨김
-//   EXPLORE/SIMULATE → 메인복귀 노출 / AI 숨김 / 라이브 3-btn 숨김
-//   MAIN(review)     → AI 노출 / 라이브 3-btn·메인복귀 숨김
-// 좌측 그룹은 [저장·AI·메인복귀·실행취소·회전·처음부터], 우측은 [이전·다음]. 우측은 모드 무관 항상 노출.
+//   EXPLORE/SIMULATE → 메인복귀 노출 / AI 숨김 / 라이브 메뉴 숨김
+//   MAIN(review)     → AI 노출 / 라이브 메뉴·메인복귀 숨김
+// 좌측 그룹은 [저장·AI·메인복귀·liveMenu(처음부터/회전/실행취소)·기보], 우측은 [이전·다음].
 function syncBottomBar() {
     const isLive = appMode === APP_MODES.LIVE_INPUT;
     const isBranch = appMode === APP_MODES.EXPLORE || appMode === APP_MODES.SIMULATE;
-    liveUndoBtn?.classList.toggle('hidden', !isLive);
-    liveFlipBtn?.classList.toggle('hidden', !isLive);
-    liveResetBtn?.classList.toggle('hidden', !isLive);
+    liveMenuWrap?.classList.toggle('hidden', !isLive);
+    if (!isLive) closeLiveMenu();
     returnMainLineBtn.classList.toggle('hidden', !isBranch);
     tabToggleBtn.classList.toggle('hidden', isBranch);
 }
 
-liveUndoBtn?.addEventListener('click', () => liveInputUndo());
-liveFlipBtn?.addEventListener('click', () => flipOrientation(cg));
-liveResetBtn?.addEventListener('click', () => liveInputReset());
+// ── liveMenu popover — 트리거(⋯) 클릭 시 위로 펼침. 항목/Esc/바깥 클릭 시 닫힘. ──
+const LIVE_MENU_TRANSITION_MS = 120; // styles.css .live-menu-popover transition과 동기
+let _liveMenuHideTimer = null;
+
+function openLiveMenu() {
+    if (!liveMenuPopover || !liveMenuBtn) return;
+    if (_liveMenuHideTimer !== null) { clearTimeout(_liveMenuHideTimer); _liveMenuHideTimer = null; }
+    liveMenuPopover.hidden = false;
+    void liveMenuPopover.offsetWidth;
+    liveMenuPopover.classList.add('is-open');
+    liveMenuBtn.setAttribute('aria-expanded', 'true');
+    document.addEventListener('keydown', _onLiveMenuKeydown);
+    document.addEventListener('mousedown', _onLiveMenuOutside, true);
+}
+function closeLiveMenu() {
+    if (!liveMenuPopover || !liveMenuBtn) return;
+    if (!liveMenuPopover.classList.contains('is-open') && liveMenuPopover.hidden) return;
+    liveMenuPopover.classList.remove('is-open');
+    liveMenuBtn.setAttribute('aria-expanded', 'false');
+    document.removeEventListener('keydown', _onLiveMenuKeydown);
+    document.removeEventListener('mousedown', _onLiveMenuOutside, true);
+    if (_liveMenuHideTimer !== null) clearTimeout(_liveMenuHideTimer);
+    _liveMenuHideTimer = setTimeout(() => {
+        _liveMenuHideTimer = null;
+        if (!liveMenuPopover.classList.contains('is-open')) liveMenuPopover.hidden = true;
+    }, LIVE_MENU_TRANSITION_MS + 20);
+}
+function _onLiveMenuKeydown(e) {
+    if (e.key === 'Escape') closeLiveMenu();
+}
+function _onLiveMenuOutside(e) {
+    if (liveMenuWrap?.contains(e.target)) return;
+    closeLiveMenu();
+}
+liveMenuBtn?.addEventListener('click', () => {
+    if (liveMenuPopover?.classList.contains('is-open')) closeLiveMenu();
+    else openLiveMenu();
+});
+
+liveUndoBtn?.addEventListener('click', () => { liveInputUndo(); closeLiveMenu(); });
+liveFlipBtn?.addEventListener('click', () => { flipOrientation(cg); closeLiveMenu(); });
+liveResetBtn?.addEventListener('click', () => { liveInputReset(); closeLiveMenu(); });
 
 // =====================================================
 // Input View — PGN/FEN 진입 화면.
@@ -990,6 +1092,19 @@ previewStartBtn.addEventListener('click', () => {
 
 let _overlayGetPgn = null;
 
+// 시트를 현재 보이는 view의 board-wrapper 아래끝에 고정 — 보드는 그대로 노출, 클릭 가능.
+// resize/방향 전환에는 미대응(open 중 매번 호출은 비용 + 사용자 close 후 재오픈으로 회복 가능).
+function _placeMovesSheetUnderBoard() {
+    const board = document.querySelector('.view-container:not(.hidden) .board-wrapper');
+    if (!board) return;
+    const top = board.getBoundingClientRect().bottom - appContainer.getBoundingClientRect().top;
+    movesOverlaySheet.style.top = top + 'px';
+}
+
+function _onMovesOverlayKey(e) {
+    if (e.key === 'Escape') closeMovesOverlay();
+}
+
 function showMovesOverlay({ getPgn, renderBody, reviewable = false } = {}) {
     _overlayGetPgn = getPgn || null;
     if (renderBody) renderBody();
@@ -999,13 +1114,19 @@ function showMovesOverlay({ getPgn, renderBody, reviewable = false } = {}) {
     if (document.activeElement && document.activeElement.blur) {
         document.activeElement.blur();
     }
+    _placeMovesSheetUnderBoard();
+    // top inline 설정 직후 강제 reflow — .open class와 같은 task에 묶이면 시작 transform 상태가
+    // 새 top 기준으로 재계산 안 돼 슬라이드 트랜지션이 안 그려짐.
+    void movesOverlay.offsetWidth;
     movesOverlay.classList.add('open');
     document.body.classList.add('moves-overlay-open');
+    document.addEventListener('keydown', _onMovesOverlayKey);
 }
 function closeMovesOverlay() {
     movesOverlay.classList.remove('open');
     _overlayGetPgn = null;
     document.body.classList.remove('moves-overlay-open');
+    document.removeEventListener('keydown', _onMovesOverlayKey);
 }
 
 initVault({ showMovesOverlay, closeMovesOverlay, navigateTo, onEmptyCta: () => navigateTo('home') });
@@ -1083,9 +1204,8 @@ movesOverlayReviewBtn.addEventListener('click', () => {
     applyReviewView();
 });
 movesOverlayCloseBtn.addEventListener('click', closeMovesOverlay);
-movesOverlay.addEventListener('click', (e) => {
-    if (e.target === movesOverlay) closeMovesOverlay();
-});
+// backdrop 클릭 닫기는 폐지 — wrapper가 pointer-events:none이라 클릭이 통과(보드 인터랙션 유지).
+// 닫기는 × 버튼 / Esc만.
 
 copyPgnBtn.addEventListener('click', async () => {
     const pgn = _overlayGetPgn ? _overlayGetPgn() : chess.pgn();

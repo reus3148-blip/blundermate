@@ -12,7 +12,6 @@ import { showAlert, showConfirm } from './dialogs.js';
 // DOM Elements
 // ==========================================
 const vaultView = document.getElementById('vaultView');
-const vaultListLink = document.getElementById('vaultListLink');
 const vaultDetailView = document.getElementById('vaultDetailView');
 const vaultDetailBackBtn = document.getElementById('vaultDetailBackBtn');
 const vaultDetailTitle = document.getElementById('vaultDetailTitle');
@@ -1158,13 +1157,6 @@ export function initVault({ showMovesOverlay, closeMovesOverlay, navigateTo, onE
     vaultDetailBackBtn.addEventListener('click', () => {
         history.back();
     });
-
-    // 우상단 리스트 보조 진입
-    if (vaultListLink) {
-        vaultListLink.addEventListener('click', () => {
-            if (_navigateTo) _navigateTo('vault_blunder_list');
-        });
-    }
 
     if (vaultBlunderListBackBtn) {
         vaultBlunderListBackBtn.addEventListener('click', () => {
