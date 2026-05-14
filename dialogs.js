@@ -43,7 +43,8 @@ export function showConfirm(message, opts = {}) {
     const okBtn = document.getElementById('confirmOkBtn');
     const cancelBtn = document.getElementById('confirmCancelBtn');
     if (!modal || !msgEl || !okBtn || !cancelBtn) {
-        return Promise.resolve(window.confirm(message));
+        showToast(message);
+        return Promise.resolve(false);
     }
 
     // 직전 호출이 미해결이면 false로 마무리 — 상태 누수 방지.

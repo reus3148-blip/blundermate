@@ -78,8 +78,8 @@ function logUsernameToServer(username, source) {
         if (!normalized) return;
         const platform = getMyPlatform();
         const dedupKey = `${source}:${platform}:${normalized}`;
-        if (localStorage.getItem(USERNAME_LOG_DEDUP_KEY) === dedupKey) return;
-        try { localStorage.setItem(USERNAME_LOG_DEDUP_KEY, dedupKey); } catch (_) {}
+        if (lsGet(USERNAME_LOG_DEDUP_KEY) === dedupKey) return;
+        lsSet(USERNAME_LOG_DEDUP_KEY, dedupKey);
         fetch('/api/log-username', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -431,7 +431,7 @@ function setHomeTcFilter(tc) {
 // 설정에서 호출 — localStorage 영속 + 현재 홈 필터에도 즉시 반영.
 export function setDefaultTcFilter(tc) {
     if (!VALID_TC.includes(tc)) return;
-    try { localStorage.setItem(DEFAULT_TC_KEY, tc); } catch {}
+    lsSet(DEFAULT_TC_KEY, tc);
     setHomeTcFilter(tc);
 }
 

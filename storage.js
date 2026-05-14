@@ -163,7 +163,7 @@ function _warnDb(prefix, e) {
 
 function _getVaultItemsSync() {
     try {
-        return JSON.parse(localStorage.getItem(VAULT_KEY) || '[]');
+        return JSON.parse(lsGet(VAULT_KEY, '[]') || '[]');
     } catch (e) {
         console.error('Failed to read Vault from localStorage:', e);
         return [];
@@ -276,7 +276,7 @@ export function addVaultItemsBatch(items) {
     try {
         const vault = _getVaultItemsSync();
         for (const it of items) vault.push({ ...it, platform });
-        localStorage.setItem(VAULT_KEY, JSON.stringify(vault));
+        if (!lsSet(VAULT_KEY, JSON.stringify(vault))) throw new Error('localStorage write failed');
     } catch (e) {
         console.error('Failed to save batch to Vault:', e);
     }
@@ -292,7 +292,7 @@ export function addVaultItemsBatch(items) {
 export function removeVaultItem(id) {
     try {
         const vault = _getVaultItemsSync().filter(v => v.id !== id);
-        localStorage.setItem(VAULT_KEY, JSON.stringify(vault));
+        if (!lsSet(VAULT_KEY, JSON.stringify(vault))) throw new Error('localStorage write failed');
     } catch (e) {
         console.error('Failed to remove item from Vault:', e);
     }
@@ -307,7 +307,7 @@ export function removeVaultItem(id) {
 
 function _getSavedGamesSync() {
     try {
-        return JSON.parse(localStorage.getItem(SAVED_GAMES_KEY) || '[]');
+        return JSON.parse(lsGet(SAVED_GAMES_KEY, '[]') || '[]');
     } catch (e) {
         console.error('Failed to read Saved Games from localStorage:', e);
         return [];
@@ -347,7 +347,7 @@ export function addSavedGame(item) {
     try {
         const games = _getSavedGamesSync();
         games.push({ ...item, platform: getMyPlatform() });
-        localStorage.setItem(SAVED_GAMES_KEY, JSON.stringify(games));
+        if (!lsSet(SAVED_GAMES_KEY, JSON.stringify(games))) throw new Error('localStorage write failed');
     } catch (e) {
         console.error('Failed to save game:', e);
     }
@@ -370,7 +370,7 @@ export function addSavedGame(item) {
 export function removeSavedGame(id) {
     try {
         const games = _getSavedGamesSync().filter(g => g.id !== id);
-        localStorage.setItem(SAVED_GAMES_KEY, JSON.stringify(games));
+        if (!lsSet(SAVED_GAMES_KEY, JSON.stringify(games))) throw new Error('localStorage write failed');
     } catch (e) {
         console.error('Failed to remove saved game:', e);
     }
@@ -390,7 +390,7 @@ export function updateSavedGame(id, updates) {
             if ((g.platform || PLATFORM_CHESSCOM) !== platform) return g;
             return { ...g, ...updates };
         });
-        localStorage.setItem(SAVED_GAMES_KEY, JSON.stringify(games));
+        if (!lsSet(SAVED_GAMES_KEY, JSON.stringify(games))) throw new Error('localStorage write failed');
     } catch (e) {
         console.error('Failed to update saved game:', e);
     }
@@ -410,7 +410,7 @@ export function updateSavedGame(id, updates) {
 
 function _getAnalyzedGamesSync() {
     try {
-        return JSON.parse(localStorage.getItem(ANALYZED_GAMES_KEY) || '[]');
+        return JSON.parse(lsGet(ANALYZED_GAMES_KEY, '[]') || '[]');
     } catch (e) {
         console.error('Failed to read analyzed_games from localStorage:', e);
         return [];
@@ -473,7 +473,7 @@ export async function upsertAnalyzedGame({ pgn, pgnHash, headersJson, playedDate
             if (Array.isArray(existing) && existing.length > 0) {
                 const row = existing[0];
                 local.push(row);
-                try { localStorage.setItem(ANALYZED_GAMES_KEY, JSON.stringify(local)); } catch {}
+                lsSet(ANALYZED_GAMES_KEY, JSON.stringify(local));
                 return row.id;
             }
         } catch (e) {
@@ -493,7 +493,7 @@ export async function upsertAnalyzedGame({ pgn, pgnHash, headersJson, playedDate
         created_at: new Date().toISOString(),
     };
     local.push(row);
-    try { localStorage.setItem(ANALYZED_GAMES_KEY, JSON.stringify(local)); } catch {}
+    lsSet(ANALYZED_GAMES_KEY, JSON.stringify(local));
 
     // Supabase INSERT를 await하여 후속 PATCH(saveAnalysisCache)가 행 존재를 전제할 수 있게 함.
     // 충돌(409)이나 네트워크 실패는 catch에서 흡수 — localStorage row는 이미 보장.
@@ -529,7 +529,7 @@ export async function getAnalyzedGameById(id) {
             // 캐시 갱신
             const cache = _getAnalyzedGamesSync();
             cache.push(data[0]);
-            try { localStorage.setItem(ANALYZED_GAMES_KEY, JSON.stringify(cache)); } catch {}
+            lsSet(ANALYZED_GAMES_KEY, JSON.stringify(cache));
             return data[0];
         }
     } catch (e) {
@@ -578,7 +578,7 @@ export async function loadAnalysisCache(pgnHash) {
             const idx = cache.findIndex(g => g.pgn_hash === pgnHash && (g.platform || PLATFORM_CHESSCOM) === platform);
             if (idx >= 0) cache[idx] = { ...cache[idx], ...data[0] };
             else cache.push(data[0]);
-            try { localStorage.setItem(ANALYZED_GAMES_KEY, JSON.stringify(cache)); } catch {}
+            lsSet(ANALYZED_GAMES_KEY, JSON.stringify(cache));
             return data[0].analysis_json;
         }
     } catch (e) {
@@ -611,7 +611,7 @@ export async function saveAnalysisCache({ pgnHash, payload }) {
         const idx = cache.findIndex(g => g.pgn_hash === pgnHash && (g.platform || PLATFORM_CHESSCOM) === platform);
         if (idx >= 0) {
             cache[idx] = { ...cache[idx], ...cachePatch };
-            localStorage.setItem(ANALYZED_GAMES_KEY, JSON.stringify(cache));
+            if (!lsSet(ANALYZED_GAMES_KEY, JSON.stringify(cache))) throw new Error('localStorage write failed');
         } else {
             console.warn('saveAnalysisCache: 매칭 행 없음 — 캐시 PATCH 스킵', { pgnHash, platform, cacheLen: cache.length });
         }
