@@ -1,7 +1,6 @@
-import { Chessground } from 'https://cdnjs.cloudflare.com/ajax/libs/chessground/9.0.0/chessground.min.js';
 import { Chess } from 'https://cdn.jsdelivr.net/npm/chess.js@1.4.0/+esm';
 import { initHome, refreshHomeCounts, showOnboarding, homeProfileRatings } from './home.js';
-import { initDialogs, showAlert, showConfirm, showToast, showOptionSheet } from './dialogs.js';
+import { initDialogs, showAlert, showOptionSheet } from './dialogs.js';
 import {
     initAnalysis, getEngine, getDepth,
     analysisQueue, setQueue,
@@ -23,7 +22,7 @@ import {
 } from './modes.js';
 import { parseEvalData, getDests, convertPvToSan, parseAndLoadPgn, isValidFen, escapeHtml, parseOpeningFromPgn, getTier, TIERS, classifyMove, injectNags, formatTimeControlLabel, formatRelativeDate, getDateStrings } from './utils.js';
 import { renderMovesTable, updateUIWithEval, highlightActiveMove, renderEngineLines, prependMoveChip, updateTopEvalDisplay, renderReviewReport, buildPreviewCardHtml, placePieceBadge } from './ui.js';
-import { computePgnHash, upsertAnalyzedGame, loadAnalysisCache, saveAnalysisCache, isCacheCompatible, ANALYSIS_CACHE_VERSION, getIsCoordsEnabled, lsGet, lsSet } from './storage.js';
+import { computePgnHash, upsertAnalyzedGame, loadAnalysisCache, saveAnalysisCache, isCacheCompatible, ANALYSIS_CACHE_VERSION, getIsCoordsEnabled } from './storage.js';
 import { collectAutoBlunders } from './autoBlunders.js';
 import { initVault, isVaultDetailActive, isVaultPuzzleActive, getVaultDetailIndex, setVaultDetailIndex, flipVaultBoard, setVaultCoords, redrawVaultBoard, loadVaultData, loadBlunderListData, redrawVaultPuzzleBoard } from './vault.js';
 import { initSavedGames, loadSavedGamesData, openSaveGameModal } from './savedGames.js';
@@ -31,12 +30,19 @@ import { initInsights, loadInsightsData } from './insights.js';
 import { initForum, openForumView, hideForumView, tryActivateFromLocation as tryActivateForum } from './forum.js';
 import { initSettings, onSettingsViewEnter, onFeedbackViewEnter } from './settings.js';
 import { initImportGames, onImportGamesViewEnter } from './importGames.js';
+import { initDrawer } from './drawer.js';
+import { initInputView, onInputViewEnter } from './inputView.js';
+import { initMovesOverlay, showMovesOverlay, closeMovesOverlay } from './movesOverlay.js';
+import {
+    initPreviewStartButton, isAnalysisLoadingActive,
+    applyPreviewControls, removePreviewControls,
+    enterAnalysisLoading, exitAnalysisLoading, setLoadingProgress,
+} from './analysisLoading.js';
 import {
     initGemini, handleGeminiExplanation, renderAiTabContent,
     abortPendingGemini,
 } from './gemini.js';
 import { t } from './strings.js';
-import { pickQuote, quotesReady } from './quotes.js';
 
 // 다이얼로그 헬퍼 (showToast/showAlert/showConfirm)는 dialogs.js로 이전.
 // initDialogs()를 한 번 호출해 모달 close 핸들러를 와이어링.
@@ -48,23 +54,6 @@ import { pickQuote, quotesReady } from './quotes.js';
 const pgnInput = document.getElementById('pgnInput');
 const analyzeBtn = document.getElementById('analyzeBtn');
 const openBoardInputBtn = document.getElementById('homeBoardInputBtn');
-const manualInputWrapper = document.getElementById('manualInputWrapper');
-
-// Input View — PGN/FEN 진입 화면 (보드 ↔ textarea 양방향 동기)
-const inputView = document.getElementById('inputView');
-const inputViewBackBtn = document.getElementById('inputViewBackBtn');
-const inputViewMovesBtn = document.getElementById('inputViewMovesBtn');
-const inputBoardContainer = document.getElementById('inputBoardContainer');
-const inputBoardPgn = document.getElementById('inputBoardPgn');
-const inputViewUndoBtnBottom = document.getElementById('inputViewUndoBtnBottom');
-const inputViewResetBtn = document.getElementById('inputViewResetBtn');
-const inputViewAnalyzeBtn = document.getElementById('inputViewAnalyzeBtn');
-const inputPrevMoveBtn = document.getElementById('inputPrevMoveBtn');
-const inputNextMoveBtn = document.getElementById('inputNextMoveBtn');
-let inputChess = new Chess();
-let inputStartFen = null;
-let inputViewIndex = 0;
-let inputCg = null;
 // USERNAME_LOG_DEDUP_KEY / logUsernameToServer / homeRecentLabel은 home.js로 이전.
 
 // Analysis Board UI
@@ -78,33 +67,19 @@ const nextMoveBtn = document.getElementById('nextMoveBtn');
 const analysisBackBtn = document.getElementById('analysisBackBtn');
 const tabToggleBtn = document.getElementById('tabToggleBtn');
 const geminiExplanation = document.getElementById('geminiExplanation');
-const panelTabs = document.getElementById('panelTabs');
-const movesOverlay = document.getElementById('movesOverlay');
-const movesOverlaySheet = movesOverlay.querySelector('.moves-overlay-sheet');
 const movesOverlayBtn = document.getElementById('movesOverlayBtn');
-const movesOverlayCloseBtn = document.getElementById('movesOverlayCloseBtn');
-const movesOverlayReviewBtn = document.getElementById('movesOverlayReviewBtn');
-const copyPgnBtn = document.getElementById('copyPgnBtn');
 // View Navigation Elements
 const homeView = document.getElementById('homeView');
 const analysisView = document.getElementById('analysisView');
 
 // Live Input — analysisBottomBar의 liveMenuWrap(처음부터/회전/실행취소 popover) LIVE_INPUT만 노출.
 // 저장/AI/기보/이전/다음은 리뷰 화면과 공유.
-const analysisBottomBar = document.getElementById('analysisBottomBar');
 const liveMenuWrap = document.getElementById('liveMenuWrap');
 const liveMenuBtn = document.getElementById('liveMenuBtn');
 const liveMenuPopover = document.getElementById('liveMenuPopover');
 const liveUndoBtn = document.getElementById('liveUndoBtn');
 const liveFlipBtn = document.getElementById('liveFlipBtn');
 const liveResetBtn = document.getElementById('liveResetBtn');
-
-const previewStartBtn = document.getElementById('previewStartBtn');
-const loadingQuoteText = document.getElementById('loadingQuoteText');
-const loadingQuoteAuthor = document.getElementById('loadingQuoteAuthor');
-const loadingQuoteWrap = loadingQuoteText ? loadingQuoteText.parentElement : null;
-const loadingProgressFill = document.getElementById('loadingProgressFill');
-const loadingProgressText = document.getElementById('loadingProgressText');
 
 // Color Choice Modal Elements
 const colorChoiceModal = document.getElementById('colorChoiceModal');
@@ -124,7 +99,6 @@ const closeTierModalBtn = document.getElementById('closeTierModalBtn');
 // 2. Application State
 // ==========================================
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
-let isAnalysisLoading = false;
 const LIVE_INPUT_DEPTH = 12; // 라이브 입력 모드 엔진 depth 락 — 렉 방지용 고정값
 let lastEvalRenderTime = 0; // 엔진 UI 렌더링 스로틀링용 타임스탬프
 const EVAL_RENDER_THROTTLE = 100; // UI 업데이트 제한 시간(ms)
@@ -197,7 +171,7 @@ function hideAllViews() {
     document.getElementById('aboutView')?.classList.add('hidden');
     document.getElementById('feedbackView')?.classList.add('hidden');
     document.getElementById('importGamesView')?.classList.add('hidden');
-    inputView?.classList.add('hidden');
+    document.getElementById('inputView')?.classList.add('hidden');
     hideForumView();
     // onboardingView 가리기 — 임의 화면(특히 /forum deep-link) 진입 시 first-time 사용자의
     // 온보딩 카드가 위에 떠있는 중첩 회피. initHome이 노출하는 home 분기는 renderScreen이
@@ -225,7 +199,7 @@ function cleanupAnalysis() {
         closeLiveMenu();
         getEngine().stop();
     }
-    if (isAnalysisLoading) exitAnalysisLoading();
+    if (isAnalysisLoadingActive()) exitAnalysisLoading();
     stopAndClear();
     // 분석 중 화면을 떠난 경우 onComplete가 fire되지 않으므로 버튼 상태를 직접 복구.
     analyzeBtn.disabled = false;
@@ -282,7 +256,7 @@ function renderScreen(screen) {
             onImportGamesViewEnter();
             break;
         case SCREENS.INPUT:
-            inputView?.classList.remove('hidden');
+            document.getElementById('inputView')?.classList.remove('hidden');
             onInputViewEnter();
             break;
         case SCREENS.FORUM:
@@ -339,65 +313,14 @@ if (navAnalysisBtn) {
     });
 }
 
-// Drawer — 홈 우상단 ☰. backdrop / Esc / 아이템 클릭으로 닫힘.
-// data-drawer-target 값은 SCREENS 값을 그대로 박아 stringly-typed dispatch 회피.
-const drawerEl = document.getElementById('drawer');
-const drawerOverlay = document.getElementById('drawerOverlay');
-const drawerCloseBtn = document.getElementById('drawerCloseBtn');
-const homeMenuBtn = document.getElementById('homeMenuBtn');
-const DRAWER_TARGETS = new Set([
-    SCREENS.VAULT_BLUNDER_LIST,
-    SCREENS.SAVED_GAMES,
-    SCREENS.FORUM,
-    SCREENS.SETTINGS,
-]);
-const DRAWER_TRANSITION_MS = 240; // styles.css .drawer transition 길이와 동기 — 변경 시 함께
-let _drawerHideTimer = null;
-
-function openDrawer() {
-    if (_drawerHideTimer !== null) { clearTimeout(_drawerHideTimer); _drawerHideTimer = null; }
-    drawerOverlay.hidden = false;
-    drawerEl.hidden = false;
-    // hidden 해제 직후 강제 reflow — 브라우저가 시작 상태(translateX(100%))를 기록하고
-    // .is-open 전환을 그리도록. rAF는 backgrounded tab에서 throttled 가능성 있어 reflow가 안정적.
-    void drawerEl.offsetWidth;
-    drawerOverlay.classList.add('is-open');
-    drawerEl.classList.add('is-open');
-    drawerEl.setAttribute('aria-hidden', 'false');
-    homeMenuBtn.setAttribute('aria-expanded', 'true');
-    document.addEventListener('keydown', _onDrawerKeydown);
-}
-
-function closeDrawer() {
-    drawerOverlay.classList.remove('is-open');
-    drawerEl.classList.remove('is-open');
-    drawerEl.setAttribute('aria-hidden', 'true');
-    homeMenuBtn.setAttribute('aria-expanded', 'false');
-    document.removeEventListener('keydown', _onDrawerKeydown);
-    if (_drawerHideTimer !== null) clearTimeout(_drawerHideTimer);
-    _drawerHideTimer = setTimeout(() => {
-        _drawerHideTimer = null;
-        if (!drawerEl.classList.contains('is-open')) {
-            drawerEl.hidden = true;
-            drawerOverlay.hidden = true;
-        }
-    }, DRAWER_TRANSITION_MS + 20);
-}
-
-function _onDrawerKeydown(e) {
-    if (e.key === 'Escape') closeDrawer();
-}
-
-homeMenuBtn.addEventListener('click', openDrawer);
-drawerCloseBtn.addEventListener('click', closeDrawer);
-drawerOverlay.addEventListener('click', closeDrawer);
-drawerEl.addEventListener('click', (e) => {
-    const item = e.target.closest('[data-drawer-target]');
-    if (!item) return;
-    const target = item.dataset.drawerTarget;
-    if (!DRAWER_TARGETS.has(target)) return;
-    closeDrawer();
-    navigateTo(target);
+initDrawer({
+    navigateTo,
+    targets: [
+        SCREENS.VAULT_BLUNDER_LIST,
+        SCREENS.SAVED_GAMES,
+        SCREENS.FORUM,
+        SCREENS.SETTINGS,
+    ],
 });
 
 window.addEventListener('popstate', (event) => {
@@ -460,11 +383,6 @@ initDialogs();
 applyLocale();
 
 // ==========================================
-// 3-2c. Vault Module Init (deferred — depends on overlay helpers defined later)
-// ==========================================
-// initVault() is called after showMovesOverlay/closeMovesOverlay are defined (see below)
-
-// ==========================================
 // 3-3. Settings entry point + color choice modal
 // ==========================================
 // 설정/About/피드백은 settings.js가 페이지로 관리. 드로어("설정") 클릭 → SETTINGS 페이지.
@@ -482,6 +400,11 @@ initSettings({
     },
     showOnboarding,
 });
+
+function requestColorChoice(callback) {
+    pendingAnalysisCallback = callback;
+    colorChoiceModal.classList.remove('hidden');
+}
 
 chooseWhiteBtn.addEventListener('click', () => {
     colorChoiceModal.classList.add('hidden');
@@ -752,199 +675,19 @@ liveUndoBtn?.addEventListener('click', () => { liveInputUndo(); closeLiveMenu();
 liveFlipBtn?.addEventListener('click', () => { flipOrientation(cg); closeLiveMenu(); });
 liveResetBtn?.addEventListener('click', () => { liveInputReset(); closeLiveMenu(); });
 
-// =====================================================
-// Input View — PGN/FEN 진입 화면.
-// 보드 ↔ textarea 양방향 동기, 분석 시작은 풀 리뷰 분석으로 진입.
-// =====================================================
-
-// 현재 inputViewIndex까지 replay한 체스 인스턴스 — 보드/dests 산출용.
-function getInputViewChess() {
-    const c = new Chess();
-    if (inputStartFen) c.load(inputStartFen);
-    const hist = inputChess.history({ verbose: true });
-    const limit = Math.min(inputViewIndex, hist.length);
-    for (let i = 0; i < limit; i++) {
-        c.move({ from: hist[i].from, to: hist[i].to, promotion: hist[i].promotion });
-    }
-    return c;
-}
-
-// 보드에서 사용자가 수를 두면 호출. 끝이 아닌 중간에서 두면 그 지점까지 truncate + fork.
-function handleInputBoardMove(orig, dest) {
-    const hist = inputChess.history({ verbose: true });
-    if (inputViewIndex < hist.length) {
-        const newChess = new Chess();
-        if (inputStartFen) newChess.load(inputStartFen);
-        for (let i = 0; i < inputViewIndex; i++) {
-            newChess.move({ from: hist[i].from, to: hist[i].to, promotion: hist[i].promotion });
-        }
-        const result = newChess.move({ from: orig, to: dest, promotion: 'q' });
-        if (!result) return;
-        inputChess = newChess;
-    } else {
-        const result = inputChess.move({ from: orig, to: dest, promotion: 'q' });
-        if (!result) return;
-    }
-    inputViewIndex++;
-    updateInputBoard();
-}
-
-function handleInputPrev() {
-    if (inputViewIndex <= 0) return;
-    inputViewIndex--;
-    updateInputBoard();
-}
-
-function handleInputNext() {
-    if (inputViewIndex >= inputChess.history().length) return;
-    inputViewIndex++;
-    updateInputBoard();
-}
-
-function updateInputNavButtons() {
-    const historyLen = inputChess.history().length;
-    inputPrevMoveBtn.disabled = inputViewIndex === 0;
-    inputNextMoveBtn.disabled = inputViewIndex >= historyLen;
-    inputViewUndoBtnBottom.disabled = inputViewIndex === 0;
-}
-
-// 보드는 inputViewIndex까지만 replay한 상태로, dests도 그 포지션 기준.
-// textarea는 항상 inputChess 전체 PGN.
-function updateInputBoard() {
-    if (!inputCg) return;
-    const viewChess = getInputViewChess();
-    const turnColor = viewChess.turn() === 'w' ? 'white' : 'black';
-
-    let lastMove = [];
-    if (inputViewIndex > 0) {
-        const hist = inputChess.history({ verbose: true });
-        const m = hist[inputViewIndex - 1];
-        if (m) lastMove = [m.from, m.to];
-    }
-
-    inputCg.set({
-        fen: viewChess.fen(),
-        turnColor,
-        lastMove,
-        movable: { color: turnColor, free: false, dests: getDests(viewChess) },
-        drawable: { autoShapes: [] }
-    });
-    inputBoardPgn.value = inputChess.pgn();
-    inputBoardPgn.scrollTop = inputBoardPgn.scrollHeight;
-    updateInputNavButtons();
-}
-
-// Undo: 현재 보고 있는 수 + 이후 전부 truncate.
-function doUndoInput() {
-    if (inputViewIndex === 0) return;
-    const hist = inputChess.history({ verbose: true });
-    const newChess = new Chess();
-    if (inputStartFen) newChess.load(inputStartFen);
-    for (let i = 0; i < inputViewIndex - 1; i++) {
-        newChess.move({ from: hist[i].from, to: hist[i].to, promotion: hist[i].promotion });
-    }
-    inputChess = newChess;
-    inputViewIndex--;
-    updateInputBoard();
-}
-
-function buildInputMovesQueue() {
-    const history = inputChess.history({ verbose: true });
-    return history.map((m, i) => ({
-        san: m.san,
-        moveNumber: Math.floor(i / 2) + 1,
-        isWhite: i % 2 === 0,
-    }));
-}
-
-// 진입 시 매번 — 상태 reset + Chessground lazy-init. 화면 노출은 renderScreen이 담당.
-function onInputViewEnter() {
-    inputChess = new Chess();
-    inputStartFen = null;
-    inputViewIndex = 0;
-    inputBoardPgn.value = '';
-
-    if (!inputCg) {
-        inputCg = Chessground(inputBoardContainer, {
-            animation: { enabled: true, duration: 250 },
-            movable: { free: false },
-            coordinates: getIsCoordsEnabled(),
-            events: { move: handleInputBoardMove },
-        });
-    }
-    updateInputBoard();
-    forceRedraw(inputCg);
-}
-
-inputViewBackBtn?.addEventListener('click', () => history.back());
-inputViewUndoBtnBottom?.addEventListener('click', doUndoInput);
-inputViewResetBtn?.addEventListener('click', () => {
-    inputChess = new Chess();
-    inputStartFen = null;
-    inputViewIndex = 0;
-    inputBoardPgn.value = '';
-    updateInputBoard();
+initInputView({
+    pgnInput,
+    movesBody,
+    showMovesOverlay,
+    closeMovesOverlay,
+    requestColorChoice,
+    handleFenReviewStart,
+    handlePgnReviewStart,
 });
-inputPrevMoveBtn?.addEventListener('click', handleInputPrev);
-inputNextMoveBtn?.addEventListener('click', handleInputNext);
-
-inputBoardPgn?.addEventListener('input', () => {
-    const text = inputBoardPgn.value.trim();
-    if (!text) {
-        inputChess = new Chess();
-        inputStartFen = null;
-        inputViewIndex = 0;
-        if (inputCg) updateInputBoard();
-        return;
-    }
-    const tempChess = new Chess();
-    const result = parseAndLoadPgn(tempChess, text);
-    if (result.success) {
-        inputChess = tempChess;
-        inputStartFen = null;
-        inputViewIndex = inputChess.history().length;
-        if (inputCg) updateInputBoard();
-        return;
-    }
-    // PGN 파싱 실패 → FEN 시도. 보드만 갱신, 수 0.
-    if (isValidFen(text)) {
-        const fenChess = new Chess();
-        fenChess.load(text);
-        inputChess = fenChess;
-        inputStartFen = text;
-        inputViewIndex = 0;
-        if (inputCg) updateInputBoard();
-    }
-});
-
-inputViewAnalyzeBtn?.addEventListener('click', () => {
-    const text = inputBoardPgn.value.trim();
-    // FEN 단독이면 단일 포지션 분석 분기.
-    if (text && isValidFen(text)) {
-        pendingAnalysisCallback = (isWhite) => handleFenReviewStart(text, isWhite);
-        colorChoiceModal.classList.remove('hidden');
-        return;
-    }
-    const pgn = text || inputChess.pgn();
-    if (!pgn) {
-        showAlert(t('analysis_no_moves'));
-        return;
-    }
-    pgnInput.value = pgn;
-    pendingAnalysisCallback = (isWhite) => handlePgnReviewStart(null, isWhite);
-    colorChoiceModal.classList.remove('hidden');
-});
-
-inputViewMovesBtn?.addEventListener('click', () => showMovesOverlay({
-    getPgn: () => inputBoardPgn.value.trim() || inputChess.pgn(),
-    renderBody: () => renderMovesTable(movesBody, buildInputMovesQueue(), () => closeMovesOverlay()),
-}));
-
 
 analyzeBtn.addEventListener('click', () => {
     if (!pgnInput.value.trim()) return;
-    pendingAnalysisCallback = (isWhite) => handlePgnReviewStart(null, isWhite);
-    colorChoiceModal.classList.remove('hidden');
+    requestColorChoice((isWhite) => handlePgnReviewStart(null, isWhite));
 });
 
 // --- Move Navigation Helpers ---
@@ -1086,7 +829,7 @@ tabToggleBtn.addEventListener('click', () => {
     if (next === 'ai') renderAiTabContent();
 });
 
-previewStartBtn.addEventListener('click', () => {
+initPreviewStartButton(() => {
     if (isPreviewMode) {
         startAnalysisFromPreview();
     } else if (isReviewMode) {
@@ -1096,45 +839,19 @@ previewStartBtn.addEventListener('click', () => {
     }
 });
 
-
-let _overlayGetPgn = null;
-
-// 시트를 현재 보이는 view의 board-wrapper 아래끝에 고정 — 보드는 그대로 노출, 클릭 가능.
-// resize/방향 전환에는 미대응(open 중 매번 호출은 비용 + 사용자 close 후 재오픈으로 회복 가능).
-function _placeMovesSheetUnderBoard() {
-    const board = document.querySelector('.view-container:not(.hidden) .board-wrapper');
-    if (!board) return;
-    const top = board.getBoundingClientRect().bottom - appContainer.getBoundingClientRect().top;
-    movesOverlaySheet.style.top = top + 'px';
-}
-
-function _onMovesOverlayKey(e) {
-    if (e.key === 'Escape') closeMovesOverlay();
-}
-
-function showMovesOverlay({ getPgn, renderBody, reviewable = false } = {}) {
-    _overlayGetPgn = getPgn || null;
-    if (renderBody) renderBody();
-    // 리뷰 가능 컨텍스트(분석 화면)에서만 "리뷰 보기" 버튼 노출
-    movesOverlayReviewBtn.classList.toggle('hidden', !reviewable);
-    // 가상 키보드/포커스가 PGN textarea에 남아있으면 내려보낸다
-    if (document.activeElement && document.activeElement.blur) {
-        document.activeElement.blur();
-    }
-    _placeMovesSheetUnderBoard();
-    // top inline 설정 직후 강제 reflow — .open class와 같은 task에 묶이면 시작 transform 상태가
-    // 새 top 기준으로 재계산 안 돼 슬라이드 트랜지션이 안 그려짐.
-    void movesOverlay.offsetWidth;
-    movesOverlay.classList.add('open');
-    document.body.classList.add('moves-overlay-open');
-    document.addEventListener('keydown', _onMovesOverlayKey);
-}
-function closeMovesOverlay() {
-    movesOverlay.classList.remove('open');
-    _overlayGetPgn = null;
-    document.body.classList.remove('moves-overlay-open');
-    document.removeEventListener('keydown', _onMovesOverlayKey);
-}
+initMovesOverlay({
+    appContainer,
+    getFallbackPgn: () => chess.pgn(),
+    onReview: () => {
+        // 보드 위치는 -1(시작 포지션)으로 가져가고 리뷰 모드를 켠다.
+        // updateBoardPosition이 isReviewMode를 OFF로 만드므로 그 후에 ON.
+        if (currentlyViewedIndex !== -1) {
+            updateBoardPosition(-1, chess.header().FEN || 'start');
+        }
+        setIsReviewMode(true);
+        applyReviewView();
+    },
+});
 
 initVault({ showMovesOverlay, closeMovesOverlay, navigateTo, onEmptyCta: () => navigateTo('home') });
 initSavedGames({
@@ -1180,7 +897,7 @@ movesOverlayBtn.addEventListener('click', () => {
     }
     // 분석 데이터가 있고 FEN 단독이 아닐 때만 리뷰 버튼 노출. 미리보기 모드일 때는 분석 전이라 숨김.
     const isFenOnly = analysisQueue.length === 1 && analysisQueue[0]?.isFenOnly;
-    const canReview = !isPreviewMode && !isAnalysisLoading && analysisQueue.length > 0 && !isFenOnly;
+    const canReview = !isPreviewMode && !isAnalysisLoadingActive() && analysisQueue.length > 0 && !isFenOnly;
     showMovesOverlay({
         getPgn: () => injectNags(chess.pgn(), analysisQueue),
         reviewable: canReview,
@@ -1200,32 +917,6 @@ movesOverlayBtn.addEventListener('click', () => {
     });
 });
 
-movesOverlayReviewBtn.addEventListener('click', () => {
-    closeMovesOverlay();
-    // 보드 위치는 -1(시작 포지션)으로 가져가고 리뷰 모드를 켠다.
-    // updateBoardPosition이 isReviewMode를 OFF로 만드므로 그 후에 ON.
-    if (currentlyViewedIndex !== -1) {
-        updateBoardPosition(-1, chess.header().FEN || 'start');
-    }
-    setIsReviewMode(true);
-    applyReviewView();
-});
-movesOverlayCloseBtn.addEventListener('click', closeMovesOverlay);
-// backdrop 클릭 닫기는 폐지 — wrapper가 pointer-events:none이라 클릭이 통과(보드 인터랙션 유지).
-// 닫기는 × 버튼 / Esc만.
-
-copyPgnBtn.addEventListener('click', async () => {
-    const pgn = _overlayGetPgn ? _overlayGetPgn() : chess.pgn();
-    if (!pgn) return;
-    try {
-        await navigator.clipboard.writeText(pgn);
-        showToast(t('copied'));
-    } catch (_) {
-        // 클립보드 권한 거부 / HTTP origin 등 실패 시 토스트로 알림.
-        showToast(t('feedback_error_network'));
-    }
-});
-
 // --- Gemini AI Coach Logic ---
 initGemini({
     geminiEl: geminiExplanation,
@@ -1236,10 +927,7 @@ geminiExplanation.addEventListener('click', (e) => {
     if (e.target.closest('#aiAnalyzeBtn')) handleGeminiExplanation();
 });
 
-
 // --- UI Helpers ---
-const evalBar = document.getElementById('evalBar');
-
 // EXPLORE / SIMULATE 모드 정리 — 변형/시뮬 상태 해제 + 단일 엔진 idle. 하단 바는 syncBottomBar로 동기.
 function exitBranchMode() {
     clearSimExtend();
@@ -1591,93 +1279,7 @@ function renderPreviewCard() {
     engineLinesContainer.innerHTML = buildPreviewCardHtml(buildGameHeaderInfo());
 }
 
-// 분석 화면 chrome(eval-bar + 하단 액션 그룹) 일괄 토글 — preview/loading 진입/이탈에서 공유.
-// abb-group은 .analysis-bottom-bar.chrome-hidden CSS rule이 자식 그룹 일괄 hide.
-function setAnalysisChromeVisible(visible) {
-    evalBar?.classList.toggle('hidden', !visible);
-    analysisBottomBar?.classList.toggle('chrome-hidden', !visible);
-}
-
-// preview 모드: chrome hide + previewStartBtn(하단 바 가운데 floating)만 show.
-function applyPreviewControls() {
-    setAnalysisChromeVisible(false);
-    previewStartBtn.classList.remove('hidden');
-    previewStartBtn.textContent = t('analysis_start_btn');
-}
-
-function removePreviewControls() {
-    setAnalysisChromeVisible(true);
-    previewStartBtn.classList.add('hidden');
-}
-
-// 분석 로딩 상태: 보드 자리에 명언 카드 + 진행 바, 패널/네비/상태바 숨김.
-// view-review와 공존하지 않음 — 완료 시점에 리뷰 뷰가 켜진다.
-const QUOTE_ROTATION_MS = 4500;
-let _quoteRotationTimer = null;
 let _completedCount = 0;
-let _totalCount = 0;
-
-function showCurrentQuote() {
-    const q = pickQuote();
-    if (!q || !loadingQuoteText) return;
-    if (loadingQuoteWrap) loadingQuoteWrap.classList.remove('fading');
-    loadingQuoteText.textContent = q.quote;
-    loadingQuoteAuthor.textContent = q.author;
-}
-
-function rotateQuoteWithFade() {
-    if (!loadingQuoteWrap) return;
-    loadingQuoteWrap.classList.add('fading');
-    setTimeout(() => {
-        showCurrentQuote();
-    }, 380); // CSS transition duration(400ms)와 거의 일치
-}
-
-function setLoadingProgress(completed, total) {
-    if (!loadingProgressFill || !loadingProgressText) return;
-    const pct = total > 0 ? Math.min(100, Math.round((completed / total) * 100)) : 0;
-    loadingProgressFill.style.width = pct + '%';
-    loadingProgressText.textContent = `${pct}%`;
-}
-
-function enterAnalysisLoading() {
-    isAnalysisLoading = true;
-    analysisView.classList.remove('view-review');
-    analysisView.classList.add('analyzing-loading');
-
-    // preview와 동일한 컨트롤 상태 — chrome 숨김. 패널은 게임 헤더 카드로 채움.
-    setAnalysisChromeVisible(false);
-
-    // 패널 영역에 게임 헤더(오프닝/이름/날짜) 카드 — preview와 동일한 정보 카드.
-    renderPreviewCard();
-
-    // 카드 진행률 초기화 — 진짜 총 수는 startNewAnalysis가 setQueue 직후 결정.
-    _completedCount = 0;
-    _totalCount = analysisQueue.length;
-    setLoadingProgress(0, _totalCount);
-
-    // 명언 — 데이터 로드가 늦으면 첫 표시는 비어있고 곧 채워짐.
-    if (loadingQuoteWrap) loadingQuoteWrap.classList.remove('fading');
-    quotesReady().then(() => {
-        if (!isAnalysisLoading) return;
-        showCurrentQuote();
-    });
-
-    if (_quoteRotationTimer) clearInterval(_quoteRotationTimer);
-    _quoteRotationTimer = setInterval(rotateQuoteWithFade, QUOTE_ROTATION_MS);
-}
-
-function exitAnalysisLoading() {
-    if (!isAnalysisLoading) return;
-    isAnalysisLoading = false;
-    analysisView.classList.remove('analyzing-loading');
-    setAnalysisChromeVisible(true);
-
-    if (_quoteRotationTimer) {
-        clearInterval(_quoteRotationTimer);
-        _quoteRotationTimer = null;
-    }
-}
 
 function startAnalysisFromPreview() {
     setIsPreviewMode(false);
@@ -1719,12 +1321,13 @@ async function processNextInQueue() {
     }
 
     // Cache miss (또는 FEN 단독) → 이제부터 Stockfish 분석. 로딩 카드 진입.
-    enterAnalysisLoading();
+    _completedCount = 0;
+    enterAnalysisLoading({ total: analysisQueue.length, renderPreviewCard });
 
     runBatch({
         onProgress: () => {
             _completedCount++;
-            setLoadingProgress(_completedCount, _totalCount);
+            setLoadingProgress(_completedCount, analysisQueue.length);
         },
         onError: (err) => {
             console.error('Engine pool init failed:', err);
@@ -1823,7 +1426,7 @@ const summaryGraphEl = document.getElementById('summaryGraph');
 // - 보드 위치를 옮기면(updateBoardPosition) 자동 OFF
 // 진입 자격: main 모드 + 분석 데이터 존재 + isFenOnly 아님 + 로딩 중 아님 + preview 아님.
 function canShowReview() {
-    if (isAnalysisLoading) return false;
+    if (isAnalysisLoadingActive()) return false;
     if (isPreviewMode) return false;
     const isFenOnly = analysisQueue.length === 1 && analysisQueue[0]?.isFenOnly;
     return appMode === APP_MODES.MAIN && analysisQueue.length > 0 && !isFenOnly;

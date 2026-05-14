@@ -34,7 +34,8 @@ The wedge is not replacing chess.com or lichess on desktop. It is making mobile 
 
 ## Architecture Map
 
-- [main.js](main.js): SPA shell and largest controller. Navigation, analysis view, branch/sim/live modes, overlays, review mode, eval bar, bottom bar.
+- [main.js](main.js): SPA shell and analysis controller. Navigation, analysis view, branch/sim/live modes, review mode, eval bar, bottom bar.
+- [inputView.js](inputView.js), [movesOverlay.js](movesOverlay.js), [analysisLoading.js](analysisLoading.js), [drawer.js](drawer.js): extracted UI controllers for PGN/FEN input, moves overlay, analysis loading/preview chrome, and home drawer.
 - [modes.js](modes.js), [board.js](board.js), [analysis.js](analysis.js): mode state, board state, analysis queue/batch orchestration.
 - [engine.js](engine.js): Stockfish worker wrapper and worker pool. Failed pool workers are retired.
 - [storage.js](storage.js): Supabase proxy client, safe localStorage fallback, `(user_id, platform)` isolation, DB circuit breaker.
