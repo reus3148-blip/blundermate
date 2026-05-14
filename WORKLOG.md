@@ -4,6 +4,8 @@
 
 스택: Pure ES6 modules (빌드 없음) · Vercel Edge Functions · Supabase · Stockfish WASM · Chessground · Chess.js
 
+> 현재 제품 좌표와 우선순위는 [CURRENT.md](CURRENT.md)를 먼저 볼 것. 이 파일은 역사적 작업 로그다. 최신 git commit이 이 파일의 상단 phase보다 더 앞서 있을 수 있으므로, 실제 현재 상태는 코드와 `git log`를 우선한다.
+
 > phase 정렬은 chronological 아님 — 작성자가 그 시점 기준 위에 추가하는 스타일. 옛 phase의 결정도 후속에서 회귀할 수 있음 (예: Phase 32 → 35).
 
 ---
