@@ -509,6 +509,10 @@ function renderResultStrapHtml(meta) {
     if (meta.tcLabel) metaParts.push(escapeHtml(meta.tcLabel));
     if (meta.dateLabel) metaParts.push(escapeHtml(meta.dateLabel));
     const metaLine = metaParts.join(' · ');
+    // 오프닝은 별도 라인 — meta 4토큰을 한 줄에 우겨 wrap 깨지는 것 회피.
+    const openingLine = meta.openingName
+        ? `<div class="resultStrap__opening">${escapeHtml(meta.openingName)}</div>`
+        : '';
 
     const labelMod = meta.result ? ` resultStrap__label--${meta.result}` : '';
     // 점수(1-0/0-1/½-½)는 Win/Loss 라벨과 중복 정보라 표시 안 함 — meta.score는 무시.
@@ -521,6 +525,7 @@ function renderResultStrapHtml(meta) {
                     ${subHtml}
                 </div>
                 ${metaLine ? `<div class="resultStrap__meta">${metaLine}</div>` : ''}
+                ${openingLine}
             </div>
         </div>
     `;

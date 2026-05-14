@@ -1420,7 +1420,7 @@ initAnalysis({ enginePath: './engine/stockfish-18-lite-single.js', callbacks: en
 // ==========================================
 // 6. Analysis Workflow
 // ==========================================
-function handlePgnReviewStart(e = null, isWhiteGame = null, targetIndex = null, previewOnly = false) {
+async function handlePgnReviewStart(e = null, isWhiteGame = null, targetIndex = null, previewOnly = false) {
     setIsUserWhite(isWhiteGame !== null ? isWhiteGame : true);
 
     const pgnText = pgnInput.value.trim();
@@ -1439,6 +1439,19 @@ function handlePgnReviewStart(e = null, isWhiteGame = null, targetIndex = null, 
     }
 
     const newQueue = buildQueueFromPgn(chess);
+
+    // 분석 캐시 hit이면 preview-card 우회 — 곧장 0수 리포트(하이라이트) 화면으로 진입.
+    // home/saved/import 어느 진입점이든 일관: "분석 완료된 게임 다시 열기"는 preview 단계 스킵.
+    // 실패/타임아웃은 silent fallthrough — 기존 preview-card 흐름이 안전망.
+    if (previewOnly && result.pgn && newQueue.length > 0) {
+        try {
+            const pgnHash = await computePgnHash(result.pgn);
+            const cache = await loadAnalysisCache(pgnHash);
+            if (cache && isCacheCompatible(cache, getDepth()) && Array.isArray(cache.moves) && cache.moves.length === newQueue.length) {
+                previewOnly = false;
+            }
+        } catch (_) { /* keep previewOnly=true — preview-card로 폴백 */ }
+    }
 
     // Preview mode: show analysis view without starting engine
     if (previewOnly) {
@@ -1830,12 +1843,15 @@ function buildReviewResultMeta() {
         ? formatRelativeDate(dateRaw.replace(/\./g, '-'), getDateStrings())
         : '';
 
+    const { name: openingName } = parseOpeningFromPgn(chess.pgn());
+
     return {
         result,
         reason,
         opponent: opponent && opponent !== '?' ? opponent : '',
         tcLabel: formatTimeControlLabel(h.TimeControl),
         dateLabel,
+        openingName: openingName || '',
         score: r && r !== '*' ? r.replace(/-/g, '–').replace('1/2', '½') : '',
         isUserWhite,
     };

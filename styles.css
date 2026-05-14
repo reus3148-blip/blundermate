@@ -536,13 +536,17 @@ textarea:focus {
     display: flex;
     justify-content: center;
     align-items: flex-start;
-    padding: 0.4rem 0.5rem 0;
+    /* edge-to-edge — 모바일 폭 cap을 device width까지 풀어 보드 면적 극대화.
+       eval-bar(검정 배경) 또는 top-bar 라인이 이미 분리감을 주므로 padding 불필요. */
+    padding: 0;
     flex-shrink: 0;
 }
 
 .board-container {
     width: 100%;
-    max-width: calc(100dvh - 319px);
+    /* 짧은 PC(9:16 viewport, dvh~600)에서 보드 + chrome + min panel 합 viewport 초과 안 하도록 안전망.
+       모바일 일반(dvh≥667)에선 폭(=device width)이 항상 더 작아 이 cap은 비활성. */
+    max-width: calc(100dvh - 280px);
     aspect-ratio: 1 / 1;
     flex-shrink: 0;
 }
@@ -652,6 +656,9 @@ textarea:focus {
     border-top: 1px solid var(--brd);
     padding-bottom: env(safe-area-inset-bottom);
     flex-shrink: 0;
+    /* panel이 flex:0 auto가 되면서 view-container 빈 공간이 panel과 bottom-bar 사이로 모이도록 push.
+       보드는 top-bar 직후 붙고 panel은 보드 아래 바로, bottom-bar는 항상 하단. */
+    margin-top: auto;
 }
 .analysis-bottom-bar.chrome-hidden .abb-group { display: none; }
 .analysis-bottom-bar.hidden { display: none; }
@@ -737,7 +744,9 @@ textarea:focus {
 }
 
 .ctrl-btn:hover { color: var(--tx); }
-.ctrl-btn:active { transform: scale(0.95); }
+/* Phase 49 디자인 시스템 — press affordance는 gray fill, no scale (chess.com scale 0.97 거부).
+   scale 변화는 분석 화면 컨트롤 클릭 시 buttonn이 살짝 작아져 위치 흔들림 인지를 만듦. */
+.ctrl-btn:active { background: var(--press-fill); }
 .ctrl-btn:disabled {
     opacity: 0.35;
     cursor: not-allowed;
@@ -1049,14 +1058,20 @@ th {
 .move-class-label[data-cls="Blunder"]    { color: var(--blunder);    background: color-mix(in srgb, var(--blunder)    14%, transparent); }
 
 /* AI Coach 패널(#geminiExplanation)도 동일 기하 — 부모 .panel-content 안의 자식이지만
-   자체 flex column으로 내부 콘텐츠(generate 버튼/응답)가 같은 layout 받음. */
+   자체 flex column으로 내부 콘텐츠(generate 버튼/응답)가 같은 layout 받음.
+   flex:0 1 auto — panel은 자기 콘텐츠만큼만(engine 3-line ≈ 121px). 빈 공간은
+   bottom-bar의 margin-top:auto가 흡수해 panel과 bottom 사이로 모인다(보드는 padding 0으로 top-bar 직후 붙어 면적 극대화).
+   긴 gemini 응답은 max-height + overflow-y로 panel 자체 스크롤 — 보드를 밀어내지 않음. */
 .panel-content,
 #geminiExplanation {
     display: flex;
     flex-direction: column;
-    flex: 1;
+    flex: 0 1 auto;
     min-height: 0;
-    overflow: hidden;
+    max-height: 45dvh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
 }
 
 /* vault: 짧은 viewport(PC 9:16, 모바일 일부)에서 feedback + engine-line 합산이 viewport를
@@ -1438,11 +1453,6 @@ th {
     padding: 0;
     flex: 1;
     justify-content: center;
-}
-
-@keyframes fadeInUp {
-    from { opacity: 0; transform: translateY(20px); }
-    to { opacity: 1; transform: translateY(0); }
 }
 
 /* Scrollbar styling */
@@ -2039,7 +2049,6 @@ button.settings-row--destructive:hover {
     flex-direction: column;
     gap: 1.2rem;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
-    animation: fadeInUp 0.3s ease-out;
 }
 
 .modal-content h2 { margin: 0; font-size: 17px; font-weight: 700; color: var(--tx); }
@@ -2312,13 +2321,10 @@ button.settings-row--destructive:hover {
     background-position: 0 0;
 }
 
-/* 보드 외곽: 살짝 둥근 모서리 + 은은한 그림자로 깊이감 부여 */
+/* edge-to-edge — 보드가 컨테이너 가장자리까지 닿으므로 라운드/그림자 제거(좌우 비대칭 노출 회피).
+   eval-bar(검정) + bottom-bar(흰 surface border-top)가 이미 보드 위/아래를 자연 분리. */
 .board-container {
-    border-radius: 4px;
     overflow: hidden;
-    box-shadow:
-        0 1px 3px rgba(0, 0, 0, 0.12),
-        0 10px 24px rgba(0, 0, 0, 0.18);
 }
 
 @media (max-width: 768px) {
@@ -3134,7 +3140,8 @@ button.settings-row--destructive:hover {
     display: none;
 }
 
-#analysisView.view-review .analysis-top-bar,
+/* top-bar는 0수 리포트에서도 유지 — 보드뷰 ↔ 리뷰 전환 시 헤더 깜빡임 없음 +
+   home에서 진입한 사용자의 back 탈출구 확보. */
 #analysisView.view-review .eval-bar,
 #analysisView.view-review #boardContainer,
 #analysisView.view-review .unified-controls,
@@ -3347,6 +3354,18 @@ button.settings-row--destructive:hover {
     line-height: 1.45;
     color: var(--tx3);
     margin-top: 6px;
+    padding-left: 21px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+/* 오프닝 — meta line(상대·시간제어·날짜) 아래 별도 줄. tx2(meta보다 한 단계 진한 톤)로 정보 위계 명시. */
+.resultStrap__opening {
+    font-size: 12.5px;
+    line-height: 1.45;
+    color: var(--tx2);
+    font-weight: 500;
+    margin-top: 8px;
     padding-left: 21px;
     white-space: nowrap;
     overflow: hidden;
