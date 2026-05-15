@@ -21,7 +21,7 @@ import {
     setSimulationQueue, pushSimulationQueueItem, setSimulationIndex, setSimExtendState,
 } from './modes.js';
 import { parseEvalData, getDests, convertPvToSan, parseAndLoadPgn, isValidFen, escapeHtml, parseOpeningFromPgn, getTier, TIERS, classifyMove, injectNags, formatTimeControlLabel, formatRelativeDate, getDateStrings } from './utils.js';
-import { renderMovesTable, updateUIWithEval, highlightActiveMove, renderEngineLines, prependMoveChip, updateTopEvalDisplay, renderReviewReport, buildPreviewCardHtml, placePieceBadge } from './ui.js';
+import { renderMovesTable, updateUIWithEval, highlightActiveMove, renderEngineLines, updateTopEvalDisplay, renderReviewReport, buildPreviewCardHtml, placePieceBadge } from './ui.js';
 import { computePgnHash, upsertAnalyzedGame, loadAnalysisCache, saveAnalysisCache, isCacheCompatible, ANALYSIS_CACHE_VERSION, getIsCoordsEnabled } from './storage.js';
 import { collectAutoBlunders } from './autoBlunders.js';
 import { initVault, isVaultDetailActive, isVaultPuzzleActive, getVaultDetailIndex, setVaultDetailIndex, flipVaultBoard, setVaultCoords, redrawVaultBoard, renderVaultScreen, hideVaultViews, redrawVaultPuzzleBoard } from './vault.js';
@@ -72,8 +72,7 @@ const movesOverlayBtn = document.getElementById('movesOverlayBtn');
 const homeView = document.getElementById('homeView');
 const analysisView = document.getElementById('analysisView');
 
-// Live Input — analysisBottomBar의 liveMenuWrap(처음부터/회전/실행취소 popover) LIVE_INPUT만 노출.
-// 저장/AI/기보/이전/다음은 리뷰 화면과 공유.
+// Analysis options menu — 저장/AI/메인복귀/라이브 도구를 보드 아래 ⋯ 메뉴에 수납.
 const liveMenuWrap = document.getElementById('liveMenuWrap');
 const liveMenuBtn = document.getElementById('liveMenuBtn');
 const liveMenuPopover = document.getElementById('liveMenuPopover');
@@ -469,9 +468,6 @@ function kickBranchEngine(fen) {
 
 function renderBranchEngineLinesWithContext(lines = branchEngineLines) {
     renderEngineLines(engineLinesContainer, lines.filter(Boolean), drawEngineArrow, clearEngineArrow, handleEngineLineClick);
-    if (appMode === APP_MODES.LIVE_INPUT && currentlyViewedIndex >= 0 && analysisQueue[currentlyViewedIndex]) {
-        prependMoveChip(engineLinesContainer, analysisQueue, currentlyViewedIndex);
-    }
 }
 
 function clearSimExtend() {
@@ -609,22 +605,23 @@ openBoardInputBtn.addEventListener('click', async () => {
     }
 });
 
-// 하단 바 가시성은 appMode에서 단일 도출 — setAppMode 직후 syncBottomBar() 호출이 invariant.
+// 옵션 메뉴 가시성은 appMode에서 단일 도출 — setAppMode 직후 syncBottomBar() 호출이 invariant.
 //   LIVE_INPUT       → 실행취소·회전·처음부터 노출 / AI 노출 / 메인복귀 숨김
-//   EXPLORE/SIMULATE → 메인복귀 노출 / AI 숨김 / 라이브 메뉴 숨김
-//   MAIN(review)     → AI 노출 / 라이브 메뉴·메인복귀 숨김
-// 좌측 그룹은 [저장·AI·메인복귀·liveMenu(처음부터/회전/실행취소)·기보], 우측은 [이전·다음].
+//   EXPLORE/SIMULATE → 메인복귀 노출 / AI 숨김 / 라이브 도구 숨김
+//   MAIN(review)     → AI 노출 / 메인복귀·라이브 도구 숨김
 function syncBottomBar() {
     const isLive = appMode === APP_MODES.LIVE_INPUT;
     const isBranch = appMode === APP_MODES.EXPLORE || appMode === APP_MODES.SIMULATE;
-    liveMenuWrap?.classList.toggle('hidden', !isLive);
-    if (!isLive) closeLiveMenu();
+    liveMenuWrap?.classList.remove('hidden');
+    liveUndoBtn?.classList.toggle('hidden', !isLive);
+    liveFlipBtn?.classList.toggle('hidden', !isLive);
+    liveResetBtn?.classList.toggle('hidden', !isLive);
     returnMainLineBtn.classList.toggle('hidden', !isBranch);
     tabToggleBtn.classList.toggle('hidden', isBranch);
 }
 
-// ── liveMenu popover — 트리거(⋯) 클릭 시 위로 펼침. 항목/Esc/바깥 클릭 시 닫힘. ──
-const LIVE_MENU_TRANSITION_MS = 120; // styles.css .live-menu-popover transition과 동기
+// ── options popover — 트리거(⋯) 클릭 시 펼침. 항목/Esc/바깥 클릭 시 닫힘. ──
+const LIVE_MENU_TRANSITION_MS = 120; // styles.css .analysis-menu-popover transition과 동기
 let _liveMenuHideTimer = null;
 
 function openLiveMenu() {
@@ -639,11 +636,12 @@ function openLiveMenu() {
 }
 function closeLiveMenu() {
     if (!liveMenuPopover || !liveMenuBtn) return;
-    if (!liveMenuPopover.classList.contains('is-open') && liveMenuPopover.hidden) return;
+    const alreadyClosed = !liveMenuPopover.classList.contains('is-open') && liveMenuPopover.hidden;
     liveMenuPopover.classList.remove('is-open');
     liveMenuBtn.setAttribute('aria-expanded', 'false');
     document.removeEventListener('keydown', _onLiveMenuKeydown);
     document.removeEventListener('mousedown', _onLiveMenuOutside, true);
+    if (alreadyClosed) return;
     if (_liveMenuHideTimer !== null) clearTimeout(_liveMenuHideTimer);
     _liveMenuHideTimer = setTimeout(() => {
         _liveMenuHideTimer = null;
@@ -818,6 +816,7 @@ tabToggleBtn.addEventListener('click', () => {
     const next = currentTab === 'engine' ? 'ai' : 'engine';
     switchTab(next);
     if (next === 'ai') renderAiTabContent();
+    closeLiveMenu();
 });
 
 initPreviewStartButton(() => {
@@ -882,8 +881,12 @@ movesOverlayBtn.addEventListener('click', () => {
     if (appMode === APP_MODES.LIVE_INPUT) {
         showMovesOverlay({
             getPgn: () => branchChess.pgn(),
-            renderBody: () => renderMovesTable(movesBody, buildExplorationMovesQueue(), () => closeMovesOverlay()),
+            renderBody: () => renderMovesTable(movesBody, buildExplorationMovesQueue(), (index) => {
+                syncLiveStateToIndex(index);
+                closeMovesOverlay();
+            }),
         });
+        highlightActiveMove(currentlyViewedIndex);
         return;
     }
     // 분석 데이터가 있고 FEN 단독이 아닐 때만 리뷰 버튼 노출. 미리보기 모드일 때는 분석 전이라 숨김.
@@ -906,6 +909,7 @@ movesOverlayBtn.addEventListener('click', () => {
             }
         },
     });
+    highlightActiveMove(currentlyViewedIndex);
 });
 
 // --- Gemini AI Coach Logic ---
@@ -919,7 +923,7 @@ geminiExplanation.addEventListener('click', (e) => {
 });
 
 // --- UI Helpers ---
-// EXPLORE / SIMULATE 모드 정리 — 변형/시뮬 상태 해제 + 단일 엔진 idle. 하단 바는 syncBottomBar로 동기.
+// EXPLORE / SIMULATE 모드 정리 — 변형/시뮬 상태 해제 + 단일 엔진 idle. 옵션 메뉴는 syncBottomBar로 동기.
 function exitBranchMode() {
     clearSimExtend();
     setAppMode(APP_MODES.MAIN);
@@ -930,6 +934,7 @@ function exitBranchMode() {
 }
 
 returnMainLineBtn.addEventListener('click', () => {
+    closeLiveMenu();
     exitBranchMode();
     if (currentlyViewedIndex >= 0 && analysisQueue[currentlyViewedIndex]) {
         updateBoardPosition(currentlyViewedIndex, analysisQueue[currentlyViewedIndex].fen);
@@ -941,6 +946,7 @@ returnMainLineBtn.addEventListener('click', () => {
 
 // 분석/라이브 화면 저장 버튼 → saved_games로 직접. vault 수동 저장은 폐지(자동 수집만).
 saveMoveBtn.addEventListener('click', () => {
+    closeLiveMenu();
     if (appMode === APP_MODES.LIVE_INPUT) {
         if (branchChess.history().length === 0) {
             showAlert(t('analysis_no_save_start'));
@@ -1551,7 +1557,6 @@ function updateBoardPosition(index, fen) {
     if (analysisQueue[index] && analysisQueue[index].engineLines && analysisQueue[index].engineLines.length > 0) {
         const topLine = analysisQueue[index].engineLines[0];
         renderEngineLines(engineLinesContainer, analysisQueue[index].engineLines.filter(Boolean), drawEngineArrow, clearEngineArrow, handleEngineLineClick);
-        prependMoveChip(engineLinesContainer, analysisQueue, index);
         updateTopEvalDisplay(topLine.scoreStr, analysisQueue[index].classification, isUserWhite);
     } else if (index === -1 && analysisQueue.length > 0) {
         // 분석 후 0수(시작 포지션) — 게임 목록에서 누른 직후 모습과 동일하게 미리보기 카드 표시

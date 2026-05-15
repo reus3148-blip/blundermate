@@ -16,8 +16,9 @@ Current positioning: mobile game review first, Korean-friendly by default, chess
 
 - Public hobby project with real users.
 - Domestic communities/open chat have been posted once; another domestic repost is planned around 2026-05-14/15.
-- Vault polish is the next major product milestone.
-- Reddit launch should wait until Vault first experience feels complete.
+- The MVP focus is chess.com game review, especially the live analysis and game review UI/UX.
+- Vault is the next priority after the analysis/review experience feels sharp.
+- Reddit launch should wait until the core review UI and Vault first experience both feel complete.
 
 ## Operating Numbers
 
@@ -35,11 +36,11 @@ These numbers are for direction, not privacy-sensitive reporting. Avoid dumping 
 
 ## Active Priorities
 
-1. Preserve and polish the analysis flow: game selection -> preview/cache -> analysis -> review.
-2. Finish Vault as the retention loop: auto-collected mistakes should feel like useful review puzzles, not hidden storage.
-3. Add clearer analysis-complete messaging that Vault items were collected.
-4. Improve operational safety before larger launches: rate limit, Gemini markdown sanitization, RLS/anon-key risk plan.
-5. Prepare English copy and screenshots for Reddit after Vault is ready.
+1. Polish the live analysis and game review UI/UX: board readability, board-adjacent eval/classification controls, engine lines, move navigation, and mobile touch flow.
+2. Preserve the chess.com game review loop: import -> preview/cache -> Stockfish analysis -> mobile review.
+3. Improve Vault after the review experience: auto-collected mistakes should feel like useful review puzzles, not hidden storage.
+4. Add clearer analysis-complete messaging that Vault items were collected.
+5. Improve operational safety before larger launches: rate limit, Gemini markdown sanitization, RLS/anon-key risk plan.
 
 ## Do Not Break
 

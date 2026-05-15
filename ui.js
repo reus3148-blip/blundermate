@@ -150,7 +150,7 @@ export function highlightActiveMove(index) {
             tr.classList.add('active-move-row');
             
             // 화면 전체가 당겨지는 현상을 방지하기 위해 컨테이너 내부 스크롤만 조작합니다.
-            const container = tr.closest('.moves-container');
+            const container = tr.closest('.moves-overlay-body') || tr.closest('.moves-container');
             // 기보 컨테이너가 화면에 보일 때(display: none이 아닐 때)만 스크롤 위치를 계산 (Edge Case 방어)
             if (container && container.offsetParent !== null) {
                 const rect = tr.getBoundingClientRect();
@@ -209,35 +209,6 @@ export function renderEngineLines(container, lines, onHover, onLeave, onClick) {
     }
 
     container.innerHTML = linesHtml + placeholderHtml;
-}
-
-export function prependMoveChip(container, queue, index) {
-    const move = Array.isArray(queue) ? queue[index] : queue;
-    if (!container || !move || !move.san) return;
-
-    const moves = Array.isArray(queue) ? queue : [move];
-    const whiteMove = moves.find(m => m && m.moveNumber === move.moveNumber && m.isWhite);
-    const blackMove = moves.find(m => m && m.moveNumber === move.moveNumber && !m.isWhite);
-    const moveNo = `${move.moveNumber}.`;
-    const whiteSan = whiteMove?.san || '';
-    const blackSan = blackMove?.san || '...';
-    const cls = move.classification || '';
-    const clsKey = CLASS_I18N[cls];
-    const clsHtml = clsKey
-        ? `<span class="move-chip-class" data-cls="${escapeHtml(cls)}">${escapeHtml(t(clsKey))}</span>`
-        : '<span class="move-chip-class move-chip-class--empty" aria-hidden="true"></span>';
-
-    container.insertAdjacentHTML('afterbegin', `
-        <div class="move-chip-row">
-            <div class="move-chip-moves">
-                <span class="move-chip-no">${escapeHtml(moveNo)}</span>
-                <span class="move-chip-san move-chip-san--white${move.isWhite ? ' is-current' : ''}">${escapeHtml(whiteSan)}</span>
-                <span class="move-chip-san move-chip-san--black${!move.isWhite ? ' is-current' : ''}">${escapeHtml(blackSan)}</span>
-            </div>
-            ${clsHtml}
-            <span class="move-chip-engine">${escapeHtml(t('engine_stockfish_18'))}</span>
-        </div>
-    `);
 }
 
 function setupEngineLinesDelegation(container) {
@@ -588,38 +559,36 @@ export function renderReviewReport({ analysisQueue, isUserWhite, resultMeta }) {
 }
 
 /**
- * 분석 화면 상단 eval-bar 갱신 (chess.com 모바일 패턴).
- * scoreStr → 흰색 fill 비율 + cp/mate 숫자 overlay. 분류(classification)는 보드 piece-badge가 담당.
- * isUserWhite 인자는 backward-compat용 — eval-bar는 항상 흰색 기준으로 표시(왼쪽=흰).
- *
- * Hot path (rAF throttled, 매 엔진 info마다). 호출당 비용 최소화:
- *  - DOM refs는 module-scope lazy cache (getElementById 반복 회피)
- *  - 같은 scoreStr 연속 호출은 early return (CSS transition restart 방지 → 부드러운 보간 유지)
+ * 보드 아래 review controls의 수 평가/평가치 갱신.
+ * isUserWhite 인자는 backward-compat용.
  */
-let _evalBar, _evalBarFill, _evalBarText, _lastEvalScoreStr;
+let _moveClassLabel, _winChanceDisplay, _analysisEvalSeparator, _lastEvalDisplayKey;
 export function updateTopEvalDisplay(scoreStr, classification = '', isUserWhite = true) {
-    if (!_evalBar) {
-        _evalBar = document.getElementById('evalBar');
-        _evalBarFill = document.getElementById('evalBarFill');
-        _evalBarText = document.getElementById('evalBarText');
+    if (!_winChanceDisplay) {
+        _moveClassLabel = document.getElementById('moveClassLabel');
+        _winChanceDisplay = document.getElementById('winChanceDisplay');
+        _analysisEvalSeparator = document.getElementById('analysisEvalSeparator');
     }
-    if (!_evalBar || !_evalBarFill || !_evalBarText) return;
-    if (scoreStr === _lastEvalScoreStr) return;
-    _lastEvalScoreStr = scoreStr;
+    if (!_winChanceDisplay) return;
+    const key = `${scoreStr || ''}|${classification || ''}`;
+    if (key === _lastEvalDisplayKey) return;
+    _lastEvalDisplayKey = key;
 
-    const whitePct = evalToWinChance(scoreStr);
-    if (whitePct === null) {
-        _evalBarFill.style.width = '50%';
-        _evalBarText.textContent = '';
-        _evalBarText.classList.remove('eval-bar-text--white', 'eval-bar-text--black');
-        return;
+    const scoreText = scoreStr === '...' ? '...' : formatScoreMode(scoreStr);
+    _winChanceDisplay.textContent = scoreText;
+
+    const classKey = CLASS_I18N[classification] || '';
+    if (_moveClassLabel) {
+        if (classKey) {
+            _moveClassLabel.textContent = t(classKey);
+            _moveClassLabel.dataset.cls = classification;
+        } else {
+            _moveClassLabel.textContent = '';
+            delete _moveClassLabel.dataset.cls;
+        }
     }
 
-    _evalBarFill.style.width = whitePct + '%';
-    _evalBarText.textContent = formatScoreMode(scoreStr);
-    // 우세한 쪽에 텍스트 — 흰 영역 ≥ 50%면 좌측 흰 fill 위, 그 외 우측 검은 영역 위.
-    _evalBarText.classList.toggle('eval-bar-text--white', whitePct >= 50);
-    _evalBarText.classList.toggle('eval-bar-text--black', whitePct < 50);
+    _analysisEvalSeparator?.classList.toggle('hidden', !classKey || scoreText === '—');
 }
 
 // 보드 위 분류 배지 — 분석 화면(showPieceBadge)과 vault 카드(renderBlunderVisualization) 공유.

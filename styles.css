@@ -401,12 +401,6 @@
     border-bottom: 1px solid var(--brd);
     flex-shrink: 0;
 }
-/* eval-bar가 바로 아래 있는 분석/리뷰 화면에선 top-bar의 구분선 제거 — eval-bar 자체 검정
-   배경이 시각 경계 역할. eval-bar가 hidden(preview/loading) 상태에선 :has()로 fallback. */
-#analysisView .analysis-top-bar:has(+ .eval-bar:not(.hidden)) {
-    border-bottom: none;
-}
-
 .back-btn {
     display: flex;
     align-items: center;
@@ -536,17 +530,15 @@ textarea:focus {
     display: flex;
     justify-content: center;
     align-items: flex-start;
-    /* edge-to-edge — 모바일 폭 cap을 device width까지 풀어 보드 면적 극대화.
-       eval-bar(검정 배경) 또는 top-bar 라인이 이미 분리감을 주므로 padding 불필요. */
+    /* edge-to-edge — 모바일 폭 cap을 device width까지 풀어 보드 면적 극대화. */
     padding: 0;
     flex-shrink: 0;
 }
 
 .board-container {
     width: 100%;
-    /* 짧은 PC(9:16 viewport, dvh~600)에서 보드 + chrome + min panel 합 viewport 초과 안 하도록 안전망.
-       모바일 일반(dvh≥667)에선 폭(=device width)이 항상 더 작아 이 cap은 비활성. */
-    max-width: calc(100dvh - 280px);
+    /* 짧은 PC(9:16 viewport, dvh~600)에서 보드 + chrome + min panel 합 viewport 초과 안 하도록 안전망. */
+    max-width: calc(100dvh - 220px);
     aspect-ratio: 1 / 1;
     flex-shrink: 0;
 }
@@ -575,41 +567,67 @@ textarea:focus {
     gap: 0;
 }
 
-/* Eval bar — analysis-top-bar 바로 아래 horizontal 평가 그래프 (chess.com 모바일 분석 탭 패턴).
-   왼쪽 = 흰색 fill (whitePct%), 오른쪽 = 흑색 fill. 한쪽 끝에 cp/mate 숫자 overlay. */
-.eval-bar {
-    position: relative;
-    height: 26px;
-    background: #1a1a1a;
-    overflow: hidden;
+/* Analysis controls — 보드 바로 아래 한 줄: 수 평가 / 평가치 / 옵션 / 이전·다음. */
+.analysis-controls-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 52px;
+    padding: 0 8px;
+    background: var(--bg-surface);
+    border-top: 1px solid var(--brd);
+    border-bottom: 1px solid var(--brd);
     flex-shrink: 0;
 }
-.eval-bar.hidden { display: none; }
 
-.eval-bar-fill {
-    position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    width: 50%;
-    background: #f5f5f5;
-    transition: width 0.25s ease;
+.analysis-controls-inner {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    width: 100%;
+    max-width: 480px;
+    min-width: 0;
+    box-sizing: border-box;
+    padding-left: 48px;
+    gap: clamp(10px, 3vw, 14px);
 }
 
-.eval-bar-text {
+.analysis-control-main {
     position: absolute;
-    top: 50%;
-    transform: translateY(-50%);
-    font-family: var(--num-font);
-    font-variant-numeric: tabular-nums;
-    font-feature-settings: "tnum" 1, "zero" 1;
-    font-size: 11px;
-    font-weight: 700;
-    line-height: 1;
-    z-index: 1;
+    left: 50%;
+    transform: translateX(-50%);
+    display: grid;
+    grid-template-columns: minmax(66px, 1fr) 1px minmax(56px, 1fr);
+    align-items: center;
+    justify-items: center;
+    gap: clamp(5px, 1.6vw, 8px);
+    min-width: 0;
+    width: clamp(144px, 38vw, 170px);
+    flex: 0 0 auto;
+    height: 40px;
 }
-.eval-bar-text--white { left: 6px; color: #1a1a1a; }
-.eval-bar-text--black { right: 6px; color: #f5f5f5; }
+
+.analysis-control-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 2px;
+    flex: 0 0 auto;
+}
+
+.analysis-controls-bar.chrome-hidden .analysis-control-main,
+.analysis-controls-bar.chrome-hidden .analysis-control-actions,
+.analysis-controls-bar.chrome-hidden .analysis-menu-wrap {
+    display: none;
+}
+
+@media (max-width: 360px) {
+    .analysis-control-main {
+        position: static;
+        transform: none;
+    }
+}
 
 /* unified-controls 안 좌/우 그룹 — vault detail의 `< 12% >` 가로 배치 전용. */
 .ctrl-group-left,
@@ -621,7 +639,7 @@ textarea:focus {
 .ctrl-group-left  { justify-content: flex-start; }
 .ctrl-group-right { justify-content: flex-end; }
 
-/* preview 모드 전용 분석 시작 버튼 — 하단 바 내부 정중앙 floating. 다른 abb-group들은 hidden. */
+/* preview 모드 전용 분석 시작 버튼 — controls bar 내부 정중앙 floating. */
 .preview-start-btn {
     position: absolute;
     left: 50%;
@@ -641,60 +659,6 @@ textarea:focus {
 }
 .preview-start-btn:hover { background: var(--ac-br); }
 .preview-start-btn:active { background: var(--ac-br); transform: translate(-50%, -50%) scale(0.97); }
-
-/* 분석 화면 하단 액션바: 좌측 [저장 · AI · 메인복귀 · 실행취소 · 회전 · 처음부터] ─── 우측 [이전 · 다음].
-   .chrome-hidden 모디파이어 = preview/loading 모드에서 abb-group 일괄 숨김 (previewStartBtn은 별도 토글). */
-.analysis-bottom-bar {
-    position: relative;
-    display: flex;
-    align-items: center;
-    /* .abb-left가 position:absolute가 되면서 in-flow는 .abb-right만 남음 — flex-end로 우측 끝 고정. */
-    justify-content: flex-end;
-    height: 64px;
-    padding: 0 8px;
-    background: var(--bg-surface);
-    border-top: 1px solid var(--brd);
-    padding-bottom: env(safe-area-inset-bottom);
-    flex-shrink: 0;
-    /* panel이 flex:0 auto가 되면서 view-container 빈 공간이 panel과 bottom-bar 사이로 모이도록 push.
-       보드는 top-bar 직후 붙고 panel은 보드 아래 바로, bottom-bar는 항상 하단. */
-    margin-top: auto;
-}
-.analysis-bottom-bar.chrome-hidden .abb-group { display: none; }
-.analysis-bottom-bar.hidden { display: none; }
-
-.abb-group {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-}
-/* 패턴: [여백 save 여백 AI 여백 기보] — 3개 여백 동일.
-   사용가능 폭 = 기보 좌측(50% - 24px). 여백 3 + 버튼 2(48*2=96) = 50% - 24
-   → 여백 = (50% - 120px) / 3.
-   save 좌측 = 여백 = (50% - 120px) / 3.
-   AI 우측 = 2*여백 + 96 = (100% - 240px)/3 + 96 = 100%/3 + 16px → bar right 기준 right offset = 200%/3 - 16px. */
-.analysis-bottom-bar .abb-edge-left {
-    position: absolute;
-    left: calc((50% - 120px) / 3);
-    top: 50%;
-    transform: translateY(-50%);
-}
-.analysis-bottom-bar .abb-left {
-    position: absolute;
-    right: calc(200% / 3 - 16px);
-    top: 50%;
-    transform: translateY(-50%);
-}
-/* 기보 버튼만 absolute 정중앙 고정 — 좌/우 그룹 너비 변동(라이브 모드 liveMenuWrap 추가 등)에도
-   바 중앙 위치 불변. abb-group 클래스를 같이 부여해 chrome-hidden 시 한 번에 가려짐. */
-#movesOverlayBtn.abb-center {
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
-    width: 48px;
-    margin-bottom: env(safe-area-inset-bottom);
-}
 
 /* Base style for action buttons in library/modals (kept for other views) */
 .control-btn {
@@ -760,30 +724,26 @@ textarea:focus {
     padding: 0;
 }
 
-/* ── Live menu popover (ㅗ 모양) ────────────────────────────────
-   LIVE_INPUT 모드 전용. 트리거(liveMenuBtn)는 하단 액션바 안에,
-   popover(liveMenuPopover)는 그 위로 absolute 절출. 트리거 가운데 기준 정렬.
-   wrap 위치: 기보(50%) right edge(+24px)와 prev(<) left edge(100% - 108px) 사이 정중앙.
-   midpoint = (50% + 24 + 100% - 108) / 2 = 75% - 42px. */
-.live-menu-wrap {
+/* ── Analysis options menu ─────────────────────────────────────
+   보드 아래 controls bar의 ⋯ 메뉴. 저장/AI/메인복귀/라이브 도구를 수납한다. */
+.analysis-menu-wrap {
     position: absolute;
-    left: calc(75% - 42px);
+    left: 0;
     top: 50%;
-    transform: translate(-50%, -50%);
+    transform: translateY(-50%);
     display: flex;
     align-items: center;
 }
-/* 트리거 버튼은 다른 ctrl-btn(48×48)과 동일 사이즈 — ctrl-live는 popover 내부 아이콘 전용. */
-#liveMenuBtn {
+.analysis-menu-btn {
     width: 48px;
     flex-shrink: 0;
 }
-.live-menu-popover {
+.analysis-menu-popover {
     position: absolute;
-    bottom: calc(100% + 6px);
-    left: 50%;
-    transform: translateX(-50%) scale(0.92);
-    transform-origin: bottom center;
+    top: calc(100% + 6px);
+    right: 0;
+    transform: translateY(-4px) scale(0.96);
+    transform-origin: top right;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -798,25 +758,25 @@ textarea:focus {
     pointer-events: none;
     transition: opacity 0.12s ease, transform 0.12s ease;
 }
-.live-menu-popover.is-open {
+.analysis-menu-popover.is-open {
     opacity: 1;
-    transform: translateX(-50%) scale(1);
+    transform: translateY(0) scale(1);
     pointer-events: auto;
 }
-/* 아래쪽 화살표 — 트리거를 가리키는 작은 삼각형. border 트릭. */
-.live-menu-popover::after {
+/* 위쪽 화살표 — 트리거를 가리키는 작은 삼각형. border 트릭. */
+.analysis-menu-popover::after {
     content: '';
     position: absolute;
-    top: 100%;
-    left: 50%;
-    transform: translateX(-50%);
+    bottom: 100%;
+    right: 18px;
     width: 0;
     height: 0;
     border-left: 6px solid transparent;
     border-right: 6px solid transparent;
-    border-top: 6px solid var(--bg-surface);
+    border-bottom: 6px solid var(--bg-surface);
 }
-.live-menu-popover .ctrl-btn {
+.analysis-menu-popover .ctrl-btn,
+.analysis-menu-popover .tab-toggle-btn {
     min-height: 40px;
     width: 40px;
 }
@@ -915,101 +875,6 @@ textarea:focus {
 .engine-lines-container {
     padding: 0.25rem 0 0;
 }
-
-/* Current move chip: review board context without bringing back a full-width middle bar. */
-.move-chip-row {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto minmax(84px, 1fr);
-    align-items: center;
-    gap: 10px;
-    height: 38px;
-    padding: 0 12px;
-    border-bottom: 1px solid var(--brd);
-}
-
-.move-chip-moves {
-    display: grid;
-    grid-template-columns: 17px 42px 42px;
-    align-items: baseline;
-    column-gap: 6px;
-    justify-self: start;
-    max-width: 100%;
-    min-width: 0;
-    overflow: hidden;
-}
-
-.move-chip-engine {
-    align-self: end;
-    justify-self: end;
-    padding-bottom: 5px;
-    flex-shrink: 0;
-    font-family: var(--num-font);
-    font-size: 10px;
-    font-weight: 700;
-    line-height: 1;
-    color: var(--tx3);
-    letter-spacing: 0;
-    opacity: 0.72;
-}
-
-.move-chip-no {
-    flex: 0 0 auto;
-    font-family: var(--num-font);
-    font-variant-numeric: tabular-nums;
-    font-feature-settings: "tnum" 1, "zero" 1;
-    font-size: 12px;
-    font-weight: 800;
-    line-height: 1;
-    color: var(--tx2);
-    opacity: 0.9;
-}
-
-.move-chip-san {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-family: var(--num-font);
-    font-variant-numeric: tabular-nums;
-    font-feature-settings: "tnum" 1, "zero" 1;
-    font-size: 12.5px;
-    font-weight: 700;
-    line-height: 1;
-    color: var(--tx3);
-    opacity: 0.72;
-}
-
-.move-chip-san.is-current {
-    color: var(--tx);
-    font-weight: 850;
-    opacity: 1;
-}
-
-.move-chip-san--black:not(.is-current) {
-    opacity: 0.58;
-}
-
-.move-chip-class {
-    justify-self: center;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 12px;
-    font-weight: 800;
-    line-height: 1;
-    letter-spacing: 0;
-    color: var(--tx2);
-}
-
-.move-chip-class[data-cls="Brilliant"]  { color: var(--brilliant); }
-.move-chip-class[data-cls="Great"]      { color: var(--great); }
-.move-chip-class[data-cls="Best"]       { color: var(--best); }
-.move-chip-class[data-cls="Excellent"]  { color: var(--excellent); }
-.move-chip-class[data-cls="Inaccuracy"] { color: var(--inaccuracy); }
-.move-chip-class[data-cls="Mistake"]    { color: var(--mistake); }
-.move-chip-class[data-cls="Blunder"]    { color: var(--blunder); }
-.move-chip-class[data-cls="Forced"]     { color: var(--tx2); }
 
 /* ── Preview Card (분석 시작 전 + 분석 후 0수 공유) ─────────── */
 .preview-card {
@@ -1128,18 +993,18 @@ th {
 
 /* eval은 mono + 굵게 + 가독성 색(JS가 색 주입). 폭은 내용 기반(symbol M3/+9.99 등 변동) + 좌측 라벨과 일관 정렬. */
 .win-chance-display {
-    flex-shrink: 0;
+    transform: translateX(-7px);
     font-family: var(--num-font);
     font-variant-numeric: tabular-nums;
     font-feature-settings: "tnum" 1, "zero" 1;
-    font-size: 15px;
-    font-weight: 700;
+    min-width: 56px;
+    font-size: 16px;
+    font-weight: 750;
     color: var(--tx);
     line-height: 1;
-    text-align: left;
-    cursor: pointer;
+    text-align: center;
     transition: opacity 0.15s ease;
-    padding: 0 4px;
+    padding: 0 2px;
 }
 
 /* 분류 라벨을 chess.com/lichess 패턴의 컬러 칩(tint pill)으로.
@@ -1147,16 +1012,23 @@ th {
 .move-class-label {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
+    justify-self: end;
     height: 22px;
-    padding: 0 9px;
+    min-width: 66px;
+    padding: 0 10px;
     flex-shrink: 0;
     font-size: 11px;
     font-weight: 700;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.02em;
     line-height: 1;
     border-radius: 999px;
     color: var(--tx2);
     background: var(--bg-elevated);
+    max-width: min(27vw, 108px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .move-class-label:empty { display: none; }
@@ -1166,9 +1038,11 @@ th {
 .move-class-label[data-cls="Great"]      { color: var(--great);      background: color-mix(in srgb, var(--great)      14%, transparent); }
 .move-class-label[data-cls="Best"]       { color: var(--best);       background: color-mix(in srgb, var(--best)       14%, transparent); }
 .move-class-label[data-cls="Excellent"]  { color: var(--excellent);  background: color-mix(in srgb, var(--excellent)  14%, transparent); }
+.move-class-label[data-cls="Good"]       { color: var(--tx);         background: var(--bg-elevated); }
 .move-class-label[data-cls="Inaccuracy"] { color: var(--inaccuracy); background: color-mix(in srgb, var(--inaccuracy) 14%, transparent); }
 .move-class-label[data-cls="Mistake"]    { color: var(--mistake);    background: color-mix(in srgb, var(--mistake)    14%, transparent); }
 .move-class-label[data-cls="Blunder"]    { color: var(--blunder);    background: color-mix(in srgb, var(--blunder)    14%, transparent); }
+.move-class-label[data-cls="Forced"]     { color: var(--tx2);        background: var(--bg-elevated); }
 
 /* AI Coach 패널(#geminiExplanation)도 동일 기하 — 부모 .panel-content 안의 자식이지만
    자체 flex column으로 내부 콘텐츠(generate 버튼/응답)가 같은 layout 받음.
@@ -1684,15 +1558,18 @@ th {
 
 /* Row highlighting for active move */
 .active-move {
-    background: var(--ac-lo);
-    border-left: 3px solid var(--ac);
+    background: transparent;
 }
 .active-move .move-cell {
-    font-weight: bold;
-    color: var(--ac);
+    font-weight: inherit;
+    color: inherit;
+}
+.active-move .move-cell .san {
+    color: color-mix(in srgb, var(--ac) 78%, var(--tx) 22%);
+    font-weight: 700;
 }
 .active-move-row {
-    background: var(--bg-elevated);
+    background: transparent;
 }
 
 /* ==========================================
@@ -2458,7 +2335,7 @@ button.settings-row--destructive:hover {
 }
 
 /* edge-to-edge — 보드가 컨테이너 가장자리까지 닿으므로 라운드/그림자 제거(좌우 비대칭 노출 회피).
-   eval-bar(검정) + bottom-bar(흰 surface border-top)가 이미 보드 위/아래를 자연 분리. */
+   top-bar + controls bar가 보드 위/아래를 자연 분리. */
 .board-container {
     overflow: hidden;
 }
@@ -2597,8 +2474,8 @@ button.settings-row--destructive:hover {
 }
 
 .moves-overlay .active-move-row td {
-    background: var(--ac-lo);
-    color: var(--ac);
+    background: transparent;
+    color: inherit;
 }
 
 /* ==========================================
@@ -3288,11 +3165,9 @@ button.settings-row--destructive:hover {
 
 /* top-bar는 0수 리포트에서도 유지 — 보드뷰 ↔ 리뷰 전환 시 헤더 깜빡임 없음 +
    home에서 진입한 사용자의 back 탈출구 확보. */
-#analysisView.view-review .eval-bar,
 #analysisView.view-review #boardContainer,
-#analysisView.view-review .unified-controls,
-#analysisView.view-review .panel-content,
-#analysisView.view-review .analysis-bottom-bar {
+#analysisView.view-review .analysis-controls-bar,
+#analysisView.view-review .panel-content {
     display: none;
 }
 
@@ -3325,7 +3200,7 @@ button.settings-row--destructive:hover {
     font-weight: 500;
 }
 
-/* 보드만 숨김. 패널/중앙바는 preview 화면과 동일한 골격을 유지. */
+/* 보드만 숨김. 패널/컨트롤바는 preview 화면과 동일한 골격을 유지. */
 #analysisView.analyzing-loading #boardContainer,
 #analysisView.analyzing-loading #analysisLoadingText {
     display: none !important;
@@ -3335,11 +3210,10 @@ button.settings-row--destructive:hover {
     display: flex;
 }
 
-/* 네비 버튼은 보이지만 클릭 불가 (preview 화면과 시각적 연속성, 단 분석 중 인터랙션은 차단).
-   tabToggleBtn은 JS에서 .hidden(display:none)으로 처리하므로 여기 포함하지 않는다. */
+/* 네비/옵션 버튼은 보이지만 클릭 불가 (preview 화면과 시각적 연속성, 단 분석 중 인터랙션은 차단). */
 #analysisView.analyzing-loading #prevMoveBtn,
 #analysisView.analyzing-loading #nextMoveBtn,
-#analysisView.analyzing-loading #saveMoveBtn {
+#analysisView.analyzing-loading #liveMenuBtn {
     pointer-events: none;
     opacity: 0.4;
 }

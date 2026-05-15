@@ -2,8 +2,9 @@ import { t } from './strings.js';
 import { pickQuote, quotesReady } from './quotes.js';
 
 const analysisView = document.getElementById('analysisView');
-const analysisBottomBar = document.getElementById('analysisBottomBar');
-const evalBar = document.getElementById('evalBar');
+const analysisControlsBar = document.getElementById('analysisControlsBar');
+const analysisMenuPopover = document.getElementById('liveMenuPopover');
+const analysisMenuBtn = document.getElementById('liveMenuBtn');
 const previewStartBtn = document.getElementById('previewStartBtn');
 const loadingQuoteText = document.getElementById('loadingQuoteText');
 const loadingQuoteAuthor = document.getElementById('loadingQuoteAuthor');
@@ -25,8 +26,12 @@ export function initPreviewStartButton(onClick) {
 }
 
 export function setAnalysisChromeVisible(visible) {
-    evalBar?.classList.toggle('hidden', !visible);
-    analysisBottomBar?.classList.toggle('chrome-hidden', !visible);
+    analysisControlsBar?.classList.toggle('chrome-hidden', !visible);
+    if (!visible) {
+        analysisMenuPopover?.classList.remove('is-open');
+        if (analysisMenuPopover) analysisMenuPopover.hidden = true;
+        analysisMenuBtn?.setAttribute('aria-expanded', 'false');
+    }
 }
 
 export function applyPreviewControls() {
