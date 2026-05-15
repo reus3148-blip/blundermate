@@ -160,6 +160,19 @@ function _warnDb(prefix, e) {
 }
 
 // ── Vault ──────────────────────────────────────────────────────────
+//
+// 정본(source of truth) 계약 — 이 섹션의 read/write는 모두 이 계약을 따른다.
+//
+//   로그인(user_id 있음): Supabase = 정본, localStorage(VAULT_KEY) = 캐시.
+//     캐시는 "틀려도 됨, 다음 전체 fetch가 정정한다"가 계약. 캐시 write 실패는 무해.
+//   익명(user_id 없음): localStorage = 정본. DB는 관여 안 함.
+//
+//   read : getVaultItems 전체 fetch(source 미지정)가 DB 성공 시 _syncVaultCache로
+//          캐시를 DB 결과로 동기화(write-through read) — 캐시가 점점 정확해진다.
+//          getVaultItemsCached는 DB 없이 캐시만 동기 read — SWR의 "stale" 절반.
+//   write: remove/updateNotes/incrementSolved 3종은 localStorage 캐시를 best-effort로
+//          갱신(_removeLocalVaultRow / _patchLocalVaultRow / 인라인) 후 DB write를 보낸다.
+//          로그인 사용자에겐 DB write가 정본 갱신, ls는 다음 fetch까지의 임시 미러.
 
 function _getVaultItemsSync() {
     try {
@@ -191,6 +204,8 @@ function normalizeVaultItem(row) {
         prevFen: row.prev_fen || null,
         solution: row.solution_json || null,
         winChanceDrop: row.win_chance_drop ?? null,
+        // Phase 58: 정답 풀이 횟수. 2 도달 시 stories 기본 풀에서 제외, '복습 완료' 필터에서만.
+        solvedCount: row.solved_count ?? 0,
     };
     if (typeof row.move_index === 'number') item.moveIndex = row.move_index;
     if (typeof row.move_number === 'number') {
@@ -214,29 +229,50 @@ function normalizeLocalVaultItem(it) {
         prevFen: it.prevFen || null,
         solution: it.solution || null,
         winChanceDrop: it.winChanceDrop ?? null,
+        solvedCount: it.solvedCount ?? 0,
     };
+}
+
+// write-through read: 전체 fetch가 받아온 DB 결과를 localStorage 캐시에 반영한다.
+// 현재 platform 슬라이스만 교체하고 다른 platform 항목은 보존 — VAULT_KEY는 전 platform
+// 공용이라 통째로 덮으면 다른 platform 캐시가 날아간다. 캐시 write 실패는 무해(다음 fetch가 정정).
+function _syncVaultCache(items, platform) {
+    const others = _getVaultItemsSync()
+        .filter(it => (it.platform || PLATFORM_CHESSCOM) !== platform);
+    const tagged = items.map(it => ({ ...it, platform }));
+    lsSet(VAULT_KEY, JSON.stringify([...others, ...tagged]));
+}
+
+// 동기 캐시 read — SWR의 "stale" 절반, DB는 건드리지 않는다. 로그인 사용자에겐 write-through로
+// 동기화된 캐시(정본은 Supabase), 익명에겐 정본 그 자체. cold 캐시면 빈 배열.
+// platform 격리 — Supabase 실패 폴백에서도 다른 플랫폼 데이터가 새지 않게 한다.
+// source 옵션: 'manual' | 'auto' | undefined(전체).
+export function getVaultItemsCached(options = {}) {
+    const { source } = options;
+    const platform = getMyPlatform();
+    return _getVaultItemsSync()
+        .map(normalizeLocalVaultItem)
+        .filter(it => it.platform === platform)
+        .filter(it => !source || (it.source || 'manual') === source);
 }
 
 // source 옵션: 'manual' | 'auto' | undefined(전체).
 export async function getVaultItems(options = {}) {
     const { source } = options;
-    const platform = getMyPlatform();
-    // localStorage 폴백도 platform 격리 — Supabase 실패 시에도 다른 플랫폼 데이터가 새지 않음.
-    const filterLocal = (arr) => arr
-        .filter(it => it.platform === platform)
-        .filter(it => !source || (it.source || 'manual') === source);
-
     const userId = getMyUserId();
-    if (!userId) return filterLocal(_getVaultItemsSync().map(normalizeLocalVaultItem));
+    if (!userId) return getVaultItemsCached(options);
     try {
         const params = { user_id: userId };
         if (source) params.filter = { source };
         const data = await callDB('select', 'vault_items', params);
-        if (Array.isArray(data)) return data.map(normalizeVaultItem);
-        throw new Error('Invalid response');
+        if (!Array.isArray(data)) throw new Error('Invalid response');
+        const items = data.map(normalizeVaultItem);
+        // source 필터 fetch는 부분집합이라 캐시 동기화 스킵 — 다른 source 항목을 캐시에서 지운다.
+        if (!source) _syncVaultCache(items, getMyPlatform());
+        return items;
     } catch (e) {
         _warnDb('Supabase vault load failed, using localStorage', e);
-        return filterLocal(_getVaultItemsSync().map(normalizeLocalVaultItem));
+        return getVaultItemsCached(options);
     }
 }
 
@@ -289,18 +325,83 @@ export function addVaultItemsBatch(items) {
     }
 }
 
-export function removeVaultItem(id) {
+// localStorage vault row를 삭제 (있을 때만) — _patchLocalVaultRow와 같은 캐시 계약.
+// ls에 없는 id는 정상(Supabase 정본 + ls 미러 없음). 삭제 실패도 무해(다음 fetch가 정정).
+function _removeLocalVaultRow(id) {
     try {
-        const vault = _getVaultItemsSync().filter(v => v.id !== id);
-        if (!lsSet(VAULT_KEY, JSON.stringify(vault))) throw new Error('localStorage write failed');
+        const vault = _getVaultItemsSync();
+        const next = vault.filter(v => v.id !== id);
+        if (next.length !== vault.length) lsSet(VAULT_KEY, JSON.stringify(next));
     } catch (e) {
-        console.error('Failed to remove item from Vault:', e);
+        console.error('Failed to remove Vault row from localStorage:', e);
     }
+}
+
+export function removeVaultItem(id) {
+    _removeLocalVaultRow(id);
 
     const userId = getMyUserId();
     if (!userId) return;
     callDB('delete', 'vault_items', { id, user_id: userId })
         .catch(e => _warnDb('Supabase vault delete failed', e));
+}
+
+// localStorage vault row를 patch (있을 때만). vault_items는 Supabase가 정본일 수 있어
+// (cross-device, localStorage 미러 없음) ls에 없는 id가 정상 — 그 경우 ls write만 skip하고
+// DB PATCH는 호출자가 계속 진행한다. id 없거나 ls 접근 실패 시에도 throw하지 않음.
+function _patchLocalVaultRow(id, patch) {
+    try {
+        const vault = _getVaultItemsSync();
+        const idx = vault.findIndex(v => v.id === id);
+        if (idx < 0) return;
+        vault[idx] = { ...vault[idx], ...patch };
+        lsSet(VAULT_KEY, JSON.stringify(vault));
+    } catch (e) {
+        console.error('Failed to patch Vault row in localStorage:', e);
+    }
+}
+
+// 메모 저장 (Phase 59 — 실수로부터 배우기 노트). vault.js detail view textarea blur 시 호출.
+// notes 컬럼은 Phase 1부터 존재 — 마이그레이션 0.
+export function updateVaultItemNotes(id, notes) {
+    const value = (notes || '').trim();
+    _patchLocalVaultRow(id, { notes: value });
+
+    const userId = getMyUserId();
+    if (!userId) return;
+    callDB('update', 'vault_items', {
+        user_id: userId,
+        filter: { id },
+        data: { notes: value || null },
+    }).catch(e => _warnDb('Supabase vault notes update failed', e));
+}
+
+// 정답 카운터 +1 (Phase 58). vault.js renderPuzzleFeedback이 correct=true일 때 호출.
+// 반환: 갱신된 새 solvedCount. localStorage에 row가 없으면(Supabase-only 카드) currentCount를
+// 기준으로 +1 — 호출자가 메모리의 현재값을 넘긴다. DB는 best-effort PATCH.
+// 미마이그레이션 환경에선 PostgREST가 unknown column으로 PATCH 거부 → 무해(다음 분석에서 갱신).
+export function incrementVaultItemSolved(id, currentCount = 0) {
+    let next = (currentCount || 0) + 1;
+    try {
+        const vault = _getVaultItemsSync();
+        const idx = vault.findIndex(v => v.id === id);
+        if (idx >= 0) {
+            next = (vault[idx].solvedCount ?? 0) + 1;
+            vault[idx] = { ...vault[idx], solvedCount: next };
+            lsSet(VAULT_KEY, JSON.stringify(vault));
+        }
+    } catch (e) {
+        console.error('Failed to bump solvedCount in Vault:', e);
+    }
+
+    const userId = getMyUserId();
+    if (!userId) return next;
+    callDB('update', 'vault_items', {
+        user_id: userId,
+        filter: { id },
+        data: { solved_count: next },
+    }).catch(e => _warnDb('Supabase vault solvedCount update failed', e));
+    return next;
 }
 
 // ── Saved Games ────────────────────────────────────────────────────

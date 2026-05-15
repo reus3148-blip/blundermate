@@ -103,6 +103,10 @@ export default async function handler(req) {
                     cols: ['title', 'notes', 'category'],
                     filterCol: 'id',
                 },
+                vault_items: {
+                    cols: ['solved_count', 'notes'],
+                    filterCol: 'id',
+                },
             };
             const schema = UPDATE_SCHEMA[table];
             if (!schema) {

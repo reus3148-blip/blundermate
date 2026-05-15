@@ -208,6 +208,7 @@ function cleanupAnalysis() {
 function renderScreen(screen) {
     // 화면 전환 시 moves overlay가 열려있으면 자동 닫기 — navigateTo / popstate 둘 다 통과 경로.
     closeMovesOverlay();
+    const prevScreen = _currentScreen;
     if (_currentScreen === SCREENS.ANALYSIS && screen !== SCREENS.ANALYSIS) {
         cleanupAnalysis();
     }
@@ -227,7 +228,8 @@ function renderScreen(screen) {
             break;
         case SCREENS.VAULT_BLUNDER_LIST:
             if (vaultBlunderListViewNav) vaultBlunderListViewNav.classList.remove('hidden');
-            loadBlunderListData();
+            // detail에서 back 복귀 시 fetch 스킵 — 직전 메모 편집이 read-after-write lag으로 날아가지 않게.
+            loadBlunderListData(prevScreen === SCREENS.VAULT_DETAIL);
             break;
         case SCREENS.VAULT_DETAIL:
             vaultDetailViewNav.classList.remove('hidden');

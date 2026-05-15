@@ -2,6 +2,8 @@
 // 분석 onComplete 직후 호출. 사용자 수만 대상으로:
 //   1) classification ∈ {Mistake, Blunder} 워스트 2개 (winChanceDrop 내림차순).
 //   2) prev top eval이 mate-in-1~4 였는데 사용자가 그 수를 두지 않은 경우(missed_mate).
+//   3) only_move — best와 2nd best가 둘 다 cp이고 gap ≥ 150cp, user 손실도 ≥ 150cp.
+//      "유일수를 못 봤다" — 객관적 단일 정답이라 풀이 가치 높음. worstTwo와 별개로 수집(cap 2).
 //
 // 각 후보는 `solution`(시퀀스 + 정답 후보 라인들)을 포함:
 //   - 우위(blunder/mistake): 베스트 라인의 PV에서 최대 5플라이 + 끝쪽 forced trim.
@@ -21,6 +23,23 @@ const MAX_BLUNDER_PLIES = 5;
 const ACCEPT_GAP = 0.10;            // 베스트 대비 승률 갭 ≤ 0.10이면 같은 정답 라인으로 인정
 const ALREADY_DECIDED_HI = 0.9;     // 양쪽 다 ≥0.9면 이미 이긴 판
 const ALREADY_DECIDED_LO = 0.1;     // 양쪽 다 ≤0.1면 이미 진 판
+const ONLY_MOVE_CP_GAP = 150;       // best vs 2nd, best vs user 둘 다 이 이상이면 only_move
+const MAX_ONLY_MOVES = 2;           // 게임당 only_move 수집 상한
+
+// only-move 판별 — best와 2nd best가 둘 다 cp eval이고 best가 2nd보다 ONLY_MOVE_CP_GAP 이상
+// 우위, 그리고 user 손실(cpLoss)도 그 이상이면 "유일수 놓침". mate가 섞이면 cp 비교가
+// 무의미하므로 제외(그런 케이스는 missed_mate path 또는 일반 blunder가 처리). engineLines[0]은
+// 항상 best(엔진 정렬) — buildAcceptableLines도 [0]을 best로 취급하는 것과 일관.
+function isOnlyMove(prevEngineLines, cpLoss, isUserWhite) {
+    if (cpLoss == null || cpLoss < ONLY_MOVE_CP_GAP) return false;
+    if (!Array.isArray(prevEngineLines) || prevEngineLines.length < 2) return false;
+    const e0 = lineToEval(prevEngineLines[0]);
+    const e1 = lineToEval(prevEngineLines[1]);
+    if (!e0 || !e1 || e0.type !== 'cp' || e1.type !== 'cp') return false;
+    const moverSign = isUserWhite ? 1 : -1;
+    const gap = (e0.value - e1.value) * moverSign;  // mover 관점 — best(e0) ≥ 2nd(e1)
+    return gap >= ONLY_MOVE_CP_GAP;
+}
 
 // 폰 단위(센티폰) 손실 — 표시/정렬 보조용. winChanceDrop이 주 정렬키.
 function computeCpLoss(prevEval, postEval, isWhite) {
@@ -138,6 +157,7 @@ function extractAutoCandidates(queue, isUserWhite) {
 
     const missedMates = [];
     const blunderCandidates = [];
+    const onlyMoveCandidates = [];
     let prevWasMissedMate = false;
 
     for (const i of userMoveIndices) {
@@ -209,7 +229,7 @@ function extractAutoCandidates(queue, isUserWhite) {
         if (acceptable.length === 0) continue;
 
         const canonical = acceptable[0];
-        blunderCandidates.push({
+        const candidate = {
             moveIndex: i,
             bestSan: canonical.san,
             bestUci: canonical.uci,
@@ -218,12 +238,23 @@ function extractAutoCandidates(queue, isUserWhite) {
             cpLoss: computeCpLoss(prevEval, postEval, isUserWhite),
             winChanceDrop: drop,
             classification: cls.toLowerCase(),
-        });
+        };
+        // 유일수 놓침이면 worstTwo와 분리해 별도 트랙으로 — 풀이 가치가 높아 워스트 2에서 밀려 버려지지 않게.
+        if (isOnlyMove(prev.engineLines, candidate.cpLoss, isUserWhite)) {
+            candidate.classification = 'only_move';
+            onlyMoveCandidates.push(candidate);
+        } else {
+            blunderCandidates.push(candidate);
+        }
     }
 
     blunderCandidates.sort((a, b) => b.winChanceDrop - a.winChanceDrop);
-    const worstTwo = blunderCandidates.slice(0, 2);
-    return { worstTwo, missedMates };
+    onlyMoveCandidates.sort((a, b) => b.winChanceDrop - a.winChanceDrop);
+    return {
+        worstTwo: blunderCandidates.slice(0, 2),
+        missedMates,
+        onlyMoves: onlyMoveCandidates.slice(0, MAX_ONLY_MOVES),
+    };
 }
 
 // 후보를 vault_item 레코드로 변환. analyzed_game_id가 들어가야 하므로 호출측에서 합성.
@@ -261,8 +292,8 @@ export async function collectAutoBlunders({ pgn, queue, isUserWhite, headers }) 
     try {
         if (!pgn || !Array.isArray(queue) || queue.length === 0) return;
 
-        const { worstTwo, missedMates } = extractAutoCandidates(queue, isUserWhite);
-        if (worstTwo.length === 0 && missedMates.length === 0) return;
+        const { worstTwo, missedMates, onlyMoves } = extractAutoCandidates(queue, isUserWhite);
+        if (worstTwo.length === 0 && missedMates.length === 0 && onlyMoves.length === 0) return;
 
         const pgnHash = await computePgnHash(pgn);
         const gameTitle = (headers && headers.White && headers.Black && headers.White !== '?' && headers.Black !== '?')
@@ -298,6 +329,12 @@ export async function collectAutoBlunders({ pgn, queue, isUserWhite, headers }) 
             pushIfNew(buildVaultRow({
                 candidate: c, queue, gameTitle, isUserWhite, analyzedGameId,
                 classification: 'missed_mate', playedDate,
+            }));
+        }
+        for (const c of onlyMoves) {
+            pushIfNew(buildVaultRow({
+                candidate: c, queue, gameTitle, isUserWhite, analyzedGameId,
+                classification: 'only_move', playedDate,
             }));
         }
         for (const c of worstTwo) {

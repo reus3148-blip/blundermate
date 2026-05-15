@@ -10,6 +10,99 @@
 
 ---
 
+## Phase 62 — Vault 저장 구조 리팩터: 정본 계약 + write-through read + SWR (2026-05-15)
+
+`storage.js`의 vault dual-write 구조 정리. **WHY**: read는 DB 우선인데 write는 localStorage 우선 — 우선순위가 반대라 read-after-write race가 구조적으로 발생했다. Phase 58 `idx<0`, Phase 60 진척감 lag, vault 409가 모두 이 구조의 증상. 정본을 하나로 못박아 원인을 제거.
+
+**확정 설계**: 로그인(user_id 있음) = Supabase 정본 + localStorage는 캐시("틀려도 됨, 다음 fetch가 정정"). 익명 = localStorage 정본.
+
+- **1단계** (storage.js, 인터페이스 무변경) — vault 섹션에 정본 계약 주석 명문화. `getVaultItems` 전체 fetch가 DB 성공 시 `_syncVaultCache`로 localStorage 캐시를 DB 결과에 동기화(write-through read) — 현재 platform 슬라이스만 교체, 다른 platform 항목 보존. `source` 필터 fetch(autoBlunders dedup)는 부분집합이라 동기화 스킵. `_removeLocalVaultRow` 헬퍼로 `removeVaultItem` 정리 — write 3종(remove/updateNotes/incrementSolved)이 모두 "ls 캐시 best-effort + DB write" 계약 통일.
+- **2단계** (vault.js, SWR) — `getVaultItemsCached()` 동기 export 신설(`getVaultItems`의 폴백 경로도 이걸 재사용). `loadVaultData`/`loadBlunderListData`가 캐시 있으면 즉시 렌더(오버레이 없음) + 백그라운드 DB 갱신, cold 캐시면 기존 오버레이+await. `reconcilePuzzleAfterRefresh` — 퍼즐 화면 백그라운드 갱신 시 표시 중인 퍼즐은 건드리지 않고(풀이 중 reset 방지) 풀·인디케이터만 갱신.
+- **simplify 패스** — 백그라운드 list 재렌더가 데이터 불변 시에도 무조건 실행돼 `renderVaultList`의 innerHTML 재구축으로 스크롤이 튀던 문제(이번 phase가 들여온 회귀). `itemsRenderSignature`로 `refreshItemsCache`가 변경 여부를 반환, `loadBlunderListData`는 변경 시에만 재렌더.
+
+검증 (preview, `/api/db` mock — vercel dev가 Windows libuv assertion으로 불안정해 fetch 가로채기로 우회): cold 로드(오버레이 + write-through 캐시 채움) / warm 로드(즉시 렌더 + 백그라운드 revalidate) / source-filter 캐시 동기화 스킵 / reconcile 시 보드 mutation 0(퍼즐 non-reset) / skipFetch(detail→back DB 호출 0) / 변경 감지 가드(불변→재렌더 스킵, 변경→재렌더). 콘솔 error/warn 0. autoBlunders dedup은 정확값이 필요해 DB await 유지(변경 없음).
+
+**분석 저장(`analyzed_games`/캐시) 동일 적용 — 미실시 판단**: 분석 저장은 이미 read·write 둘 다 localStorage 우선이라 방향이 같다 — vault가 겪던 read-after-write race가 구조적으로 없다. write-through/SWR 이식은 고칠 버그 없이 복잡도만 늘어 보류.
+
+## Phase 61 — only_move 자동 분류 (Phase C) (2026-05-15)
+
+"퍼즐 = missed_mate + only_move" 비전의 only_move 절반. 일반 mistake는 정답이 한 수로 안 떨어지지만, 유일수(best가 2nd best보다 압도적)는 객관적 단일 정답 — 풀이 가치가 높다. 분석 시 multiPV가 이미 수집돼 있어 추가 엔진 비용 0.
+
+사용자 결정: 판별 = (best−2nd ≥150cp) AND (best−user ≥150cp), mate 섞이면 제외 · only_move는 "실수로부터 배우기 > 퍼즐" 탭 리스트에만 노출(stories 풀이 통합은 후속).
+
+- **autoBlunders.js** — `isOnlyMove(prevEngineLines, cpLoss, isUserWhite)`: `engineLines[0]`(best)/`[1]`(2nd) 둘 다 cp eval이고 mover 관점 gap ≥ `ONLY_MOVE_CP_GAP`(150), `cpLoss`(best−user, 기존 계산값)도 ≥150. blunder path에서 판별 → `worstTwo`와 별개 `onlyMoveCandidates` 트랙(풀이 가치 높아 워스트 2에서 밀려 버려지지 않게) → `winChanceDrop` 정렬 후 `MAX_ONLY_MOVES`(2) cap. `extractAutoCandidates` 반환에 `onlyMoves` 추가, `collectAutoBlunders`가 `classification:'only_move'`로 pushIfNew
+- **vault.js** — `categorize()`에 `only_move` → `'only_move'`(별도 — `'mate'`로 합치면 stories mate 탭의 메이트 검증 엔진이 only_move를 오답 처리). `filterLearnItems('puzzle')` = `categorize ∈ {mate, only_move}`. `categoryColor` `var(--great)`(스키마 "유일 정답 강조" 토큰), `categoryLabel` `vault_category_only_move`
+- **strings.js** — `vault_category_only_move` '유일수'/'Only move'
+- **supabase-schema.md** — `classification` 값 목록 명시. CHECK 제약 없음 → 마이그레이션 0
+
+검증 (preview, mock 3종 — only_move/missed_mate/blunder): 퍼즐 탭 2개(only_move+missed_mate), 노트 탭 1개(blunder) 정확 분기. only_move detail 라벨 "유일수" + `--great` 색. console error/warn 0. autoBlunders 판별 로직은 분석 onComplete 경로라 mock 단위 검증 불가 — 코드 리뷰로 갈음.
+
+후속: only_move/missed_mate 풀이 인터랙션(현재 learn 퍼즐 탭은 리스트→정적 detail).
+
+**Phase D(기존 카드 only_move 백필) — 미실시 결정**: 기존 mistake/blunder 카드는 `categorize()`가 카테고리만 보고 분류하므로 데이터 변경 0으로 노트 탭에 이미 자연 안착, 기존 missed_mate도 퍼즐 탭에 노출 — "사라지거나 안 보이는" 문제 없음. 기존 카드 중 사실은 only_move였던 것의 재분류는 `vault_items`에 2nd-best multiPV가 없어 `analyzed_games.analysis_json`까지 재검사해야 하는 무거운 일회성 마이그레이션 — 비용 대비 가치 낮다고 판단. only_move는 신규 분석부터만 자동 분류, 시간이 지나며 자연히 쌓이게 둔다.
+
+## Phase 60 — 노트 모드: detail view 메모 입력 (Phase B) (2026-05-15)
+
+Phase 59 골격 위에 노트 sub-tab의 실체 — vault detail view에서 실수마다 한국어 메모를 직접 적는 textarea. Gemini 없이 본인 메모만(사용자 결정). `vault_items.notes`는 Phase 1부터 있는 컬럼이라 DB 마이그레이션 0.
+
+- **api/db.js** — `UPDATE_SCHEMA.vault_items.cols`에 `notes` 추가 (Phase 58 `solved_count`에 이어). spoofing 가드는 기존 PATCH URL(user_id+platform+id 강제 매치) 그대로
+- **storage.js** — 신규 `updateVaultItemNotes(id, notes)`. **Supabase-only 카드 버그 동반 수정**: 기존 `incrementVaultItemSolved`(Phase 58)가 `localStorage`에 row가 없으면(`idx<0`) DB PATCH도 못 하고 `return` — bywxx처럼 vault가 Supabase 정본이고 ls 미러가 없는 사용자에겐 solved_count/notes 저장이 통째로 실패했음(mock 검증만 거쳐 미발견). `_patchLocalVaultRow` 헬퍼로 분리 — ls는 있을 때만 갱신, **DB PATCH는 항상 시도**. `incrementVaultItemSolved`는 `currentCount` 인자로 ls 부재 시 메모리값 fallback
+- **index.html** — detail `#vaultInfoNotes`(정적 div) → `.vault-notes-block`(label + `#vaultNotesInput` textarea, `data-i18n-placeholder`)
+- **strings.js / styles.css** — `learn_notes_label`/`learn_notes_placeholder` ko/en, `.vault-notes-block`/`.vault-notes-input` (focus 시 ac 보더)
+- **vault.js** — `openVaultItem`이 textarea에 `item.notes` 로드. blur 시 자동 저장(변경 없으면 skip) + `_itemsCache` mirror
+- **read-after-write race 처리** — detail에서 메모 저장(PATCH) 직후 back하면 list의 `refreshItemsCache` SELECT가 PATCH를 아직 못 봐서 진척감이 한 박자 늦는 현상. 근본 해결: **detail→back 복귀 시 fetch 자체를 스킵**. `main.js renderScreen`이 `prevScreen` 캡처 → `loadBlunderListData(prevScreen === VAULT_DETAIL)`. skip 시 `_itemsCache`(detail 진입 직전 + blur mirror)를 그대로 재사용. `deleteCurrentVaultItem`은 fetch 스킵에 대비해 `removeItemEverywhere`로 `_itemsCache` 직접 정리. drawer 재진입 등 fetch 경로엔 `refreshItemsCache`가 교체 전 캐시 notes를 보존하는 보강 로직도 추가(이중 안전망)
+
+검증 (preview, bywxx 실 vault 63개): 메모 입력 → blur → DB select로 저장 확인(누적 13개). detail→back 시 진척감 `12개`→`13개` 즉시 반영 + 카드 preview 라인 즉시 노출. drawer 재진입(fetch 경로)도 13개 유지. console error/warn 0.
+
+**디버깅 노트**: race 추적 중 preview/vercel dev 환경이 `vault.js`를 stale/부분 캐시로 서빙하는 정황(같은 함수 내 디버그 로그 일부만 출력) — 모듈 변수 기반 검증이 신뢰 불가했음. preview server 재시작으로 클린 상태 확보 후 진행.
+
+## Phase 59 — "실수로부터 배우기" 골격: 퍼즐/노트 sub-tab (Phase A) (2026-05-15)
+
+Vault 재설계 brainstorm 결과. 일반 mistake는 정답이 한 수로 안 떨어지는 경우가 많아 풀이 형식의 학습 가치가 낮음 — "왜 이걸 뒀지"를 본인이 쓰는 노트가 더 적합. 메이트/유일수만 객관적 단일 정답이라 진짜 퍼즐. 두 영역을 분리: 🧩 **퍼즐**(missed_mate + only-move) / 📝 **노트**(일반 실수 — 메모 대상).
+
+사용자 결정 (AskUserQuestion 연쇄): drawer "복기" → **"실수로부터 배우기"** 재명명 · 진입 후 퍼즐/노트 2 sub-tab · only-move 판별 = (best−2nd ≥150cp) AND (best−user ≥150cp) · 노트 입력 = 자유 textarea, Gemini 없이 본인 메모만 · 노트 카드 상태 = 2단계(빈/내용 있음) · 진척감 = "20개 · 메모 5개" 조용한 한 줄 · 평점 시스템 X · bottom-nav 4탭 그대로 · 기존 2,300개 mistake 카드 처리는 보류.
+
+이번 phase는 **Phase A — drawer 진입 화면 골격만**. 분류는 기존 `categorize()` 재사용, 노트 textarea 입력·only-move 신규 분류는 후속 Phase B/C.
+
+- **strings.js** ko/en — `drawer_vault_review` "복기"→"실수로부터 배우기". 신규 `learn_title`/`learn_tab_puzzle`/`learn_tab_notes`/`learn_notes_progress`(`{total}`/`{written}` placeholder — `t()`는 lookup만이라 호출자가 `.replace()`)/`learn_puzzle_empty`/`learn_notes_empty`
+- **index.html** — `vaultBlunderListView` 재구성: top-bar 타이틀 `vault_list_title`→`learn_title`. `#vaultBlunderFilterTabs`를 template clone에서 분리, "퍼즐/노트" 2 sub-tab 직접 마크업(`data-filter="puzzle|notes"`). `#learnNotesProgress` 진척감 한 줄 div 추가
+- **vault.js** — template clone 대상에서 `vaultBlunderFilterTabs` 제외(stories `vaultPuzzleFilterTabs`만 clone). `blunderListFilter`(mistake/mate/done) → `learnTab`(puzzle/notes). 신규 `filterLearnItems(tab)`: puzzle=`categorize=='mate'`, notes=`categorize=='mistake'` (retire 무관 — 보관소 성격). `renderBlunderListPane`이 노트 탭일 때만 진척감 렌더(빈 탭이면 empty state가 메시지 주므로 숨김). `getBlunderListEmptyText`→`getLearnEmptyText`
+- **styles.css** — `.learn-notes-progress` (tx3 보조색, 조용한 한 줄)
+
+검증 (preview, mock 4개 — blunder 2 + mistake 1 + missed_mate 1):
+- drawer 라벨 "실수로부터 배우기" + 진입 시 타이틀 동일
+- 퍼즐 탭 → 메이트 카드 1개, 노트 탭 → 실수 카드 3개
+- 진척감 "3개 · 메모 1개" 정확 (notes 필드 있는 카드 1개)
+- 메모 있는 카드만 `.list-row-notes` preview 라인 노출
+- console error/warn 0
+
+후속: Phase B(노트 textarea 입력 — vault_items.notes 컬럼 재사용, 마이그레이션 0), Phase C(autoBlunders.js only-move 자동 분류 + `only_move` 카테고리), Phase D(기존 2,300개 카드 처리).
+
+## Phase 58 — Vault 정답 카운터 + "복습 완료" retire (2026-05-15)
+
+같은 퍼즐이 사이클 한 바퀴 뒤 다시 등장하는 게 사용자에게 짜증 요인. 사용자 발의: "Anki 차용, 두 번 풀면 다시 안 뜨게". 본격 SRS(4단계 grade)는 모바일 흐름을 깨므로 도입 X. 정답 N회 cap만으로 retire — 학습 가치와 단순함의 절충.
+
+사용자 결정 세 가지 (AskUserQuestion):
+- 기준 = **정답 2회** (오답은 카운트 변동 없음, 첫 시도 매칭 여부 무관)
+- retire 후 = **별도 "복습 완료" 필터에 노출, 영구 보존** (영구 삭제 X — "내가 어떤 실수를 극복했는지" 기록)
+- 오답 = **카운트 변동 없음** (Anki "Again"식 reset 안 함)
+
+- **schema** ([supabase-schema.md](supabase-schema.md)) — `vault_items.solved_count integer not null default 0`. 마이그레이션 섹션도 동일 패턴(`add column if not exists`)
+- **api 화이트리스트** ([api/db.js](api/db.js)) — `UPDATE_SCHEMA.vault_items = { cols: ['solved_count'], filterCol: 'id' }`. Phase 40 이후 vault_items에 update 액션 처음 추가. spoofing 차단(user_id+platform 강제 매치)은 기존 PATCH URL 패턴 그대로
+- **storage** ([storage.js](storage.js)) — `normalizeVaultItem`/`normalizeLocalVaultItem`에 `solvedCount` 정규화, 신규 `incrementVaultItemSolved(id)` — localStorage가 truth (sync write 후 next 반환), DB는 best-effort PATCH(`.catch(_warnDb)`). 미마이그레이션 환경에선 unknown column으로 PATCH 거부 → 클라이언트 ls만 잡힘
+- **vault.js** filter 모델 — `puzzleFilter ∈ {mistake, mate, done}`. `filterItems('done')`은 categorize 매칭 + solvedCount≥2, 그 외는 카테고리 매칭 + solvedCount<2. `deckState`에 `done` deck 추가. `getPuzzleEmptyText`/`getBlunderListEmptyText`에 done 분기. 정답 처리(`renderPuzzleFeedback`)에서 `correct \|\| mateDelivered` 시 `incrementVaultItemSolved` 호출 + `_itemsCache` mirror로 다음 pick 즉시 반영
+- **stale puzzlePool 가드** — `puzzlePool`은 session 시작 snapshot이라 직전 정답으로 retire된 카드가 stale로 남아 random pick에 다시 등장 risk. `pickRandomFromPool`에서 매번 `_itemsCache` 기준 재필터링. `deck.history`는 그대로 두어 사용자가 prev로 직전 retire 카드 다시 볼 수 있게 유지
+- **UI** — `vaultFilterTabsTemplate`에 `data-filter="done"` 버튼 추가 (stories + list view 둘 다 자동 inject). [strings.js](strings.js) ko/en — `vault_filter_done`, `vault_puzzle_empty_done`, `vault_blunder_list_empty_done` 3쌍
+
+검증 (preview, mock vault item 2개):
+- 필터 탭 3개 (블런더/메이트/복습 완료) 정상 mount + 한국어
+- `solvedCount=2` 셋팅 → mistake 풀 카운터 `2/2` → `1/1`로 즉시 감소
+- 복습 완료 탭 진입 시 retire 카드만 노출 (`1/1`)
+- 빈 done 탭 — "아직 복습 완료한 퍼즐이 없어요"
+- console error/warn 0
+
+보류: progress indicator 표기 — 사용자가 "이 카드 한 번 풀었음 / 한 번 더 풀면 retire" 시각화는 추후 phase. 현재는 retire 시점에 자동으로 풀에서 사라지는 것만으로 사용자 경험상 자연스럽다 판단
+
 ## Phase 57 — 오프닝 포럼 골격 (/forum deep-link, 시실리안 1개) (2026-05-13)
 
 op.gg 챔피언 커뮤니티 류의 오프닝별 한국어 댓글 풀. 사용자 비전(chess.com/lichess 한국어 갭) 정확히 정조준. 다만 콜드 스타트가 결정적 약점 — "30~50개 빈 페이지" 한 번에 노출하면 첫 인상 "여기 죽었네"로 회복 불가. 시실리안 1개로 좁혀 시드 깐 뒤 모이는지 보고 확장 결정.

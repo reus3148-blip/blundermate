@@ -8,7 +8,9 @@
 
 ## 1. `vault_items` — 복기 풀
 
-자동(분석 완료 후 워스트 2 + missed_mate)과 수동(분석 화면에서 직접 저장) 두 출처를 한 테이블에 보관. `source` 컬럼으로 구분.
+자동(분석 완료 후 워스트 2 + missed_mate + only_move)과 수동(분석 화면에서 직접 저장) 두 출처를 한 테이블에 보관. `source` 컬럼으로 구분.
+
+`classification` 값: `blunder` / `mistake` / `missed_mate` / `only_move`(Phase 61 — best가 2nd best보다 ≥150cp 우위인 유일수를 놓침). CHECK 제약 없음 — 신규 값 추가 시 마이그레이션 불필요.
 
 ```sql
 create table public.vault_items (
@@ -33,6 +35,8 @@ create table public.vault_items (
   prev_fen text,                     -- 사용자가 수를 둘 차례인 위치 (실수 직전). position_fen은 실수 직후.
   solution_json jsonb,               -- { acceptable: [{ san, uci, winChance, moves: [{san,uci,side}, ...] }, ...] }
   win_chance_drop numeric,           -- 사용자 관점 승률 손실 (0~1). 정렬/표시용.
+  -- Phase 58: 정답 카운터. 2 도달 시 stories 기본 풀에서 제외(retire), '복습 완료' 필터에서만 노출.
+  solved_count integer not null default 0,
   created_at timestamptz not null default now()
 );
 
@@ -46,6 +50,12 @@ alter table public.vault_items
   add column if not exists prev_fen text,
   add column if not exists solution_json jsonb,
   add column if not exists win_chance_drop numeric;
+```
+
+**Phase 58 마이그레이션** (정답 카운터):
+```sql
+alter table public.vault_items
+  add column if not exists solved_count integer not null default 0;
 ```
 
 ---

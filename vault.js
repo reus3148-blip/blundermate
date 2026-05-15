@@ -2,7 +2,7 @@ import { Chessground } from 'https://cdnjs.cloudflare.com/ajax/libs/chessground/
 import { Chess } from 'https://cdn.jsdelivr.net/npm/chess.js@1.4.0/+esm';
 import { parseAndLoadPgn, escapeHtml, getDests, formatRelativeDate, getDateStrings } from './utils.js';
 import { renderEngineLines, placePieceBadge, withScreenLoading, renderEmptyState } from './ui.js';
-import { getVaultItems, removeVaultItem, getAnalyzedGameById, getIsCoordsEnabled, getMyUserId } from './storage.js';
+import { getVaultItems, getVaultItemsCached, removeVaultItem, getAnalyzedGameById, getIsCoordsEnabled, getMyUserId, incrementVaultItemSolved, updateVaultItemNotes } from './storage.js';
 import { renderMovesTable } from './ui.js';
 import { t } from './strings.js';
 import { EnginePool } from './engine.js';
@@ -24,15 +24,16 @@ const vaultDetailCounter = document.getElementById('vaultDetailCounter');
 const vaultInfoCategory = document.getElementById('vaultInfoCategory');
 const vaultInfoPlayed = document.getElementById('vaultInfoPlayed');
 const vaultInfoBest = document.getElementById('vaultInfoBest');
-const vaultInfoNotes = document.getElementById('vaultInfoNotes');
+const vaultNotesInput = document.getElementById('vaultNotesInput');
 const vaultDetailDeleteBtn = document.getElementById('vaultDetailDeleteBtn');
 const movesBody = document.getElementById('movesBody');
 
-// 보조 리스트 뷰 (게임 날짜순)
+// 실수로부터 배우기 — drawer 진입. 퍼즐/노트 sub-tab.
 const vaultBlunderListView = document.getElementById('vaultBlunderListView');
 const vaultBlunderList = document.getElementById('vaultBlunderList');
 const vaultBlunderListBackBtn = document.getElementById('vaultBlunderListBackBtn');
 const vaultBlunderFilterTabs = document.getElementById('vaultBlunderFilterTabs');
+const learnNotesProgress = document.getElementById('learnNotesProgress');
 
 // Stories puzzle pane
 const vaultPuzzlePane = document.getElementById('vaultPuzzlePane');
@@ -53,16 +54,12 @@ const vaultPrevPuzzleBtn = document.getElementById('vaultPrevPuzzleBtn');
 const vaultResetPuzzleBtn = document.getElementById('vaultResetPuzzleBtn');
 const vaultEngineLinesContainer = document.getElementById('vaultEngineLinesContainer');
 
-// 두 vault 필터 탭 컨테이너에 동일한 옵션(블런더/메이트)을 #vaultFilterTabsTemplate에서 clone.
-// HTML 중복 제거 — 옵션 변경 시 template 한 곳만 수정.
+// stories 필터 탭(블런더/메이트/복습 완료)을 #vaultFilterTabsTemplate에서 clone.
+// vaultBlunderFilterTabs는 Phase A에서 퍼즐/노트 sub-tab으로 분리 — index.html에 직접 마크업, clone 대상 아님.
 {
     const tpl = document.getElementById('vaultFilterTabsTemplate');
-    if (tpl) {
-        for (const target of [vaultPuzzleFilterTabs, vaultBlunderFilterTabs]) {
-            if (target && !target.children.length) {
-                target.appendChild(tpl.content.cloneNode(true));
-            }
-        }
+    if (tpl && vaultPuzzleFilterTabs && !vaultPuzzleFilterTabs.children.length) {
+        vaultPuzzleFilterTabs.appendChild(tpl.content.cloneNode(true));
     }
 }
 
@@ -87,10 +84,13 @@ let puzzleSolved = false;
 let puzzleProcessing = false;
 let puzzlePrevFen = null;
 
-// 1차 카테고리 필터: 'mistake' | 'mate' | 'other'.
-// stories와 보조 리스트가 독립적으로 보유 — 한쪽 전환이 다른쪽에 영향 안 줌.
+// stories 1차 필터: 'mistake' | 'mate' | 'done'.
+// Phase 58: 'done' = solvedCount >= 2 카드만 (카테고리 무관). mistake/mate 풀은 done 자동 제외.
 let puzzleFilter = 'mistake';
-let blunderListFilter = 'mistake';
+const SOLVED_RETIRE_THRESHOLD = 2;
+// 실수로부터 배우기 sub-tab: 'puzzle'(메이트 등 풀이 가치 카드) | 'notes'(일반 실수 — 메모 대상).
+// Phase A: 분류는 기존 categorize() 재사용. only-move 신규 분류는 Phase C.
+let learnTab = 'puzzle';
 // vault_items 전체 캐시 (manual+auto 통합) — 두 뷰 공유.
 let _itemsCache = [];
 
@@ -118,6 +118,7 @@ let _replayGen = 0;
 const deckState = {
     mistake: { history: [], position: -1 },
     mate: { history: [], position: -1 },
+    done: { history: [], position: -1 },
 };
 
 // Dependencies injected via initVault()
@@ -129,12 +130,15 @@ let _onEmptyCta = null;
 // ==========================================
 // Categorization
 // ==========================================
-// 1차 분류: 풀이 모드 기준. 'mistake'/'blunder'(cp 실수) → mistake, 'missed_mate' → mate.
+// 1차 분류: 'mistake'/'blunder'(cp 실수) → mistake, 'missed_mate' → mate, 'only_move' → only_move.
 // 그 외(옛 'positional' 수동 저장 row 등)는 null 반환 — deck/list에서 자연 제외.
+// 주의: stories(bottom-nav 퍼즐)의 filterItems는 'mistake'/'mate'만 매칭 — only_move는 stories에
+// 안 뜨고 '실수로부터 배우기 > 퍼즐' 탭(filterLearnItems)에서만 노출 (Phase C 결정).
 function categorize(item) {
     const c = (item?.category || '').toLowerCase();
     if (c === 'mistake' || c === 'blunder') return 'mistake';
     if (c === 'missed_mate') return 'mate';
+    if (c === 'only_move') return 'only_move';
     return null;
 }
 
@@ -158,6 +162,7 @@ function categoryColor(rawCategory) {
     const c = (rawCategory || '').toLowerCase();
     if (c === 'blunder' || c === 'missed_mate') return 'var(--blunder)';
     if (c === 'mistake' || c === 'missed')      return 'var(--mistake)';
+    if (c === 'only_move')                      return 'var(--great)';
     if (c === 'inaccuracy')                     return 'var(--inaccuracy)';
     if (c === 'best' || c === 'excellent')      return 'var(--best)';
     return 'var(--tx2)';
@@ -168,6 +173,7 @@ function categoryLabel(rawCategory) {
     if (c === 'blunder')                    return t('vault_filter_mistake');
     if (c === 'mistake' || c === 'missed')  return t('class_mistake');
     if (c === 'missed_mate')                return t('vault_puzzle_mate_label');
+    if (c === 'only_move')                  return t('vault_category_only_move');
     if (c === 'inaccuracy')                 return t('class_inaccuracy');
     return (rawCategory || '').toUpperCase();
 }
@@ -270,7 +276,17 @@ function findMoveIndexByFen(fens, targetFen) {
 
 const _vaultLoadingOverlay = document.getElementById('vaultLoadingOverlay');
 
+// SWR — 캐시가 있으면 즉시 렌더(오버레이 없음) + 백그라운드 DB 갱신, cold 캐시면 오버레이 + DB await.
+// _itemsCache는 로그인 시 write-through로 동기화된 캐시(정본은 Supabase), 익명 시 정본 그 자체.
 export async function loadVaultData() {
+    const cached = getVaultItemsCached();
+    if (cached.length > 0) {
+        _itemsCache = cached;
+        applyPuzzleFilter();
+        startPuzzleSession();
+        refreshItemsCache().then(reconcilePuzzleAfterRefresh);
+        return;
+    }
     return withScreenLoading(_vaultLoadingOverlay, async () => {
         await refreshItemsCache();
         applyPuzzleFilter();
@@ -278,7 +294,33 @@ export async function loadVaultData() {
     });
 }
 
-export async function loadBlunderListData() {
+// 백그라운드 DB 갱신 후 stories 동기화. 표시 중인 퍼즐은 그대로 둔다(풀이 도중 reset 방지) —
+// 풀 크기·인디케이터만 갱신. 단, 빈 상태였다가 카드가 들어온 경우엔 세션을 새로 시작한다.
+function reconcilePuzzleAfterRefresh() {
+    applyPuzzleFilter();
+    const showingEmpty = vaultPuzzleEmpty && !vaultPuzzleEmpty.classList.contains('hidden');
+    if (puzzlePool.length === 0) showPuzzleEmpty(true);
+    else if (showingEmpty) startPuzzleSession();
+    else renderIndicator();
+}
+
+// skipFetch: detail view에서 back으로 복귀한 경우 true. 이때 _itemsCache는 detail 진입 직전
+// 상태 + blur 시 메모 mirror가 이미 반영돼 있어 fetch가 불필요할 뿐 아니라, Supabase
+// read-after-write lag으로 직전 메모 편집을 stale하게 덮을 위험이 있다 → fetch 스킵.
+export async function loadBlunderListData(skipFetch = false) {
+    if (skipFetch) {
+        renderBlunderListPane();
+        return;
+    }
+    // SWR — 캐시로 즉시 렌더 후 백그라운드 갱신. 내용이 바뀌었을 때만 재렌더 — 안 바뀌었는데
+    // 다시 그리면 리스트 DOM이 통째로 재구축돼 사용자 스크롤 위치가 튄다.
+    const cached = getVaultItemsCached();
+    if (cached.length > 0) {
+        _itemsCache = cached;
+        renderBlunderListPane();
+        refreshItemsCache().then(changed => { if (changed) renderBlunderListPane(); });
+        return;
+    }
     return withScreenLoading(_vaultLoadingOverlay, async () => {
         await refreshItemsCache();
         renderBlunderListPane();
@@ -286,41 +328,94 @@ export async function loadBlunderListData() {
 }
 
 function renderBlunderListPane() {
-    const items = filterItems(blunderListFilter);
+    const items = filterLearnItems(learnTab);
     renderVaultList(vaultBlunderList, items, openVaultItem, {
-        emptyText: getBlunderListEmptyText(),
+        emptyText: getLearnEmptyText(),
         emptyDesc: t('vault_blunder_list_empty_desc'),
         onEmptyCta: _onEmptyCta || null,
     });
     if (vaultBlunderFilterTabs) {
         vaultBlunderFilterTabs.querySelectorAll('.vault-filter-tab').forEach(btn => {
-            btn.classList.toggle('selected', btn.dataset.filter === blunderListFilter);
+            btn.classList.toggle('selected', btn.dataset.filter === learnTab);
         });
     }
-}
-
-async function refreshItemsCache() {
-    try {
-        _itemsCache = await getVaultItems();
-    } catch (e) {
-        _itemsCache = [];
+    // 노트 탭에서만 진척감 한 줄 — "20개 · 메모 5개". 빈 탭이면 empty state가 메시지를 주므로 숨김.
+    if (learnNotesProgress) {
+        if (learnTab === 'notes' && items.length > 0) {
+            const written = items.filter(it => (it.notes || '').trim()).length;
+            learnNotesProgress.textContent = t('learn_notes_progress')
+                .replace('{total}', items.length)
+                .replace('{written}', written);
+            learnNotesProgress.classList.remove('hidden');
+        } else {
+            learnNotesProgress.classList.add('hidden');
+        }
     }
 }
 
+// 리스트 렌더에 영향을 주는 필드만 뽑은 시그니처. SWR 백그라운드 갱신 후 내용이 그대로면
+// 재렌더를 건너뛰는 데 쓴다 — renderVaultList가 innerHTML을 통째로 재구축해 스크롤이 튄다.
+function itemsRenderSignature(items) {
+    return items
+        .map(it => `${it.id}|${it.category}|${it.san || ''}|${it.gameTitle || ''}|${it.solvedCount ?? 0}|${it.notes || ''}`)
+        .join('\n');
+}
+
+// 반환: 캐시 내용이 직전 렌더 대비 바뀌었는지 — SWR 호출자가 재렌더 여부 판단에 쓴다.
+async function refreshItemsCache() {
+    // 교체 전 캐시의 메모를 보존 — Supabase PATCH 후 즉시 SELECT 시 read-after-write lag으로
+    // 직전 메모 편집이 fetch 결과에 누락될 수 있다. 직전 캐시에 메모가 있는데 fetch가 빈 값을
+    // 주면 직전 값을 신뢰("메모 적고 바로 나가면 진척감이 한 박자 늦는" 현상 방지).
+    const prevNotesById = new Map(_itemsCache.map(it => [it.id, it.notes || '']));
+    const prevSig = itemsRenderSignature(_itemsCache);
+    let fresh;
+    try {
+        fresh = await getVaultItems();
+    } catch (e) {
+        fresh = [];
+    }
+    for (const it of fresh) {
+        const prev = prevNotesById.get(it.id);
+        if (prev && !(it.notes || '').trim()) it.notes = prev;
+    }
+    _itemsCache = fresh;
+    return itemsRenderSignature(fresh) !== prevSig;
+}
+
+function isRetired(item) {
+    return (item?.solvedCount ?? 0) >= SOLVED_RETIRE_THRESHOLD;
+}
+
+// 'mistake'/'mate'은 retire 카드 제외, 'done'은 retire 카드만 (카테고리 무관).
 function filterItems(filter) {
-    return _itemsCache.filter(it => categorize(it) === filter);
+    if (filter === 'done') {
+        return _itemsCache.filter(it => categorize(it) && isRetired(it));
+    }
+    return _itemsCache.filter(it => categorize(it) === filter && !isRetired(it));
 }
 
 function getPuzzleEmptyText() {
     if (_itemsCache.length === 0) return t('vault_puzzle_empty');
-    if (puzzleFilter === 'mate')  return t('vault_puzzle_empty_mate');
+    if (puzzleFilter === 'mate') return t('vault_puzzle_empty_mate');
+    if (puzzleFilter === 'done') return t('vault_puzzle_empty_done');
     return t('vault_puzzle_empty_mistake');
 }
 
-function getBlunderListEmptyText() {
-    if (_itemsCache.length === 0) return t('vault_blunder_list_empty');
-    if (blunderListFilter === 'mate')  return t('vault_blunder_list_empty_mate');
-    return t('vault_blunder_list_empty_mistake');
+// 실수로부터 배우기 sub-tab 분류.
+// 'puzzle' = 풀이 가치 카드 — missed_mate + only_move (객관적 단일 정답).
+// 'notes'  = 일반 실수 — 메모 대상. retire 여부 무관하게 전부 노출 (보관소 성격).
+function filterLearnItems(tab) {
+    if (tab === 'puzzle') {
+        return _itemsCache.filter(it => {
+            const cat = categorize(it);
+            return cat === 'mate' || cat === 'only_move';
+        });
+    }
+    return _itemsCache.filter(it => categorize(it) === 'mistake');
+}
+
+function getLearnEmptyText() {
+    return learnTab === 'puzzle' ? t('learn_puzzle_empty') : t('learn_notes_empty');
 }
 
 function applyPuzzleFilter() {
@@ -360,6 +455,8 @@ async function deleteCurrentVaultItem() {
     });
     if (!ok) return;
     removeVaultItem(vaultDetailItem.id);
+    // back 복귀 시 loadBlunderListData가 fetch를 스킵하므로 _itemsCache도 직접 정리.
+    removeItemEverywhere(vaultDetailItem.id);
     vaultDetailItem = null;
     history.back();
 }
@@ -413,7 +510,7 @@ async function openVaultItem(item) {
     vaultInfoPlayed.textContent = (item.moveNumber ? `${item.moveNumber}${item.isWhite ? '. ' : '... '}` : '') + (item.san || '');
     // bestMove 없으면 빈 string으로 — CSS가 row 통째로 숨김 (.vault-info-row:has(:empty))
     vaultInfoBest.textContent = item.bestMove || '';
-    vaultInfoNotes.textContent = item.notes || '';
+    if (vaultNotesInput) vaultNotesInput.value = item.notes || '';
 
     if (_navigateTo) _navigateTo('vault_detail');
     vaultView.classList.add('hidden');
@@ -469,11 +566,15 @@ function findItemById(id) {
 }
 
 function pickRandomFromPool() {
-    if (!puzzlePool || puzzlePool.length === 0) return null;
+    // Phase 58: puzzlePool은 session 시작 snapshot이라 직전 정답으로 retire된 카드가 stale로 남을 수 있음.
+    // random pick 시점에 _itemsCache 기준으로 재필터링 → retire 즉시 반영. deck.history는 그대로 두어
+    // 사용자가 prev로 직전 retire 카드를 다시 볼 수 있게 유지.
+    const fresh = filterItems(puzzleFilter);
+    if (!fresh || fresh.length === 0) return null;
     const seen = new Set(getActiveDeck().history);
-    const unseen = puzzlePool.filter(p => !seen.has(p.id));
+    const unseen = fresh.filter(p => !seen.has(p.id));
     if (unseen.length > 0) return unseen[Math.floor(Math.random() * unseen.length)];
-    return puzzlePool[Math.floor(Math.random() * puzzlePool.length)];
+    return fresh[Math.floor(Math.random() * fresh.length)];
 }
 
 function removeItemEverywhere(id) {
@@ -1085,6 +1186,17 @@ function flashBoard(correct) {
 function renderPuzzleFeedback({ correct, played, mateDelivered }) {
     if (!vaultPuzzleFeedback || !puzzleItem) return;
     flashBoard(correct || mateDelivered);
+
+    // Phase 58: 정답이면 solvedCount++. _itemsCache의 해당 row도 동기화해 다음 풀 갱신 시 자동 retire.
+    // 오답은 카운트 변동 없음 (사용자 결정).
+    if (correct || mateDelivered) {
+        // Supabase-only 카드(localStorage 미러 없음) 대비 — 메모리의 현재값을 fallback으로 전달.
+        const next = incrementVaultItemSolved(puzzleItem.id, puzzleItem.solvedCount ?? 0);
+        puzzleItem.solvedCount = next;
+        const cached = _itemsCache.find(it => it.id === puzzleItem.id);
+        if (cached) cached.solvedCount = next;
+    }
+
     let headLabel, headColor;
     if (mateDelivered) {
         headLabel = t('vault_puzzle_mate_solved');
@@ -1177,14 +1289,14 @@ export function initVault({ showMovesOverlay, closeMovesOverlay, navigateTo, onE
         });
     }
 
-    // 리스트 카테고리 탭
+    // 실수로부터 배우기 — 퍼즐/노트 sub-tab
     if (vaultBlunderFilterTabs) {
         vaultBlunderFilterTabs.addEventListener('click', (e) => {
             const btn = e.target.closest('.vault-filter-tab');
             if (!btn) return;
-            const f = btn.dataset.filter;
-            if (!f || f === blunderListFilter) return;
-            blunderListFilter = f;
+            const tab = btn.dataset.filter;
+            if (!tab || tab === learnTab) return;
+            learnTab = tab;
             renderBlunderListPane();
         });
     }
@@ -1230,6 +1342,21 @@ export function initVault({ showMovesOverlay, closeMovesOverlay, navigateTo, onE
 
     if (vaultDetailDeleteBtn) {
         vaultDetailDeleteBtn.addEventListener('click', deleteCurrentVaultItem);
+    }
+
+    // 메모 자동 저장 (Phase 59) — textarea blur 시. detail을 떠나는 back/삭제도 blur를 먼저 발생시킴.
+    // 변경 없으면 skip해 불필요한 DB write 차단. _itemsCache mirror로 리스트 복귀 시 진척감 즉시 반영.
+    if (vaultNotesInput) {
+        vaultNotesInput.addEventListener('blur', () => {
+            if (!vaultDetailItem) return;
+            const value = vaultNotesInput.value.trim();
+            if (value === (vaultDetailItem.notes || '')) return;
+            vaultDetailItem.notes = value;
+            updateVaultItemNotes(vaultDetailItem.id, value);
+            // _itemsCache mirror — refreshItemsCache가 이 값을 prevNotesById로 보존한다.
+            const cached = _itemsCache.find(it => it.id === vaultDetailItem.id);
+            if (cached) cached.notes = value;
+        });
     }
 
     vaultDetailMovesBtn.addEventListener('click', () => _showMovesOverlay({

@@ -1413,16 +1413,39 @@ th {
     color: var(--tx2);
     font-size: 0.78rem;
 }
-.vault-info-notes {
+/* 실수 메모 (Phase 59) — detail 패널 내 자유 textarea. blur 시 자동 저장. */
+.vault-notes-block {
     margin-top: 0.25rem;
-    padding: 0.5rem 0.6rem;
-    background: var(--bg-elevated);
-    border-radius: 6px;
-    color: var(--tx2);
-    white-space: pre-wrap;
-    word-break: break-word;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
 }
-.vault-info-notes:empty { display: none; }
+.vault-notes-label {
+    color: var(--tx2);
+    font-size: 0.78rem;
+    font-weight: 600;
+}
+.vault-notes-input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.6rem 0.7rem;
+    background: var(--bg-elevated);
+    border: 1px solid var(--brd);
+    border-radius: 8px;
+    color: var(--tx);
+    font-family: inherit;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    resize: vertical;
+    min-height: 4.5rem;
+    -webkit-tap-highlight-color: transparent;
+    transition: border-color 0.15s ease;
+}
+.vault-notes-input::placeholder { color: var(--tx3); }
+.vault-notes-input:focus {
+    outline: none;
+    border-color: var(--ac);
+}
 
 /* 빈 값(예: bestMove 미상)인 row는 라벨도 함께 숨김 — "Best: " 만 노출되는 어색함 방지 */
 .vault-info-row:has(#vaultInfoPlayed:empty),
@@ -3079,13 +3102,22 @@ button.settings-row--destructive:hover {
     background: var(--tx);
 }
 
-/* vault main / list — 필터 탭이 1열을 가변으로 점유해야 해서 베이스 grid(44px 1fr 44px)를 가변으로 환원. */
+/* 실수로부터 배우기 — 노트 탭 진척감 한 줄. 조용한 톤(메모리: 미니멀), tx3 보조색. */
+.learn-notes-progress {
+    padding: 8px 16px 4px;
+    font-size: var(--fs-caption, 13px);
+    color: var(--tx3);
+    letter-spacing: -0.01em;
+}
+
+/* vault main top-bar — sibling 0개라 베이스 grid(44px 1fr 44px)를 1열로 환원, 필터 탭이 풀폭 사용.
+   Phase 58에서 3탭(블런더/메이트/복습 완료) 추가 후 기존 1fr/auto/1fr 1/3 폭으로는 줄바꿈 발생 → 단열. */
 .analysis-top-bar.vault-top-bar {
-    grid-template-columns: 1fr auto 1fr;
+    grid-template-columns: 1fr;
 }
 .analysis-top-bar.vault-top-bar > #vaultPuzzleFilterTabs {
     grid-column: 1;
-    justify-self: start;
+    justify-self: stretch;
     align-self: stretch;
     padding: 0;
     gap: 8px;
@@ -3093,6 +3125,7 @@ button.settings-row--destructive:hover {
 .analysis-top-bar.vault-top-bar > #vaultPuzzleFilterTabs .vault-filter-tab {
     padding: 11px 0;
     margin-right: 12px;
+    white-space: nowrap;
 }
 
 /* Pane / Stage 컨테이너 — empty state도 같은 column flex로 (empty 마크업이 v2 카드라 fill 필요). */

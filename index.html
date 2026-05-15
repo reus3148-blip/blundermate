@@ -294,7 +294,11 @@
                 <span class="vault-info-label">Best:</span>
                 <span id="vaultInfoBest"></span>
             </div>
-            <div id="vaultInfoNotes" class="vault-info-notes"></div>
+            <!-- 실수 메모 (Phase 59) — 자유 textarea, blur 시 자동 저장. vault_items.notes 컬럼. -->
+            <div class="vault-notes-block">
+                <label class="vault-notes-label" for="vaultNotesInput" data-i18n="learn_notes_label">메모</label>
+                <textarea id="vaultNotesInput" class="vault-notes-input" rows="3" data-i18n-placeholder="learn_notes_placeholder" placeholder="이 실수에서 무엇을 배웠나요?"></textarea>
+            </div>
             <button id="vaultDetailDeleteBtn" class="vault-detail-delete-btn" data-i18n="vault_delete_btn">삭제</button>
         </div>
     </div>
@@ -374,17 +378,23 @@
         </div>
     </div>
 
-    <!-- Vault — 리스트 보조 뷰 (게임 날짜순) -->
+    <!-- 실수로부터 배우기 — drawer 진입. 퍼즐(풀이 가치 있는 카드) / 노트(실수 메모) 두 sub-tab. -->
     <div id="vaultBlunderListView" class="view-container hidden">
         <div class="analysis-top-bar">
             <button id="vaultBlunderListBackBtn" class="back-btn">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
                 <span data-i18n="back">Back</span>
             </button>
-            <span class="top-bar-title" data-i18n="vault_list_title">목록</span>
+            <span class="top-bar-title" data-i18n="learn_title">실수로부터 배우기</span>
             <div class="top-bar-spacer"></div>
         </div>
-        <div id="vaultBlunderFilterTabs" class="vault-filter-tabs"><!-- populated from #vaultFilterTabsTemplate by vault.js --></div>
+        <!-- 퍼즐/노트 sub-tab — vault-filter-tab 패턴 재사용(text+underline). -->
+        <div id="vaultBlunderFilterTabs" class="vault-filter-tabs">
+            <button type="button" class="vault-filter-tab selected" data-filter="puzzle" data-i18n="learn_tab_puzzle">퍼즐</button>
+            <button type="button" class="vault-filter-tab" data-filter="notes" data-i18n="learn_tab_notes">노트</button>
+        </div>
+        <!-- 노트 탭 진척감 — "20개 · 메모 5개". vault.js가 노트 탭일 때만 노출. -->
+        <div id="learnNotesProgress" class="learn-notes-progress hidden"></div>
         <div id="vaultBlunderList" class="games-list view-list"></div>
     </div>
 
@@ -767,10 +777,11 @@
             </div>
         </div>
 
-        <!-- Shared template: vault filter tabs (블런더/메이트) — used by #vaultPuzzleFilterTabs and #vaultBlunderFilterTabs -->
+        <!-- Shared template: vault filter tabs (블런더/메이트/복습 완료) — used by #vaultPuzzleFilterTabs and #vaultBlunderFilterTabs -->
         <template id="vaultFilterTabsTemplate">
             <button type="button" class="vault-filter-tab selected" data-filter="mistake" data-i18n="vault_filter_mistake">블런더</button>
             <button type="button" class="vault-filter-tab" data-filter="mate" data-i18n="vault_filter_mate">메이트</button>
+            <button type="button" class="vault-filter-tab" data-filter="done" data-i18n="vault_filter_done">복습 완료</button>
         </template>
 
         <!-- Confirm Modal — alert()/confirm() 대체용. main.js의 showAlert/showConfirm 헬퍼가 제어. -->
