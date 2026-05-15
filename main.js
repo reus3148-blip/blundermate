@@ -24,7 +24,7 @@ import { parseEvalData, getDests, convertPvToSan, parseAndLoadPgn, isValidFen, e
 import { renderMovesTable, updateUIWithEval, highlightActiveMove, renderEngineLines, prependMoveChip, updateTopEvalDisplay, renderReviewReport, buildPreviewCardHtml, placePieceBadge } from './ui.js';
 import { computePgnHash, upsertAnalyzedGame, loadAnalysisCache, saveAnalysisCache, isCacheCompatible, ANALYSIS_CACHE_VERSION, getIsCoordsEnabled } from './storage.js';
 import { collectAutoBlunders } from './autoBlunders.js';
-import { initVault, isVaultDetailActive, isVaultPuzzleActive, getVaultDetailIndex, setVaultDetailIndex, flipVaultBoard, setVaultCoords, redrawVaultBoard, loadVaultData, loadBlunderListData, redrawVaultPuzzleBoard } from './vault.js';
+import { initVault, isVaultDetailActive, isVaultPuzzleActive, getVaultDetailIndex, setVaultDetailIndex, flipVaultBoard, setVaultCoords, redrawVaultBoard, renderVaultScreen, hideVaultViews, redrawVaultPuzzleBoard } from './vault.js';
 import { initSavedGames, loadSavedGamesData, openSaveGameModal } from './savedGames.js';
 import { initInsights, loadInsightsData } from './insights.js';
 import { initForum, openForumView, hideForumView, tryActivateFromLocation as tryActivateForum } from './forum.js';
@@ -127,9 +127,6 @@ const SCREENS = {
 
 let _currentScreen = SCREENS.HOME;
 
-const vaultViewNav = document.getElementById('vaultView');
-const vaultBlunderListViewNav = document.getElementById('vaultBlunderListView');
-const vaultDetailViewNav = document.getElementById('vaultDetailView');
 const savedGamesViewNav = document.getElementById('savedGamesView');
 const insightsViewNav = document.getElementById('insightsView');
 
@@ -162,9 +159,7 @@ function hideAllViews() {
     homeView.classList.add('hidden');
     analysisView.classList.add('hidden');
     analysisView.classList.remove('view-review');
-    vaultViewNav.classList.add('hidden');
-    if (vaultBlunderListViewNav) vaultBlunderListViewNav.classList.add('hidden');
-    vaultDetailViewNav.classList.add('hidden');
+    hideVaultViews();
     savedGamesViewNav.classList.add('hidden');
     if (insightsViewNav) insightsViewNav.classList.add('hidden');
     document.getElementById('settingsView')?.classList.add('hidden');
@@ -223,16 +218,10 @@ function renderScreen(screen) {
             analysisView.classList.remove('hidden');
             break;
         case SCREENS.VAULT_LIST:
-            vaultViewNav.classList.remove('hidden');
-            loadVaultData();
-            break;
         case SCREENS.VAULT_BLUNDER_LIST:
-            if (vaultBlunderListViewNav) vaultBlunderListViewNav.classList.remove('hidden');
-            // detail에서 back 복귀 시 fetch 스킵 — 직전 메모 편집이 read-after-write lag으로 날아가지 않게.
-            loadBlunderListData(prevScreen === SCREENS.VAULT_DETAIL);
-            break;
         case SCREENS.VAULT_DETAIL:
-            vaultDetailViewNav.classList.remove('hidden');
+            // vault 3개 화면의 표시·데이터 로딩은 vault.js가 단독 소유 (renderVaultScreen).
+            renderVaultScreen(screen, prevScreen);
             break;
         case SCREENS.SAVED_GAMES:
             savedGamesViewNav.classList.remove('hidden');
@@ -1195,8 +1184,7 @@ function startNewAnalysis(newQueue, targetIndex = null, previewOnly = false) {
         navigateTo(SCREENS.ANALYSIS);
     }
     homeView.classList.add('hidden');
-    vaultViewNav.classList.add('hidden');
-    vaultDetailViewNav.classList.add('hidden');
+    hideVaultViews();
     savedGamesViewNav.classList.add('hidden');
     analysisView.classList.remove('hidden');
 

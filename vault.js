@@ -278,7 +278,7 @@ const _vaultLoadingOverlay = document.getElementById('vaultLoadingOverlay');
 
 // SWR — 캐시가 있으면 즉시 렌더(오버레이 없음) + 백그라운드 DB 갱신, cold 캐시면 오버레이 + DB await.
 // _itemsCache는 로그인 시 write-through로 동기화된 캐시(정본은 Supabase), 익명 시 정본 그 자체.
-export async function loadVaultData() {
+async function loadVaultData() {
     const cached = getVaultItemsCached();
     if (cached.length > 0) {
         _itemsCache = cached;
@@ -307,7 +307,7 @@ function reconcilePuzzleAfterRefresh() {
 // skipFetch: detail view에서 back으로 복귀한 경우 true. 이때 _itemsCache는 detail 진입 직전
 // 상태 + blur 시 메모 mirror가 이미 반영돼 있어 fetch가 불필요할 뿐 아니라, Supabase
 // read-after-write lag으로 직전 메모 편집을 stale하게 덮을 위험이 있다 → fetch 스킵.
-export async function loadBlunderListData(skipFetch = false) {
+async function loadBlunderListData(skipFetch = false) {
     if (skipFetch) {
         renderBlunderListPane();
         return;
@@ -1225,6 +1225,29 @@ export function redrawVaultPuzzleBoard() {
 // ==========================================
 // Public API for main.js integration
 // ==========================================
+
+// vault 라우팅 — main.js renderScreen이 3개 vault 화면(vault_list/vault_blunder_list/
+// vault_detail)을 이 컨트롤러에 위임한다. 어떤 뷰를 띄우고 무엇을 로드할지는 vault.js가 단독 소유.
+export function hideVaultViews() {
+    vaultView.classList.add('hidden');
+    vaultBlunderListView.classList.add('hidden');
+    vaultDetailView.classList.add('hidden');
+}
+
+// 활성 vault 화면만 노출하고 해당 로더를 호출. vault_detail은 openVaultItem이 뷰를 이미
+// 채워두므로 표시만 토글. prevScreen은 blunder-list의 read-after-write fetch 스킵 판단용 —
+// detail에서 back 복귀 시 직전 메모 편집이 stale fetch로 날아가지 않게 한다.
+export function renderVaultScreen(screen, prevScreen) {
+    vaultView.classList.toggle('hidden', screen !== 'vault_list');
+    vaultBlunderListView.classList.toggle('hidden', screen !== 'vault_blunder_list');
+    vaultDetailView.classList.toggle('hidden', screen !== 'vault_detail');
+    if (screen === 'vault_list') {
+        loadVaultData();
+    } else if (screen === 'vault_blunder_list') {
+        loadBlunderListData(prevScreen === 'vault_detail');
+    }
+}
+
 export function isVaultDetailActive() {
     return vaultDetailView && !vaultDetailView.classList.contains('hidden');
 }
