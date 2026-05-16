@@ -88,11 +88,12 @@ export async function deleteComment(id) {
 }
 
 // ── view 상태 ─────────────────────────────────────────
-let forumView, forumTitle, forumBackBtn, forumCategoryList,
+let forumView, forumTitle, forumBackBtn, forumContext, forumCategoryList,
     forumList, forumInputBar, forumInput, forumSubmitBtn, forumCharCount;
 // null (top) | root slug | leaf slug. level은 이 키에서 derive — 별도 state 안 둠.
 let currentKey = null;
 let _initDone = false;
+let navigateHome = null;
 
 // 'top' | 'root' | 'leaf' — 알 수 없는 slug는 top으로 폴백(URL 오염 방지).
 function getLevel() {
@@ -104,6 +105,10 @@ function getLevel() {
 
 function setStateFromKey(key) {
     currentKey = (!key || OPENING_GROUPS[key] || OPENING_FORUM_LABELS[key]) ? (key || null) : null;
+}
+
+function getParentKey(key) {
+    return ROOT_KEYS.find(rootKey => (OPENING_GROUPS[rootKey] || []).includes(key)) || null;
 }
 
 function getStreamKeys() {
@@ -187,13 +192,12 @@ async function refreshComments() {
 }
 
 function renderHeader() {
+    forumContext?.classList.toggle('hidden', getLevel() === 'top');
     if (forumTitle) {
         forumTitle.textContent = getLevel() === 'top'
             ? t('forum_root_title')
             : getForumLabel(currentKey);
     }
-    // top level은 site home으로 빠지는 back이라 forum back 화살표 가림 (visibility hidden으로 layout 유지).
-    if (forumBackBtn) forumBackBtn.style.visibility = getLevel() === 'top' ? 'hidden' : '';
 }
 
 function renderInputBar() {
@@ -258,11 +262,30 @@ function handleCategoryClick(e) {
     if (!row) return;
     const key = row.dataset.key;
     if (!key) return;
-    history.pushState({ screen: 'forum', openingKey: key }, '', `/forum/${key}`);
-    setStateFromKey(key);
+    navigateForumKey(key);
+}
+
+function navigateForumKey(key, { replace = false } = {}) {
+    const nextKey = key || null;
+    const method = replace ? 'replaceState' : 'pushState';
+    history[method]({ screen: 'forum', openingKey: nextKey }, '', nextKey ? `/forum/${nextKey}` : '/forum');
+    setStateFromKey(nextKey);
     if (forumInput) forumInput.value = '';
     updateCharCount();
     renderAll();
+}
+
+function handleBack() {
+    const level = getLevel();
+    if (level === 'top') {
+        navigateHome?.();
+        return;
+    }
+    if (level === 'leaf') {
+        navigateForumKey(getParentKey(currentKey), { replace: true });
+        return;
+    }
+    navigateForumKey(null, { replace: true });
 }
 
 // ── exports ────────────────────────────────────────────
@@ -291,13 +314,15 @@ export function tryActivateFromLocation(renderScreen) {
     return true;
 }
 
-export function initForum() {
+export function initForum({ navigateToHome } = {}) {
+    if (navigateToHome) navigateHome = navigateToHome;
     if (_initDone) return;
     forumView = document.getElementById('forumView');
     if (!forumView) return;
     _initDone = true;
     forumTitle = document.getElementById('forumTitle');
     forumBackBtn = document.getElementById('forumBackBtn');
+    forumContext = document.getElementById('forumContext');
     forumCategoryList = document.getElementById('forumCategoryList');
     forumList = document.getElementById('forumList');
     forumInputBar = document.getElementById('forumInputBar');
@@ -322,5 +347,9 @@ export function initForum() {
         });
     }
     if (forumCategoryList) forumCategoryList.addEventListener('click', handleCategoryClick);
-    if (forumBackBtn) forumBackBtn.addEventListener('click', () => history.back());
+    if (forumBackBtn) {
+        forumBackBtn.addEventListener('click', () => {
+            handleBack();
+        });
+    }
 }

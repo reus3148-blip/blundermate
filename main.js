@@ -33,6 +33,7 @@ import { initImportGames, onImportGamesViewEnter } from './importGames.js';
 import { initDrawer } from './drawer.js';
 import { initInputView, onInputViewEnter } from './inputView.js';
 import { initMovesOverlay, showMovesOverlay, closeMovesOverlay } from './movesOverlay.js';
+import { initOtb, onOtbViewEnter, onOtbViewExit } from './otb.js';
 import {
     initPreviewStartButton, isAnalysisLoadingActive,
     applyPreviewControls, removePreviewControls,
@@ -122,16 +123,27 @@ const SCREENS = {
     IMPORT_GAMES: 'import_games',
     INPUT: 'input',
     FORUM: 'forum',
+    OTB: 'otb',
 };
 
 let _currentScreen = SCREENS.HOME;
 
 const savedGamesViewNav = document.getElementById('savedGamesView');
 const insightsViewNav = document.getElementById('insightsView');
+const otbViewNav = document.getElementById('otbView');
 
 // bottom-nav 진입 가능한 루트 탭. 비-HOME 루트 탭에서는 history 스택을 [home, current] 2-deep로
 // 유지해 어느 탭에서도 뒤로가기 한 번에 home으로 복귀.
 const ROOT_TABS = new Set([SCREENS.HOME, SCREENS.VAULT_LIST, SCREENS.INSIGHTS]);
+
+function screenHashUrl(screen) {
+    return `/#${screen}`;
+}
+
+function getInitialHashScreen() {
+    const hashScreen = location.hash.replace(/^#/, '');
+    return hashScreen === SCREENS.OTB ? hashScreen : null;
+}
 
 // push + render 일원화. 호출자는 navigateTo만 호출하면 history와 화면 갱신이 함께 일어남 —
 // renderScreen이 hideAllViews + 해당 view 노출 + syncBottomNav를 모두 처리하므로
@@ -146,11 +158,11 @@ function navigateTo(screen, state = {}) {
         return;
     }
     if (tabSwap) {
-        history.replaceState({ screen, ...state }, '', `#${screen}`);
+        history.replaceState({ screen, ...state }, '', screenHashUrl(screen));
         renderScreen(screen);
         return;
     }
-    history.pushState({ screen, ...state }, '', `#${screen}`);
+    history.pushState({ screen, ...state }, '', screenHashUrl(screen));
     renderScreen(screen);
 }
 
@@ -166,6 +178,7 @@ function hideAllViews() {
     document.getElementById('feedbackView')?.classList.add('hidden');
     document.getElementById('importGamesView')?.classList.add('hidden');
     document.getElementById('inputView')?.classList.add('hidden');
+    if (otbViewNav) otbViewNav.classList.add('hidden');
     hideForumView();
     // onboardingView 가리기 — 임의 화면(특히 /forum deep-link) 진입 시 first-time 사용자의
     // 온보딩 카드가 위에 떠있는 중첩 회피. initHome이 노출하는 home 분기는 renderScreen이
@@ -205,6 +218,9 @@ function renderScreen(screen) {
     const prevScreen = _currentScreen;
     if (_currentScreen === SCREENS.ANALYSIS && screen !== SCREENS.ANALYSIS) {
         cleanupAnalysis();
+    }
+    if (_currentScreen === SCREENS.OTB && screen !== SCREENS.OTB) {
+        onOtbViewExit();
     }
     _currentScreen = screen;
     hideAllViews();
@@ -251,6 +267,10 @@ function renderScreen(screen) {
             break;
         case SCREENS.FORUM:
             openForumView({ openingKey: history.state?.openingKey });
+            break;
+        case SCREENS.OTB:
+            if (otbViewNav) otbViewNav.classList.remove('hidden');
+            onOtbViewEnter();
             break;
         default:
             homeView.classList.remove('hidden');
@@ -309,6 +329,7 @@ initDrawer({
         SCREENS.VAULT_BLUNDER_LIST,
         SCREENS.SAVED_GAMES,
         SCREENS.FORUM,
+        SCREENS.OTB,
         SCREENS.SETTINGS,
     ],
 });
@@ -324,8 +345,14 @@ window.addEventListener('popstate', (event) => {
 
 // deep-link 라우팅 — forum.js가 path 인식 + state 박기까지 자체 처리, 매칭 안 되면 home 디폴트.
 if (!tryActivateForum(renderScreen)) {
-    history.replaceState({ screen: SCREENS.HOME }, '', '#home');
-    syncBottomNav(SCREENS.HOME);
+    const initialHashScreen = getInitialHashScreen();
+    if (initialHashScreen) {
+        history.replaceState({ screen: initialHashScreen }, '', screenHashUrl(initialHashScreen));
+        queueMicrotask(() => renderScreen(initialHashScreen));
+    } else {
+        history.replaceState({ screen: SCREENS.HOME }, '', screenHashUrl(SCREENS.HOME));
+        syncBottomNav(SCREENS.HOME);
+    }
 }
 
 // ==========================================
@@ -369,6 +396,7 @@ function applyLocale() {
 // 홈/온보딩 — home.js로 이전. handlePgnReviewStart는 hoisted function declaration이라 안전.
 initHome({ syncBottomNav, SCREENS, handlePgnReviewStart });
 initDialogs();
+initOtb({ navigateToHome: () => navigateTo(SCREENS.HOME) });
 
 applyLocale();
 
@@ -562,7 +590,7 @@ function syncLiveStateToIndex(idx) {
         for (let i = 0; i < cached.length; i++) setBranchLineAt(i, cached[i]);
         renderBranchEngineLinesWithContext(cached);
         const cls = analysisQueue[idx].classification || '';
-        updateTopEvalDisplay(cached[0].scoreStr, cls, isUserWhite);
+        updateTopEvalDisplay(cached[0].scoreStr, cls, isUserWhite, analysisQueue[idx]?.san || '');
     } else {
         // 캐시 없음 (시작 포지션 또는 분석 미완료) → 엔진 재시작.
         kickBranchEngine(branchChess.fen());
@@ -860,7 +888,7 @@ initSavedGames({
 });
 
 initInsights();
-initForum();
+initForum({ navigateToHome: () => navigateTo(SCREENS.HOME) });
 initImportGames({ pgnInput, handlePgnReviewStart });
 
 function buildExplorationMovesQueue() {
@@ -1084,7 +1112,7 @@ const engineCallbacks = {
                 const cls = (appMode === APP_MODES.LIVE_INPUT && analysisQueue.length > 0)
                     ? (analysisQueue[analysisQueue.length - 1].classification || '')
                     : '';
-                updateTopEvalDisplay(branchEngineLines[0].scoreStr, cls, isUserWhite);
+                updateTopEvalDisplay(branchEngineLines[0].scoreStr, cls, isUserWhite, analysisQueue[currentlyViewedIndex]?.san || '');
             });
         }
     },
@@ -1102,7 +1130,7 @@ const engineCallbacks = {
             const cls = classifyMove(idx, analysisQueue);
             analysisQueue[idx].classification = cls;
             renderBranchEngineLinesWithContext();
-            updateTopEvalDisplay(branchEngineLines[0].scoreStr, cls, isUserWhite);
+            updateTopEvalDisplay(branchEngineLines[0].scoreStr, cls, isUserWhite, analysisQueue[currentlyViewedIndex]?.san || '');
             showPieceBadge(idx);
         }
     }
@@ -1372,7 +1400,7 @@ function _finalizeAnalysisRun({ fromCache }) {
         // FEN 단일: 보드는 그 포지션에 고정, 평가/라인을 패널에 즉시 반영
         const move = analysisQueue[0];
         const topLine = move.engineLines && move.engineLines[0] ? move.engineLines[0] : null;
-        updateTopEvalDisplay(topLine?.scoreStr || '', move.classification, isUserWhite);
+        updateTopEvalDisplay(topLine?.scoreStr || '', move.classification, isUserWhite, move.san || '');
         if (move.engineLines && move.engineLines.length > 0) {
             renderEngineLines(engineLinesContainer, move.engineLines.filter(Boolean), drawEngineArrow, clearEngineArrow, handleEngineLineClick);
         }
@@ -1557,7 +1585,7 @@ function updateBoardPosition(index, fen) {
     if (analysisQueue[index] && analysisQueue[index].engineLines && analysisQueue[index].engineLines.length > 0) {
         const topLine = analysisQueue[index].engineLines[0];
         renderEngineLines(engineLinesContainer, analysisQueue[index].engineLines.filter(Boolean), drawEngineArrow, clearEngineArrow, handleEngineLineClick);
-        updateTopEvalDisplay(topLine.scoreStr, analysisQueue[index].classification, isUserWhite);
+        updateTopEvalDisplay(topLine.scoreStr, analysisQueue[index].classification, isUserWhite, analysisQueue[index].san || '');
     } else if (index === -1 && analysisQueue.length > 0) {
         // 분석 후 0수(시작 포지션) — 게임 목록에서 누른 직후 모습과 동일하게 미리보기 카드 표시
         engineLinesContainer.innerHTML = buildPreviewCardHtml(buildGameHeaderInfo());
@@ -1649,7 +1677,7 @@ function updateBoardForSimulation(index) {
     const tempChess = new Chess(item.fen);
     const turnColor = tempChess.turn() === 'w' ? 'white' : 'black';
     cg.set({ fen: item.fen, turnColor: turnColor, movable: { color: turnColor, free: false, dests: getDests(tempChess) }, drawable: { autoShapes: [] } });
-    updateTopEvalDisplay(item.scoreStr || '—', 'Simulating', isUserWhite);
+    updateTopEvalDisplay(item.scoreStr || '—', 'Simulating', isUserWhite, item.san || '');
     switchTab('engine');
 
     const movesHtml = simulationQueue.map((m, i) => {

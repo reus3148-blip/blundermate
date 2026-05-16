@@ -160,6 +160,54 @@
             </div>
         </div>
 
+        <!-- OTB Clock View -->
+        <div id="otbView" class="view-container hidden">
+            <div class="analysis-top-bar otb-top-bar">
+                <button id="otbBackBtn" class="back-btn" type="button">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                    <span data-i18n="back">Back</span>
+                </button>
+                <span class="top-bar-title" data-i18n="otb_title">OTB 모드</span>
+                <button id="otbWakeBtn" class="topbar-text-btn" type="button" hidden>화면 유지 꺼짐</button>
+            </div>
+            <div class="otb-screen">
+                <div id="otbSetupPanel" class="otb-setup-panel">
+                    <div id="otbPresetBar" class="otb-preset-bar" aria-label="시간 설정"></div>
+                    <div class="otb-custom-row">
+                        <label class="otb-custom-field">
+                            <span data-i18n="otb_minutes">분</span>
+                            <input id="otbCustomMinutes" class="otb-custom-input" type="number" inputmode="numeric" min="1" max="1440" step="1" value="5">
+                        </label>
+                        <label class="otb-custom-field">
+                            <span data-i18n="otb_increment">증가</span>
+                            <input id="otbCustomIncrement" class="otb-custom-input" type="number" inputmode="numeric" min="0" max="600" step="1" value="0">
+                        </label>
+                        <button id="otbCustomApply" class="otb-small-btn" type="button" data-i18n="otb_apply">적용</button>
+                    </div>
+                </div>
+                <div id="otbClockStage" class="otb-clock-stage">
+                    <button id="otbBlackPanel" class="otb-clock-panel otb-clock-panel--black" type="button">
+                        <span class="otb-side-label" data-i18n="otb_black">흑</span>
+                        <span id="otbBlackTime" class="otb-time">5:00</span>
+                        <span class="otb-move-count"><span data-i18n="otb_moves">수</span> <strong id="otbBlackMoves">0</strong></span>
+                    </button>
+                    <div class="otb-center-controls">
+                        <span id="otbStatus" class="otb-status">준비됨</span>
+                        <div class="otb-actions">
+                            <button id="otbStartPauseBtn" class="otb-main-btn" type="button" data-i18n="otb_start">시작</button>
+                            <button id="otbResetBtn" class="otb-ghost-btn" type="button" data-i18n="otb_reset">리셋</button>
+                            <button id="otbFlipBtn" class="otb-ghost-btn" type="button" data-i18n="otb_flip">방향</button>
+                        </div>
+                    </div>
+                    <button id="otbWhitePanel" class="otb-clock-panel otb-clock-panel--white" type="button">
+                        <span class="otb-side-label" data-i18n="otb_white">백</span>
+                        <span id="otbWhiteTime" class="otb-time">5:00</span>
+                        <span class="otb-move-count"><span data-i18n="otb_moves">수</span> <strong id="otbWhiteMoves">0</strong></span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <!-- Analysis View (Hidden by default) -->
         <div id="analysisView" class="view-container hidden">
 
@@ -450,12 +498,17 @@
 
     <!-- Forum View — 오프닝별 한국어 커뮤니티 (Phase 57). 진입은 /forum deep-link로만 (앱 내 진입점은 추후 phase). -->
     <div id="forumView" class="view-container hidden">
-        <div class="forum-head">
-            <button id="forumBackBtn" class="forum-back-btn" type="button" aria-label="Back">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+        <div class="analysis-top-bar forum-top-bar">
+            <button id="forumBackBtn" class="back-btn" type="button" aria-label="Back">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+                <span data-i18n="back">Back</span>
             </button>
+            <span class="top-bar-title" data-i18n="drawer_forum">오프닝 갤러리</span>
+            <div class="top-bar-spacer"></div>
+        </div>
+        <div id="forumContext" class="forum-context">
             <!-- title은 openForumView가 슬러그 매핑(시실리안 디펜스 등)으로 set. data-i18n 안 박음 — i18n walker가 매핑 라벨을 reset하는 race 회피. -->
-            <h2 id="forumTitle" class="forum-title">오프닝 커뮤니티</h2>
+            <h2 id="forumTitle" class="forum-title">오프닝 갤러리</h2>
         </div>
         <!-- 카테고리 list — top/root level에서 다음 단계로 push. leaf에선 hidden. forum.js가 동적 inject. -->
         <div id="forumCategoryList" class="forum-category-list hidden"></div>
@@ -824,7 +877,12 @@
                 </button>
                 <button class="drawer-item" type="button" data-drawer-target="forum">
                     <svg class="drawer-item-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                    <span class="drawer-item-label" data-i18n="drawer_forum">커뮤니티</span>
+                    <span class="drawer-item-label" data-i18n="drawer_forum">오프닝 갤러리</span>
+                    <svg class="drawer-item-chevron" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+                </button>
+                <button class="drawer-item" type="button" data-drawer-target="otb">
+                    <svg class="drawer-item-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/><path d="M9 2h6"/></svg>
+                    <span class="drawer-item-label" data-i18n="drawer_otb">OTB 모드</span>
                     <svg class="drawer-item-chevron" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
                 </button>
                 <button class="drawer-item" type="button" data-drawer-target="settings">

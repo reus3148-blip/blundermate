@@ -65,7 +65,7 @@
    Home View: Profile Card — 아바타 + 이름 + 레이팅 + 최근 전적
    ========================================== */
 .home-profile-card {
-    margin: 16px 20px 28px;
+    margin: 16px 20px 20px;
     background: var(--bg-surface);
     border: 1px solid var(--brd);
     border-radius: 16px;
@@ -150,6 +150,283 @@
     font-weight: 600;
     color: var(--tx2);
     font-variant-numeric: tabular-nums;
+}
+
+/* ==========================================
+   OTB Clock
+   ========================================== */
+.topbar-text-btn {
+    justify-self: end;
+    border: none;
+    background: transparent;
+    color: var(--tx3);
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 0 4px;
+    white-space: nowrap;
+}
+.topbar-text-btn.is-on { color: var(--ac); }
+.analysis-top-bar.otb-top-bar {
+    grid-template-columns: 44px minmax(0, 1fr) minmax(52px, auto);
+}
+.otb-top-bar .top-bar-title {
+    min-width: 0;
+}
+
+.otb-screen {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    flex: 1;
+    padding: 10px 12px 14px;
+    gap: 8px;
+    box-sizing: border-box;
+    background: var(--bg);
+}
+
+.otb-setup-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+#otbView.is-clock-mode .otb-top-bar,
+#otbView.is-clock-mode .otb-setup-panel {
+    display: none;
+}
+
+#otbView.is-clock-mode .otb-screen {
+    padding: 8px;
+    gap: 0;
+}
+
+.otb-preset-bar {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+}
+
+.otb-preset,
+.otb-small-btn,
+.otb-main-btn,
+.otb-ghost-btn {
+    border: 1px solid var(--brd);
+    background: var(--bg-surface);
+    color: var(--tx);
+    font-family: inherit;
+    font-weight: 700;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.otb-preset {
+    height: 34px;
+    border-radius: 8px;
+    font-size: 13px;
+}
+.otb-preset:disabled,
+.otb-small-btn:disabled {
+    cursor: default;
+    opacity: 0.48;
+}
+.otb-preset.is-selected {
+    border-color: var(--ac);
+    color: var(--ac);
+    background: var(--ac-lo);
+}
+
+.otb-custom-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr auto;
+    gap: 6px;
+    align-items: end;
+}
+.otb-custom-row.is-locked {
+    opacity: 0.72;
+}
+
+.otb-custom-field {
+    display: grid;
+    gap: 4px;
+    color: var(--tx3);
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.otb-custom-input {
+    width: 100%;
+    min-width: 0;
+    height: 34px;
+    border: 1px solid var(--brd);
+    border-radius: 8px;
+    padding: 0 10px;
+    box-sizing: border-box;
+    background: var(--bg-surface);
+    color: var(--tx);
+    font-family: var(--num-font);
+    font-weight: 750;
+}
+.otb-custom-input:disabled {
+    cursor: default;
+}
+
+.otb-small-btn {
+    height: 34px;
+    border-radius: 8px;
+    padding: 0 12px;
+    font-size: 12px;
+}
+
+.otb-clock-stage {
+    display: flex;
+    flex-direction: column;
+    flex: 0 0 auto;
+    min-height: 0;
+    gap: 8px;
+}
+
+#otbView.is-clock-mode .otb-clock-stage {
+    flex: 1;
+}
+
+.otb-clock-panel {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    flex: 1 1 0;
+    min-height: 0;
+    border: 1px solid var(--brd);
+    border-radius: 16px;
+    background: var(--bg-surface);
+    color: var(--tx);
+    box-shadow: 0 1px 0 rgba(16, 20, 28, 0.04), 0 8px 20px -16px rgba(16, 20, 28, 0.16);
+}
+#otbView:not(.is-clock-mode) .otb-clock-panel {
+    display: none;
+}
+.otb-clock-panel.is-top {
+    transform: rotate(180deg);
+}
+.otb-clock-panel.is-active {
+    border-color: color-mix(in srgb, var(--ac) 55%, var(--brd));
+    background: color-mix(in srgb, var(--ac) 7%, var(--bg-surface));
+}
+.otb-clock-panel.is-flagged {
+    border-color: var(--blunder);
+    color: var(--blunder);
+}
+
+.otb-side-label {
+    font-size: 14px;
+    font-weight: 800;
+    color: var(--tx2);
+}
+
+.otb-time {
+    font-family: var(--num-font);
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1, "zero" 1;
+    font-size: 78px;
+    font-weight: 850;
+    line-height: 0.95;
+    letter-spacing: 0;
+}
+#otbView.is-clock-mode .otb-time {
+    font-size: 92px;
+}
+
+.otb-move-count {
+    display: inline-flex;
+    gap: 4px;
+    color: var(--tx3);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.otb-center-controls {
+    order: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 2px 0;
+    flex-shrink: 0;
+}
+#otbView:not(.is-clock-mode) .otb-center-controls {
+    padding-top: 8px;
+    justify-content: stretch;
+}
+
+.otb-status {
+    min-width: 76px;
+    color: var(--tx2);
+    font-size: 13px;
+    font-weight: 750;
+    white-space: nowrap;
+}
+#otbView:not(.is-clock-mode) .otb-status,
+#otbView:not(.is-clock-mode) #otbResetBtn {
+    display: none;
+}
+
+.otb-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+#otbView:not(.is-clock-mode) .otb-actions {
+    width: 100%;
+}
+
+.otb-main-btn,
+.otb-ghost-btn {
+    height: 38px;
+    border-radius: 9px;
+    padding: 0 13px;
+    font-size: 13px;
+}
+
+.otb-main-btn {
+    border-color: var(--ac);
+    background: var(--ac);
+    color: #fff;
+}
+#otbView:not(.is-clock-mode) .otb-main-btn {
+    flex: 1;
+    height: 44px;
+}
+
+.otb-ghost-btn {
+    color: var(--tx2);
+}
+
+@media (max-width: 430px) {
+    .otb-time { font-size: 72px; }
+    #otbView.is-clock-mode .otb-time { font-size: 84px; }
+}
+
+@media (max-width: 360px) {
+    .otb-time { font-size: 64px; }
+    #otbView.is-clock-mode .otb-time { font-size: 72px; }
+}
+
+@media (max-height: 620px) {
+    .otb-screen { padding: 8px 10px 10px; gap: 6px; }
+    .otb-time { font-size: 60px; }
+    #otbView.is-clock-mode .otb-time { font-size: 68px; }
+    .otb-clock-panel { gap: 6px; }
+}
+
+@media (max-height: 560px) {
+    .otb-custom-row { display: none; }
+    .otb-time { font-size: 54px; }
+    #otbView.is-clock-mode .otb-time { font-size: 60px; }
 }
 
 /* ==========================================
@@ -597,13 +874,12 @@ textarea:focus {
     position: absolute;
     left: 50%;
     transform: translateX(-50%);
-    display: grid;
-    grid-template-columns: minmax(66px, 1fr) 1px minmax(56px, 1fr);
+    display: flex;
     align-items: center;
-    justify-items: center;
-    gap: clamp(5px, 1.6vw, 8px);
+    justify-content: space-between;
+    gap: 8px;
     min-width: 0;
-    width: clamp(144px, 38vw, 170px);
+    width: clamp(230px, 48vw, 292px);
     flex: 0 0 auto;
     height: 40px;
 }
@@ -622,10 +898,11 @@ textarea:focus {
     display: none;
 }
 
-@media (max-width: 360px) {
+@media (max-width: 430px) {
     .analysis-control-main {
-        position: static;
+        left: 8px;
         transform: none;
+        width: calc(100% - 124px);
     }
 }
 
@@ -964,10 +1241,7 @@ th {
 }
 
 .bar-separator {
-    width: 1px;
-    height: 16px;
-    background: var(--brd2);
-    flex-shrink: 0;
+    display: none;
 }
 
 .tab-toggle-btn {
@@ -991,58 +1265,78 @@ th {
 .tab-toggle-btn:hover { opacity: 0.75; }
 .tab-toggle-btn:active { transform: scale(0.95); }
 
-/* eval은 mono + 굵게 + 가독성 색(JS가 색 주입). 폭은 내용 기반(symbol M3/+9.99 등 변동) + 좌측 라벨과 일관 정렬. */
+/* eval text — 컨트롤 바 배경 위에서 테마 텍스트 색을 따른다. */
 .win-chance-display {
-    transform: translateX(-7px);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     font-family: var(--num-font);
     font-variant-numeric: tabular-nums;
     font-feature-settings: "tnum" 1, "zero" 1;
-    min-width: 56px;
-    font-size: 16px;
-    font-weight: 750;
+    min-width: 54px;
+    height: 28px;
+    padding: 0 2px;
+    background: transparent;
+    font-size: 15px;
+    font-weight: 800;
     color: var(--tx);
     line-height: 1;
     text-align: center;
     transition: opacity 0.15s ease;
-    padding: 0 2px;
+    flex-shrink: 0;
 }
 
-/* 분류 라벨을 chess.com/lichess 패턴의 컬러 칩(tint pill)으로.
-   color-mix는 Chrome 111+/Safari 16.2+/Firefox 113+ 모두 OK(타겟 모바일 충족). */
+/* 현재 수 verdict — 아이콘 + SAN + 한국어 문장. */
 .move-class-label {
     display: inline-flex;
     align-items: center;
-    justify-content: center;
-    justify-self: end;
-    height: 22px;
-    min-width: 66px;
-    padding: 0 10px;
+    justify-content: flex-start;
+    gap: 5px;
+    height: 32px;
+    min-width: 0;
+    padding: 0;
     flex-shrink: 0;
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.02em;
+    flex: 1 1 auto;
+    font-size: 13px;
+    font-weight: 750;
+    letter-spacing: -0.01em;
     line-height: 1;
-    border-radius: 999px;
-    color: var(--tx2);
-    background: var(--bg-elevated);
-    max-width: min(27vw, 108px);
+    color: var(--tx);
+    background: transparent;
+    max-width: none;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
 .move-class-label:empty { display: none; }
-.move-class-label:empty + .bar-separator { display: none; }
 
-.move-class-label[data-cls="Brilliant"]  { color: var(--brilliant);  background: color-mix(in srgb, var(--brilliant)  14%, transparent); }
-.move-class-label[data-cls="Great"]      { color: var(--great);      background: color-mix(in srgb, var(--great)      14%, transparent); }
-.move-class-label[data-cls="Best"]       { color: var(--best);       background: color-mix(in srgb, var(--best)       14%, transparent); }
-.move-class-label[data-cls="Excellent"]  { color: var(--excellent);  background: color-mix(in srgb, var(--excellent)  14%, transparent); }
-.move-class-label[data-cls="Good"]       { color: var(--tx);         background: var(--bg-elevated); }
-.move-class-label[data-cls="Inaccuracy"] { color: var(--inaccuracy); background: color-mix(in srgb, var(--inaccuracy) 14%, transparent); }
-.move-class-label[data-cls="Mistake"]    { color: var(--mistake);    background: color-mix(in srgb, var(--mistake)    14%, transparent); }
-.move-class-label[data-cls="Blunder"]    { color: var(--blunder);    background: color-mix(in srgb, var(--blunder)    14%, transparent); }
-.move-class-label[data-cls="Forced"]     { color: var(--tx2);        background: var(--bg-elevated); }
+.move-verdict-badge {
+    width: 22px;
+    height: 22px;
+    flex: 0 0 22px;
+}
+.move-verdict-piece {
+    color: var(--tx2);
+    font-size: 14px;
+    line-height: 1;
+    transform: translateY(-1px);
+    flex-shrink: 0;
+}
+.move-verdict-san {
+    color: var(--tx);
+    font-family: var(--num-font);
+    font-weight: 850;
+    font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
+}
+.move-verdict-text {
+    color: var(--tx);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+}
 
 /* AI Coach 패널(#geminiExplanation)도 동일 기하 — 부모 .panel-content 안의 자식이지만
    자체 flex column으로 내부 콘텐츠(generate 버튼/응답)가 같은 layout 받음.
@@ -2800,9 +3094,23 @@ button.settings-row--destructive:hover {
     font-size: 11px;
     color: var(--tx2);
     display: flex;
-    gap: 6px;
-    align-items: center;
-    flex-wrap: wrap;
+    flex-direction: column;
+    gap: 2px;
+    align-items: flex-start;
+    line-height: 1.25;
+}
+
+.home-game-meta-row > span {
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.home-game-move-count {
+    color: var(--tx3);
+    font-variant-numeric: tabular-nums;
 }
 
 .home-game-class-row {
@@ -3315,8 +3623,8 @@ button.settings-row--destructive:hover {
 .review-report {
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    padding: 4px 10px 16px;
+    gap: 8px;
+    padding: 0 10px 16px;
     box-sizing: border-box;
 }
 
@@ -3334,8 +3642,9 @@ button.settings-row--destructive:hover {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 20px 10px 22px;
+    padding: 14px 10px 16px;
     gap: 14px;
+    border-bottom: 1px solid var(--brd);
 }
 .resultStrap__left { min-width: 0; flex: 1; }
 .resultStrap__title {
@@ -3373,7 +3682,7 @@ button.settings-row--destructive:hover {
     font-size: 12.5px;
     line-height: 1.45;
     color: var(--tx3);
-    margin-top: 6px;
+    margin-top: 4px;
     padding-left: 21px;
     white-space: nowrap;
     overflow: hidden;
@@ -3385,7 +3694,7 @@ button.settings-row--destructive:hover {
     line-height: 1.45;
     color: var(--tx2);
     font-weight: 500;
-    margin-top: 8px;
+    margin-top: 4px;
     padding-left: 21px;
     white-space: nowrap;
     overflow: hidden;
@@ -3418,12 +3727,12 @@ button.settings-row--destructive:hover {
 
 /* ── 통계 표 카드 — grid 1fr 60px 60px (좌측 라벨 자유, 백/흑 60px) */
 .review-stats-card {
-    padding: 0 16px;
+    padding: 0 32px 0 16px;
 }
 .review-stats-card .tRow {
     display: grid;
     grid-template-columns: 1fr 60px 60px;
-    column-gap: 14px;
+    column-gap: 18px;
     align-items: center;
     padding: 5px 0;
     border-bottom: 1px solid var(--list-divider);
@@ -3510,7 +3819,7 @@ button.settings-row--destructive:hover {
 .review-stats-card .tag-side.black .dot { background: var(--review-black-line); }
 
 /* 분류 칩 — 보드 .piece-badge와 같은 시각언어, 표 inline용 압축 버전.
-   Good은 BADGE_MAP entry 없어 .review-stats-badge--good fallback. */
+   Good은 보드 배지 대신 표 전용 muted check fallback을 쓴다. */
 .review-stats-badge {
     display: inline-flex;
     align-items: center;
@@ -3525,11 +3834,15 @@ button.settings-row--destructive:hover {
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 0 0 0.5px rgba(0, 0, 0, 0.06);
 }
 .review-stats-badge--good {
-    background: var(--tx);
-    width: 10px;
-    height: 10px;
-    margin: 0 5px;
-    box-shadow: none;
+    background: #81A84B;
+}
+.review-stats-badge--good::before {
+    content: '';
+    width: 12px;
+    height: 12px;
+    background: #fff;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath fill='black' d='M2 10.5A2.5 2.5 0 0 1 4.5 8H6v11H4.5A2.5 2.5 0 0 1 2 16.5v-6Zm6-2.1 3.55-5.05A1.9 1.9 0 0 1 15 4.45V8h4.2a2.8 2.8 0 0 1 2.74 3.36l-1.12 5.5A4 4 0 0 1 16.9 20H8V8.4Z'/%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath fill='black' d='M2 10.5A2.5 2.5 0 0 1 4.5 8H6v11H4.5A2.5 2.5 0 0 1 2 16.5v-6Zm6-2.1 3.55-5.05A1.9 1.9 0 0 1 15 4.45V8h4.2a2.8 2.8 0 0 1 2.74 3.36l-1.12 5.5A4 4 0 0 1 16.9 20H8V8.4Z'/%3E%3C/svg%3E") center / contain no-repeat;
 }
 
 /* ── CTA — 옅은 tint(ac-lo) + ac 텍스트로 secondary 톤. 첫 수부터 복기는 primary action이지만
@@ -4580,37 +4893,29 @@ body.moves-overlay-open .input-pgn-area {
 }
 #forumView.hidden { display: none; }
 
-.forum-head {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 12px;
-    border-bottom: 1px solid var(--brd);
-    min-height: var(--topbar-height);
+.forum-top-bar {
     background: var(--bg-surface);
 }
-.forum-back-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 36px;
-    height: 36px;
-    border: none;
-    background: transparent;
-    color: var(--tx);
-    cursor: pointer;
-    border-radius: 8px;
-    flex-shrink: 0;
+.forum-top-bar .top-bar-spacer {
+    width: 44px;
 }
-.forum-back-btn:active { background: var(--press-fill); }
+
+.forum-context {
+    padding: 14px 16px 10px;
+    background: var(--bg-surface);
+    border-bottom: 1px solid var(--brd);
+}
+
 .forum-title {
     margin: 0;
-    font-size: var(--fs-title);
-    font-weight: var(--fw-title);
+    font-size: 18px;
+    line-height: 24px;
+    font-weight: 750;
     color: var(--tx);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    letter-spacing: 0;
 }
 
 /* 카테고리 list (Phase 57 drilldown) — top/root level에서 다음 단계로 push. iOS inset grouped list 패턴(Phase 49 정렬) */

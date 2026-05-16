@@ -347,8 +347,10 @@ function appendHomeRecentBatch(from, to) {
         const oppRating = oppSide.rating ? String(oppSide.rating) : '';
 
         const movesLabel = summary.moves ? `${summary.moves}${t('moves_suffix')}` : '';
-        const metaParts = [opening, movesLabel].filter(Boolean);
-        const metaInner = metaParts.map(p => `<span>${escapeHtml(p)}</span>`).join('');
+        const metaInner = [
+            opening ? `<span class="home-game-opening">${escapeHtml(opening)}</span>` : '',
+            movesLabel ? `<span class="home-game-move-count">${escapeHtml(movesLabel)}</span>` : '',
+        ].filter(Boolean).join('');
 
         const card = document.createElement('button');
         card.type = 'button';

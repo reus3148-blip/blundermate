@@ -390,6 +390,17 @@ const CLASS_I18N = {
     'Blunder':    'class_blunder',
     'Forced':     'class_forced',
 };
+const VERDICT_I18N = {
+    'Brilliant':  'verdict_brilliant',
+    'Great':      'verdict_great',
+    'Best':       'verdict_best',
+    'Excellent':  'verdict_excellent',
+    'Good':       'verdict_good',
+    'Inaccuracy': 'verdict_inaccuracy',
+    'Mistake':    'verdict_mistake',
+    'Blunder':    'verdict_blunder',
+    'Forced':     'verdict_forced',
+};
 const CLASS_DOT_COLOR = {
     'Brilliant':  'var(--brilliant)',
     'Great':      'var(--great)',
@@ -445,11 +456,7 @@ function renderStatsCardHtml(analysisQueue, isUserWhite = true) {
         ? escapeHtml(t('report_black'))
         : `${escapeHtml(t('report_black'))}·${youLabel}`;
 
-    const buildBadge = (c) => {
-        const b = BADGE_MAP[c];
-        if (!b) return `<span class="review-stats-badge review-stats-badge--good"></span>`;
-        return `<span class="review-stats-badge" style="background:${b.bg};color:${b.color};font-size:${b.fontSize};font-weight:${b.fontWeight};">${escapeHtml(b.symbol)}</span>`;
-    };
+    const buildBadge = (c) => buildClassificationBadgeHtml(c);
     const numCell = (n, color) => n === 0
         ? `<div class="tRow__num is-zero">0</div>`
         : `<div class="tRow__num" style="color:${color};">${n}</div>`;
@@ -563,14 +570,14 @@ export function renderReviewReport({ analysisQueue, isUserWhite, resultMeta }) {
  * isUserWhite 인자는 backward-compat용.
  */
 let _moveClassLabel, _winChanceDisplay, _analysisEvalSeparator, _lastEvalDisplayKey;
-export function updateTopEvalDisplay(scoreStr, classification = '', isUserWhite = true) {
+export function updateTopEvalDisplay(scoreStr, classification = '', isUserWhite = true, moveSan = '') {
     if (!_winChanceDisplay) {
         _moveClassLabel = document.getElementById('moveClassLabel');
         _winChanceDisplay = document.getElementById('winChanceDisplay');
         _analysisEvalSeparator = document.getElementById('analysisEvalSeparator');
     }
     if (!_winChanceDisplay) return;
-    const key = `${scoreStr || ''}|${classification || ''}`;
+    const key = `${scoreStr || ''}|${classification || ''}|${moveSan || ''}`;
     if (key === _lastEvalDisplayKey) return;
     _lastEvalDisplayKey = key;
 
@@ -580,10 +587,19 @@ export function updateTopEvalDisplay(scoreStr, classification = '', isUserWhite 
     const classKey = CLASS_I18N[classification] || '';
     if (_moveClassLabel) {
         if (classKey) {
-            _moveClassLabel.textContent = t(classKey);
+            const san = String(moveSan || '').trim();
+            const sanHtml = san
+                ? `<span class="move-verdict-piece" aria-hidden="true">${escapeHtml(pieceGlyphFromSan(san))}</span><span class="move-verdict-san">${escapeHtml(san)}</span>`
+                : '';
+            const verdictKey = VERDICT_I18N[classification] || classKey;
+            _moveClassLabel.innerHTML = `
+                ${buildClassificationBadgeHtml(classification, 'move-verdict-badge')}
+                ${sanHtml}
+                <span class="move-verdict-text">${escapeHtml(t(verdictKey))}</span>
+            `;
             _moveClassLabel.dataset.cls = classification;
         } else {
-            _moveClassLabel.textContent = '';
+            _moveClassLabel.innerHTML = '';
             delete _moveClassLabel.dataset.cls;
         }
     }
@@ -593,19 +609,34 @@ export function updateTopEvalDisplay(scoreStr, classification = '', isUserWhite 
 
 // 보드 위 분류 배지 — 분석 화면(showPieceBadge)과 vault 카드(renderBlunderVisualization) 공유.
 // CSS는 styles.css의 .piece-badge-square / .piece-badge.
-// bg는 var(--{class}) 토큰으로 다크 모드 자동 정합. Best/Forced는 의도된 raw 유지
-// (Best: 다이아 칩이라 흰 배경 고정 / Forced: 차분한 회색 — 토큰 매핑 시 다크 contrast 약함).
+// bg는 var(--{class}) 토큰으로 다크 모드 자동 정합. Forced는 의도된 raw 유지
+// (Forced: 차분한 회색 — 토큰 매핑 시 다크 contrast 약함).
 // color(전경 텍스트)는 컬러 bg 위 대비 보존을 위해 raw 고정.
 const BADGE_MAP = {
     'Brilliant':  { symbol: '!!', fontSize: '9px',  fontWeight: '900', color: '#fff',    bg: 'var(--brilliant)' },
     'Great':      { symbol: '!',  fontSize: '13px', fontWeight: '900', color: '#fff',    bg: 'var(--great)' },
-    'Best':       { symbol: '✦', fontSize: '10px', fontWeight: '700', color: '#1C1D1F', bg: '#FFFFFF' },
+    'Best':       { symbol: '★', fontSize: '10px', fontWeight: '900', color: '#fff',    bg: 'var(--best)' },
     'Excellent':  { symbol: '✓', fontSize: '11px', fontWeight: '900', color: '#fff',    bg: 'var(--excellent)' },
     'Inaccuracy': { symbol: '?!', fontSize: '8px',  fontWeight: '700', color: '#fff',    bg: 'var(--inaccuracy)' },
     'Mistake':    { symbol: '?',  fontSize: '13px', fontWeight: '900', color: '#fff',    bg: 'var(--mistake)' },
     'Blunder':    { symbol: '??', fontSize: '9px',  fontWeight: '700', color: '#fff',    bg: 'var(--blunder)' },
     'Forced':     { symbol: '□',  fontSize: '11px', fontWeight: '700', color: '#fff',    bg: '#62646A' },
 };
+
+function buildClassificationBadgeHtml(classification, extraClass = '') {
+    const extra = extraClass ? ` ${escapeHtml(extraClass)}` : '';
+    if (classification === 'Good') {
+        return `<span class="review-stats-badge review-stats-badge--good${extra}" aria-hidden="true"></span>`;
+    }
+    const b = BADGE_MAP[classification];
+    if (!b) return '';
+    return `<span class="review-stats-badge${extra}" style="background:${b.bg};color:${b.color};font-size:${b.fontSize};font-weight:${b.fontWeight};" aria-hidden="true">${escapeHtml(b.symbol)}</span>`;
+}
+
+function pieceGlyphFromSan(san) {
+    const piece = String(san || '').trim().replace(/^O-O(?:-O)?[+#]?$/, 'K')[0];
+    return ({ K: '♔', Q: '♕', R: '♖', B: '♗', N: '♘' })[piece] || '♙';
+}
 
 /**
  * 보드 컨테이너의 특정 칸 위에 분류 배지 div를 절대 위치로 띄움. 기존 배지 있으면 제거.
