@@ -42,7 +42,7 @@ function loadSettings() {
         state.incrementSeconds = Number.isFinite(inc) && inc >= 0 ? Math.min(inc, 600) : 0;
         state.flipped = !!parsed.flipped;
         state.wakeEnabled = !!parsed.wakeEnabled;
-    } catch (_) {}
+    } catch (_) { }
     resetClock(false);
 }
 
@@ -140,7 +140,7 @@ function releaseWakeLock() {
     if (!wakeLock) return;
     const lock = wakeLock;
     wakeLock = null;
-    lock.release().catch(() => {});
+    lock.release().catch(() => { });
     renderWakeButton();
 }
 
