@@ -167,11 +167,18 @@
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
                     <span data-i18n="back">Back</span>
                 </button>
-                <span class="top-bar-title" data-i18n="otb_title">OTB 모드</span>
+                <span class="top-bar-title" data-i18n="otb_title">체스 타이머</span>
                 <button id="otbWakeBtn" class="topbar-text-btn" type="button" hidden>화면 유지 꺼짐</button>
             </div>
             <div class="otb-screen">
                 <div id="otbSetupPanel" class="otb-setup-panel">
+                    <div class="otb-setup-summary" aria-live="polite">
+                        <span id="otbSetupTime" class="otb-setup-time">5+0</span>
+                        <span class="otb-setup-details">
+                            <span class="otb-setup-detail"><strong id="otbSetupMinutes">5</strong><span data-i18n="otb_minutes">분</span></span>
+                            <span class="otb-setup-detail"><strong id="otbSetupIncrement">0</strong><span data-i18n="otb_increment">증가</span></span>
+                        </span>
+                    </div>
                     <div id="otbPresetBar" class="otb-preset-bar" aria-label="시간 설정"></div>
                     <div class="otb-custom-row">
                         <label class="otb-custom-field">
@@ -194,7 +201,7 @@
                     <div class="otb-center-controls">
                         <span id="otbStatus" class="otb-status">준비됨</span>
                         <div class="otb-actions">
-                            <button id="otbStartPauseBtn" class="otb-main-btn" type="button" data-i18n="otb_start">시작</button>
+                            <button id="otbStartPauseBtn" class="otb-main-btn" type="button" data-i18n="otb_open_clock">타이머 열기</button>
                             <button id="otbResetBtn" class="otb-ghost-btn" type="button" data-i18n="otb_reset">리셋</button>
                             <button id="otbFlipBtn" class="otb-ghost-btn" type="button" data-i18n="otb_flip">방향</button>
                         </div>
@@ -882,7 +889,7 @@
                 </button>
                 <button class="drawer-item" type="button" data-drawer-target="otb">
                     <svg class="drawer-item-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/><path d="M9 2h6"/></svg>
-                    <span class="drawer-item-label" data-i18n="drawer_otb">OTB 모드</span>
+                    <span class="drawer-item-label" data-i18n="drawer_otb">체스 타이머</span>
                     <svg class="drawer-item-chevron" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
                 </button>
                 <button class="drawer-item" type="button" data-drawer-target="settings">

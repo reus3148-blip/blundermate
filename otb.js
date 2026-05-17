@@ -23,6 +23,8 @@ const state = {
     incrementSeconds: 0,
     remainingMs: { white: 300000, black: 300000 },
     activeSide: null,
+    inClockMode: false,
+    awaitingFirstTap: false,
     running: false,
     moves: { white: 0, black: 0 },
     flipped: false,
@@ -62,11 +64,11 @@ function otherSide(side) {
 }
 
 function canChangeTimeControls() {
-    return !state.activeSide && state.moves.white === 0 && state.moves.black === 0;
+    return !state.inClockMode && !state.activeSide && state.moves.white === 0 && state.moves.black === 0;
 }
 
 function isClockMode() {
-    return !!state.activeSide;
+    return state.inClockMode;
 }
 
 function getSideOrder() {
@@ -144,6 +146,8 @@ function releaseWakeLock() {
 
 function startClock(startSide = 'white') {
     if (state.running) return;
+    state.awaitingFirstTap = false;
+    state.inClockMode = true;
     state.activeSide = state.activeSide || startSide;
     state.running = true;
     lastTs = performance.now();
@@ -165,6 +169,8 @@ function resetClock(shouldRender = true) {
     stopTick();
     state.running = false;
     state.activeSide = null;
+    state.inClockMode = false;
+    state.awaitingFirstTap = false;
     state.remainingMs.white = state.baseSeconds * 1000;
     state.remainingMs.black = state.baseSeconds * 1000;
     state.moves.white = 0;
@@ -174,7 +180,35 @@ function resetClock(shouldRender = true) {
     if (shouldRender) renderClock(true);
 }
 
+function enterClockMode() {
+    if (!canChangeTimeControls()) return;
+    state.inClockMode = true;
+    state.running = false;
+    state.activeSide = null;
+    state.awaitingFirstTap = false;
+    renderClock(true);
+}
+
+function armFirstTap() {
+    if (!state.inClockMode || state.running || state.activeSide) return;
+    state.awaitingFirstTap = true;
+    renderClock(true);
+}
+
 function finishMove(side) {
+    if (state.awaitingFirstTap) {
+        if (side !== 'white') return;
+        state.awaitingFirstTap = false;
+        state.remainingMs.white += state.incrementSeconds * 1000;
+        state.moves.white += 1;
+        state.activeSide = 'black';
+        state.running = true;
+        lastTs = performance.now();
+        requestWakeLock();
+        renderClock(true);
+        scheduleTick();
+        return;
+    }
     if (!state.running || state.activeSide !== side || state.remainingMs[side] <= 0) return;
     syncActiveRemaining();
     state.remainingMs[side] += state.incrementSeconds * 1000;
@@ -217,7 +251,15 @@ function renderPresetControls() {
     }).join('');
     if (els.customMinutes) els.customMinutes.value = String(Math.round(state.baseSeconds / 60));
     if (els.customIncrement) els.customIncrement.value = String(state.incrementSeconds);
+    renderSetupSummary();
     renderTimeControlLock();
+}
+
+function renderSetupSummary() {
+    const minutes = Math.round(state.baseSeconds / 60);
+    if (els.setupTime) els.setupTime.textContent = `${minutes}+${state.incrementSeconds}`;
+    if (els.setupMinutes) els.setupMinutes.textContent = String(minutes);
+    if (els.setupIncrement) els.setupIncrement.textContent = String(state.incrementSeconds);
 }
 
 function renderTimeControlLock() {
@@ -253,6 +295,7 @@ function renderClock(force = false) {
             displayCache[side] = time;
         }
         panel?.classList.toggle('is-active', state.activeSide === side && state.running);
+        panel?.classList.toggle('is-ready', state.awaitingFirstTap && side === 'white');
         panel?.classList.toggle('is-flagged', state.remainingMs[side] <= 0);
         const movesEl = els[`${side}Moves`];
         if (movesEl) movesEl.textContent = String(state.moves[side]);
@@ -271,15 +314,23 @@ function renderClock(force = false) {
         ? t('otb_flag_white')
         : state.remainingMs.black <= 0
             ? t('otb_flag_black')
-            : state.activeSide
-                ? t('otb_turn').replace('{side}', sideLabel(state.activeSide))
-                : t('otb_ready');
+            : state.awaitingFirstTap
+                ? t('otb_first_tap')
+                : state.activeSide
+                    ? t('otb_turn').replace('{side}', sideLabel(state.activeSide))
+                    : t('otb_ready');
     if (force || displayCache.status !== status) {
         if (els.status) els.status.textContent = status;
         displayCache.status = status;
     }
     if (els.startPauseBtn) {
-        els.startPauseBtn.textContent = state.running ? t('otb_pause') : (state.activeSide ? t('otb_resume') : t('otb_start'));
+        els.startPauseBtn.textContent = !state.inClockMode
+            ? t('otb_open_clock')
+            : state.running
+                ? t('otb_pause')
+                : state.awaitingFirstTap
+                    ? t('otb_waiting_first_tap')
+                    : (state.activeSide ? t('otb_resume') : t('otb_start'));
     }
     renderTimeControlLock();
     renderWakeButton();
@@ -294,6 +345,9 @@ function cacheElements() {
     els.customMinutes = document.getElementById('otbCustomMinutes');
     els.customIncrement = document.getElementById('otbCustomIncrement');
     els.customApply = document.getElementById('otbCustomApply');
+    els.setupTime = document.getElementById('otbSetupTime');
+    els.setupMinutes = document.getElementById('otbSetupMinutes');
+    els.setupIncrement = document.getElementById('otbSetupIncrement');
     els.startPauseBtn = document.getElementById('otbStartPauseBtn');
     els.resetBtn = document.getElementById('otbResetBtn');
     els.flipBtn = document.getElementById('otbFlipBtn');
@@ -322,9 +376,13 @@ export function initOtb({ navigateToHome } = {}) {
         if (preset) setPreset(preset);
     });
     els.customApply?.addEventListener('click', applyCustomSettings);
+    els.customMinutes?.addEventListener('change', applyCustomSettings);
+    els.customIncrement?.addEventListener('change', applyCustomSettings);
     els.startPauseBtn?.addEventListener('click', () => {
-        if (state.running) pauseClock();
-        else startClock(state.activeSide || 'white');
+        if (!state.inClockMode) enterClockMode();
+        else if (state.running) pauseClock();
+        else if (state.activeSide) startClock(state.activeSide);
+        else armFirstTap();
     });
     els.resetBtn?.addEventListener('click', async () => {
         if (state.running || state.activeSide || state.moves.white > 0 || state.moves.black > 0) {

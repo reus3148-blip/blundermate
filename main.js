@@ -61,6 +61,7 @@ const openBoardInputBtn = document.getElementById('homeBoardInputBtn');
 const movesBody = document.getElementById('movesBody');
 const boardContainer = document.getElementById('boardContainer');
 const engineLinesContainer = document.getElementById('engineLines');
+const analysisControlsBar = document.getElementById('analysisControlsBar');
 const prevMoveBtn = document.getElementById('prevMoveBtn');
 const returnMainLineBtn = document.getElementById('returnMainLineBtn');
 const saveMoveBtn = document.getElementById('saveMoveBtn');
@@ -646,6 +647,20 @@ function syncBottomBar() {
     liveResetBtn?.classList.toggle('hidden', !isLive);
     returnMainLineBtn.classList.toggle('hidden', !isBranch);
     tabToggleBtn.classList.toggle('hidden', isBranch);
+    syncAnalysisControlsChrome();
+}
+
+function syncAnalysisControlsChrome() {
+    const isFenOnly = analysisQueue.length === 1 && analysisQueue[0]?.isFenOnly;
+    const onlyNav = appMode === APP_MODES.MAIN
+        && currentlyViewedIndex === -1
+        && analysisQueue.length > 0
+        && !isFenOnly
+        && !isPreviewMode
+        && !isReviewMode
+        && !isAnalysisLoadingActive();
+    analysisControlsBar?.classList.toggle('start-position-only-nav', onlyNav);
+    if (onlyNav) closeLiveMenu();
 }
 
 // ── options popover — 트리거(⋯) 클릭 시 펼침. 항목/Esc/바깥 클릭 시 닫힘. ──
@@ -1405,6 +1420,7 @@ function _finalizeAnalysisRun({ fromCache }) {
             renderEngineLines(engineLinesContainer, move.engineLines.filter(Boolean), drawEngineArrow, clearEngineArrow, handleEngineLineClick);
         }
     }
+    syncAnalysisControlsChrome();
 }
 
 // analyzed_games(user_id, pgn_hash)에 분석 결과 캐시 PATCH. 페이로드는 포지션별 engineLines + classification.
@@ -1543,6 +1559,7 @@ function updateBoardPosition(index, fen) {
     setCurrentlyViewedIndex(index);
     applyReviewView();
     highlightActiveMove(index);
+    syncAnalysisControlsChrome();
 
     // 미리보기 모드에서는 하이라이트까지만 반영하고 나머지(엔진/AI 패널)는 건드리지 않음.
     // 이전 세션의 화살표가 남아있을 수 있으므로 autoShapes도 비워둔다.
