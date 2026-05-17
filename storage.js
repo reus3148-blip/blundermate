@@ -1,6 +1,8 @@
 const VAULT_KEY = 'blundermate_vault';
 const SAVED_GAMES_KEY = 'blundermate_saved_games';
 const ANALYZED_GAMES_KEY = 'blundermate_analyzed_games';
+const TEN_REPORT_CURSOR_KEY = 'blundermate_ten_report_cursor';
+const TEN_REPORTS_KEY = 'blundermate_ten_reports';
 const USER_ID_KEY = 'blundermate_user_id';
 const PLATFORM_KEY = 'blundermate_platform';
 export const ONBOARDING_KEY = 'blundermate_onboarding_done';
@@ -518,6 +520,104 @@ function _getAnalyzedGamesSync() {
     }
 }
 
+function _analyzedGameTime(row) {
+    const raw = row?.created_at || row?.played_date;
+    if (!raw) return 0;
+    const value = String(raw);
+    let time = Date.parse(value);
+    if (!Number.isFinite(time)) time = Date.parse(value.replace(/\./g, '-'));
+    return Number.isFinite(time) ? time : 0;
+}
+
+function _isCurrentAnalyzedGame(row, userId, platform) {
+    if (!row || (row.platform || PLATFORM_CHESSCOM) !== platform) return false;
+    if (!userId) return !row.user_id;
+    // Older local analyzed rows did not store user_id. Keep them visible for the
+    // current browser while new rows store user_id for proper scope isolation.
+    return !row.user_id || row.user_id === userId;
+}
+
+function _currentReportScopeKey() {
+    const userId = getMyUserId();
+    if (!userId) return null;
+    return `${getMyPlatform()}:${userId}`;
+}
+
+function _getTenReportCursorMap() {
+    try {
+        return JSON.parse(lsGet(TEN_REPORT_CURSOR_KEY, '{}') || '{}');
+    } catch (e) {
+        console.error('Failed to read ten report cursor:', e);
+        return {};
+    }
+}
+
+function _getTenReportsMap() {
+    try {
+        return JSON.parse(lsGet(TEN_REPORTS_KEY, '{}') || '{}');
+    } catch (e) {
+        console.error('Failed to read ten reports:', e);
+        return {};
+    }
+}
+
+export function getRecentAnalyzedGames(limit = 10) {
+    const userId = getMyUserId();
+    if (!userId) return [];
+    const platform = getMyPlatform();
+    return _getAnalyzedGamesSync()
+        .filter(row => _isCurrentAnalyzedGame(row, userId, platform))
+        .filter(row => Array.isArray(row.analysis_json?.moves) && row.analysis_json.moves.length > 0)
+        .sort((a, b) => _analyzedGameTime(b) - _analyzedGameTime(a))
+        .slice(0, limit);
+}
+
+export function getTenReportCursor() {
+    const scopeKey = _currentReportScopeKey();
+    if (!scopeKey) return null;
+    const map = _getTenReportCursorMap();
+    const value = Number(map[scopeKey]);
+    return Number.isFinite(value) && value > 0 ? value : null;
+}
+
+export function markTenReportCursorAt(row) {
+    const scopeKey = _currentReportScopeKey();
+    const time = _analyzedGameTime(row);
+    if (!scopeKey || !time) return false;
+    const map = _getTenReportCursorMap();
+    map[scopeKey] = time;
+    return lsSet(TEN_REPORT_CURSOR_KEY, JSON.stringify(map));
+}
+
+export function getTenReportProgressCount(limit = 10) {
+    const cursor = getTenReportCursor();
+    const rows = getRecentAnalyzedGames(1000);
+    if (!cursor) return Math.min(rows.length, limit);
+    return Math.min(rows.filter(row => _analyzedGameTime(row) > cursor).length, limit);
+}
+
+export function getTenReports() {
+    const scopeKey = _currentReportScopeKey();
+    if (!scopeKey) return [];
+    const map = _getTenReportsMap();
+    return (Array.isArray(map[scopeKey]) ? map[scopeKey] : [])
+        .slice()
+        .sort((a, b) => (Number(b.number) || 0) - (Number(a.number) || 0));
+}
+
+export function saveTenReport(report) {
+    const scopeKey = _currentReportScopeKey();
+    if (!scopeKey || !report || !Array.isArray(report.game_ids)) return false;
+    const map = _getTenReportsMap();
+    const reports = Array.isArray(map[scopeKey]) ? map[scopeKey] : [];
+    const signature = report.game_ids.join('|');
+    if (reports.some(item => Array.isArray(item.game_ids) && item.game_ids.join('|') === signature)) {
+        return true;
+    }
+    map[scopeKey] = reports.concat(report);
+    return lsSet(TEN_REPORTS_KEY, JSON.stringify(map));
+}
+
 // PGN moves-only 영역만 해싱. SAN 토큰 시퀀스만 추출해 표기 변형(시계 주석, black ellipsis,
 // NAG, 변형, annotation, 결과 토큰)에 영향받지 않게 함.
 //
@@ -586,6 +686,7 @@ export async function upsertAnalyzedGame({ pgn, pgnHash, headersJson, playedDate
     const id = crypto.randomUUID();
     const row = {
         id,
+        user_id: userId || null,
         pgn,
         pgn_hash: pgnHash,
         headers_json: headersJson || null,

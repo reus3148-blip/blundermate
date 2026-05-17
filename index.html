@@ -248,6 +248,29 @@
             <!-- Review controls — board-adjacent essentials: classification, eval, options, previous/next. -->
             <div class="analysis-controls-bar" id="analysisControlsBar">
                 <div class="analysis-controls-inner">
+                    <div id="liveMenuWrap" class="analysis-menu-wrap">
+                        <button id="liveMenuBtn" class="ctrl-btn analysis-menu-btn" type="button" aria-label="옵션" data-i18n-aria="analysis_options" title="옵션" data-i18n-title="analysis_options" aria-haspopup="menu" aria-expanded="false" aria-controls="liveMenuPopover">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+                        </button>
+                        <div id="liveMenuPopover" class="analysis-menu-popover" role="menu" hidden>
+                            <button id="saveMoveBtn" class="ctrl-btn ctrl-save" type="button" role="menuitem" aria-label="저장" data-i18n-aria="save_position" title="저장" data-i18n-title="save_position">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+                            </button>
+                            <button id="tabToggleBtn" class="tab-toggle-btn" type="button" data-i18n="tab_ai">AI</button>
+                            <button id="returnMainLineBtn" class="return-main-btn ctrl-btn hidden" type="button" data-i18n-title="returnMainLine" title="메인 라인으로 돌아가기">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+                            </button>
+                            <button id="liveResetBtn" class="ctrl-btn ctrl-live hidden" type="button" role="menuitem" data-i18n-aria="live_input_reset" aria-label="처음부터" title="처음부터" data-i18n-title="live_input_reset">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>
+                            </button>
+                            <button id="liveFlipBtn" class="ctrl-btn ctrl-live hidden" type="button" role="menuitem" data-i18n-aria="live_input_flip" aria-label="회전" title="회전" data-i18n-title="live_input_flip">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m17 3-5 5-5-5h10"/><path d="m17 21-5-5-5 5h10"/></svg>
+                            </button>
+                            <button id="liveUndoBtn" class="ctrl-btn ctrl-live hidden" type="button" role="menuitem" data-i18n-aria="live_input_undo" aria-label="실행취소" title="실행취소" data-i18n-title="live_input_undo">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-15-6.7L3 13"/></svg>
+                            </button>
+                        </div>
+                    </div>
                     <div class="analysis-control-main">
                         <span id="moveClassLabel" class="move-class-label"></span>
                         <div id="analysisEvalSeparator" class="bar-separator hidden"></div>
@@ -255,29 +278,6 @@
                         <span id="analysisLoadingText" class="analysis-loading-text hidden" data-i18n="analysis_loading">로딩중입니다...</span>
                     </div>
                     <div class="analysis-control-actions">
-                        <div id="liveMenuWrap" class="analysis-menu-wrap">
-                            <button id="liveMenuBtn" class="ctrl-btn analysis-menu-btn" type="button" aria-label="옵션" data-i18n-aria="analysis_options" title="옵션" data-i18n-title="analysis_options" aria-haspopup="menu" aria-expanded="false" aria-controls="liveMenuPopover">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
-                            </button>
-                            <div id="liveMenuPopover" class="analysis-menu-popover" role="menu" hidden>
-                                <button id="saveMoveBtn" class="ctrl-btn ctrl-save" type="button" role="menuitem" aria-label="저장" data-i18n-aria="save_position" title="저장" data-i18n-title="save_position">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
-                                </button>
-                                <button id="tabToggleBtn" class="tab-toggle-btn" type="button" data-i18n="tab_ai">AI</button>
-                                <button id="returnMainLineBtn" class="return-main-btn ctrl-btn hidden" type="button" data-i18n-title="returnMainLine" title="메인 라인으로 돌아가기">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
-                                </button>
-                                <button id="liveResetBtn" class="ctrl-btn ctrl-live hidden" type="button" role="menuitem" data-i18n-aria="live_input_reset" aria-label="처음부터" title="처음부터" data-i18n-title="live_input_reset">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>
-                                </button>
-                                <button id="liveFlipBtn" class="ctrl-btn ctrl-live hidden" type="button" role="menuitem" data-i18n-aria="live_input_flip" aria-label="회전" title="회전" data-i18n-title="live_input_flip">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m17 3-5 5-5-5h10"/><path d="m17 21-5-5-5 5h10"/></svg>
-                                </button>
-                                <button id="liveUndoBtn" class="ctrl-btn ctrl-live hidden" type="button" role="menuitem" data-i18n-aria="live_input_undo" aria-label="실행취소" title="실행취소" data-i18n-title="live_input_undo">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-15-6.7L3 13"/></svg>
-                                </button>
-                            </div>
-                        </div>
                         <button id="prevMoveBtn" class="ctrl-btn ctrl-nav" type="button" title="이전 수" data-i18n-title="prev_move">
                             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
                         </button>
@@ -644,6 +644,22 @@
             </div>
         </div>
 
+        <!-- 10-game Report View — drawer entry only. Home stays focused on import/recent games. -->
+        <div id="tenGameReportView" class="view-container hidden">
+            <div class="analysis-top-bar">
+                <button id="tenGameReportBackBtn" class="back-btn" type="button">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                    <span data-i18n="back">Back</span>
+                </button>
+                <span class="top-bar-title" data-i18n="ten_report_title">최근 10게임 리포트</span>
+                <div class="top-bar-spacer"></div>
+            </div>
+
+            <div class="page-scroll ten-report-page">
+                <div id="tenReportFullBody" class="ten-report-full-body" aria-live="polite"></div>
+            </div>
+        </div>
+
         <!-- Settings View (page) -->
         <div id="settingsView" class="view-container hidden">
             <div class="analysis-top-bar">
@@ -882,6 +898,11 @@
                     <span class="drawer-item-label" data-i18n="drawer_saved_games">저장된 게임</span>
                     <svg class="drawer-item-chevron" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
                 </button>
+                <button class="drawer-item" type="button" data-drawer-target="ten_game_report" hidden>
+                    <svg class="drawer-item-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11h6"/><path d="M9 15h6"/><path d="M9 7h1"/><path d="M15 3h3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3"/><path d="M9 3h6v4H9z"/></svg>
+                    <span class="drawer-item-label" data-i18n="drawer_ten_game_report">10게임 리포트</span>
+                    <svg class="drawer-item-chevron" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+                </button>
                 <button class="drawer-item" type="button" data-drawer-target="forum">
                     <svg class="drawer-item-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                     <span class="drawer-item-label" data-i18n="drawer_forum">오프닝 갤러리</span>
@@ -939,9 +960,19 @@
         }
     })();
     </script>
-    <script type="module" src="/main.js"></script>
+    <script type="module" src="/main.js?v=20260518-report-route"></script>
 
     <!-- Vercel Web Analytics -->
-    <script defer src="/_vercel/insights/script.js"></script>
+    <script>
+    (() => {
+        const host = location.hostname;
+        const isLocal = host === 'localhost' || host === '127.0.0.1' || host === '::1';
+        if (isLocal) return;
+        const script = document.createElement('script');
+        script.defer = true;
+        script.src = '/_vercel/insights/script.js';
+        document.head.appendChild(script);
+    })();
+    </script>
 </body>
 </html>

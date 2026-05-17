@@ -207,14 +207,14 @@
 }
 
 #otbView:not(.is-clock-mode) .otb-screen {
-    padding: 16px 16px 20px;
-    gap: 18px;
+    padding: 14px 16px 20px;
+    gap: 14px;
 }
 
 #otbView:not(.is-clock-mode) .otb-setup-panel {
     flex: 1 1 auto;
     justify-content: center;
-    gap: 18px;
+    gap: 12px;
 }
 
 #otbView.is-clock-mode .otb-top-bar,
@@ -232,11 +232,12 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    min-height: 156px;
-    padding: 20px 18px;
-    border-radius: 18px;
+    min-height: 140px;
+    padding: 18px;
+    border-radius: 14px;
     background: var(--bg-surface);
-    box-shadow: 0 16px 32px -12px rgba(43, 91, 215, 0.12), inset 0 0 0 1px rgba(43, 91, 215, 0.2);
+    border: 1px solid var(--brd);
+    box-shadow: none;
     position: relative;
     overflow: hidden;
 }
@@ -245,19 +246,20 @@
     content: '';
     position: absolute;
     inset: 0;
-    background: radial-gradient(circle at top, rgba(43, 91, 215, 0.08) 0%, transparent 70%);
+    background: linear-gradient(180deg, rgba(43, 91, 215, 0.08), transparent 62%);
     pointer-events: none;
 }
 
 .otb-setup-time {
     font-family: var(--num-font);
-    font-size: 58px;
+    font-size: 54px;
     font-weight: 850;
     line-height: 0.95;
     color: var(--ac);
-    text-shadow: 0 4px 16px rgba(43, 91, 215, 0.25);
+    text-shadow: none;
     font-variant-numeric: tabular-nums;
     letter-spacing: 0;
+    z-index: 1;
 }
 
 .otb-setup-details {
@@ -265,7 +267,7 @@
     align-items: center;
     justify-content: center;
     gap: 10px;
-    margin-top: 16px;
+    margin-top: 14px;
     color: var(--tx2);
     font-size: 12px;
     font-weight: 750;
@@ -277,10 +279,11 @@
     gap: 4px;
     min-width: 70px;
     justify-content: center;
-    padding: 7px 10px;
+    padding: 6px 10px;
     border-radius: 999px;
     background: var(--bg-elevated);
-    box-shadow: inset 0 0 0 1px var(--brd);
+    border: 1px solid var(--brd);
+    box-shadow: none;
     z-index: 1;
 }
 
@@ -293,7 +296,7 @@
 .otb-preset-bar {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
+    gap: 8px;
 }
 
 .otb-preset,
@@ -310,18 +313,18 @@
 }
 
 .otb-preset {
-    height: 68px;
-    border-radius: 16px;
+    height: 58px;
+    border-radius: 12px;
     background: var(--bg-elevated);
     color: var(--tx);
     border: none;
     box-shadow: inset 0 0 0 1px var(--brd);
     font-family: var(--num-font);
-    font-size: 21px;
+    font-size: 20px;
     font-weight: 850;
     font-variant-numeric: tabular-nums;
     letter-spacing: 0;
-    transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    transition: background 0.15s ease, box-shadow 0.15s ease, color 0.15s ease, transform 0.15s ease;
 }
 
 .otb-preset:disabled,
@@ -335,16 +338,15 @@
 }
 
 .otb-preset.is-selected {
-    background: var(--bg-surface);
+    background: var(--ac-lo);
     color: var(--ac);
-    box-shadow: inset 0 0 0 2px var(--ac), 0 8px 20px -6px rgba(43, 91, 215, 0.25);
-    transform: translateY(-2px);
+    box-shadow: inset 0 0 0 1.5px var(--ac);
 }
 
 .otb-custom-row {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 74px;
+    gap: 8px;
     align-items: end;
 }
 
@@ -354,7 +356,7 @@
 
 .otb-custom-field {
     display: grid;
-    gap: 6px;
+    gap: 5px;
     padding: 0;
     background: transparent;
     border: none;
@@ -362,7 +364,7 @@
     font-size: 11px;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.04em;
 }
 
 .otb-custom-field span {
@@ -372,16 +374,16 @@
 .otb-custom-input {
     width: 100%;
     min-width: 0;
-    height: 48px;
+    height: 46px;
     border: none;
     box-shadow: inset 0 0 0 1px var(--brd);
-    border-radius: 11px;
+    border-radius: 10px;
     padding: 0 10px;
     box-sizing: border-box;
     background: var(--bg-surface);
     color: var(--tx);
     font-family: var(--num-font);
-    font-size: 23px;
+    font-size: 22px;
     font-weight: 850;
     text-align: center;
     font-variant-numeric: tabular-nums;
@@ -398,14 +400,14 @@
 }
 
 .otb-small-btn {
-    grid-column: 1 / -1;
+    grid-column: auto;
     height: 46px;
-    border-radius: 12px;
+    border-radius: 10px;
     padding: 0 12px;
     font-size: 13px;
-    background: var(--ac-lo);
+    background: var(--bg-elevated);
     color: var(--ac);
-    border: none;
+    border: 1px solid var(--brd);
     transition: background 0.15s ease, transform 0.15s ease;
 }
 
@@ -440,14 +442,14 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 10px;
+    gap: 9px;
     flex: 1 1 0;
     min-height: 0;
-    border: 2px solid transparent;
-    border-radius: 24px;
+    border: 1px solid var(--brd);
+    border-radius: 22px;
     background: var(--bg-elevated);
     color: var(--tx2);
-    box-shadow: inset 0 0 0 1px var(--brd);
+    box-shadow: none;
     transition: background 0.3s ease, border-color 0.3s ease, color 0.3s ease, box-shadow 0.3s ease;
     -webkit-tap-highlight-color: transparent;
 }
@@ -464,7 +466,7 @@
     background: var(--bg-surface);
     border-color: var(--ac);
     color: var(--tx);
-    box-shadow: 0 12px 40px -12px rgba(43, 91, 215, 0.25);
+    box-shadow: inset 0 0 0 1px var(--ac);
     z-index: 1;
 }
 
@@ -489,6 +491,7 @@
 .otb-side-label {
     font-size: 14px;
     font-weight: 800;
+    color: var(--tx2);
 }
 
 .otb-time {
@@ -504,7 +507,7 @@
 
 .otb-clock-panel.is-active .otb-time {
     color: var(--ac);
-    transform: scale(1.08);
+    transform: scale(1.04);
 }
 
 .otb-clock-panel.is-flagged .otb-time {
@@ -553,12 +556,12 @@
 #otbView.is-clock-mode .otb-center-controls {
     background: var(--bg-surface);
     border: 1px solid var(--brd);
-    border-radius: 999px;
-    padding: 6px 12px;
-    margin: -18px auto;
+    border-radius: 18px;
+    padding: 6px;
+    margin: -16px auto;
     z-index: 5;
     position: relative;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
     max-width: fit-content;
 }
 
@@ -568,7 +571,8 @@
 }
 
 .otb-status {
-    min-width: 76px;
+    min-width: 70px;
+    padding: 0 6px;
     color: var(--tx2);
     font-size: 13px;
     font-weight: 750;
@@ -583,7 +587,7 @@
 .otb-actions {
     display: flex;
     justify-content: flex-end;
-    gap: 6px;
+    gap: 4px;
     flex-wrap: wrap;
 }
 
@@ -595,9 +599,9 @@
 
 .otb-main-btn,
 .otb-ghost-btn {
-    height: 38px;
+    height: 40px;
     border-radius: 9px;
-    padding: 0 13px;
+    padding: 0 12px;
     font-size: 13px;
 }
 
@@ -605,6 +609,23 @@
     border-color: var(--ac);
     background: var(--ac);
     color: #fff;
+}
+
+.otb-preset:focus-visible,
+.otb-small-btn:focus-visible,
+.otb-main-btn:focus-visible,
+.otb-ghost-btn:focus-visible {
+    outline: 2px solid var(--ac);
+    outline-offset: 2px;
+}
+
+.otb-clock-panel:focus-visible {
+    outline: 2px solid var(--tx3);
+    outline-offset: -6px;
+}
+
+.otb-clock-panel.is-active:focus-visible {
+    outline-color: var(--ac);
 }
 
 #otbView:not(.is-clock-mode) .otb-main-btn {
@@ -626,7 +647,7 @@
 
 @media (max-width: 430px) {
     .otb-setup-summary {
-        min-height: 146px;
+        min-height: 134px;
     }
 
     .otb-setup-time {
@@ -634,7 +655,7 @@
     }
 
     .otb-preset {
-        height: 62px;
+        height: 56px;
     }
 
     .otb-time {
@@ -711,7 +732,7 @@
     }
 
     .otb-custom-field {
-        padding: 8px;
+        padding: 0;
         gap: 6px;
     }
 
@@ -1241,37 +1262,34 @@ textarea:focus {
 
 .analysis-controls-inner {
     position: relative;
-    display: flex;
+    display: grid;
+    grid-template-columns: 48px minmax(0, 1fr) 96px;
     align-items: center;
-    justify-content: flex-end;
     width: 100%;
     max-width: 480px;
     min-width: 0;
     box-sizing: border-box;
-    padding-left: 48px;
-    gap: clamp(10px, 3vw, 14px);
+    gap: 0;
 }
 
 .analysis-control-main {
-    position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
-    justify-content: space-between;
     gap: 8px;
     min-width: 0;
-    width: clamp(230px, 48vw, 292px);
-    flex: 0 0 auto;
+    width: 100%;
     height: 40px;
+    grid-column: 2;
 }
 
 .analysis-control-actions {
     display: flex;
     align-items: center;
     justify-content: flex-end;
-    gap: 2px;
-    flex: 0 0 auto;
+    gap: 0;
+    min-width: 0;
+    grid-column: 3;
 }
 
 .analysis-controls-bar.chrome-hidden .analysis-control-main,
@@ -1281,8 +1299,8 @@ textarea:focus {
 }
 
 .analysis-controls-bar.start-position-only-nav .analysis-controls-inner {
+    display: flex;
     justify-content: center;
-    padding-left: 0;
 }
 
 .analysis-controls-bar.start-position-only-nav .analysis-control-main,
@@ -1293,14 +1311,6 @@ textarea:focus {
 .analysis-controls-bar.start-position-only-nav .analysis-control-actions {
     justify-content: center;
     gap: 28px;
-}
-
-@media (max-width: 430px) {
-    .analysis-control-main {
-        left: 8px;
-        transform: none;
-        width: calc(100% - 124px);
-    }
 }
 
 /* unified-controls 안 좌/우 그룹 — vault detail의 `< 12% >` 가로 배치 전용. */
@@ -1420,12 +1430,12 @@ textarea:focus {
 /* ── Analysis options menu ─────────────────────────────────────
    보드 아래 controls bar의 ⋯ 메뉴. 저장/AI/메인복귀/라이브 도구를 수납한다. */
 .analysis-menu-wrap {
-    position: absolute;
-    left: 0;
-    top: 50%;
-    transform: translateY(-50%);
+    position: relative;
     display: flex;
     align-items: center;
+    justify-content: flex-start;
+    grid-column: 1;
+    min-width: 0;
 }
 
 .analysis-menu-btn {
@@ -1436,9 +1446,9 @@ textarea:focus {
 .analysis-menu-popover {
     position: absolute;
     top: calc(100% + 6px);
-    right: 0;
+    left: 0;
     transform: translateY(-4px) scale(0.96);
-    transform-origin: top right;
+    transform-origin: top left;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -1465,7 +1475,7 @@ textarea:focus {
     content: '';
     position: absolute;
     bottom: 100%;
-    right: 18px;
+    left: 18px;
     width: 0;
     height: 0;
     border-left: 6px solid transparent;
@@ -1720,6 +1730,7 @@ th {
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    justify-self: end;
     font-family: var(--num-font);
     font-variant-numeric: tabular-nums;
     font-feature-settings: "tnum" 1, "zero" 1;
@@ -1736,24 +1747,23 @@ th {
     flex-shrink: 0;
 }
 
-/* 현재 수 verdict — 아이콘 + SAN + 한국어 문장. */
+/* 현재 수 verdict — 분류 배지 + SAN + 한국어 문장. */
 .move-class-label {
     display: inline-flex;
     align-items: center;
     justify-content: flex-start;
-    gap: 5px;
+    gap: 6px;
     height: 32px;
     min-width: 0;
     padding: 0;
-    flex-shrink: 0;
-    flex: 1 1 auto;
+    width: 100%;
     font-size: 13px;
     font-weight: 750;
-    letter-spacing: -0.01em;
+    letter-spacing: 0;
     line-height: 1;
     color: var(--tx);
     background: transparent;
-    max-width: none;
+    max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -1769,12 +1779,12 @@ th {
     flex: 0 0 22px;
 }
 
-.move-verdict-piece {
-    color: var(--tx2);
-    font-size: 14px;
-    line-height: 1;
-    transform: translateY(-1px);
-    flex-shrink: 0;
+.move-verdict-copy {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 5px;
+    min-width: 0;
+    overflow: hidden;
 }
 
 .move-verdict-san {
@@ -2687,6 +2697,601 @@ button.settings-row--destructive:hover {
     color: var(--tx2);
     line-height: 1.5;
     margin: 6px 8px 0;
+}
+
+/* 10-game report shell — drawer-only short-form report surface. */
+.ten-report-page {
+    gap: 14px;
+}
+
+.ten-report-hero {
+    background: var(--bg-surface);
+    border: 1px solid var(--brd);
+    border-radius: var(--list-container-radius);
+    padding: 18px;
+}
+
+.ten-report-kicker {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--tx3);
+    line-height: 1;
+}
+
+.ten-report-headline {
+    margin: 10px 0 0;
+    color: var(--tx);
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    line-height: 1.18;
+}
+
+.ten-report-copy {
+    margin: 8px 0 0;
+    color: var(--tx2);
+    font-size: 13px;
+    line-height: 1.55;
+}
+
+.ten-report-metrics {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.ten-report-metric {
+    min-width: 0;
+    min-height: 64px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 7px;
+}
+
+.ten-report-metric+.ten-report-metric {
+    border-left: 1px solid var(--list-divider);
+}
+
+.ten-report-metric:nth-child(2n + 1) {
+    border-left: 0;
+}
+
+.ten-report-metric:nth-child(n + 3) {
+    border-top: 1px solid var(--list-divider);
+}
+
+.ten-report-metric span {
+    color: var(--tx3);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    line-height: 1;
+}
+
+.ten-report-metric strong {
+    color: var(--tx);
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+    font-variant-numeric: tabular-nums;
+}
+
+.ten-report-scope {
+    display: flex;
+    flex-direction: column;
+}
+
+.ten-report-scope-item {
+    display: grid;
+    grid-template-columns: 42px 1fr;
+    gap: 12px;
+    padding: 14px;
+    align-items: start;
+}
+
+.ten-report-scope-item+.ten-report-scope-item {
+    border-top: 1px solid var(--list-divider);
+}
+
+.ten-report-scope-count {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background: var(--bg-elevated);
+    color: var(--tx);
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+}
+
+.ten-report-scope-item strong {
+    display: block;
+    color: var(--tx);
+    font-size: 14px;
+    font-weight: 650;
+    line-height: 1.25;
+}
+
+.ten-report-scope-item p {
+    margin: 4px 0 0;
+    color: var(--tx2);
+    font-size: 12px;
+    line-height: 1.45;
+}
+
+.ten-report-row-value {
+    display: block;
+    min-width: 0;
+    flex-shrink: 1;
+    max-width: 52%;
+    color: var(--tx3);
+    font-size: 13px;
+    line-height: 1.35;
+    text-align: right;
+    overflow-wrap: anywhere;
+}
+
+.ten-report-full-body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.ten-report-score-panel,
+.ten-report-panel,
+.ten-report-stat-grid>div {
+    background: var(--bg-surface);
+    border: 1px solid var(--brd);
+    border-radius: var(--list-container-radius);
+}
+
+.ten-report-score-panel {
+    min-height: 118px;
+    padding: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.ten-report-score-label,
+.ten-report-stat-grid span,
+.ten-report-panel-title {
+    color: var(--tx3);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    line-height: 1.1;
+}
+
+.ten-report-score-value {
+    display: block;
+    margin-top: 8px;
+    color: var(--tx);
+    font-size: 44px;
+    font-weight: 750;
+    line-height: 0.95;
+    font-variant-numeric: tabular-nums;
+}
+
+.ten-report-score-panel p {
+    margin: 9px 0 0;
+    color: var(--tx2);
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+.ten-report-grade-badge {
+    width: 74px;
+    height: 74px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    flex: 0 0 auto;
+    background: var(--tx);
+    color: var(--bg-surface);
+    font-size: 31px;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.ten-report-stat-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.ten-report-stat-grid>div {
+    min-width: 0;
+    min-height: 76px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 8px;
+}
+
+.ten-report-stat-grid strong {
+    color: var(--tx);
+    font-size: 17px;
+    font-weight: 720;
+    line-height: 1.15;
+    font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
+}
+
+.ten-report-panel {
+    padding: 14px;
+}
+
+.ten-report-panel-title {
+    margin-bottom: 12px;
+}
+
+.ten-report-panel--empty p {
+    margin: 0;
+    color: var(--tx2);
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.ten-report-muted {
+    margin: 0;
+    color: var(--tx2);
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.ten-report-pending-record {
+    margin-top: 12px;
+    color: var(--tx);
+    font-size: 13px;
+    font-weight: 650;
+}
+
+.ten-report-history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    background: var(--bg-surface);
+    border: 1px solid var(--brd);
+    border-radius: var(--list-container-radius);
+    overflow: hidden;
+}
+
+.ten-report-history-item {
+    width: 100%;
+    min-height: 72px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: inherit;
+    padding: 14px;
+    text-align: left;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+}
+
+.ten-report-history-item+.ten-report-history-item {
+    border-top: 1px solid var(--list-divider);
+}
+
+.ten-report-history-main {
+    display: block;
+    min-width: 0;
+}
+
+.ten-report-history-item strong {
+    display: block;
+    color: var(--tx);
+    font-size: 15px;
+    font-weight: 720;
+    line-height: 1.25;
+}
+
+.ten-report-history-main>span {
+    display: block;
+    margin-top: 6px;
+    color: var(--tx2);
+    font-size: 12px;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+}
+
+.ten-report-history-chevron {
+    flex: 0 0 auto;
+    color: var(--tx3);
+    font-size: 24px;
+    line-height: 1;
+}
+
+.ten-report-detail-head {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    margin-bottom: 2px;
+}
+
+.ten-report-detail-head p {
+    margin: 0;
+    color: var(--tx2);
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+.ten-report-opening-list {
+    display: flex;
+    flex-direction: column;
+}
+
+.ten-report-opening-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    min-height: 66px;
+}
+
+.ten-report-opening-row+.ten-report-opening-row {
+    border-top: 1px solid var(--list-divider);
+}
+
+.ten-report-opening-row div {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.ten-report-opening-row strong {
+    color: var(--tx);
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.25;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ten-report-opening-row span {
+    color: var(--tx3);
+    font-size: 12px;
+    line-height: 1.25;
+}
+
+.ten-report-opening-delta {
+    flex: 0 0 auto;
+    max-width: 38%;
+    padding: 5px 8px;
+    border-radius: 999px;
+    background: var(--bg-elevated);
+    color: var(--tx2);
+    font-size: 11px;
+    font-style: normal;
+    font-weight: 700;
+    line-height: 1.2;
+    text-align: right;
+    overflow-wrap: anywhere;
+}
+
+.ten-report-opening-delta--up {
+    background: color-mix(in srgb, var(--best) 16%, transparent);
+    color: var(--best);
+}
+
+.ten-report-opening-delta--down {
+    background: color-mix(in srgb, var(--blunder) 13%, transparent);
+    color: var(--blunder);
+}
+
+.ten-report-bar-row+.ten-report-bar-row {
+    margin-top: 12px;
+}
+
+.ten-report-bar-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 6px;
+}
+
+.ten-report-bar-meta span {
+    color: var(--tx2);
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.2;
+}
+
+.ten-report-bar-meta strong {
+    color: var(--tx);
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+}
+
+.ten-report-bar-track {
+    height: 8px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: var(--bg-elevated);
+}
+
+.ten-report-bar-track span {
+    display: block;
+    height: 100%;
+    min-width: 2px;
+    border-radius: inherit;
+    background: var(--tx3);
+}
+
+.ten-report-bar-row--strong .ten-report-bar-track span {
+    background: var(--best);
+}
+
+.ten-report-bar-row--inaccuracy .ten-report-bar-track span,
+.ten-report-bar-row--opening .ten-report-bar-track span {
+    background: var(--inaccuracy);
+}
+
+.ten-report-bar-row--mistake .ten-report-bar-track span,
+.ten-report-bar-row--middlegame .ten-report-bar-track span {
+    background: var(--mistake);
+}
+
+.ten-report-bar-row--blunder .ten-report-bar-track span,
+.ten-report-bar-row--endgame .ten-report-bar-track span {
+    background: var(--blunder);
+}
+
+.ten-report-finding-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.ten-report-finding-list li {
+    color: var(--tx2);
+    font-size: 13px;
+    line-height: 1.45;
+    padding-left: 14px;
+    position: relative;
+}
+
+.ten-report-finding-list li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0.64em;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--tx3);
+}
+
+.ten-report-game-list {
+    display: flex;
+    flex-direction: column;
+}
+
+.ten-report-game-row {
+    min-height: 54px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.ten-report-game-row+.ten-report-game-row {
+    border-top: 1px solid var(--list-divider);
+}
+
+.ten-report-game-result {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    flex: 0 0 auto;
+    background: var(--bg-elevated);
+    color: var(--tx2);
+    font-size: 12px;
+    font-weight: 750;
+    line-height: 1;
+}
+
+.ten-report-game-result--win {
+    background: color-mix(in srgb, var(--best) 18%, transparent);
+    color: var(--best);
+}
+
+.ten-report-game-result--loss {
+    background: color-mix(in srgb, var(--blunder) 14%, transparent);
+    color: var(--blunder);
+}
+
+.ten-report-game-result--draw {
+    color: var(--tx2);
+}
+
+.ten-report-game-main {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.ten-report-game-main strong {
+    color: var(--tx);
+    font-size: 13px;
+    font-weight: 650;
+    line-height: 1.25;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ten-report-game-main span {
+    color: var(--tx3);
+    font-size: 12px;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+}
+
+@media (max-width: 360px) {
+    .ten-report-metrics {
+        grid-template-columns: 1fr;
+    }
+
+    .ten-report-metric+.ten-report-metric {
+        border-left: 0;
+        border-top: 1px solid var(--list-divider);
+    }
+
+    .ten-report-metric:nth-child(n + 3) {
+        border-top: 1px solid var(--list-divider);
+    }
+
+    .ten-report-score-panel {
+        align-items: flex-start;
+    }
+
+    .ten-report-grade-badge {
+        width: 58px;
+        height: 58px;
+        font-size: 25px;
+    }
+
+    .ten-report-stat-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .ten-report-opening-row {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 8px;
+        padding: 10px 0;
+    }
+
+    .ten-report-opening-delta {
+        max-width: 100%;
+        text-align: left;
+    }
 }
 
 /* Stepper — 엔진 깊이용. −/값/+ */
@@ -4271,6 +4876,8 @@ button.settings-row--destructive:hover {
    완료 시 analyzing-loading 클래스 제거.
    ========================================== */
 .analysis-loading-text {
+    grid-column: 1 / -1;
+    justify-self: center;
     color: var(--tx2);
     font-size: 0.95rem;
     font-weight: 500;

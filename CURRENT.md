@@ -38,9 +38,10 @@ These numbers are for direction, not privacy-sensitive reporting. Avoid dumping 
 
 1. Polish the live analysis and game review UI/UX: board readability, board-adjacent eval/classification controls, engine lines, move navigation, and mobile touch flow.
 2. Preserve the chess.com game review loop: import -> preview/cache -> Stockfish analysis -> mobile review.
-3. Improve Vault after the review experience: auto-collected mistakes should feel like useful review puzzles, not hidden storage.
-4. Add clearer analysis-complete messaging that Vault items were collected.
-5. Improve operational safety before larger launches: rate limit, Gemini markdown sanitization, RLS/anon-key risk plan.
+3. Build the 10-game short report with Stockfish results, compared against a 500-game long-term stats baseline.
+4. Improve Vault after the review experience: auto-collected mistakes should feel like useful review puzzles, not hidden storage.
+5. Add clearer analysis-complete messaging that Vault items were collected.
+6. Improve operational safety before larger launches: rate limit, Gemini markdown sanitization, RLS/anon-key risk plan.
 
 ## Do Not Break
 

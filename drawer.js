@@ -10,6 +10,15 @@ let initialized = false;
 let navigate = null;
 let allowedTargets = new Set();
 
+function releaseDrawerFocus({ restoreToMenu = true } = {}) {
+    if (!drawerEl?.contains(document.activeElement)) return;
+    if (restoreToMenu && homeMenuBtn && !homeMenuBtn.closest('.hidden')) {
+        homeMenuBtn.focus({ preventScroll: true });
+        return;
+    }
+    document.activeElement?.blur?.();
+}
+
 function openDrawer() {
     if (!drawerEl || !drawerOverlay || !homeMenuBtn) return;
     if (drawerHideTimer !== null) {
@@ -18,6 +27,7 @@ function openDrawer() {
     }
     drawerOverlay.hidden = false;
     drawerEl.hidden = false;
+    drawerEl.inert = false;
     void drawerEl.offsetWidth;
     drawerOverlay.classList.add('is-open');
     drawerEl.classList.add('is-open');
@@ -26,10 +36,12 @@ function openDrawer() {
     document.addEventListener('keydown', onDrawerKeydown);
 }
 
-function closeDrawer() {
+function closeDrawer({ restoreFocus = true } = {}) {
     if (!drawerEl || !drawerOverlay || !homeMenuBtn) return;
+    releaseDrawerFocus({ restoreToMenu: restoreFocus });
     drawerOverlay.classList.remove('is-open');
     drawerEl.classList.remove('is-open');
+    drawerEl.inert = true;
     drawerEl.setAttribute('aria-hidden', 'true');
     homeMenuBtn.setAttribute('aria-expanded', 'false');
     document.removeEventListener('keydown', onDrawerKeydown);
@@ -52,7 +64,7 @@ function onDrawerItemClick(e) {
     if (!item) return;
     const target = item.dataset.drawerTarget;
     if (!allowedTargets.has(target)) return;
-    closeDrawer();
+    closeDrawer({ restoreFocus: false });
     navigate?.(target);
 }
 

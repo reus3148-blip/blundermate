@@ -2,6 +2,7 @@
   "cleanUrls": true,
   "trailingSlash": false,
   "rewrites": [
+    { "source": "/report", "destination": "/index.html" },
     { "source": "/forum", "destination": "/index.html" },
     { "source": "/forum/:slug+", "destination": "/index.html" }
   ],

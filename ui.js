@@ -589,13 +589,15 @@ export function updateTopEvalDisplay(scoreStr, classification = '', isUserWhite 
         if (classKey) {
             const san = String(moveSan || '').trim();
             const sanHtml = san
-                ? `<span class="move-verdict-piece" aria-hidden="true">${escapeHtml(pieceGlyphFromSan(san))}</span><span class="move-verdict-san">${escapeHtml(san)}</span>`
+                ? `<span class="move-verdict-san">${escapeHtml(san)}</span>`
                 : '';
             const verdictKey = VERDICT_I18N[classification] || classKey;
             _moveClassLabel.innerHTML = `
                 ${buildClassificationBadgeHtml(classification, 'move-verdict-badge')}
-                ${sanHtml}
-                <span class="move-verdict-text">${escapeHtml(t(verdictKey))}</span>
+                <span class="move-verdict-copy">
+                    ${sanHtml}
+                    <span class="move-verdict-text">${escapeHtml(t(verdictKey))}</span>
+                </span>
             `;
             _moveClassLabel.dataset.cls = classification;
         } else {
@@ -631,11 +633,6 @@ function buildClassificationBadgeHtml(classification, extraClass = '') {
     const b = BADGE_MAP[classification];
     if (!b) return '';
     return `<span class="review-stats-badge${extra}" style="background:${b.bg};color:${b.color};font-size:${b.fontSize};font-weight:${b.fontWeight};" aria-hidden="true">${escapeHtml(b.symbol)}</span>`;
-}
-
-function pieceGlyphFromSan(san) {
-    const piece = String(san || '').trim().replace(/^O-O(?:-O)?[+#]?$/, 'K')[0];
-    return ({ K: '♔', Q: '♕', R: '♖', B: '♗', N: '♘' })[piece] || '♙';
 }
 
 /**

@@ -30,6 +30,7 @@ import { initInsights, loadInsightsData } from './insights.js';
 import { initForum, openForumView, hideForumView, tryActivateFromLocation as tryActivateForum } from './forum.js';
 import { initSettings, onSettingsViewEnter, onFeedbackViewEnter } from './settings.js';
 import { initImportGames, onImportGamesViewEnter } from './importGames.js';
+import { handleTenGameReportBack, loadTenGameReportData } from './tenGameReport.js';
 import { initDrawer } from './drawer.js';
 import { initInputView, onInputViewEnter } from './inputView.js';
 import { initMovesOverlay, showMovesOverlay, closeMovesOverlay } from './movesOverlay.js';
@@ -117,6 +118,7 @@ const SCREENS = {
     VAULT_BLUNDER_LIST: 'vault_blunder_list',
     VAULT_DETAIL: 'vault_detail',
     SAVED_GAMES: 'saved_games',
+    TEN_GAME_REPORT: 'ten_game_report',
     INSIGHTS: 'insights',
     SETTINGS: 'settings',
     ABOUT: 'about',
@@ -130,6 +132,7 @@ const SCREENS = {
 let _currentScreen = SCREENS.HOME;
 
 const savedGamesViewNav = document.getElementById('savedGamesView');
+const tenGameReportViewNav = document.getElementById('tenGameReportView');
 const insightsViewNav = document.getElementById('insightsView');
 const otbViewNav = document.getElementById('otbView');
 
@@ -138,12 +141,14 @@ const otbViewNav = document.getElementById('otbView');
 const ROOT_TABS = new Set([SCREENS.HOME, SCREENS.VAULT_LIST, SCREENS.INSIGHTS]);
 
 function screenHashUrl(screen) {
+    if (screen === SCREENS.TEN_GAME_REPORT) return '/report';
     return `/#${screen}`;
 }
 
 function getInitialHashScreen() {
+    if (location.pathname === '/report') return SCREENS.TEN_GAME_REPORT;
     const hashScreen = location.hash.replace(/^#/, '');
-    return hashScreen === SCREENS.OTB ? hashScreen : null;
+    return hashScreen === SCREENS.OTB || hashScreen === SCREENS.TEN_GAME_REPORT ? hashScreen : null;
 }
 
 // push + render 일원화. 호출자는 navigateTo만 호출하면 history와 화면 갱신이 함께 일어남 —
@@ -173,6 +178,7 @@ function hideAllViews() {
     analysisView.classList.remove('view-review');
     hideVaultViews();
     savedGamesViewNav.classList.add('hidden');
+    if (tenGameReportViewNav) tenGameReportViewNav.classList.add('hidden');
     if (insightsViewNav) insightsViewNav.classList.add('hidden');
     document.getElementById('settingsView')?.classList.add('hidden');
     document.getElementById('aboutView')?.classList.add('hidden');
@@ -242,6 +248,10 @@ function renderScreen(screen) {
         case SCREENS.SAVED_GAMES:
             savedGamesViewNav.classList.remove('hidden');
             loadSavedGamesData();
+            break;
+        case SCREENS.TEN_GAME_REPORT:
+            if (tenGameReportViewNav) tenGameReportViewNav.classList.remove('hidden');
+            loadTenGameReportData();
             break;
         case SCREENS.INSIGHTS:
             if (insightsViewNav) insightsViewNav.classList.remove('hidden');
@@ -329,10 +339,16 @@ initDrawer({
     targets: [
         SCREENS.VAULT_BLUNDER_LIST,
         SCREENS.SAVED_GAMES,
+        SCREENS.TEN_GAME_REPORT,
         SCREENS.FORUM,
         SCREENS.OTB,
         SCREENS.SETTINGS,
     ],
+});
+
+document.getElementById('tenGameReportBackBtn')?.addEventListener('click', () => {
+    if (handleTenGameReportBack()) return;
+    history.back();
 });
 
 window.addEventListener('popstate', (event) => {

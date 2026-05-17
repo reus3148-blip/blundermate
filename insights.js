@@ -4,7 +4,7 @@ import { escapeHtml, parseOpeningFromPgn, rootOpeningName, subVariantName, isWhi
 import { t } from './strings.js';
 
 // 통계 bucket 분류용 가벼운 수 카운트.
-// utils.countMovesFromPgn은 chess.js로 PGN을 매번 파싱(100게임 × ~5ms)하는데,
+// utils.countMovesFromPgn은 chess.js로 PGN을 매번 파싱(500게임 × ~5ms)하는데,
 // bucket 경계(20/40/60수)에선 ±1 오차가 분류에 영향 없으므로 정규식 fallback으로 충분하다.
 // 1) [PlyCount "..."] 헤더가 있으면 즉시 반환 (가장 빠름)
 // 2) 헤더/시계 주석 제거 후 "1."/"2." 매치 카운트 — "1..." 흑 표기는 lookahead로 제외
@@ -19,7 +19,7 @@ function countMovesFromPgnFast(pgn) {
     return matches ? matches.length : 0;
 }
 
-const INSIGHTS_GAMES_LIMIT = 100;
+const INSIGHTS_GAMES_LIMIT = 500;
 
 const insightsBody = document.getElementById('insightsBody');
 const insightsSubtitle = document.getElementById('insightsSubtitle');
@@ -171,7 +171,7 @@ function addResult(bucket, r) {
 function winPct(b) { return b.games === 0 ? 0 : Math.round((b.win / b.games) * 100); }
 
 // opts.skipTimeStats=true면 PGN 시계 파싱 생략. 비교용 recent/prior 집계에서 사용
-// (시계 통계는 full insights에만 표시되고 delta에 쓰이지 않으므로 100회 파싱 절감).
+// (시계 통계는 full insights에만 표시되고 delta에 쓰이지 않으므로 수백 회 파싱 절감).
 function computeInsights(games, userLower, opts = {}) {
     const { skipTimeStats = false } = opts;
     const overall = emptyWDL();
@@ -1149,7 +1149,7 @@ export async function loadInsightsData() {
 
     try {
         const games = await fetchRecentGames(username, INSIGHTS_GAMES_LIMIT);
-        // 무거운 동기 계산(100게임 × PGN 파싱)을 다음 frame으로 미뤄 화면 전환 잔렉 제거.
+        // 무거운 동기 계산(최대 500게임 × PGN 파싱)을 다음 frame으로 미뤄 화면 전환 잔렉 제거.
         // rAF + setTimeout 0 = 화면이 그려진 뒤 계산 시작 → 부드러운 전환 + 짧은 스켈레톤.
         await new Promise(resolve => requestAnimationFrame(() => setTimeout(resolve, 0)));
         lastInsightsGames = games;
