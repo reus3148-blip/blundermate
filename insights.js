@@ -29,7 +29,6 @@ const insightsCategoryTabs = document.getElementById('insightsCategoryTabs');
 // timeClass: 'all' | 'rapid' | 'blitz' | 'bullet' (기본 rapid — 일반 사용자가 가장 자주 보는 시간대)
 // color: 'all' | 'white' | 'black' (기본 all — 오프닝은 흑백 분리해서 봐야 의미 있지만 첫 진입은 종합 보기)
 // category: 'summary' | 'results' | 'openings' | 'patterns'
-//   design_handoff_insights_dashboard §2의 B-A 4탭 구조.
 let insightsTimeClassFilter = 'rapid';
 let insightsColorFilter = 'all';
 let insightsCategoryFilter = 'summary';
@@ -995,7 +994,7 @@ function pairCards(...cards) {
     return `<div class="${cls}">${filled.join('')}</div>`;
 }
 
-// 4탭 카드 빌더 (design_handoff_insights_dashboard §2 매핑).
+// 4탭 카드 빌더.
 //   summary:  hero 요약 + 결과 흐름 + 레이팅 변화
 //   results:  by-color + termination + castling + trade activity
 //   openings: by-time-class + top openings + first move

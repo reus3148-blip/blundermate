@@ -5343,7 +5343,7 @@ button.settings-row--destructive:hover {
     flex-shrink: 0;
 }
 
-/* 카테고리 탭 바 — 4탭 pill segmented control. design_handoff_insights_dashboard §3.
+/* 카테고리 탭 바 — 4탭 pill segmented control.
    외곽 컨테이너 padding 3px + border 1px + radius 999. 본문 위. */
 .insights-cat-tabs {
     display: flex;
