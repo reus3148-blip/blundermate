@@ -769,20 +769,17 @@ function handlePrevMove() {
     }
     if (analysisQueue.length === 0) return;
 
-    // 0수(시작 포지션, index === -1)에서 prev 한 번 더 → 리뷰 화면 진입.
+    // 1수(첫 수, index === 0)에서 prev 한 번 더 → 리뷰 화면 진입. 0수(시작 포지션)는 노출하지 않는다.
     // 보드 위치는 그대로 두고 리뷰 모드만 켠다 (← 화살표 / 중간바 prev 버튼 / 키보드 ← 모두 동일).
-    if (currentlyViewedIndex === -1 && !isReviewMode && canShowReview()) {
+    if (currentlyViewedIndex <= 0 && !isReviewMode && canShowReview()) {
         setIsReviewMode(true);
         applyReviewView();
         return;
     }
 
-    const newIndex = Math.max(-1, currentlyViewedIndex - 1);
+    const newIndex = Math.max(0, currentlyViewedIndex - 1);
     if (newIndex !== currentlyViewedIndex) {
-        const fen = newIndex === -1
-            ? (chess.header().FEN || START_FEN)
-            : analysisQueue[newIndex].fen;
-        updateBoardPosition(newIndex, fen);
+        updateBoardPosition(newIndex, analysisQueue[newIndex].fen);
     }
 }
 
@@ -1534,12 +1531,12 @@ function applyReviewView() {
             resultMeta: buildReviewResultMeta(),
         });
 
-        // CTA 핸들러 와이어링: "분석 시작" → 0수(시작 포지션) 이동.
+        // CTA 핸들러 와이어링: "첫 수부터 복기" → 1수(첫 수) 이동.
         // updateBoardPosition이 isReviewMode를 OFF로 만든다.
         const cta = document.getElementById('reviewStartBtn');
         if (cta) {
             cta.addEventListener('click', () => {
-                updateBoardPosition(-1, chess.header().FEN || 'start');
+                updateBoardPosition(0, analysisQueue[0].fen);
             });
         }
     }

@@ -1634,18 +1634,9 @@ table {
     text-align: left;
 }
 
-th,
 td {
     padding: 1rem;
     border-bottom: 1px solid var(--brd);
-}
-
-th {
-    color: var(--tx2);
-    font-weight: 500;
-    font-size: 0.9rem;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
 }
 
 .move-cell {
