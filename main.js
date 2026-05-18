@@ -1274,6 +1274,7 @@ function startNewAnalysis(newQueue, targetIndex = null, previewOnly = false) {
         cg.set({
             fen: initialFen,
             orientation: isUserWhite ? 'white' : 'black',
+            lastMove: [],
             drawable: { autoShapes: [] }
         });
         setCurrentlyViewedIndex(-1);
